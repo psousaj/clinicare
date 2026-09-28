@@ -1,27 +1,32 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS patients (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  full_name text NOT NULL,
-  phone text,
-  email text,
-  notes text,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), full_name text NOT NULL, phone text, email text, notes text,
+  created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
-
 CREATE TABLE IF NOT EXISTS procedures (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  description text,
-  base_sessions integer NOT NULL DEFAULT 1 CHECK (base_sessions > 0),
-  duration_minutes integer CHECK (duration_minutes IS NULL OR duration_minutes > 0),
-  price_cents integer NOT NULL DEFAULT 0 CHECK (price_cents >= 0),
-  session_schema jsonb NOT NULL DEFAULT '{"type":"object","properties":{}}'::jsonb,
-  active integer NOT NULL DEFAULT 1,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, description text,
+  base_sessions integer NOT NULL DEFAULT 1 CHECK (base_sessions > 0), duration_minutes integer CHECK (duration_minutes IS NULL OR duration_minutes > 0),
+  price_cents integer NOT NULL DEFAULT 0 CHECK (price_cents >= 0), session_schema jsonb NOT NULL DEFAULT '{"type":"object","properties":{}}'::jsonb,
+  active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now()
 );
-
-CREATE INDEX IF NOT EXISTS patients_full_name_idx ON patients (lower(full_name));
-CREATE INDEX IF NOT EXISTS procedures_active_idx ON procedures (active, name);
+CREATE TABLE IF NOT EXISTS anamneses (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), title text NOT NULL, active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS anamnesis_versions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), anamnesis_id uuid NOT NULL REFERENCES anamneses(id) ON DELETE CASCADE, version integer NOT NULL, schema jsonb NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(anamnesis_id, version));
+CREATE TABLE IF NOT EXISTS procedure_anamneses (procedure_id uuid NOT NULL REFERENCES procedures(id) ON DELETE CASCADE, anamnesis_id uuid NOT NULL REFERENCES anamneses(id) ON DELETE CASCADE, required boolean NOT NULL DEFAULT true, PRIMARY KEY(procedure_id, anamnesis_id));
+CREATE TABLE IF NOT EXISTS packages (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), name text NOT NULL, description text, price_cents integer NOT NULL CHECK (price_cents >= 0), promotional_price_cents integer, valid_from timestamptz, valid_until timestamptz, active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS package_items (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), package_id uuid NOT NULL REFERENCES packages(id) ON DELETE CASCADE, procedure_id uuid NOT NULL REFERENCES procedures(id), sessions_override integer CHECK (sessions_override IS NULL OR sessions_override > 0), price_override_cents integer CHECK (price_override_cents IS NULL OR price_override_cents >= 0));
+CREATE TABLE IF NOT EXISTS contracts (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), title text NOT NULL, kind text NOT NULL, procedure_id uuid REFERENCES procedures(id), package_id uuid REFERENCES packages(id), active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS contract_versions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), contract_id uuid NOT NULL REFERENCES contracts(id) ON DELETE CASCADE, version integer NOT NULL, source_object_key text, content text, created_at timestamptz NOT NULL DEFAULT now(), UNIQUE(contract_id, version));
+CREATE TABLE IF NOT EXISTS plans (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), patient_id uuid NOT NULL REFERENCES patients(id), offer_type text NOT NULL, offer_id uuid NOT NULL, offer_name text NOT NULL, price_cents integer NOT NULL CHECK(price_cents >= 0), created_at timestamptz NOT NULL DEFAULT now());
+CREATE UNIQUE INDEX IF NOT EXISTS plans_unique_offer ON plans(patient_id, offer_type, offer_id);
+CREATE TABLE IF NOT EXISTS plan_items (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), plan_id uuid NOT NULL REFERENCES plans(id) ON DELETE CASCADE, procedure_id uuid REFERENCES procedures(id), procedure_name text NOT NULL, sessions_total integer NOT NULL CHECK(sessions_total > 0), session_schema jsonb NOT NULL, price_cents integer NOT NULL CHECK(price_cents >= 0));
+CREATE TABLE IF NOT EXISTS applied_contracts (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), plan_id uuid NOT NULL REFERENCES plans(id) ON DELETE CASCADE, contract_version_id uuid REFERENCES contract_versions(id), title text NOT NULL, object_key text, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS payments (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), plan_id uuid NOT NULL REFERENCES plans(id) ON DELETE CASCADE, amount_cents integer NOT NULL CHECK(amount_cents > 0), method text NOT NULL, installments integer NOT NULL DEFAULT 1 CHECK(installments > 0), received_at timestamptz NOT NULL DEFAULT now(), notes text);
+CREATE TABLE IF NOT EXISTS appointments (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), patient_id uuid NOT NULL REFERENCES patients(id), starts_at timestamptz NOT NULL, ends_at timestamptz NOT NULL CHECK(ends_at > starts_at), status text NOT NULL DEFAULT 'planned', notes text, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS appointment_items (appointment_id uuid NOT NULL REFERENCES appointments(id) ON DELETE CASCADE, plan_item_id uuid NOT NULL REFERENCES plan_items(id), PRIMARY KEY(appointment_id, plan_item_id));
+CREATE TABLE IF NOT EXISTS sessions (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), plan_item_id uuid NOT NULL REFERENCES plan_items(id), appointment_id uuid REFERENCES appointments(id), performed_at timestamptz NOT NULL DEFAULT now(), data jsonb NOT NULL DEFAULT '{}'::jsonb, schema_snapshot jsonb NOT NULL, notes text);
+CREATE TABLE IF NOT EXISTS session_photos (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), session_id uuid NOT NULL REFERENCES sessions(id) ON DELETE CASCADE, object_key text NOT NULL, phase text NOT NULL, notes text, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS patient_anamneses (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), patient_id uuid NOT NULL REFERENCES patients(id), plan_id uuid REFERENCES plans(id) ON DELETE CASCADE, anamnesis_id uuid NOT NULL REFERENCES anamneses(id), version_id uuid NOT NULL REFERENCES anamnesis_versions(id), required boolean NOT NULL DEFAULT true);
+CREATE TABLE IF NOT EXISTS anamnesis_requests (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), patient_anamnesis_id uuid NOT NULL REFERENCES patient_anamneses(id) ON DELETE CASCADE, token_hash text NOT NULL UNIQUE, expires_at timestamptz NOT NULL, submitted_at timestamptz, draft jsonb NOT NULL DEFAULT '{}'::jsonb, created_at timestamptz NOT NULL DEFAULT now());
+CREATE TABLE IF NOT EXISTS anamnesis_responses (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), patient_anamnesis_id uuid NOT NULL REFERENCES patient_anamneses(id) ON DELETE CASCADE, answers jsonb NOT NULL, submitted_at timestamptz NOT NULL DEFAULT now(), valid_until timestamptz NOT NULL);
+CREATE TABLE IF NOT EXISTS response_notes (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), response_id uuid NOT NULL REFERENCES anamnesis_responses(id) ON DELETE CASCADE, content text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());
