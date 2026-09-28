@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: clinicare
+      POSTGRES_PASSWORD: clinicare
+      POSTGRES_DB: clinicare
+    ports:
+      - "5432:5432"
+    volumes:
+      - clinicare-postgres:/var/lib/postgresql/data
+
+volumes:
+  clinicare-postgres:

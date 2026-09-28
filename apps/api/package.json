@@ -1,0 +1,22 @@
+{
+  "name": "@clinicare/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "build": "bun build src/index.ts --target=bun --outdir=dist",
+    "migrate": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f drizzle/0000_initial.sql",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@hono/node-server": "latest",
+    "hono": "latest",
+    "pg": "latest",
+    "drizzle-orm": "latest"
+  },
+  "devDependencies": {
+    "@types/pg": "latest",
+    "typescript": "latest"
+  }
+}
