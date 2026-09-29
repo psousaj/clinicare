@@ -5,6 +5,8 @@ Protótipo de gestão para clínicas pequenas de estética. **Use somente dados 
 ## Stack
 
 - React + TypeScript + Vite
+- TanStack Router (rotas por arquivo em `apps/web/src/routes`) + TanStack Query (dados) + Zod (validação de respostas da API e formulários)
+- Tailwind CSS v4 + shadcn/ui (`apps/web/src/components/ui`); o `styles.css` legado convive com o Tailwind (sem preflight)
 - Bun
 - Hono API (serve UI e API no mesmo container)
 - MongoDB + Mongoose
@@ -50,13 +52,13 @@ bun run dev
 
 Portas do host configuráveis com `MONGO_PORT`, `MONGO_EXPRESS_PORT` e `MINISTACK_PORT`. O `docker-compose.yml` (produção) também usa a 27017; não suba os dois ao mesmo tempo.
 
-Web (Vite): http://localhost:5173; API: http://localhost:3000/api/health.
+Web (Vite): http://localhost:5173 (o `routeTree.gen.ts` é gerado pelo plugin do router e deve ser versionado; novos componentes shadcn: `bunx shadcn@latest add <nome>` em `apps/web`); API: http://localhost:3000/api/health.
 
 ## Estrutura do monorepo
 
 Monorepo com [Bun workspaces](https://bun.sh/docs/install/workspaces) + [Turborepo](https://turbo.build) (`turbo.json`):
 
-- `apps/web` – `@clinicare/web` (React + Vite)
+- `apps/web` – `@clinicare/web` (React + Vite + TanStack Router/Query)
 - `apps/api` – `@clinicare/api` (Hono), depende de `@clinicare/db`
 - `packages/db` – `@clinicare/db` (schemas Mongoose)
 
