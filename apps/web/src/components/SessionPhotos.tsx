@@ -39,7 +39,7 @@ export function SessionPhotos({ sessionId, photos }: { sessionId: string; photos
 
   return (
     <section className="panel grid gap-4">
-      <div className="panel-header"><div><div className="section-kicker">FOTOS DA SESSÃO</div><h2>Antes, durante e depois</h2></div></div>
+      <div className="panel-header"><div><div className="section-kicker">FOTOS DO ATENDIMENTO</div><h2>Antes, durante e depois</h2></div></div>
       <div className="grid gap-3 rounded-lg border border-dashed border-[#cfdcd3] bg-[#f7f8f5] p-4">
         <div role="radiogroup" aria-label="Momento da foto" className="inline-flex w-fit divide-x overflow-hidden rounded-lg border border-border bg-white">
           {phases.map((key) => (

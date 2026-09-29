@@ -57,7 +57,7 @@ describe('Clinic dashboard', () => {
 
   it('only lists patients with a performed session as recently attended', async () => {
     renderAt('/');
-    expect(await screen.findByText(/Nenhuma sessão realizada ainda/)).toBeInTheDocument();
+    expect(await screen.findByText(/Nenhum atendimento realizado ainda/)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Marina Alves/ })).not.toBeInTheDocument();
   });
 
@@ -321,25 +321,25 @@ describe('Anamnesis edit and versions', () => {
 
 describe('Session page', () => {
   it('records a session from a full page using the procedure fields', async () => {
-    routes['GET /api/attendances'] = () => [{ _id: 'pl1', patientId: 'p1', offerName: 'Limpeza', priceCents: 1000, payments: [], items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3, sessionSchema: { type: 'object', properties: { produto: { type: 'string', title: 'Produto' } } } }] }];
+    routes['GET /api/followups'] = () => [{ _id: 'pl1', patientId: 'p1', offerName: 'Limpeza', priceCents: 1000, payments: [], items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3, sessionSchema: { type: 'object', properties: { produto: { type: 'string', title: 'Produto' } } } }] }];
     routes['POST /api/sessions'] = () => ({ _id: 's1' });
     routes['GET /api/sessions/s1'] = () => ({ _id: 's1', patientId: 'p1', procedureName: 'Limpeza de pele', performedAt: '2026-09-29T15:00:00Z', data: {}, schemaSnapshot: { type: 'object', properties: {} }, photos: [] });
     const user = userEvent.setup();
     renderAt('/pacientes/p1/sessao/it1');
     await user.type(await screen.findByLabelText('Produto'), 'Ácido');
     await user.type(screen.getByLabelText('Observações'), 'Sem intercorrências');
-    await user.click(screen.getByRole('button', { name: /salvar sessão/i }));
-    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ attendanceId: 'pl1', attendanceItemId: 'it1', data: { produto: 'Ácido' }, notes: 'Sem intercorrências' }));
+    await user.click(screen.getByRole('button', { name: /salvar atendimento/i }));
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ followupId: 'pl1', followupItemId: 'it1', data: { produto: 'Ácido' }, notes: 'Sem intercorrências' }));
   });
 });
 
 describe('Agenda', () => {
-  const appointment = { _id: 'ap1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, attendanceItemIds: ['it1'], startsAt: '2026-09-29T14:00:00Z', endsAt: '2026-09-29T15:00:00Z', status: 'planned', notes: 'Trazer exames' };
-  const attendance = { _id: 'pl1', patientId: 'p1', offerName: 'Limpeza', priceCents: 1000, payments: [], items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3 }] };
+  const appointment = { _id: 'ap1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, followupItemIds: ['it1'], startsAt: '2026-09-29T14:00:00Z', endsAt: '2026-09-29T15:00:00Z', status: 'planned', notes: 'Trazer exames' };
+  const followup = { _id: 'pl1', patientId: 'p1', offerName: 'Limpeza', priceCents: 1000, payments: [], items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3 }] };
 
   it('opens an appointment to view its details and deletes it after confirmation', async () => {
     routes['GET /api/appointments'] = () => [appointment];
-    routes['GET /api/attendances'] = () => [attendance];
+    routes['GET /api/followups'] = () => [followup];
     routes['DELETE /api/appointments/ap1'] = () => ({ deleted: true });
     const user = userEvent.setup();
     renderAt('/agenda');
@@ -364,11 +364,11 @@ describe('Session follow-up', () => {
     routes['PATCH /api/sessions/s1'] = () => ({});
     const user = userEvent.setup();
     renderAt('/pacientes/p1/sessoes/s1');
-    const notes = await screen.findByLabelText(/observações da sessão/i);
+    const notes = await screen.findByLabelText(/observações do atendimento/i);
     expect(notes).toHaveValue('Pele sensível');
     await user.clear(notes);
     await user.type(notes, 'Sem reações');
-    await user.click(screen.getByRole('button', { name: /salvar acompanhamento/i }));
+    await user.click(screen.getByRole('button', { name: /salvar atendimento/i }));
     await waitFor(() => expect(calls.find((call) => call.method === 'PATCH')?.body).toEqual({ data: { produto: 'Ácido' }, notes: 'Sem reações', durationMinutes: null }));
   });
 
@@ -399,42 +399,42 @@ describe('Session follow-up', () => {
   });
 });
 
-const pendingAttendance = (extra: Record<string, unknown> = {}) => ({
+const pendingFollowup = (extra: Record<string, unknown> = {}) => ({
   _id: 'at1', patientId: 'p1', offerType: 'procedure', offerName: 'Limpeza de pele', priceCents: 15000, payments: [], contracts: [{ title: 'Contrato padrão', signedAt: null }], blocked: true,
   items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3, sessionsPerformed: 0 }],
   anamneses: [{ id: 'pa1', title: 'Anamnese geral', required: true, answered: false, schemaSnapshot: { type: 'object', properties: { alergias: { type: 'string', title: 'Alergias' } } } }],
   ...extra,
 });
 
-describe('Atendimentos', () => {
+describe('Acompanhamentos', () => {
   it('does not offer "Solicitar anamnese" on the patient list', async () => {
     renderAt('/pacientes');
     await screen.findByRole('link', { name: /Marina Alves/ });
     expect(screen.queryByRole('button', { name: /solicitar anamnese/i })).not.toBeInTheDocument();
   });
 
-  it('starts an attendance from the dashboard choosing patient and offer', async () => {
+  it('starts an followup from the dashboard choosing patient and offer', async () => {
     routes['GET /api/procedures'] = () => [{ _id: 'pr1', name: 'Limpeza de pele', baseSessions: 3, priceCents: 15000, versions: [] }];
     routes['GET /api/plans'] = () => [{ _id: 'pl1', name: 'Plano Pele', priceCents: 90000, items: [{ offerType: 'procedure', offerId: 'pr1' }], contractIds: [] }];
-    routes['POST /api/attendances'] = () => ({ _id: 'at1' });
+    routes['POST /api/followups'] = () => ({ _id: 'at1' });
     const user = userEvent.setup();
     renderAt('/');
-    await user.click(await screen.findByRole('button', { name: /novo atendimento/i }));
+    await user.click(await screen.findByRole('button', { name: /novo acompanhamento/i }));
     const dialog = await screen.findByRole('dialog');
     await user.selectOptions(await within(dialog).findByLabelText('Paciente'), 'p1');
     expect(within(within(dialog).getByLabelText('Oferta')).getAllByRole('option').map((option) => option.textContent)).toEqual(['Selecione…', 'Avulso - Limpeza de pele', 'Plano - Plano Pele']);
     await user.selectOptions(within(dialog).getByLabelText('Oferta'), 'plan:pl1');
-    await user.click(within(dialog).getByRole('button', { name: /iniciar atendimento/i }));
+    await user.click(within(dialog).getByRole('button', { name: /iniciar acompanhamento/i }));
     await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ patientId: 'p1', offerType: 'plan', offerId: 'pl1' }));
   });
 
   it('lists pending anamneses on the patient page and copies the link', async () => {
-    routes['GET /api/attendances'] = () => [pendingAttendance()];
+    routes['GET /api/followups'] = () => [pendingFollowup()];
     routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
     routes['POST /api/anamnesis-requests'] = () => ({ _id: 'rq1', url: '/formulario/tok9' });
     const user = userEvent.setup();
     renderAt('/pacientes/p1');
-    expect(await screen.findByRole('button', { name: /novo atendimento/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /novo acompanhamento/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /solicitar anamnese/i })).not.toBeInTheDocument();
     const pending = await screen.findByRole('region', { name: /anamneses pendentes/i });
     expect(within(pending).getByText('Anamnese geral')).toBeInTheDocument();
@@ -444,7 +444,7 @@ describe('Atendimentos', () => {
   });
 
   it('lets the professional fill a pending anamnesis on the spot', async () => {
-    routes['GET /api/attendances'] = () => [pendingAttendance()];
+    routes['GET /api/followups'] = () => [pendingFollowup()];
     routes['POST /api/patient-anamneses/pa1/answers'] = () => ({});
     const user = userEvent.setup();
     renderAt('/pacientes/p1/anamneses/pa1');
@@ -453,8 +453,8 @@ describe('Atendimentos', () => {
     await waitFor(() => expect(calls.find((call) => call.url === '/api/patient-anamneses/pa1/answers')?.body).toEqual({ answers: { alergias: 'Nenhuma' } }));
   });
 
-  it('disables scheduling of items whose attendance has a pending anamnesis', async () => {
-    routes['GET /api/attendances'] = () => [pendingAttendance()];
+  it('disables scheduling of items whose followup has a pending anamnesis', async () => {
+    routes['GET /api/followups'] = () => [pendingFollowup()];
     const user = userEvent.setup();
     renderAt('/');
     await user.click(await screen.findByRole('button', { name: /novo agendamento/i }));
@@ -465,11 +465,11 @@ describe('Atendimentos', () => {
 
   it('lists only active contracted items of the patient when scheduling, labelled by kind', async () => {
     const item = (id: string, name: string, done: number) => ({ _id: id, procedureName: name, sessionsTotal: 2, sessionsPerformed: done });
-    routes['GET /api/attendances'] = () => [
-      pendingAttendance({ _id: 'a1', offerType: 'procedure', offerName: 'Limpeza de pele', blocked: false, items: [item('i1', 'Limpeza de pele', 0)] }),
-      pendingAttendance({ _id: 'a2', offerType: 'plan', offerName: 'Plano Pele', blocked: false, items: [item('i2', 'Peeling', 1), item('i3', 'Drenagem', 2)] }),
-      pendingAttendance({ _id: 'a3', offerType: 'combo', offerName: 'Combo verão', blocked: false, items: [item('i4', 'Massagem', 0)] }),
-      pendingAttendance({ _id: 'a4', patientId: 'p2', offerType: 'procedure', offerName: 'Outro', blocked: false, items: [item('i5', 'Outro', 0)] }),
+    routes['GET /api/followups'] = () => [
+      pendingFollowup({ _id: 'a1', offerType: 'procedure', offerName: 'Limpeza de pele', blocked: false, items: [item('i1', 'Limpeza de pele', 0)] }),
+      pendingFollowup({ _id: 'a2', offerType: 'plan', offerName: 'Plano Pele', blocked: false, items: [item('i2', 'Peeling', 1), item('i3', 'Drenagem', 2)] }),
+      pendingFollowup({ _id: 'a3', offerType: 'combo', offerName: 'Combo verão', blocked: false, items: [item('i4', 'Massagem', 0)] }),
+      pendingFollowup({ _id: 'a4', patientId: 'p2', offerType: 'procedure', offerName: 'Outro', blocked: false, items: [item('i5', 'Outro', 0)] }),
     ];
     const user = userEvent.setup();
     renderAt('/');
@@ -498,10 +498,10 @@ describe('Planos', () => {
 
 describe('Relacionamento do paciente', () => {
   const report = (extra: Record<string, unknown> = {}) => ({
-    totals: { attendances: 1, sessionsPerformed: 2, sessionsContracted: 4, minutesTotal: 135, sessionsWithoutDuration: 0, contractedCents: 40000, paidCents: 15000, pendingCents: 25000, dueForPerformedCents: 5000, noShows: 1 },
+    totals: { followups: 1, sessionsPerformed: 2, sessionsContracted: 4, minutesTotal: 135, sessionsWithoutDuration: 0, contractedCents: 40000, paidCents: 15000, pendingCents: 25000, dueForPerformedCents: 5000, noShows: 1 },
     firstSessionAt: '2026-09-01T15:00:00Z', lastSessionAt: '2026-09-29T15:00:00Z', nextAppointmentAt: null, averageIntervalDays: 28,
     monthly: [{ month: '2026-09', sessions: 2, minutes: 135, paidCents: 15000 }],
-    attendances: [{ id: 'at1', offerName: 'Drenagem', priceCents: 40000, paidCents: 15000, pendingCents: 25000, sessionsTotal: 4, sessionsPerformed: 2 }],
+    followups: [{ id: 'at1', offerName: 'Drenagem', priceCents: 40000, paidCents: 15000, pendingCents: 25000, sessionsTotal: 4, sessionsPerformed: 2 }],
     procedures: [{ name: 'Drenagem', sessions: 2, minutes: 135 }],
     ...extra,
   });
@@ -518,20 +518,20 @@ describe('Relacionamento do paciente', () => {
     expect(screen.getByRole('heading', { name: 'Sessões por mês' })).toBeInTheDocument();
   });
 
-  it('explains when the patient has no attendances yet', async () => {
-    routes['GET /api/patients/p1/relationship'] = () => report({ totals: { ...report().totals, attendances: 0 } });
+  it('explains when the patient has no followups yet', async () => {
+    routes['GET /api/patients/p1/relationship'] = () => report({ totals: { ...report().totals, followups: 0 } });
     renderAt('/pacientes/p1/relacionamento');
-    expect(await screen.findByText(/ainda não tem atendimentos/)).toBeInTheDocument();
+    expect(await screen.findByText(/ainda não tem acompanhamentos/)).toBeInTheDocument();
   });
 
   it('records the session duration when registering a session', async () => {
-    routes['GET /api/attendances'] = () => [pendingAttendance({ blocked: false, items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3, sessionsPerformed: 0, sessionSchema: { type: 'object', properties: {} } }] })];
+    routes['GET /api/followups'] = () => [pendingFollowup({ blocked: false, items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3, sessionsPerformed: 0, sessionSchema: { type: 'object', properties: {} } }] })];
     routes['POST /api/sessions'] = () => ({ _id: 's1' });
     routes['GET /api/sessions/s1'] = () => ({ _id: 's1', patientId: 'p1', procedureName: 'Limpeza de pele', performedAt: '2026-09-29T15:00:00Z', data: {}, schemaSnapshot: { type: 'object', properties: {} }, photos: [] });
     const user = userEvent.setup();
     renderAt('/pacientes/p1/sessao/it1');
     await user.type(await screen.findByLabelText('Duração (minutos)'), '75');
-    await user.click(screen.getByRole('button', { name: /salvar sessão/i }));
+    await user.click(screen.getByRole('button', { name: /salvar atendimento/i }));
     await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ durationMinutes: 75 }));
   });
 });

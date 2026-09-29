@@ -6,9 +6,9 @@ import type { PatientHistory } from '@/lib/schemas';
 type Entry = PatientHistory['events'][number];
 
 const kinds: Record<string, { label: string; icon: LucideIcon; tone: string }> = {
-  attendance: { label: 'Atendimento', icon: FileText, tone: 'bg-[#e6eefb] text-[#2f5c9e]' },
+  followup: { label: 'Acompanhamento', icon: FileText, tone: 'bg-[#e6eefb] text-[#2f5c9e]' },
   appointment: { label: 'Agendamento', icon: CalendarDays, tone: 'bg-[#fbf1d9] text-[#7a5610]' },
-  session: { label: 'Sessão', icon: Sparkles, tone: 'bg-accent text-accent-foreground' },
+  session: { label: 'Atendimento', icon: Sparkles, tone: 'bg-accent text-accent-foreground' },
   payment: { label: 'Pagamento', icon: Wallet, tone: 'bg-[#e9e4f7] text-[#5b449b]' },
   anamnesis: { label: 'Anamnese', icon: ClipboardList, tone: 'bg-[#f7e8df] text-[#a3521f]' },
 };

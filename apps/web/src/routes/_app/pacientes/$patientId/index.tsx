@@ -2,23 +2,23 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowLeft, Camera, CalendarPlus, ChartNoAxesCombined, ClipboardPlus } from 'lucide-react';
 import { useState } from 'react';
-import { AttendanceCard } from '@/components/AttendanceCard';
-import { AppointmentDialog, NewAttendanceDialog } from '@/components/dialogs';
+import { FollowupCard } from '@/components/FollowupCard';
+import { AppointmentDialog, NewFollowupDialog } from '@/components/dialogs';
 import { PatientTimeline } from '@/components/PatientTimeline';
 import { PendingRequirements } from '@/components/PendingRequirements';
 import { QueryError } from '@/components/QueryState';
 import { Button } from '@/components/ui/button';
 import { dateTime } from '@/lib/format';
-import { attendancesQuery, combosQuery, patientHistoryQuery, patientsQuery, plansQuery, proceduresQuery } from '@/lib/queries';
+import { followupsQuery, combosQuery, patientHistoryQuery, patientsQuery, plansQuery, proceduresQuery } from '@/lib/queries';
 
 export const Route = createFileRoute('/_app/pacientes/$patientId/')({ component: PatientDetail });
 
 function PatientDetail() {
   const { patientId } = Route.useParams();
-  const history = useQuery(patientHistoryQuery(patientId)), attendances = useQuery(attendancesQuery);
+  const history = useQuery(patientHistoryQuery(patientId)), followups = useQuery(followupsQuery);
   const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), combos = useQuery(combosQuery), plans = useQuery(plansQuery);
-  const [dialog, setDialog] = useState<'attendance' | 'appointment' | null>(null);
-  const patientAttendances = (attendances.data ?? []).filter((attendance) => attendance.patientId === patientId);
+  const [dialog, setDialog] = useState<'followup' | 'appointment' | null>(null);
+  const patientFollowups = (followups.data ?? []).filter((followup) => followup.patientId === patientId);
 
   const patient = history.data?.patient;
   const upcoming = (history.data?.pending ?? []).filter((entry) => entry.type === 'appointment');
@@ -34,7 +34,7 @@ function PatientDetail() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild><Link to="/pacientes/$patientId/relacionamento" params={{ patientId }}><ChartNoAxesCombined /> Relacionamento</Link></Button>
-            <Button variant="outline" onClick={() => setDialog('attendance')}><ClipboardPlus /> Novo atendimento</Button>
+            <Button variant="outline" onClick={() => setDialog('followup')}><ClipboardPlus /> Novo acompanhamento</Button>
             <Button onClick={() => setDialog('appointment')}><CalendarPlus /> Novo agendamento</Button>
           </div>
         </div>
@@ -43,15 +43,15 @@ function PatientDetail() {
       {history.data && (
         <div className="grid items-start gap-4 lg:grid-cols-2">
           <div className="grid gap-4">
-            <PendingRequirements attendances={patientAttendances} patientId={patientId} />
+            <PendingRequirements followups={patientFollowups} patientId={patientId} />
             <section className="panel">
-              <div className="panel-header"><h2>Atendimentos</h2></div>
-              {patientAttendances.length === 0 && <p className="text-sm text-muted-foreground">Inicie um atendimento para escolher os procedimentos e registrar sessões.</p>}
-              {patientAttendances.map((attendance) => <AttendanceCard key={attendance.id} attendance={attendance} patientId={patientId} />)}
+              <div className="panel-header"><h2>Acompanhamentos</h2></div>
+              {patientFollowups.length === 0 && <p className="text-sm text-muted-foreground">Inicie um acompanhamento para escolher os procedimentos e registrar sessões.</p>}
+              {patientFollowups.map((followup) => <FollowupCard key={followup.id} followup={followup} patientId={patientId} />)}
             </section>
             <section className="panel">
-              <div className="panel-header"><div><div className="section-kicker">ACOMPANHAMENTO</div><h2>Sessões realizadas</h2></div></div>
-              {sessions.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma sessão registrada. Use “Registrar sessão” em um atendimento para começar o acompanhamento com fotos e observações.</p>}
+              <div className="panel-header"><div><div className="section-kicker">HISTÓRICO</div><h2>Atendimentos realizados</h2></div></div>
+              {sessions.length === 0 && <p className="text-sm text-muted-foreground">Nenhum atendimento registrado. Use “Registrar atendimento” em um acompanhamento para começar o acompanhamento com fotos e observações.</p>}
               {sessions.map((entry) => (
                 <Link key={entry.details!.id} className="procedure-row no-underline" style={{ color: 'inherit' }} to="/pacientes/$patientId/sessoes/$sessionId" params={{ patientId, sessionId: entry.details!.id! }}>
                   <span className="procedure-info grid gap-0.5">
@@ -74,8 +74,8 @@ function PatientDetail() {
           </section>
         </div>
       )}
-      <NewAttendanceDialog open={dialog === 'attendance'} patientId={patientId} patients={patients.data ?? []} procedures={procedures.data ?? []} combos={combos.data ?? []} plans={plans.data ?? []} onClose={() => setDialog(null)} />
-      <AppointmentDialog open={dialog === 'appointment'} patientId={patientId} patients={patients.data ?? []} attendances={attendances.data ?? []} onClose={() => setDialog(null)} />
+      <NewFollowupDialog open={dialog === 'followup'} patientId={patientId} patients={patients.data ?? []} procedures={procedures.data ?? []} combos={combos.data ?? []} plans={plans.data ?? []} onClose={() => setDialog(null)} />
+      <AppointmentDialog open={dialog === 'appointment'} patientId={patientId} patients={patients.data ?? []} followups={followups.data ?? []} onClose={() => setDialog(null)} />
     </div>
   );
 }

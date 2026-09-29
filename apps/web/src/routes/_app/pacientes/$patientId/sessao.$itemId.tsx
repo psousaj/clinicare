@@ -8,39 +8,39 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { attendancesQuery, useCreateSession } from '@/lib/queries';
+import { followupsQuery, useCreateSession } from '@/lib/queries';
 
 export const Route = createFileRoute('/_app/pacientes/$patientId/sessao/$itemId')({ component: NewSession });
 
 function NewSession() {
   const { patientId, itemId } = Route.useParams();
   const navigate = useNavigate();
-  const attendances = useQuery(attendancesQuery);
+  const followups = useQuery(followupsQuery);
   const create = useCreateSession();
   const [data, setData] = useState<Record<string, unknown>>({});
   const [notes, setNotes] = useState('');
   const [duration, setDuration] = useState('');
-  const attendance = (attendances.data ?? []).find((candidate) => candidate.items.some((entry) => entry.id === itemId));
-  const item = attendance?.items.find((candidate) => candidate.id === itemId);
+  const followup = (followups.data ?? []).find((candidate) => candidate.items.some((entry) => entry.id === itemId));
+  const item = followup?.items.find((candidate) => candidate.id === itemId);
 
   return (
     <section className="panel grid gap-4">
       <div className="panel-header">
         <div>
           <Link to="/pacientes/$patientId" params={{ patientId }} className="text-button mb-2"><ArrowLeft size={14} /> Paciente</Link>
-          <h2>Registrar sessão realizada</h2>
-          {item && <p className="section-note m-0">{item.procedureName} · depois de salvar você poderá anexar fotos e acompanhar a sessão.</p>}
+          <h2>Registrar atendimento realizado</h2>
+          {item && <p className="section-note m-0">{item.procedureName} · depois de salvar você poderá anexar fotos e acompanhar o atendimento.</p>}
         </div>
       </div>
-      <QueryError query={attendances} />
-      {attendances.isSuccess && !item && <p className="section-note" role="alert">Procedimento contratado não encontrado.</p>}
+      <QueryError query={followups} />
+      {followups.isSuccess && !item && <p className="section-note" role="alert">Procedimento contratado não encontrado.</p>}
       {item && (
         <div className="max-w-2xl">
           <SchemaForm
             schema={(item.sessionSchema ?? { type: 'object', properties: {} }) as Record<string, unknown>}
             value={data}
             onChange={setData}
-            onSubmit={(answers) => create.mutateAsync({ attendanceId: attendance!.id, attendanceItemId: item.id, appointmentId: null, durationMinutes: duration ? Number(duration) : null, data: answers, notes: notes.trim() || null }).then((created) => navigate({ to: '/pacientes/$patientId/sessoes/$sessionId', params: { patientId, sessionId: created.id } }), () => undefined)}
+            onSubmit={(answers) => create.mutateAsync({ followupId: followup!.id, followupItemId: item.id, appointmentId: null, durationMinutes: duration ? Number(duration) : null, data: answers, notes: notes.trim() || null }).then((created) => navigate({ to: '/pacientes/$patientId/sessoes/$sessionId', params: { patientId, sessionId: created.id } }), () => undefined)}
             actions={(
               <div className="mt-4 grid gap-4">
                 <Label className="flex-col items-stretch gap-1.5">
@@ -53,7 +53,7 @@ function NewSession() {
                 </Label>
                 <div className="flex gap-2">
                   <Button type="button" variant="outline" asChild><Link to="/pacientes/$patientId" params={{ patientId }}>Cancelar</Link></Button>
-                  <Button type="submit" disabled={create.isPending}>Salvar sessão</Button>
+                  <Button type="submit" disabled={create.isPending}>Salvar atendimento</Button>
                 </div>
               </div>
             )}

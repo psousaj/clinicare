@@ -25,7 +25,7 @@ function SessionFollowUp() {
         <div className="panel-header">
           <div>
             <Link to="/pacientes/$patientId" params={{ patientId }} className="text-button mb-2"><ArrowLeft size={14} /> {patient?.fullName ?? 'Paciente'}</Link>
-            <h2>Acompanhamento da sessão</h2>
+            <h2>Detalhes do atendimento</h2>
             {session.data && <p className="section-note m-0">{session.data.procedureName} · {dateTime(session.data.performedAt)}</p>}
           </div>
         </div>
@@ -62,10 +62,10 @@ function Record({ session }: { session: Session }) {
               <Input type="number" min={1} max={1440} step={1} value={duration} onChange={(event) => setDuration(event.target.value)} placeholder="Ex.: 60" className="max-w-40" />
             </Label>
             <Label className="flex-col items-stretch gap-1.5">
-              Observações da sessão
+              Observações do atendimento
               <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={5} placeholder="Evolução, reações, orientações ao paciente…" />
             </Label>
-            <div><Button type="submit" disabled={update.isPending}>Salvar acompanhamento</Button></div>
+            <div><Button type="submit" disabled={update.isPending}>Salvar atendimento</Button></div>
           </div>
         )}
       />

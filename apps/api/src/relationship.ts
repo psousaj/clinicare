@@ -1,19 +1,19 @@
 const monthKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
 
-// Métricas de relacionamento de um paciente, calculadas a partir dos atendimentos, sessões, pagamentos e agendamentos.
-export function buildRelationship(attendances: any[], sessions: any[], payments: any[], appointments: any[], now = new Date()) {
+// Métricas de relacionamento de um paciente, calculadas a partir dos acompanhamentos, sessões, pagamentos e agendamentos.
+export function buildRelationship(followups: any[], sessions: any[], payments: any[], appointments: any[], now = new Date()) {
   const paidBy = new Map<string, number>();
-  for (const payment of payments) paidBy.set(String(payment.attendanceId), (paidBy.get(String(payment.attendanceId)) ?? 0) + payment.amountCents);
+  for (const payment of payments) paidBy.set(String(payment.followupId), (paidBy.get(String(payment.followupId)) ?? 0) + payment.amountCents);
 
-  const attendanceRows = attendances.map((attendance) => {
-    const paidCents = paidBy.get(String(attendance._id)) ?? 0;
-    const sessionsTotal = sum(attendance.items.map((item: any) => item.sessionsTotal));
-    const sessionsPerformed = sum(attendance.items.map((item: any) => item.sessionsPerformed ?? 0));
-    const performedValue = sessionsTotal ? Math.round((attendance.priceCents * sessionsPerformed) / sessionsTotal) : 0;
+  const followupRows = followups.map((followup) => {
+    const paidCents = paidBy.get(String(followup._id)) ?? 0;
+    const sessionsTotal = sum(followup.items.map((item: any) => item.sessionsTotal));
+    const sessionsPerformed = sum(followup.items.map((item: any) => item.sessionsPerformed ?? 0));
+    const performedValue = sessionsTotal ? Math.round((followup.priceCents * sessionsPerformed) / sessionsTotal) : 0;
     return {
-      id: String(attendance._id), offerName: attendance.offerName, priceCents: attendance.priceCents, paidCents,
-      pendingCents: Math.max(0, attendance.priceCents - paidCents), dueForPerformedCents: Math.max(0, performedValue - paidCents), sessionsTotal, sessionsPerformed,
+      id: String(followup._id), offerName: followup.offerName, priceCents: followup.priceCents, paidCents,
+      pendingCents: Math.max(0, followup.priceCents - paidCents), dueForPerformedCents: Math.max(0, performedValue - paidCents), sessionsTotal, sessionsPerformed,
     };
   });
 
@@ -43,13 +43,13 @@ export function buildRelationship(attendances: any[], sessions: any[], payments:
     byProcedure.set(session.procedureName, row);
   }
 
-  const paidCents = sum(attendanceRows.map((row) => row.paidCents));
-  const contractedCents = sum(attendanceRows.map((row) => row.priceCents));
+  const paidCents = sum(followupRows.map((row) => row.paidCents));
+  const contractedCents = sum(followupRows.map((row) => row.priceCents));
   return {
     totals: {
-      attendances: attendances.length, sessionsPerformed: sessions.length, sessionsContracted: sum(attendanceRows.map((row) => row.sessionsTotal)),
+      followups: followups.length, sessionsPerformed: sessions.length, sessionsContracted: sum(followupRows.map((row) => row.sessionsTotal)),
       minutesTotal: sum(sessions.map((session) => session.durationMinutes ?? 0)), sessionsWithoutDuration: sessions.filter((session) => !session.durationMinutes).length,
-      contractedCents, paidCents, pendingCents: sum(attendanceRows.map((row) => row.pendingCents)), dueForPerformedCents: sum(attendanceRows.map((row) => row.dueForPerformedCents)),
+      contractedCents, paidCents, pendingCents: sum(followupRows.map((row) => row.pendingCents)), dueForPerformedCents: sum(followupRows.map((row) => row.dueForPerformedCents)),
       noShows: appointments.filter((appointment) => appointment.status === 'no_show').length,
     },
     firstSessionAt: performedAt.length ? new Date(performedAt[0]) : null,
@@ -57,7 +57,7 @@ export function buildRelationship(attendances: any[], sessions: any[], payments:
     nextAppointmentAt: upcoming.length ? new Date(upcoming[0]) : null,
     averageIntervalDays: gaps.length ? Math.round((sum(gaps) / gaps.length) * 10) / 10 : null,
     monthly,
-    attendances: attendanceRows,
+    followups: followupRows,
     procedures: [...byProcedure.values()].sort((a, b) => b.sessions - a.sessions),
   };
 }

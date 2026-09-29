@@ -3,15 +3,15 @@ import { useState } from 'react';
 import { Field, FormDialog } from '@/components/FormDialog';
 import { DatePicker, TimePicker } from '@/components/pickers';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { appointmentForm, attendanceForm, parseForm, paymentForm } from '@/lib/forms';
-import { useCreateAppointment, useCreateAttendance, useCreatePayment } from '@/lib/queries';
-import type { Attendance, Combo, Patient, Plan, Procedure } from '@/lib/schemas';
+import { appointmentForm, followupForm, parseForm, paymentForm } from '@/lib/forms';
+import { useCreateAppointment, useCreateFollowup, useCreatePayment } from '@/lib/queries';
+import type { Followup, Combo, Patient, Plan, Procedure } from '@/lib/schemas';
 import { currency, offerLabel } from '@/lib/format';
 
 type Selection = { start: string; end: string };
 
 // Sem `selection` (ex.: botão da visão geral) o horário é escolhido no próprio formulário.
-export function AppointmentDialog({ open, selection, patientId, patients, attendances, onClose }: { open: boolean; selection?: Selection | null; patientId?: string; patients: Patient[]; attendances: Attendance[]; onClose: () => void }) {
+export function AppointmentDialog({ open, selection, patientId, patients, followups, onClose }: { open: boolean; selection?: Selection | null; patientId?: string; patients: Patient[]; followups: Followup[]; onClose: () => void }) {
   const create = useCreateAppointment();
   return (
     <FormDialog
@@ -21,7 +21,7 @@ export function AppointmentDialog({ open, selection, patientId, patients, attend
       submitLabel="Agendar"
       description={selection ? `${new Date(selection.start).toLocaleString('pt-BR')} – ${new Date(selection.end).toLocaleTimeString('pt-BR')}` : 'Escolha o paciente, o procedimento e o horário.'}
       onSubmit={(form) => {
-        const { patientId: patient, attendanceItemId } = parseForm(appointmentForm, form);
+        const { patientId: patient, followupItemId } = parseForm(appointmentForm, form);
         let startsAt = selection?.start, endsAt = selection?.end;
         if (!selection) {
           const date = String(form.get('date') ?? ''), start = String(form.get('start') ?? ''), end = String(form.get('end') ?? '');
@@ -30,20 +30,20 @@ export function AppointmentDialog({ open, selection, patientId, patients, attend
           endsAt = new Date(`${date}T${end}`).toISOString();
         }
         if (new Date(endsAt!) <= new Date(startsAt!)) throw new Error('O horário final deve ser depois do início.');
-        return create.mutateAsync({ patientId: patient, attendanceItemIds: [attendanceItemId], startsAt: new Date(startsAt!).toISOString(), endsAt: new Date(endsAt!).toISOString(), status: 'planned' });
+        return create.mutateAsync({ patientId: patient, followupItemIds: [followupItemId], startsAt: new Date(startsAt!).toISOString(), endsAt: new Date(endsAt!).toISOString(), status: 'planned' });
       }}
     >
-      <AppointmentFields manual={!selection} lockedPatientId={patientId} patients={patients} attendances={attendances} />
+      <AppointmentFields manual={!selection} lockedPatientId={patientId} patients={patients} followups={followups} />
     </FormDialog>
   );
 }
 
-function AppointmentFields({ manual, lockedPatientId, patients, attendances }: { manual: boolean; lockedPatientId?: string; patients: Patient[]; attendances: Attendance[] }) {
+function AppointmentFields({ manual, lockedPatientId, patients, followups }: { manual: boolean; lockedPatientId?: string; patients: Patient[]; followups: Followup[] }) {
   const [patientId, setPatientId] = useState(lockedPatientId ?? patients[0]?.id ?? '');
   const [date, setDate] = useState<string>(), [start, setStart] = useState<string>(), [end, setEnd] = useState<string>();
   // Só o que o paciente já contratou e ainda tem sessões a realizar; o catálogo não entra aqui.
-  const mine = attendances.filter((attendance) => attendance.patientId === patientId).map((attendance) => ({ ...attendance, items: attendance.items.filter((item) => item.sessionsPerformed < item.sessionsTotal) })).filter((attendance) => attendance.items.length > 0);
-  const pending = mine.filter((attendance) => attendance.blocked).flatMap((attendance) => attendance.anamneses.filter((form) => form.required && !form.answered).map((form) => form.title));
+  const mine = followups.filter((followup) => followup.patientId === patientId).map((followup) => ({ ...followup, items: followup.items.filter((item) => item.sessionsPerformed < item.sessionsTotal) })).filter((followup) => followup.items.length > 0);
+  const pending = mine.filter((followup) => followup.blocked).flatMap((followup) => followup.anamneses.filter((form) => form.required && !form.answered).map((form) => form.title));
   return (
     <>
       <Field label="Paciente">
@@ -59,10 +59,10 @@ function AppointmentFields({ manual, lockedPatientId, patients, attendances }: {
         )}
       </Field>
       <Field label="Procedimento">
-        <NativeSelect name="attendanceItemId" required key={patientId}>
-          {mine.length === 0 && <NativeSelectOption value="">Nenhum atendimento ativo para este paciente</NativeSelectOption>}
-          {mine.flatMap((attendance) => attendance.items.map((item) => (
-            <NativeSelectOption key={item.id} value={item.id} disabled={attendance.blocked}>{`${attendance.offerType === 'procedure' ? offerLabel('procedure', item.procedureName) : `${offerLabel(attendance.offerType, attendance.offerName)} · ${item.procedureName}`} (${item.sessionsPerformed}/${item.sessionsTotal})${attendance.blocked ? ' — anamnese pendente' : ''}`}</NativeSelectOption>
+        <NativeSelect name="followupItemId" required key={patientId}>
+          {mine.length === 0 && <NativeSelectOption value="">Nenhum acompanhamento ativo para este paciente</NativeSelectOption>}
+          {mine.flatMap((followup) => followup.items.map((item) => (
+            <NativeSelectOption key={item.id} value={item.id} disabled={followup.blocked}>{`${followup.offerType === 'procedure' ? offerLabel('procedure', item.procedureName) : `${offerLabel(followup.offerType, followup.offerName)} · ${item.procedureName}`} (${item.sessionsPerformed}/${item.sessionsTotal})${followup.blocked ? ' — anamnese pendente' : ''}`}</NativeSelectOption>
           )))}
         </NativeSelect>
       </Field>
@@ -78,19 +78,19 @@ function AppointmentFields({ manual, lockedPatientId, patients, attendances }: {
   );
 }
 
-// Escolha uma oferta do catálogo (procedimento avulso, combo ou plano) para iniciar o atendimento do paciente.
-export function NewAttendanceDialog({ open, patientId, patients, procedures, combos, plans, onClose }: { open: boolean; patientId?: string; patients: Patient[]; procedures: Procedure[]; combos: Combo[]; plans: Plan[]; onClose: () => void }) {
-  const create = useCreateAttendance();
+// Escolha uma oferta do catálogo (procedimento avulso, combo ou plano) para iniciar o acompanhamento do paciente.
+export function NewFollowupDialog({ open, patientId, patients, procedures, combos, plans, onClose }: { open: boolean; patientId?: string; patients: Patient[]; procedures: Procedure[]; combos: Combo[]; plans: Plan[]; onClose: () => void }) {
+  const create = useCreateFollowup();
   const navigate = useNavigate();
   return (
     <FormDialog
       open={open}
       onOpenChange={(next) => !next && onClose()}
-      title="Novo atendimento"
+      title="Novo acompanhamento"
       description="Escolha o procedimento avulso, combo ou plano. Contratos e anamneses exigidos são gerados automaticamente."
-      submitLabel="Iniciar atendimento"
+      submitLabel="Iniciar acompanhamento"
       onSubmit={async (form) => {
-        const { patientId: patient, offer } = parseForm(attendanceForm, form);
+        const { patientId: patient, offer } = parseForm(followupForm, form);
         const [offerType, offerId] = offer.split(':');
         await create.mutateAsync({ patientId: patient, offerType, offerId });
         if (!patientId) await navigate({ to: '/pacientes/$patientId', params: { patientId: patient } });
@@ -132,18 +132,18 @@ function OfferFields({ lockedPatientId, patients, procedures, combos, plans }: {
   );
 }
 
-export function PaymentDialog({ attendance, onClose }: { attendance: Attendance | null; onClose: () => void }) {
+export function PaymentDialog({ followup, onClose }: { followup: Followup | null; onClose: () => void }) {
   const create = useCreatePayment();
   return (
     <FormDialog
-      open={!!attendance}
+      open={!!followup}
       onOpenChange={(open) => !open && onClose()}
       title="Registrar pagamento"
       submitLabel="Registrar"
-      description={attendance && `${attendance.offerName} · total ${currency(attendance.priceCents)}`}
+      description={followup && `${followup.offerName} · total ${currency(followup.priceCents)}`}
       onSubmit={(form) => {
         const { amount, ...data } = parseForm(paymentForm, form);
-        return create.mutateAsync({ ...data, attendanceId: attendance!.id, amountCents: amount });
+        return create.mutateAsync({ ...data, followupId: followup!.id, amountCents: amount });
       }}
     >
       <Field label="Valor recebido R$" name="amount" type="number" step="0.01" min="0.01" required />

@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { isValidObjectId } from 'mongoose';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { Appointment, Anamnesis, Contract, Combo, Patient, PatientAnamnesis, Payment, Attendance, Plan, Procedure, Session } from '@clinicare/db';
+import { Appointment, Anamnesis, Contract, Combo, Patient, PatientAnamnesis, Payment, Followup, Plan, Procedure, Session } from '@clinicare/db';
 import { buildRelationship } from './relationship';
 import { uploadUrl, uploadUrlForDocument, downloadUrl, deleteObject } from './storage';
 
@@ -224,7 +224,7 @@ export const app = new Hono()
     if (!Array.isArray(contractIds) || (contractIds.length && await Contract.countDocuments({ _id: { $in: contractIds } }) !== contractIds.length)) return fail(c, 'Contrato não encontrado.', 404);
     return c.json(await Plan.create({ name: body.name, description: body.description, priceCents: body.priceCents, durationDays: body.durationDays, validityDays: body.validityDays, items: body.items.map((item: any) => ({ offerType: item.offerType, offerId: item.offerId })), contractIds, requireNewAnamnesis: body.requireNewAnamnesis === true }), 201);
   })
-  .post('/api/attendances', async (c) => {
+  .post('/api/followups', async (c) => {
     const body = await c.req.json().catch(() => null);
     if (!body || !isValidObjectId(body.patientId) || !['procedure', 'combo', 'plan'].includes(body.offerType) || !isValidObjectId(body.offerId)) return fail(c, 'Paciente e oferta são obrigatórios.');
     if (!await Patient.exists({ _id: body.patientId })) return fail(c, 'Paciente não encontrado.', 404);
@@ -236,29 +236,29 @@ export const app = new Hono()
       Anamnesis.find({ procedureIds: { $in: procedureIds }, active: true, requiredByDefault: true }).lean(),
     ]);
     for (const item of offer.items) item.anamneses = forms.filter((form: any) => form.procedureIds.some((id: any) => String(id) === String(item.procedureId))).map((form: any) => ({ anamnesisId: form._id, required: true, version: form.versions.at(-1)?.version, schemaSnapshot: form.versions.at(-1)?.schema }));
-    const attendance = await Attendance.create({ patientId: body.patientId, offerType: body.offerType, offerId: body.offerId, offerName: offer.name, priceCents: offer.priceCents, validUntil: offer.validUntil, items: offer.items, contracts: contracts.map((contract: any) => ({ contractId: contract._id, title: contract.title, version: contract.versions.at(-1)?.version, contentSnapshot: contract.versions.at(-1)?.content, objectKey: contract.versions.at(-1)?.sourceObjectKey })) });
+    const followup = await Followup.create({ patientId: body.patientId, offerType: body.offerType, offerId: body.offerId, offerName: offer.name, priceCents: offer.priceCents, validUntil: offer.validUntil, items: offer.items, contracts: contracts.map((contract: any) => ({ contractId: contract._id, title: contract.title, version: contract.versions.at(-1)?.version, contentSnapshot: contract.versions.at(-1)?.content, objectKey: contract.versions.at(-1)?.sourceObjectKey })) });
     const now = new Date();
     for (const form of forms as any[]) {
       const reusable = offer.requireNewAnamnesis ? null : await PatientAnamnesis.exists({ patientId: body.patientId, anamnesisId: form._id, 'response.validUntil': { $gt: now } });
       if (reusable) continue;
       const current = form.versions.at(-1);
-      await PatientAnamnesis.create({ patientId: body.patientId, anamnesisId: form._id, attendanceId: attendance._id, version: current.version, schemaSnapshot: current.schema, required: true });
+      await PatientAnamnesis.create({ patientId: body.patientId, anamnesisId: form._id, followupId: followup._id, version: current.version, schemaSnapshot: current.schema, required: true });
     }
-    return c.json(attendance, 201);
+    return c.json(followup, 201);
   })
-  .get('/api/attendances', async (c) => {
-    const attendances = await Attendance.find().populate('patientId', 'fullName').sort({ createdAt: -1 }).lean();
-    const ids = attendances.map((attendance: any) => attendance._id);
-    const [payments, forms] = await Promise.all([Payment.find({ attendanceId: { $in: ids } }).lean(), PatientAnamnesis.find({ attendanceId: { $in: ids } }).populate('anamnesisId', 'title validityMonths').lean()]);
-    return c.json(attendances.map((attendance: any) => {
-      const anamneses = forms.filter((form: any) => String(form.attendanceId) === String(attendance._id)).map((form: any) => ({ id: form._id, title: form.anamnesisId?.title ?? 'Anamnese', required: form.required, schemaSnapshot: form.schemaSnapshot, answered: !!form.response?.submittedAt, answers: form.response?.answers ?? null, submittedAt: form.response?.submittedAt ?? null, validUntil: form.response?.validUntil ?? null }));
-      return { ...attendance, payments: payments.filter((payment: any) => String(payment.attendanceId) === String(attendance._id)), anamneses, blocked: anamneses.some((form: any) => form.required && !form.answered) };
+  .get('/api/followups', async (c) => {
+    const followups = await Followup.find().populate('patientId', 'fullName').sort({ createdAt: -1 }).lean();
+    const ids = followups.map((followup: any) => followup._id);
+    const [payments, forms] = await Promise.all([Payment.find({ followupId: { $in: ids } }).lean(), PatientAnamnesis.find({ followupId: { $in: ids } }).populate('anamnesisId', 'title validityMonths').lean()]);
+    return c.json(followups.map((followup: any) => {
+      const anamneses = forms.filter((form: any) => String(form.followupId) === String(followup._id)).map((form: any) => ({ id: form._id, title: form.anamnesisId?.title ?? 'Anamnese', required: form.required, schemaSnapshot: form.schemaSnapshot, answered: !!form.response?.submittedAt, answers: form.response?.answers ?? null, submittedAt: form.response?.submittedAt ?? null, validUntil: form.response?.validUntil ?? null }));
+      return { ...followup, payments: payments.filter((payment: any) => String(payment.followupId) === String(followup._id)), anamneses, blocked: anamneses.some((form: any) => form.required && !form.answered) };
     }));
   })
   .post('/api/payments', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || !isValidObjectId(body.attendanceId) || !Number.isSafeInteger(body.amountCents) || body.amountCents <= 0 || !['cash', 'pix', 'credit_card'].includes(body.method)) return fail(c, 'Pagamento inválido.');
-    if (!await Attendance.exists({ _id: body.attendanceId })) return fail(c, 'Atendimento não encontrado.', 404);
+    if (!body || !isValidObjectId(body.followupId) || !Number.isSafeInteger(body.amountCents) || body.amountCents <= 0 || !['cash', 'pix', 'credit_card'].includes(body.method)) return fail(c, 'Pagamento inválido.');
+    if (!await Followup.exists({ _id: body.followupId })) return fail(c, 'Acompanhamento não encontrado.', 404);
     return c.json(await Payment.create(body), 201);
   })
   .get('/api/appointments', async (c) => {
@@ -267,11 +267,11 @@ export const app = new Hono()
   })
   .post('/api/appointments', async (c) => {
     const body = await c.req.json().catch(() => null), startsAt = new Date(body?.startsAt), endsAt = new Date(body?.endsAt);
-    if (!body || !isValidObjectId(body.patientId) || !Array.isArray(body.attendanceItemIds) || !body.attendanceItemIds.length || endsAt <= startsAt) return fail(c, 'Agendamento inválido.');
+    if (!body || !isValidObjectId(body.patientId) || !Array.isArray(body.followupItemIds) || !body.followupItemIds.length || endsAt <= startsAt) return fail(c, 'Agendamento inválido.');
     if (!await Patient.exists({ _id: body.patientId })) return fail(c, 'Paciente não encontrado.', 404);
-    for (const itemId of body.attendanceItemIds) if (!await Attendance.exists({ 'items._id': itemId, patientId: body.patientId })) return fail(c, 'Procedimento não pertence a um atendimento deste paciente.', 404);
-    const owners = await Attendance.find({ 'items._id': { $in: body.attendanceItemIds }, patientId: body.patientId }).select('_id').lean();
-    const pending = await PatientAnamnesis.find({ attendanceId: { $in: owners.map((owner: any) => owner._id) }, required: true, 'response.submittedAt': null }).populate('anamnesisId', 'title').lean();
+    for (const itemId of body.followupItemIds) if (!await Followup.exists({ 'items._id': itemId, patientId: body.patientId })) return fail(c, 'Procedimento não pertence a um acompanhamento deste paciente.', 404);
+    const owners = await Followup.find({ 'items._id': { $in: body.followupItemIds }, patientId: body.patientId }).select('_id').lean();
+    const pending = await PatientAnamnesis.find({ followupId: { $in: owners.map((owner: any) => owner._id) }, required: true, 'response.submittedAt': null }).populate('anamnesisId', 'title').lean();
     if (pending.length) return fail(c, `Anamnese pendente: ${pending.map((form: any) => form.anamnesisId?.title ?? 'Anamnese').join(', ')}. Conclua antes de agendar.`, 409);
     return c.json(await Appointment.create({ ...body, startsAt, endsAt }), 201);
   })
@@ -286,17 +286,17 @@ export const app = new Hono()
   })
   .post('/api/sessions', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || !isValidObjectId(body.attendanceId) || !isValidObjectId(body.attendanceItemId)) return fail(c, 'Atendimento e procedimento são obrigatórios.');
-    const attendance = await Attendance.findOne({ _id: body.attendanceId, 'items._id': body.attendanceItemId });
-    if (!attendance) return fail(c, 'Procedimento contratado não encontrado.', 404);
-    const item: any = attendance.items.id(body.attendanceItemId);
+    if (!body || !isValidObjectId(body.followupId) || !isValidObjectId(body.followupItemId)) return fail(c, 'Acompanhamento e procedimento são obrigatórios.');
+    const followup = await Followup.findOne({ _id: body.followupId, 'items._id': body.followupItemId });
+    if (!followup) return fail(c, 'Procedimento contratado não encontrado.', 404);
+    const item: any = followup.items.id(body.followupItemId);
     if (item.sessionsPerformed >= item.sessionsTotal) return fail(c, 'Todas as sessões já foram realizadas.', 409);
     if (body.durationMinutes != null && !validDuration(body.durationMinutes)) return fail(c, 'Duração inválida.');
     const appointment: any = body.durationMinutes == null && isValidObjectId(body.appointmentId) ? await Appointment.findById(body.appointmentId).lean() : null;
     const durationMinutes = body.durationMinutes ?? (appointment ? Math.round((appointment.endsAt.getTime() - appointment.startsAt.getTime()) / 60000) : null);
-    const session = await Session.create({ patientId: attendance.patientId, attendanceId: attendance._id, attendanceItemId: item._id, appointmentId: body.appointmentId ?? null, procedureName: item.procedureName, performedAt: body.performedAt ?? new Date(), durationMinutes, data: body.data ?? {}, schemaSnapshot: item.sessionSchema, notes: body.notes ?? null });
+    const session = await Session.create({ patientId: followup.patientId, followupId: followup._id, followupItemId: item._id, appointmentId: body.appointmentId ?? null, procedureName: item.procedureName, performedAt: body.performedAt ?? new Date(), durationMinutes, data: body.data ?? {}, schemaSnapshot: item.sessionSchema, notes: body.notes ?? null });
     item.sessionsPerformed += 1;
-    try { await attendance.save(); } catch (error) { await Session.deleteOne({ _id: session._id }); throw error; }
+    try { await followup.save(); } catch (error) { await Session.deleteOne({ _id: session._id }); throw error; }
     return c.json(session, 201);
   })
   .get('/api/sessions/:id', async (c) => {
@@ -343,7 +343,7 @@ export const app = new Hono()
     const [patient, anamnesis] = await Promise.all([Patient.exists({ _id: body.patientId }), Anamnesis.findById(body.anamnesisId)]);
     if (!patient || !anamnesis) return fail(c, 'Paciente ou anamnese não encontrados.', 404);
     const current: any = anamnesis.versions.at(-1);
-    return c.json(await PatientAnamnesis.create({ patientId: body.patientId, anamnesisId: body.anamnesisId, attendanceId: body.attendanceId ?? null, version: current.version, schemaSnapshot: current.schema, required: body.required ?? anamnesis.requiredByDefault }), 201);
+    return c.json(await PatientAnamnesis.create({ patientId: body.patientId, anamnesisId: body.anamnesisId, followupId: body.followupId ?? null, version: current.version, schemaSnapshot: current.schema, required: body.required ?? anamnesis.requiredByDefault }), 201);
   })
   .post('/api/anamnesis-requests', async (c) => {
     const body = await c.req.json().catch(() => null), applied = await PatientAnamnesis.findById(body?.patientAnamnesisId);
@@ -394,16 +394,16 @@ export const app = new Hono()
   .get('/api/patients/:id/relationship', async (c) => {
     if (!isValidObjectId(c.req.param('id'))) return fail(c, 'Paciente não encontrado.', 404);
     const patient = await Patient.findById(c.req.param('id')).lean(); if (!patient) return fail(c, 'Paciente não encontrado.', 404);
-    const [attendances, sessions, appointments] = await Promise.all([Attendance.find({ patientId: patient._id }).lean(), Session.find({ patientId: patient._id }).sort({ performedAt: 1 }).lean(), Appointment.find({ patientId: patient._id }).lean()]);
-    const payments: any[] = await Payment.find({ attendanceId: { $in: attendances.map((attendance: any) => attendance._id) } }).lean();
-    return c.json(buildRelationship(attendances, sessions, payments, appointments));
+    const [followups, sessions, appointments] = await Promise.all([Followup.find({ patientId: patient._id }).lean(), Session.find({ patientId: patient._id }).sort({ performedAt: 1 }).lean(), Appointment.find({ patientId: patient._id }).lean()]);
+    const payments: any[] = await Payment.find({ followupId: { $in: followups.map((followup: any) => followup._id) } }).lean();
+    return c.json(buildRelationship(followups, sessions, payments, appointments));
   })
   .get('/api/patients/:id/history', async (c) => {
     if (!isValidObjectId(c.req.param('id'))) return fail(c, 'Paciente não encontrado.', 404);
     const patient = await Patient.findById(c.req.param('id')).lean(); if (!patient) return fail(c, 'Paciente não encontrado.', 404);
-    const [attendances, appointments, sessions, forms] = await Promise.all([Attendance.find({ patientId: patient._id }).lean(), Appointment.find({ patientId: patient._id }).lean(), Session.find({ patientId: patient._id }).lean(), PatientAnamnesis.find({ patientId: patient._id }).populate('anamnesisId', 'title').lean()]);
-    const attendanceIds = attendances.map((p: any) => p._id), payments = await Payment.find({ attendanceId: { $in: attendanceIds } }).lean();
-    const events: any[] = [...attendances.map((p: any) => ({ type: 'attendance', at: p.createdAt, title: `Atendimento: ${p.offerName}`, details: p })), ...appointments.map((a: any) => ({ type: 'appointment', at: a.startsAt, title: `Agendamento · ${appointmentStatusLabel[a.status] ?? a.status}`, details: a })), ...sessions.map((s: any) => ({ type: 'session', at: s.performedAt, title: `${s.procedureName} realizado`, details: s })), ...payments.map((p: any) => ({ type: 'payment', at: p.receivedAt, title: `Pagamento ${p.method}`, details: p })), ...forms.map((f: any) => ({ type: 'anamnesis', at: f.response?.submittedAt ?? f._id.getTimestamp(), title: `${f.anamnesisId?.title ?? 'Anamnese'} · ${f.response ? f.response.validUntil < new Date() ? 'vencida' : 'respondida' : 'pendente'}`, details: f }))];
+    const [followups, appointments, sessions, forms] = await Promise.all([Followup.find({ patientId: patient._id }).lean(), Appointment.find({ patientId: patient._id }).lean(), Session.find({ patientId: patient._id }).lean(), PatientAnamnesis.find({ patientId: patient._id }).populate('anamnesisId', 'title').lean()]);
+    const followupIds = followups.map((p: any) => p._id), payments = await Payment.find({ followupId: { $in: followupIds } }).lean();
+    const events: any[] = [...followups.map((p: any) => ({ type: 'followup', at: p.createdAt, title: `Acompanhamento: ${p.offerName}`, details: p })), ...appointments.map((a: any) => ({ type: 'appointment', at: a.startsAt, title: `Agendamento · ${appointmentStatusLabel[a.status] ?? a.status}`, details: a })), ...sessions.map((s: any) => ({ type: 'session', at: s.performedAt, title: `${s.procedureName} realizado`, details: s })), ...payments.map((p: any) => ({ type: 'payment', at: p.receivedAt, title: `Pagamento ${p.method}`, details: p })), ...forms.map((f: any) => ({ type: 'anamnesis', at: f.response?.submittedAt ?? f._id.getTimestamp(), title: `${f.anamnesisId?.title ?? 'Anamnese'} · ${f.response ? f.response.validUntil < new Date() ? 'vencida' : 'respondida' : 'pendente'}`, details: f }))];
     const pending = events.filter((event) => /pendente|vencida/.test(event.title) || (event.type === 'appointment' && event.details.status === 'planned'));
     return c.json({ patient, events: events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()), pending });
   });

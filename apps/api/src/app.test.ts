@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { app } from './app';
-import { Patient, Procedure, Attendance, connectDatabase } from '@clinicare/db';
+import { Patient, Procedure, Followup, connectDatabase } from '@clinicare/db';
 
 let mongo: MongoMemoryServer;
 beforeAll(async () => {
@@ -42,16 +42,16 @@ describe('API integration with MongoDB', () => {
     const edit = await app.request(`/api/procedures/${procedure._id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...procedure, sessionSchema: { type: 'object', properties: { intensity: { type: 'string' }, notes: { type: 'string' } } } }) });
     expect((await edit.json() as any).versions).toHaveLength(2);
   });
-  it('starts an attendance from a procedure, allows repeating it and snapshots the offer', async () => {
+  it('starts an followup from a procedure, allows repeating it and snapshots the offer', async () => {
     const patient = await Patient.create({ fullName: 'Maria Teste' });
     const procedure = await Procedure.create({ name: 'Peeling', baseSessions: 3, priceCents: 10000, sessionSchema: { type: 'object', properties: {} }, versions: [] });
     const body = { patientId: String(patient._id), offerType: 'procedure', offerId: String(procedure._id) };
-    const first = await (await post('/api/attendances', body)).json() as any;
+    const first = await (await post('/api/followups', body)).json() as any;
     expect(first).toMatchObject({ offerName: 'Peeling', priceCents: 10000 });
-    expect((await post('/api/attendances', body)).status).toBe(201);
-    expect(await Attendance.countDocuments()).toBe(2);
+    expect((await post('/api/followups', body)).status).toBe(201);
+    expect(await Followup.countDocuments()).toBe(2);
   });
-  it('creates catalog plans and starts an attendance with plan contracts and validity', async () => {
+  it('creates catalog plans and starts an followup with plan contracts and validity', async () => {
     const patient = await Patient.create({ fullName: 'Ana Teste' });
     const massage = await Procedure.create({ name: 'Massagem', baseSessions: 1, priceCents: 8000, sessionSchema: { type: 'object', properties: {} }, versions: [] });
     const cupping = await Procedure.create({ name: 'Ventosa', baseSessions: 4, priceCents: 5000, sessionSchema: { type: 'object', properties: {} }, versions: [] });
@@ -60,45 +60,45 @@ describe('API integration with MongoDB', () => {
     expect((await post('/api/plans', { name: 'Plano relax', priceCents: 30000, items: [] })).status).toBe(400);
     expect((await post('/api/plans', { name: 'Plano relax', priceCents: 30000, items: [{ offerType: 'procedure', offerId: '000000000000000000000000' }] })).status).toBe(404);
     const plan = await (await post('/api/plans', { name: 'Plano relax', priceCents: 30000, durationDays: 90, validityDays: 120, items, contractIds: [contract._id] })).json() as any;
-    const attendance = await (await post('/api/attendances', { patientId: String(patient._id), offerType: 'plan', offerId: plan._id })).json() as any;
-    expect(attendance).toMatchObject({ offerType: 'plan', offerName: 'Plano relax', priceCents: 30000 });
-    expect(attendance.items.map((item: any) => item.procedureName)).toEqual(['Massagem', 'Ventosa']);
-    expect(attendance.contracts).toHaveLength(1);
-    expect(new Date(attendance.validUntil).getTime()).toBeGreaterThan(Date.now() + 119 * 86400000);
+    const followup = await (await post('/api/followups', { patientId: String(patient._id), offerType: 'plan', offerId: plan._id })).json() as any;
+    expect(followup).toMatchObject({ offerType: 'plan', offerName: 'Plano relax', priceCents: 30000 });
+    expect(followup.items.map((item: any) => item.procedureName)).toEqual(['Massagem', 'Ventosa']);
+    expect(followup.contracts).toHaveLength(1);
+    expect(new Date(followup.validUntil).getTime()).toBeGreaterThan(Date.now() + 119 * 86400000);
   });
   it('blocks appointments while a required anamnesis is pending and reuses answers within their validity', async () => {
     const patient = await Patient.create({ fullName: 'Joana Teste' });
     const procedure = await Procedure.create({ name: 'Ventosaterapia', baseSessions: 2, priceCents: 9000, sessionSchema: { type: 'object', properties: {} }, versions: [] });
     const form = await (await post('/api/anamneses', { title: 'Anamnese corporal', schema: { type: 'object', properties: { queixa: { type: 'string' } } }, procedureIds: [String(procedure._id)], validityMonths: 6 })).json() as any;
     const start = { patientId: String(patient._id), offerType: 'procedure', offerId: String(procedure._id) };
-    const first = await (await post('/api/attendances', start)).json() as any;
-    const slot = { patientId: String(patient._id), attendanceItemIds: [first.items[0]._id], startsAt: '2030-01-01T10:00:00Z', endsAt: '2030-01-01T11:00:00Z' };
+    const first = await (await post('/api/followups', start)).json() as any;
+    const slot = { patientId: String(patient._id), followupItemIds: [first.items[0]._id], startsAt: '2030-01-01T10:00:00Z', endsAt: '2030-01-01T11:00:00Z' };
     const blocked = await post('/api/appointments', slot);
     expect(blocked.status).toBe(409);
     expect((await blocked.json() as any).error).toContain('Anamnese corporal');
-    const [listed] = await (await app.request('/api/attendances')).json() as any[];
+    const [listed] = await (await app.request('/api/followups')).json() as any[];
     expect(listed).toMatchObject({ blocked: true, anamneses: [{ title: 'Anamnese corporal', answered: false }] });
 
     expect((await post(`/api/patient-anamneses/${listed.anamneses[0].id}/answers`, { answers: 'x' })).status).toBe(400);
     expect((await post(`/api/patient-anamneses/${listed.anamneses[0].id}/answers`, { answers: { queixa: 'Dor lombar' } })).status).toBe(201);
     expect((await post(`/api/patient-anamneses/${listed.anamneses[0].id}/answers`, { answers: {} })).status).toBe(404);
-    const [answered] = await (await app.request('/api/attendances')).json() as any[];
+    const [answered] = await (await app.request('/api/followups')).json() as any[];
     expect(answered).toMatchObject({ blocked: false, anamneses: [{ answered: true, answers: { queixa: 'Dor lombar' } }] });
     const months = (new Date(answered.anamneses[0].validUntil).getTime() - Date.now()) / 86400000;
     expect(months).toBeGreaterThan(175);
     expect(months).toBeLessThan(190);
     expect((await post('/api/appointments', slot)).status).toBe(201);
 
-    const second = await (await post('/api/attendances', start)).json() as any;
-    expect((await post('/api/appointments', { ...slot, attendanceItemIds: [second.items[0]._id] })).status).toBe(201);
-    const forced = await (await post('/api/attendances', start)).json() as any;
+    const second = await (await post('/api/followups', start)).json() as any;
+    expect((await post('/api/appointments', { ...slot, followupItemIds: [second.items[0]._id] })).status).toBe(201);
+    const forced = await (await post('/api/followups', start)).json() as any;
     await Procedure.updateOne({ _id: procedure._id }, { requireNewAnamnesis: true });
-    const again = await (await post('/api/attendances', start)).json() as any;
-    const attendances = await (await app.request('/api/attendances')).json() as any[];
-    expect(attendances.find((item) => item._id === again._id)).toMatchObject({ blocked: true });
-    expect(attendances.find((item) => item._id === forced._id)).toMatchObject({ blocked: false, anamneses: [] });
+    const again = await (await post('/api/followups', start)).json() as any;
+    const followups = await (await app.request('/api/followups')).json() as any[];
+    expect(followups.find((item) => item._id === again._id)).toMatchObject({ blocked: true });
+    expect(followups.find((item) => item._id === forced._id)).toMatchObject({ blocked: false, anamneses: [] });
   });
-  it('requires price and validity for promotional combos and applies them to an attendance', async () => {
+  it('requires price and validity for promotional combos and applies them to an followup', async () => {
     const patient = await Patient.create({ fullName: 'Ana Teste' });
     const procedure = await Procedure.create({ name: 'Drenagem', baseSessions: 4, priceCents: 20000, sessionSchema: { type: 'object', properties: {} }, versions: [] });
     const items = [{ procedureId: String(procedure._id), sessionsOverride: 6 }];
@@ -106,9 +106,9 @@ describe('API integration with MongoDB', () => {
     const standard = await post('/api/combos', { name: 'Combo padrão', priceCents: 120000, items });
     expect(standard.status).toBe(201);
     const promo = await (await post('/api/combos', { name: 'Combo verão', priceCents: 120000, promotionalPriceCents: 70000, validUntil: '2999-01-01', items })).json() as any;
-    const attendance = await post('/api/attendances', { patientId: String(patient._id), offerType: 'combo', offerId: promo._id });
-    expect(attendance.status).toBe(201);
-    const created = await attendance.json() as any;
+    const followup = await post('/api/followups', { patientId: String(patient._id), offerType: 'combo', offerId: promo._id });
+    expect(followup.status).toBe(201);
+    const created = await followup.json() as any;
     expect(created.priceCents).toBe(70000);
     expect(created.items[0].sessionsTotal).toBe(6);
   });
@@ -120,7 +120,7 @@ describe('API integration with MongoDB', () => {
     expect(updated.versions).toHaveLength(1);
     expect((await put(`/api/procedures/${procedure._id}`, { priceCents: -1 })).status).toBe(400);
     expect((await put(`/api/procedures/${procedure._id}`, { sessionSchema: { type: 'array' } })).status).toBe(400);
-    expect((await post('/api/attendances', { patientId: String((await Patient.create({ fullName: 'Lia Teste' }))._id), offerType: 'procedure', offerId: procedure._id })).status).toBe(404);
+    expect((await post('/api/followups', { patientId: String((await Patient.create({ fullName: 'Lia Teste' }))._id), offerType: 'procedure', offerId: procedure._id })).status).toBe(404);
 
     const items = [{ procedureId: procedure._id, sessionsOverride: 3 }];
     const combo = await (await post('/api/combos', { name: 'Combo A', priceCents: 40000, items })).json() as any;
@@ -154,13 +154,13 @@ describe('API integration with MongoDB', () => {
   it('deletes appointments and follows up a session with notes, data and photos', async () => {
     const patient = await Patient.create({ fullName: 'Maria Teste' });
     const procedure = await Procedure.create({ name: 'Peeling', baseSessions: 3, priceCents: 10000, sessionSchema: { type: 'object', properties: { produto: { type: 'string' } } }, versions: [] });
-    const attendance = await (await post('/api/attendances', { patientId: String(patient._id), offerType: 'procedure', offerId: String(procedure._id) })).json() as any;
-    const itemId = attendance.items[0]._id;
-    const appointment = await (await post('/api/appointments', { patientId: String(patient._id), attendanceItemIds: [itemId], startsAt: '2030-01-01T10:00:00Z', endsAt: '2030-01-01T11:00:00Z' })).json() as any;
+    const followup = await (await post('/api/followups', { patientId: String(patient._id), offerType: 'procedure', offerId: String(procedure._id) })).json() as any;
+    const itemId = followup.items[0]._id;
+    const appointment = await (await post('/api/appointments', { patientId: String(patient._id), followupItemIds: [itemId], startsAt: '2030-01-01T10:00:00Z', endsAt: '2030-01-01T11:00:00Z' })).json() as any;
     expect((await app.request(`/api/appointments/${appointment._id}`, { method: 'DELETE' })).status).toBe(200);
     expect((await app.request(`/api/appointments/${appointment._id}`, { method: 'DELETE' })).status).toBe(404);
 
-    const session = await (await post('/api/sessions', { attendanceId: attendance._id, attendanceItemId: itemId, data: { produto: 'Ácido' } })).json() as any;
+    const session = await (await post('/api/sessions', { followupId: followup._id, followupItemId: itemId, data: { produto: 'Ácido' } })).json() as any;
     const patch = (body: unknown) => app.request(`/api/sessions/${session._id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     expect((await patch({ notes: ' Pele sensível ', data: { produto: 'Ácido mandélico' } })).status).toBe(200);
     expect((await patch({ data: [] })).status).toBe(400);
@@ -175,16 +175,16 @@ describe('API integration with MongoDB', () => {
   it('summarizes the patient relationship: sessions, time, paid and pending values', async () => {
     const patient = await Patient.create({ fullName: 'Rita Teste' });
     const procedure = await Procedure.create({ name: 'Drenagem', baseSessions: 4, priceCents: 40000, sessionSchema: { type: 'object', properties: {} }, versions: [] });
-    const attendance = await (await post('/api/attendances', { patientId: String(patient._id), offerType: 'procedure', offerId: String(procedure._id) })).json() as any;
-    const itemId = attendance.items[0]._id;
-    const appointment = await (await post('/api/appointments', { patientId: String(patient._id), attendanceItemIds: [itemId], startsAt: '2030-01-01T10:00:00Z', endsAt: '2030-01-01T11:30:00Z' })).json() as any;
-    expect((await post('/api/sessions', { attendanceId: attendance._id, attendanceItemId: itemId, durationMinutes: -5 })).status).toBe(400);
-    const first = await (await post('/api/sessions', { attendanceId: attendance._id, attendanceItemId: itemId, appointmentId: appointment._id })).json() as any;
+    const followup = await (await post('/api/followups', { patientId: String(patient._id), offerType: 'procedure', offerId: String(procedure._id) })).json() as any;
+    const itemId = followup.items[0]._id;
+    const appointment = await (await post('/api/appointments', { patientId: String(patient._id), followupItemIds: [itemId], startsAt: '2030-01-01T10:00:00Z', endsAt: '2030-01-01T11:30:00Z' })).json() as any;
+    expect((await post('/api/sessions', { followupId: followup._id, followupItemId: itemId, durationMinutes: -5 })).status).toBe(400);
+    const first = await (await post('/api/sessions', { followupId: followup._id, followupItemId: itemId, appointmentId: appointment._id })).json() as any;
     expect(first.durationMinutes).toBe(90);
-    await post('/api/sessions', { attendanceId: attendance._id, attendanceItemId: itemId, durationMinutes: 30 });
-    expect((await post('/api/payments', { attendanceId: attendance._id, amountCents: 15000, method: 'pix' })).status).toBe(201);
+    await post('/api/sessions', { followupId: followup._id, followupItemId: itemId, durationMinutes: 30 });
+    expect((await post('/api/payments', { followupId: followup._id, amountCents: 15000, method: 'pix' })).status).toBe(201);
     const report = await (await app.request(`/api/patients/${patient._id}/relationship`)).json() as any;
-    expect(report.totals).toMatchObject({ attendances: 1, sessionsPerformed: 2, sessionsContracted: 4, minutesTotal: 120, contractedCents: 40000, paidCents: 15000, pendingCents: 25000, dueForPerformedCents: 5000 });
+    expect(report.totals).toMatchObject({ followups: 1, sessionsPerformed: 2, sessionsContracted: 4, minutesTotal: 120, contractedCents: 40000, paidCents: 15000, pendingCents: 25000, dueForPerformedCents: 5000 });
     expect(report.monthly.at(-1)).toMatchObject({ sessions: 2, minutes: 120, paidCents: 15000 });
     expect(report.procedures).toEqual([{ name: 'Drenagem', sessions: 2, minutes: 120 }]);
     expect(report.nextAppointmentAt).toBe('2030-01-01T10:00:00.000Z');

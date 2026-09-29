@@ -5,17 +5,17 @@ import { useState } from 'react';
 import { QueryError } from '@/components/QueryState';
 import { SchemaForm } from '@/components/SchemaForm';
 import { Button } from '@/components/ui/button';
-import { attendancesQuery, patientsQuery, useAnswerAnamnesis } from '@/lib/queries';
+import { followupsQuery, patientsQuery, useAnswerAnamnesis } from '@/lib/queries';
 
 export const Route = createFileRoute('/_app/pacientes/$patientId/anamneses/$formId')({ component: FillAnamnesis });
 
 function FillAnamnesis() {
   const { patientId, formId } = Route.useParams();
   const navigate = useNavigate();
-  const attendances = useQuery(attendancesQuery), patients = useQuery(patientsQuery);
+  const followups = useQuery(followupsQuery), patients = useQuery(patientsQuery);
   const answer = useAnswerAnamnesis();
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
-  const form = (attendances.data ?? []).flatMap((attendance) => attendance.anamneses).find((candidate) => candidate.id === formId);
+  const form = (followups.data ?? []).flatMap((followup) => followup.anamneses).find((candidate) => candidate.id === formId);
   const patient = patients.data?.find((candidate) => candidate.id === patientId);
 
   async function submit(value: Record<string, unknown>) {
@@ -32,8 +32,8 @@ function FillAnamnesis() {
           <p className="section-note m-0">Preenchimento na clínica{patient ? ` · ${patient.fullName}` : ''}</p>
         </div>
       </div>
-      <QueryError query={attendances} />
-      {attendances.isSuccess && !form && <p className="section-note" role="alert">Anamnese não encontrada.</p>}
+      <QueryError query={followups} />
+      {followups.isSuccess && !form && <p className="section-note" role="alert">Anamnese não encontrada.</p>}
       {form?.answered && <p className="section-note" role="status">Esta anamnese já foi respondida.</p>}
       {form && !form.answered && form.schemaSnapshot && (
         <SchemaForm

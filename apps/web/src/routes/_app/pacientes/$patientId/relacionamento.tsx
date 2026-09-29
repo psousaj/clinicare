@@ -36,7 +36,7 @@ function Relationship() {
   const patient = patients.data?.find((candidate) => candidate.id === patientId);
   const data = report.data, totals = data?.totals;
   const monthly = (data?.monthly ?? []).map((row) => ({ ...row, label: monthLabel(row.month), duration: row.minutes ? duration(row.minutes) : '—' }));
-  const attendances = (data?.attendances ?? []).map((row) => ({ name: row.offerName, Pago: row.paidCents / 100, Pendente: row.pendingCents / 100 }));
+  const followups = (data?.followups ?? []).map((row) => ({ name: row.offerName, Pago: row.paidCents / 100, Pendente: row.pendingCents / 100 }));
   const procedures = (data?.procedures ?? []).map((row) => ({ name: row.name, Minutos: row.minutes, sessions: row.sessions }));
   const money = (value: unknown) => currency(Math.round(Number(value) * 100));
 
@@ -52,9 +52,9 @@ function Relationship() {
         </div>
         <QueryError query={report} />
         {report.isPending && <p className="section-note">Carregando…</p>}
-        {totals?.attendances === 0 && <p className="section-note" role="status">Este paciente ainda não tem atendimentos. Inicie um atendimento pela ficha para acompanhar o relacionamento.</p>}
+        {totals?.followups === 0 && <p className="section-note" role="status">Este paciente ainda não tem acompanhamentos. Inicie um acompanhamento pela ficha para acompanhar o relacionamento.</p>}
       </section>
-      {data && totals && totals.attendances > 0 && (
+      {data && totals && totals.followups > 0 && (
         <>
           <section className="stats-grid">
             <Card heading="Sessões realizadas" icon={Sparkles} tone="violet" value={`${totals.sessionsPerformed} de ${totals.sessionsContracted}`} foot="Realizadas × contratadas" />
@@ -69,7 +69,7 @@ function Relationship() {
             <Card heading="Faltas" icon={UserX} tone="blue" value={String(totals.noShows)} foot="Agendamentos com falta" />
           </section>
           <div className="grid items-start gap-4 lg:grid-cols-2">
-            <Chart title="Sessões por mês" empty={monthly.length === 0 ? 'Nenhuma sessão registrada ainda.' : undefined} note="Passe o mouse para ver o tempo de atendimento do mês.">
+            <Chart title="Sessões por mês" empty={monthly.length === 0 ? 'Nenhuma sessão registrada ainda.' : undefined} note="Passe o mouse para ver o tempo de acompanhamento do mês.">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthly}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -80,9 +80,9 @@ function Relationship() {
                 </BarChart>
               </ResponsiveContainer>
             </Chart>
-            <Chart title="Pago × pendente por atendimento" empty={attendances.length === 0 ? 'Sem atendimentos.' : undefined}>
+            <Chart title="Pago × pendente por acompanhamento" empty={followups.length === 0 ? 'Sem acompanhamentos.' : undefined}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={attendances} layout="vertical" margin={{ left: 8 }}>
+                <BarChart data={followups} layout="vertical" margin={{ left: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" tickLine={false} axisLine={false} fontSize={12} tickFormatter={(value) => `R$ ${value}`} />
                   <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} fontSize={12} width={110} />
@@ -105,8 +105,8 @@ function Relationship() {
               </ResponsiveContainer>
             </Chart>
             <section className="panel">
-              <div className="panel-header"><div><div className="section-kicker">FINANCEIRO</div><h2>Saldo por atendimento</h2></div></div>
-              {data.attendances.map((row) => (
+              <div className="panel-header"><div><div className="section-kicker">FINANCEIRO</div><h2>Saldo por acompanhamento</h2></div></div>
+              {data.followups.map((row) => (
                 <div className="procedure-row" key={row.id}>
                   <Hourglass size={18} />
                   <span className="procedure-info"><strong>{row.offerName}</strong><small>{row.sessionsPerformed}/{row.sessionsTotal} sessões · pago {currency(row.paidCents)} de {currency(row.priceCents)}</small></span>

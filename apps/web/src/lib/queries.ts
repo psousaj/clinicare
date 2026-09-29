@@ -2,7 +2,7 @@ import { queryOptions, useMutation, useQueryClient, type QueryKey } from '@tanst
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { api } from './api';
-import { anamnesisSchema, anySchema, appointmentSchema, contractSchema, createdSchema, comboSchema, planSchema, patientHistorySchema, relationshipSchema, patientSchema, attendanceSchema, procedureSchema, publicFormSchema, requestSchema, sessionSchema } from './schemas';
+import { anamnesisSchema, anySchema, appointmentSchema, contractSchema, createdSchema, comboSchema, planSchema, patientHistorySchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicFormSchema, requestSchema, sessionSchema } from './schemas';
 
 export const keys = {
   patients: ['patients'] as const,
@@ -11,7 +11,7 @@ export const keys = {
   contracts: ['contracts'] as const,
   combos: ['combos'] as const,
   plans: ['plans'] as const,
-  attendances: ['attendances'] as const,
+  followups: ['followups'] as const,
   appointments: ['appointments'] as const,
   history: (patientId: string) => ['patients', patientId, 'history'] as const,
   sessions: ['sessions'] as const,
@@ -29,7 +29,7 @@ export const anamnesesQuery = list(keys.anamneses, '/api/anamneses', anamnesisSc
 export const contractsQuery = list(keys.contracts, '/api/contracts', contractSchema);
 export const combosQuery = list(keys.combos, '/api/combos', comboSchema);
 export const plansQuery = list(keys.plans, '/api/plans', planSchema);
-export const attendancesQuery = list(keys.attendances, '/api/attendances', attendanceSchema);
+export const followupsQuery = list(keys.followups, '/api/followups', followupSchema);
 export const sessionsQuery = list(keys.sessions, '/api/sessions', sessionSchema);
 export const appointmentsQuery = list(keys.appointments, '/api/appointments', appointmentSchema);
 export const sessionQuery = (id: string) =>
@@ -58,7 +58,7 @@ export function useApiMutation<V, R = unknown>({ mutationFn, invalidate, success
 
 const post = <S extends z.ZodType>(path: string, body: unknown, schema: S = anySchema as unknown as S) => api(path, { method: 'POST', body, schema });
 const patientRefresh = [keys.patients];
-const everything = [keys.patients, keys.procedures, keys.anamneses, keys.contracts, keys.combos, keys.plans, keys.attendances, keys.appointments, keys.sessions];
+const everything = [keys.patients, keys.procedures, keys.anamneses, keys.contracts, keys.combos, keys.plans, keys.followups, keys.appointments, keys.sessions];
 
 export const useCreatePatient = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/patients', body), invalidate: patientRefresh, success: 'Paciente cadastrado.' });
 export const useCreateProcedure = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/procedures', body), invalidate: [keys.procedures], success: 'Procedimento cadastrado.' });
@@ -83,12 +83,12 @@ export const useUpdateProcedure = () =>
 export const useUpdateCombo = () =>
   useApiMutation({ mutationFn: ({ id, ...body }: { id: string } & Record<string, unknown>) => api(`/api/combos/${id}`, { method: 'PUT', body, schema: anySchema }), invalidate: [keys.combos], success: 'Combo atualizado.' });
 export const useCreateCombo = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/combos', body), invalidate: [keys.combos], success: 'Combo cadastrado.' });
-export const useCreateAttendance = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/attendances', body), invalidate: everything, success: 'Atendimento iniciado.' });
+export const useCreateFollowup = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/followups', body), invalidate: everything, success: 'Acompanhamento iniciado.' });
 export const useCreatePlan = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/plans', body), invalidate: [keys.plans], success: 'Plano cadastrado.' });
 export const useAnswerAnamnesis = () =>
-  useApiMutation({ mutationFn: ({ id, answers }: { id: string; answers: Record<string, unknown> }) => post(`/api/patient-anamneses/${id}/answers`, { answers }), invalidate: [keys.attendances, keys.patients], success: 'Anamnese registrada.' });
+  useApiMutation({ mutationFn: ({ id, answers }: { id: string; answers: Record<string, unknown> }) => post(`/api/patient-anamneses/${id}/answers`, { answers }), invalidate: [keys.followups, keys.patients], success: 'Anamnese registrada.' });
 export const useCreateAppointment = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/appointments', body), invalidate: [keys.appointments, keys.patients], success: 'Agendamento criado.' });
-export const useCreatePayment = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/payments', body), invalidate: [keys.attendances, keys.patients], success: 'Pagamento registrado.' });
+export const useCreatePayment = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/payments', body), invalidate: [keys.followups, keys.patients], success: 'Pagamento registrado.' });
 export const useDeleteAppointment = () =>
   useApiMutation({ mutationFn: (id: string) => api(`/api/appointments/${id}`, { method: 'DELETE', schema: anySchema }), invalidate: [keys.appointments, keys.patients], success: 'Agendamento excluído.' });
 export const useUpdateSession = (id: string) =>

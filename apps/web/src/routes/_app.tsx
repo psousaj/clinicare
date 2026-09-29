@@ -11,7 +11,7 @@ const navigation = [
   { to: '/planos', label: 'Planos', title: 'Planos', icon: Layers },
   { to: '/formularios-anamnese', label: 'Formulários de anamnese', title: 'Formulários de anamnese', icon: ClipboardList },
   { to: '/contratos', label: 'Contratos', title: 'Contratos da clínica', icon: FileText },
-  { to: '/financeiro', label: 'Financeiro', title: 'Atendimentos e pagamentos', icon: WalletCards },
+  { to: '/financeiro', label: 'Financeiro', title: 'Acompanhamentos e pagamentos', icon: WalletCards },
 ] as const;
 
 export const Route = createFileRoute('/_app')({ component: AppLayout });
