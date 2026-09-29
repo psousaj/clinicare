@@ -2,18 +2,35 @@
   "name": "clinicare",
   "private": true,
   "type": "module",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "bun run --parallel dev:web dev:api",
-    "dev:web": "bun run --cwd apps/web dev",
-    "dev:api": "bun run --cwd apps/api dev",
-    "build": "bun run build:web && bun run build:api",
-    "build:web": "bun run --cwd apps/web build",
-    "build:api": "bun run --cwd apps/api build",
-    "typecheck": "bun run --filter '*' typecheck",
-    "test": "bun run --filter '*' test",
-    "test:api": "bun run --cwd apps/api test",
-    "test:web": "bun run --cwd apps/web test",
-    "db:reset": "docker compose down -v && docker compose up --build -d"
+    "dev": "turbo run dev",
+    "dev:web": "turbo run dev --filter=@clinicare/web",
+    "dev:api": "turbo run dev --filter=@clinicare/api",
+    "build": "turbo run build",
+    "build:web": "turbo run build --filter=@clinicare/web",
+    "build:api": "turbo run build --filter=@clinicare/api",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:api": "turbo run test --filter=@clinicare/api",
+    "test:web": "turbo run test --filter=@clinicare/web",
+    "db:reset": "docker compose down -v && docker compose up --build -d",
+    "infra:up": "docker compose -f dev-compose.yml up -d",
+    "infra:down": "docker compose -f dev-compose.yml down",
+    "infra:logs": "docker compose -f dev-compose.yml logs -f",
+    "infra:reset": "docker compose -f dev-compose.yml down -v"
+  },
+  "packageManager": "bun@1.3.10",
+  "devDependencies": {
+    "turbo": "latest"
+  },
+  "overrides": {
+    "bson": "7.2.0"
+  },
+  "engines": {
+    "node": "^22.12.0 || >=24.0.0"
   }
 }

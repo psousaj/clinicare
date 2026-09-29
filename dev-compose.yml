@@ -1,0 +1,56 @@
+# Infra de desenvolvimento: sobe só as dependências; API e web rodam no host com `bun run dev`.
+name: clinicare-dev
+services:
+  mongo:
+    image: mongo:8
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  # Studio visual do MongoDB: http://localhost:8082 (MONGO_EXPRESS_PORT)
+  mongo-express:
+    image: mongo-express:1
+    restart: unless-stopped
+    ports:
+      - "${MONGO_EXPRESS_PORT:-8082}:8081"
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://mongo:27017
+      ME_CONFIG_BASICAUTH: "false"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  # Emulador AWS local (S3 compatível, substitui o R2 em dev): http://localhost:4566
+  ministack:
+    image: ministackorg/ministack
+    restart: unless-stopped
+    ports:
+      - "${MINISTACK_PORT:-4566}:4566"
+    volumes:
+      - ministack-data:/tmp/ministack
+
+  # Cria o bucket de dev e encerra
+  ministack-init:
+    image: curlimages/curl:latest
+    depends_on:
+      - ministack
+    restart: "no"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        for i in $$(seq 1 30); do
+          curl -sf -X PUT http://ministack:4566/clinicare-dev && echo "bucket clinicare-dev pronto" && exit 0
+          sleep 1
+        done
+        echo "falha ao criar bucket" >&2; exit 1
+
+volumes:
+  mongo-data:
+  ministack-data:

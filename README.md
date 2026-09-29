@@ -33,15 +33,34 @@ docker compose up --build
 
 ## Desenvolvimento sem Docker
 
-Requer Bun 1.2+ e MongoDB local acessível em `MONGODB_URI`.
+Requer Bun 1.2+, Node 22.12+/24 (o `mise.toml` fixa o Node 24; rode `mise install`) e Docker. Suba a infra de dev (`dev-compose.yml`):
 
 ```bash
+bun run infra:up      # infra:down para parar, infra:reset para apagar volumes
+cp apps/api/.env.example apps/api/.env   # descomente o bloco "Dev" para usar o ministack
 bun install
-# Configure MONGODB_URI em apps/api/.env ou no ambiente
 bun run dev
 ```
 
+| Serviço | URL | Uso |
+| --- | --- | --- |
+| MongoDB | `mongodb://localhost:27017` | banco (`MONGODB_URI`) |
+| mongo-express | http://localhost:8082 | studio visual do Mongo |
+| ministack | http://localhost:4566 | emulador AWS/S3 local (bucket `clinicare-dev`, credenciais `test`/`test`) |
+
+Portas do host configuráveis com `MONGO_PORT`, `MONGO_EXPRESS_PORT` e `MINISTACK_PORT`. O `docker-compose.yml` (produção) também usa a 27017; não suba os dois ao mesmo tempo.
+
 Web (Vite): http://localhost:5173; API: http://localhost:3000/api/health.
+
+## Estrutura do monorepo
+
+Monorepo com [Bun workspaces](https://bun.sh/docs/install/workspaces) + [Turborepo](https://turbo.build) (`turbo.json`):
+
+- `apps/web` – `@clinicare/web` (React + Vite)
+- `apps/api` – `@clinicare/api` (Hono), depende de `@clinicare/db`
+- `packages/db` – `@clinicare/db` (schemas Mongoose)
+
+Os scripts da raiz (`dev`, `build`, `typecheck`, `test`) rodam via `turbo run`, com cache e ordem por dependência. Para um único pacote: `bunx turbo run build --filter=@clinicare/api`.
 
 ## Verificações
 

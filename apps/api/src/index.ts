@@ -1,6 +1,6 @@
 import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
-import { connectDatabase } from '../../../packages/db/src/index.ts';
+import { connectDatabase } from '@clinicare/db';
 import { app } from './app';
 
 const port = Number(process.env.PORT ?? 3000);

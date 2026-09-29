@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'bun:test'
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose from 'mongoose';
 import { app } from './app';
-import { Patient, Procedure, Plan, connectDatabase } from '../../../packages/db/src/index.ts';
+import { Patient, Procedure, Plan, connectDatabase } from '@clinicare/db';
 
 let mongo: MongoMemoryServer;
 beforeAll(async () => {

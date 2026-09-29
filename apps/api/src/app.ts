@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { isValidObjectId } from 'mongoose';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { Appointment, Anamnesis, Contract, PackageOffer, Patient, PatientAnamnesis, Payment, Plan, Procedure, Session } from '../../../packages/db/src/schema';
+import { Appointment, Anamnesis, Contract, PackageOffer, Patient, PatientAnamnesis, Payment, Plan, Procedure, Session } from '@clinicare/db';
 import { uploadUrl, uploadUrlForDocument, deleteObject } from './storage';
 
 const fail = (c: Context, message: string, status: 400 | 404 | 409 | 503 = 400) => c.json({ error: message }, status);

@@ -9,6 +9,7 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@clinicare/db": "workspace:*",
     "@aws-sdk/client-s3": "^3.1142.0",
     "@aws-sdk/s3-request-presigner": "^3.1142.0",
     "@hono/node-server": "latest",
