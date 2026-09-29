@@ -16,7 +16,7 @@ const time = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digi
 function Row({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
     <div className="flex items-start gap-3">
-      <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">{icon}</span>
+      <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">{icon}</span>
       <div className="grid gap-0.5">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
         <span className="text-sm">{children}</span>
@@ -38,7 +38,7 @@ export function AppointmentDetails({ appointment, patientName, procedures, onClo
         {appointment && start && end && (
           <>
             <DialogHeader>
-              <div className="text-[10px] font-semibold tracking-widest text-primary">AGENDAMENTO</div>
+              <div className="text-[10px] font-bold tracking-[0.15em] uppercase text-primary">AGENDAMENTO</div>
               <DialogTitle className="flex flex-wrap items-center gap-2 font-[Manrope] text-xl font-bold tracking-tight">
                 {patientName} <StatusBadge tone={statusTone(appointment.status)}>{statusLabel(appointment.status)}</StatusBadge>
               </DialogTitle>
@@ -53,7 +53,7 @@ export function AppointmentDetails({ appointment, patientName, procedures, onClo
               </Row>
               {typeof appointment.notes === 'string' && appointment.notes && <Row icon={<StickyNote className="size-4" />} label="Observações">{appointment.notes}</Row>}
             </div>
-            {confirming && <p role="alert" className="m-0 rounded-md bg-[#f8e4e1] p-3 text-sm text-[#8a2a1f]">Excluir este agendamento? Essa ação não pode ser desfeita.</p>}
+            {confirming && <p role="alert" className="m-0 rounded-lg bg-[#f8e4e1] p-3 text-sm text-[#8a2a1f]">Excluir este agendamento? Essa ação não pode ser desfeita.</p>}
             <DialogFooter>
               {confirming ? (
                 <>

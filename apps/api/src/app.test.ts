@@ -134,6 +134,25 @@ describe('API integration with MongoDB', () => {
     expect((await post('/api/followups', { patientId: String(patient._id), offerType: 'combo', offerId: String(combo._id) })).status).toBe(201);
     expect(await Followup.countDocuments()).toBe(2);
   });
+  it('versions contracts like anamnesis forms: edits, rollbacks with origin and settings without a new version', async () => {
+    const procedure = await Procedure.create({ name: 'Peeling', baseSessions: 1, priceCents: 1000, sessionSchema: { type: 'object', properties: {} }, versions: [] });
+    const patch = (id: string, body: unknown) => app.request(`/api/contracts/${id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    expect((await post('/api/contracts', { title: 'x', kind: 'standard', content: 'a' })).status).toBe(400);
+    expect((await post('/api/contracts', { title: 'Contrato', kind: 'standard', content: '  ' })).status).toBe(400);
+    expect((await post('/api/contracts', { title: 'Contrato do peeling', kind: 'procedure', content: 'a' })).status).toBe(400);
+    const contract = await (await post('/api/contracts', { title: 'Contrato do peeling', kind: 'procedure', procedureId: String(procedure._id), content: 'Texto v1' })).json() as any;
+    expect(contract).toMatchObject({ kind: 'procedure', versions: [{ version: 1, origin: 'created' }] });
+    expect((await post(`/api/contracts/${contract._id}/versions`, { content: '' })).status).toBe(400);
+    expect(await (await post(`/api/contracts/${contract._id}/versions`, { content: 'Texto v2' })).json()).toMatchObject({ version: 2, origin: 'edited', content: 'Texto v2' });
+    expect(await (await post(`/api/contracts/${contract._id}/versions`, { restoreVersion: 1 })).json()).toMatchObject({ version: 3, origin: 'restored', restoredFromVersion: 1, content: 'Texto v1' });
+    expect((await post(`/api/contracts/${contract._id}/versions`, { restoreVersion: 9 })).status).toBe(404);
+    const renamed = await patch(contract._id, { title: 'Contrato do peeling leve', active: false });
+    expect(await renamed.json()).toMatchObject({ title: 'Contrato do peeling leve', active: false, procedureId: String(procedure._id) });
+    expect(((await (await patch(contract._id, { kind: 'standard' })).json()) as any)).toMatchObject({ kind: 'standard', procedureId: null });
+    expect((await patch(contract._id, { kind: 'combo' })).status).toBe(400);
+    const stored = await (await app.request('/api/contracts')).json() as any[];
+    expect(stored[0].versions).toHaveLength(3);
+  });
   it('creates catalog plans and starts an followup with plan contracts and validity', async () => {
     const patient = await Patient.create({ fullName: 'Ana Teste' });
     const massage = await Procedure.create({ name: 'Massagem', baseSessions: 1, priceCents: 8000, sessionSchema: { type: 'object', properties: {} }, versions: [] });

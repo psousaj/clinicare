@@ -273,6 +273,73 @@ describe('Field types', () => {
   });
 });
 
+describe('Contract edit and versions', () => {
+  const contract = () => ({
+    _id: 'c1',
+    title: 'Contrato padrão',
+    kind: 'standard',
+    active: true,
+    versions: [
+      { version: 1, content: 'Texto original', origin: 'created', createdAt: '2026-01-01T10:00:00Z' },
+      { version: 2, content: 'Texto revisado', origin: 'restored', restoredFromVersion: 1, createdAt: '2026-02-01T10:00:00Z' },
+    ],
+  });
+
+  it('lists contracts with the current version and its origin', async () => {
+    routes['GET /api/contracts'] = () => [contract()];
+    renderAt('/contratos');
+    expect(await screen.findByText(/2 versões · atual v2 \(rollback da v1\)/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /editar/i })).toHaveAttribute('href', '/contratos/c1');
+  });
+
+  it('shows a live preview and saves a text change as a new version', async () => {
+    routes['GET /api/contracts'] = () => [contract()];
+    routes['POST /api/contracts/c1/versions'] = () => ({});
+    const user = userEvent.setup();
+    renderAt('/contratos/c1');
+    const text = await screen.findByLabelText('Texto do contrato');
+    expect(screen.getByText(/^Editando a/)).toHaveTextContent('Editando a v2 (rollback da v1). Alterações no texto geram a v3');
+    await user.click(screen.getByRole('button', { name: /salvar alterações/i }));
+    expect(await screen.findByText('Nenhuma alteração para salvar.')).toBeInTheDocument();
+    expect(calls.some((call) => call.method === 'POST')).toBe(false);
+    await user.clear(text);
+    await user.type(text, 'Texto novo');
+    expect(within(screen.getByRole('region', { name: /prévia do contrato/i })).getByText('Texto novo')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /salvar alterações/i }));
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST')).toMatchObject({ url: '/api/contracts/c1/versions', body: { content: 'Texto novo' } }));
+    expect(calls.some((call) => call.method === 'PATCH')).toBe(false);
+  });
+
+  it('restores a chosen version as a new one (rollback)', async () => {
+    routes['GET /api/contracts'] = () => [contract()];
+    routes['POST /api/contracts/c1/versions'] = () => ({});
+    const user = userEvent.setup();
+    renderAt('/contratos');
+    await user.click(await screen.findByRole('button', { name: /versões/i }));
+    const list = await screen.findByRole('radiogroup', { name: /versões disponíveis/i });
+    expect(within(list).getByRole('radio', { name: /v2.*rollback da v1.*atual/i })).toBeDisabled();
+    await user.click(within(list).getByRole('radio', { name: /^v1\s*Criada/i }));
+    expect(screen.getByText(/será criada a/i)).toHaveTextContent('v3 como cópia da v1');
+    await user.click(screen.getByRole('button', { name: /fazer rollback/i }));
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ restoreVersion: 1 }));
+  });
+
+  it('requires the procedure when the contract is specific to one', async () => {
+    routes['GET /api/procedures'] = () => [{ _id: 'pr1', name: 'Peeling', baseSessions: 1, priceCents: 1000, versions: [] }];
+    routes['POST /api/contracts'] = () => ({});
+    const user = userEvent.setup();
+    renderAt('/contratos/novo');
+    await user.type(await screen.findByLabelText('Nome do contrato'), 'Contrato do peeling');
+    await user.selectOptions(screen.getByLabelText('Aplicação'), 'procedure');
+    await user.type(screen.getByLabelText('Texto do contrato'), 'Cláusulas');
+    await user.click(screen.getByRole('button', { name: /salvar contrato/i }));
+    expect(await screen.findByText('Escolha o procedimento deste contrato.')).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Procedimento'), 'pr1');
+    await user.click(screen.getByRole('button', { name: /salvar contrato/i }));
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ kind: 'procedure', procedureId: 'pr1', comboId: null, content: 'Cláusulas' }));
+  });
+});
+
 describe('Anamnesis edit and versions', () => {
   const schema = (title: string) => ({ type: 'object', properties: { alergias_ab12: { type: 'string', title, 'x-kind': 'text' } } });
   const facial = () => ({

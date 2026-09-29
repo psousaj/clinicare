@@ -39,11 +39,22 @@ export const anamnesisSchema = z.looseObject({
   procedureIds: z.array(refId).default([]),
   versions: z.array(anamnesisVersionSchema),
 });
+export const contractVersionSchema = z.looseObject({
+  id: z.string().optional(),
+  version: z.number(),
+  content: z.string().nullish(),
+  origin: z.enum(['created', 'edited', 'restored']).nullish(),
+  restoredFromVersion: z.number().nullish(),
+  createdAt: z.string().nullish(),
+});
 export const contractSchema = z.looseObject({
   id: z.string(),
   title: z.string(),
-  kind: z.string(),
-  versions: z.array(z.looseObject({ version: z.number() })),
+  kind: z.enum(['standard', 'procedure', 'combo']),
+  procedureId: refId.nullish(),
+  comboId: refId.nullish(),
+  active: z.boolean().default(true),
+  versions: z.array(contractVersionSchema),
 });
 export const comboSchema = z.looseObject({
   id: z.string(),
@@ -161,6 +172,7 @@ export type Patient = z.infer<typeof patientSchema>;
 export type Procedure = z.infer<typeof procedureSchema>;
 export type Anamnesis = z.infer<typeof anamnesisSchema>;
 export type Contract = z.infer<typeof contractSchema>;
+export type ContractVersion = z.infer<typeof contractVersionSchema>;
 export type AnamnesisVersion = z.infer<typeof anamnesisVersionSchema>;
 export type Combo = z.infer<typeof comboSchema>;
 export type FollowupItem = z.infer<typeof followupItemSchema>;

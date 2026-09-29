@@ -9,5 +9,5 @@ const tones: Record<Tone, string> = {
 };
 
 export function StatusBadge({ tone, children }: { tone: Tone; children: string }) {
-  return <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold', tones[tone])}>{children}</span>;
+  return <span className={cn('inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold tracking-wide', tones[tone])}>{children}</span>;
 }

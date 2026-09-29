@@ -77,7 +77,16 @@ export const useUpdateAnamnesis = () =>
   });
 export const useCreateContract = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/contracts', body), invalidate: [keys.contracts], success: 'Contrato criado.' });
 export const useRestoreContract = () =>
-  useApiMutation({ mutationFn: ({ id, version }: { id: string; version: number }) => post(`/api/contracts/${id}/versions`, { restoreVersion: version }), invalidate: [keys.contracts], success: 'Nova versão criada.' });
+  useApiMutation({ mutationFn: ({ id, version }: { id: string; version: number }) => post(`/api/contracts/${id}/versions`, { restoreVersion: version }), invalidate: [keys.contracts], success: (_, { version }) => `Rollback feito: nova versão criada a partir da v${version}.` });
+export const useUpdateContract = () =>
+  useApiMutation({
+    mutationFn: async ({ id, settings, content }: { id: string; settings?: { title: string; kind: string; procedureId?: string | null; comboId?: string | null }; content?: string }) => {
+      if (settings) await api(`/api/contracts/${id}`, { method: 'PATCH', body: settings, schema: anySchema });
+      if (content !== undefined) await post(`/api/contracts/${id}/versions`, { content });
+    },
+    invalidate: [keys.contracts, keys.followups],
+    success: 'Contrato atualizado.',
+  });
 export const useUpdateProcedure = () =>
   useApiMutation({ mutationFn: ({ id, ...body }: { id: string } & Record<string, unknown>) => api(`/api/procedures/${id}`, { method: 'PUT', body, schema: anySchema }), invalidate: [keys.procedures], success: 'Procedimento atualizado.' });
 export const useUpdateCombo = () =>

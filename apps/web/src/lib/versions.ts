@@ -1,6 +1,8 @@
 import type { AnamnesisVersion } from '@/lib/schemas';
 
-export function originLabel(version: AnamnesisVersion) {
+export type VersionOrigin = { origin?: 'created' | 'edited' | 'restored' | null; restoredFromVersion?: number | null };
+
+export function originLabel(version: VersionOrigin) {
   if (version.origin === 'restored') return `Rollback da v${version.restoredFromVersion}`;
   return version.origin === 'edited' ? 'Editada' : 'Criada';
 }

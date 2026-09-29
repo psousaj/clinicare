@@ -15,6 +15,7 @@ import { Route as AppAgendaRouteImport } from './routes/_app/agenda'
 import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
 import { Route as FormularioTokenRouteImport } from './routes/formulario.$token'
 import { Route as AppContratosIndexRouteImport } from './routes/_app/contratos/index'
+import { Route as AppContratosContractIdRouteImport } from './routes/_app/contratos/$contractId'
 import { Route as AppContratosNovoRouteImport } from './routes/_app/contratos/novo'
 import { Route as AppFormulariosAnamneseIndexRouteImport } from './routes/_app/formularios-anamnese/index'
 import { Route as AppFormulariosAnamneseAnamnesisIdRouteImport } from './routes/_app/formularios-anamnese/$anamnesisId'
@@ -62,6 +63,11 @@ const FormularioTokenRoute = FormularioTokenRouteImport.update({
 const AppContratosIndexRoute = AppContratosIndexRouteImport.update({
   id: '/contratos/',
   path: '/contratos/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppContratosContractIdRoute = AppContratosContractIdRouteImport.update({
+  id: '/contratos/$contractId',
+  path: '/contratos/$contractId',
   getParentRoute: () => AppRoute,
 } as any)
 const AppContratosNovoRoute = AppContratosNovoRouteImport.update({
@@ -177,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/agenda': typeof AppAgendaRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/formulario/$token': typeof FormularioTokenRoute
+  '/contratos/$contractId': typeof AppContratosContractIdRoute
   '/contratos/novo': typeof AppContratosNovoRoute
   '/formularios-anamnese/$anamnesisId': typeof AppFormulariosAnamneseAnamnesisIdRoute
   '/formularios-anamnese/nova': typeof AppFormulariosAnamneseNovaRoute
@@ -203,6 +210,7 @@ export interface FileRoutesByTo {
   '/financeiro': typeof AppFinanceiroRoute
   '/formulario/$token': typeof FormularioTokenRoute
   '/': typeof AppIndexRoute
+  '/contratos/$contractId': typeof AppContratosContractIdRoute
   '/contratos/novo': typeof AppContratosNovoRoute
   '/formularios-anamnese/$anamnesisId': typeof AppFormulariosAnamneseAnamnesisIdRoute
   '/formularios-anamnese/nova': typeof AppFormulariosAnamneseNovaRoute
@@ -231,6 +239,7 @@ export interface FileRoutesById {
   '/_app/financeiro': typeof AppFinanceiroRoute
   '/formulario/$token': typeof FormularioTokenRoute
   '/_app/': typeof AppIndexRoute
+  '/_app/contratos/$contractId': typeof AppContratosContractIdRoute
   '/_app/contratos/novo': typeof AppContratosNovoRoute
   '/_app/formularios-anamnese/$anamnesisId': typeof AppFormulariosAnamneseAnamnesisIdRoute
   '/_app/formularios-anamnese/nova': typeof AppFormulariosAnamneseNovaRoute
@@ -259,6 +268,7 @@ export interface FileRouteTypes {
     | '/agenda'
     | '/financeiro'
     | '/formulario/$token'
+    | '/contratos/$contractId'
     | '/contratos/novo'
     | '/formularios-anamnese/$anamnesisId'
     | '/formularios-anamnese/nova'
@@ -285,6 +295,7 @@ export interface FileRouteTypes {
     | '/financeiro'
     | '/formulario/$token'
     | '/'
+    | '/contratos/$contractId'
     | '/contratos/novo'
     | '/formularios-anamnese/$anamnesisId'
     | '/formularios-anamnese/nova'
@@ -312,6 +323,7 @@ export interface FileRouteTypes {
     | '/_app/financeiro'
     | '/formulario/$token'
     | '/_app/'
+    | '/_app/contratos/$contractId'
     | '/_app/contratos/novo'
     | '/_app/formularios-anamnese/$anamnesisId'
     | '/_app/formularios-anamnese/nova'
@@ -381,6 +393,13 @@ declare module '@tanstack/react-router' {
       path: '/contratos'
       fullPath: '/contratos/'
       preLoaderRoute: typeof AppContratosIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/contratos/$contractId': {
+      id: '/_app/contratos/$contractId'
+      path: '/contratos/$contractId'
+      fullPath: '/contratos/$contractId'
+      preLoaderRoute: typeof AppContratosContractIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/contratos/novo': {
@@ -523,6 +542,7 @@ interface AppRouteChildren {
   AppAgendaRoute: typeof AppAgendaRoute
   AppFinanceiroRoute: typeof AppFinanceiroRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppContratosContractIdRoute: typeof AppContratosContractIdRoute
   AppContratosNovoRoute: typeof AppContratosNovoRoute
   AppFormulariosAnamneseAnamnesisIdRoute: typeof AppFormulariosAnamneseAnamnesisIdRoute
   AppFormulariosAnamneseNovaRoute: typeof AppFormulariosAnamneseNovaRoute
@@ -549,6 +569,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAgendaRoute: AppAgendaRoute,
   AppFinanceiroRoute: AppFinanceiroRoute,
   AppIndexRoute: AppIndexRoute,
+  AppContratosContractIdRoute: AppContratosContractIdRoute,
   AppContratosNovoRoute: AppContratosNovoRoute,
   AppFormulariosAnamneseAnamnesisIdRoute:
     AppFormulariosAnamneseAnamnesisIdRoute,

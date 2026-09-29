@@ -19,8 +19,9 @@
 .calendar-wrap .fc .fc-toolbar { margin-bottom: 16px; gap: 8px; flex-wrap: wrap; }
 .calendar-wrap .fc .fc-toolbar-title { font: 700 18px/1.2 Manrope, sans-serif; letter-spacing: -0.01em; color: #25312d; }
 .calendar-wrap .fc .fc-button {
-  height: 34px; padding: 0 12px; border-radius: 8px; font: 500 13px 'DM Sans', sans-serif;
+  height: 36px; padding: 0 14px; border-radius: 8px; font: 500 13px 'DM Sans', sans-serif;
   text-transform: capitalize; box-shadow: none; display: inline-flex; align-items: center; justify-content: center;
+  transition: all 160ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .calendar-wrap .fc .fc-button-group { gap: 0; }
 .calendar-wrap .fc .fc-button-group > .fc-button { border-radius: 0; }
@@ -43,8 +44,8 @@
 .calendar-wrap .fc .fc-highlight { background: rgb(38 120 95 / 0.12); }
 .calendar-wrap .fc .fc-timegrid-col.fc-day-today { background: #f3f8f5; }
 
-.calendar-wrap .fc .fc-event { border-radius: 8px; border: 0; box-shadow: none; cursor: pointer; overflow: hidden; transition: filter 0.15s; }
-.calendar-wrap .fc .fc-event:hover { filter: brightness(0.97); }
+.calendar-wrap .fc .fc-event { border-radius: 8px; border: 0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer; overflow: hidden; transition: filter 0.15s ease-out, transform 0.15s ease-out; }
+.calendar-wrap .fc .fc-event:hover { filter: brightness(0.97); transform: translateY(-1px); }
 .calendar-wrap .fc .fc-timegrid-event .fc-event-main { padding: 0; }
 .appt { display: grid; gap: 1px; height: 100%; padding: 6px 8px 6px 10px; border-left: 3px solid var(--appt-accent); background: var(--appt-bg); color: var(--appt-ink); line-height: 1.25; }
 .appt strong { font: 700 12px 'DM Sans', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

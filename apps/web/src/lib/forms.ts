@@ -15,7 +15,6 @@ export const procedureForm = z.object({
   price: reais('Preço'),
 });
 export const anamnesisForm = z.object({ title: text('Nome do formulário') });
-export const contractForm = z.object({ title: text('Nome do documento'), kind: z.enum(['standard', 'procedure', 'combo']), content: z.string() });
 export const comboForm = z.object({
   name: text('Nome'),
   description: optionalText,

@@ -249,7 +249,7 @@ Documento adicional associado a um procedimento ou combo específico, apresentad
 _Avoid_: contrato da guia
 
 **Versão de contrato**:
-Estado imutável de um contrato em um momento específico. Versões podem ser consultadas, e restaurar uma versão anterior cria uma nova versão com o próximo número; nenhuma versão existente é sobrescrita.
+Estado imutável de um contrato em um momento específico. Versões podem ser consultadas, e restaurar uma versão anterior cria uma nova versão com o próximo número; nenhuma versão existente é sobrescrita. Segue o mesmo fluxo do formulário de anamnese: editar o texto gera a próxima versão (origem "Editada"); o rollback copia a versão escolhida como nova versão (origem "Rollback da vN", com a versão de origem registrada); mudar só nome, aplicação ou procedimento/combo não cria versão. Acompanhamentos já iniciados mantêm o texto congelado da versão que usaram.
 _Avoid_: revisão, cópia (quando se referir à sequência oficial do contrato)
 
 **Contrato aplicado**:

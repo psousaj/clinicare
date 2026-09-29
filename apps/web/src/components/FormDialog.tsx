@@ -37,9 +37,9 @@ export function FormDialog({ open, onOpenChange, title, kicker, description, sub
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={cn('max-h-[90vh] overflow-y-auto', wide && 'sm:max-w-3xl')}>
-        <form onSubmit={handleSubmit} className="grid gap-4">
+        <form onSubmit={handleSubmit} className="grid gap-5">
           <DialogHeader>
-            {kicker && <div className="text-[10px] font-semibold tracking-widest text-primary">{kicker}</div>}
+            {kicker && <div className="text-[10px] font-bold tracking-[0.15em] uppercase text-primary">{kicker}</div>}
             <DialogTitle className="font-[Manrope] text-xl font-bold tracking-tight">{title}</DialogTitle>
             {description ? <DialogDescription>{description}</DialogDescription> : <DialogDescription className="sr-only">{title}</DialogDescription>}
           </DialogHeader>

@@ -76,7 +76,7 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
         {lockedPatientId ? (
           <>
             <input type="hidden" name="patientId" value={lockedPatientId} />
-            <div className="flex h-9 items-center rounded-md border border-border bg-muted px-3 text-sm">{patients.find((patient) => patient.id === lockedPatientId)?.fullName}</div>
+            <div className="flex h-9 items-center rounded-lg border border-border bg-muted px-3 text-sm">{patients.find((patient) => patient.id === lockedPatientId)?.fullName}</div>
           </>
         ) : (
           <NativeSelect name="patientId" required value={patientId} onChange={(event) => { setPatientId(event.target.value); setQuantities({}); }}>
@@ -91,14 +91,14 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
           <Field label="Fim"><TimePicker name="end" value={end} onChange={setEnd} /></Field>
         </div>
       )}
-      <div role="status" className="rounded-md border border-border p-3">
+      <div role="status" className="rounded-lg border border-border p-3">
         <div className="flex items-center justify-between text-sm">
           <strong>Tempo da sessão</strong>
           <span className={left < 0 ? 'font-semibold text-destructive' : 'text-muted-foreground'}>{capacity > 0 ? `${used} de ${capacity} min usados` : 'Defina o horário para ver o tempo disponível'}</span>
         </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted"><div className={left < 0 ? 'h-full bg-destructive' : 'h-full bg-primary'} style={{ width: `${capacity > 0 ? Math.min(100, (used / capacity) * 100) : 0}%` }} /></div>
+        <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted"><div className={left < 0 ? 'h-full rounded-full bg-destructive transition-[width] duration-300 ease-out' : 'h-full rounded-full bg-primary transition-[width] duration-300 ease-out'} style={{ width: `${capacity > 0 ? Math.min(100, (used / capacity) * 100) : 0}%` }} /></div>
       </div>
-      {pending.length > 0 && <p role="alert" className="m-0 rounded-md bg-amber-50 p-3 text-sm text-amber-900">Procedimentos bloqueados por anamnese pendente ({pending.join(", ")}). Conclua na ficha do paciente para liberar o agendamento.</p>}
+      {pending.length > 0 && <p role="alert" className="m-0 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Procedimentos bloqueados por anamnese pendente ({pending.join(", ")}). Conclua na ficha do paciente para liberar o agendamento.</p>}
       <fieldset className="m-0 grid gap-2 border-0 p-0">
         <legend className="mb-1 text-sm font-medium">Procedimentos dos acompanhamentos</legend>
         {mine.length === 0 && <p className="m-0 text-sm text-muted-foreground">Nenhum combo ou plano ativo para este paciente.</p>}
@@ -108,7 +108,7 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
             {followup.items.map((item) => {
               const key = `f:${item.id}`, minutes = minutesOfItem(item), quantity = quantities[key] ?? 0, max = item.sessionsTotal - item.sessionsPerformed;
               return (
-                <div key={item.id} className="flex items-center gap-3 rounded-md border border-border px-3 py-2">
+                <div key={item.id} className="flex items-center gap-3 rounded-lg border border-border px-3 py-2.5">
                   <div className="flex-1 text-sm"><strong>{item.procedureName}</strong><div className="text-xs text-muted-foreground">{minutes} min por sessão · {item.sessionsPerformed}/{item.sessionsTotal} realizadas</div></div>
                   <Input aria-label={`Sessões de ${item.procedureName} (${followup.offerName})`} className="w-20" type="number" min={0} max={Math.min(max, quantity + Math.floor(Math.max(left, 0) / minutes))} disabled={followup.blocked} value={quantity} onChange={(event) => change(key, Math.max(0, Math.min(max, Number(event.target.value) || 0)))} />
                 </div>
@@ -123,7 +123,7 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
         {avulsos.map((procedure) => {
           const key = `p:${procedure.id}`, minutes = minutesOf(procedure.id), checked = (quantities[key] ?? 0) > 0;
           return (
-            <Label key={procedure.id} className="cursor-pointer gap-3 rounded-md border border-border px-3 py-2">
+            <Label key={procedure.id} className="cursor-pointer gap-3 rounded-lg border border-border px-3 py-2.5 transition-colors duration-150 hover:bg-muted/40">
               <Checkbox checked={checked} disabled={!checked && (!fits(minutes) || blockedStandalone.has(procedure.id))} onCheckedChange={(value) => change(key, value === true ? 1 : 0)} />
               <span className="flex-1 text-sm"><strong>{procedure.name}</strong> <span className="text-xs text-muted-foreground">· {minutes} min</span></span>
             </Label>
@@ -167,7 +167,7 @@ function OfferFields({ lockedPatientId, patients, combos, plans }: { lockedPatie
         {lockedPatientId ? (
           <>
             <input type="hidden" name="patientId" value={lockedPatientId} />
-            <div className="flex h-9 items-center rounded-md border border-border bg-muted px-3 text-sm">{patients.find((patient) => patient.id === lockedPatientId)?.fullName}</div>
+            <div className="flex h-9 items-center rounded-lg border border-border bg-muted px-3 text-sm">{patients.find((patient) => patient.id === lockedPatientId)?.fullName}</div>
           </>
         ) : (
           <NativeSelect name="patientId" required>

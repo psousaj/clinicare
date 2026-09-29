@@ -30,8 +30,8 @@ function comboStatus(combo: Combo): { label: string; tone: Tone } {
   return combo.promotionalPriceCents != null ? { label: 'Promocional', tone: 'success' } : { label: 'Ativo', tone: 'success' };
 }
 
-const th = 'px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground';
-const td = 'px-3 py-3 align-middle';
+const th = 'px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground';
+const td = 'px-3 py-3.5 align-middle';
 
 function Catalog() {
   const { aba, q = '', status } = Route.useSearch();
@@ -80,7 +80,7 @@ function Catalog() {
         <div className="mb-3 flex flex-wrap items-center gap-3">
           <div role="tablist" aria-label="Catálogo" className="inline-flex rounded-lg bg-muted p-1">
             {([['procedimentos', `Procedimentos (${procedureList.length})`], ['combos', `Combos (${comboList.length})`]] as const).map(([value, label]) => (
-              <button key={value} type="button" role="tab" aria-selected={aba === value} onClick={() => setSearch({ aba: value })} className={cn('cursor-pointer rounded-md border-0 px-3 py-1.5 text-sm font-medium', aba === value ? 'bg-background text-foreground shadow-xs' : 'bg-transparent text-muted-foreground hover:text-foreground')}>{label}</button>
+              <button key={value} type="button" role="tab" aria-selected={aba === value} onClick={() => setSearch({ aba: value })} className={cn('cursor-pointer rounded-lg border-0 px-3.5 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-[200ms] ease-[cubic-bezier(0.23,1,0.32,1)]', aba === value ? 'bg-background text-foreground shadow-sm' : 'bg-transparent text-muted-foreground hover:text-foreground')}>{label}</button>
             ))}
           </div>
           <label className="search-box m-0 min-w-56 flex-1">
@@ -102,7 +102,7 @@ function Catalog() {
               <thead><tr className="border-b border-border"><th className={th}>Procedimento</th><th className={th}>Tipo</th><th className={th}>Sessões</th><th className={th}>Duração</th><th className={th}>Anamneses</th><th className={cn(th, 'text-right')}>Preço</th><th className={th}>Situação</th><th className={th}><span className="sr-only">Ações</span></th></tr></thead>
               <tbody>
                 {shownProcedures.map((procedure) => (
-                  <tr key={procedure.id} className={cn('border-b border-border hover:bg-muted/40', procedure.active === false && 'opacity-70')}>
+                  <tr key={procedure.id} className={cn('border-b border-border transition-colors duration-150 hover:bg-muted/40', procedure.active === false && 'opacity-70')}>
                     <td className={td}>
                       <Link to="/procedimentos/$procedureId" params={{ procedureId: procedure.id }} className="font-semibold text-foreground no-underline hover:text-primary">{procedure.name}</Link>
                       {procedure.description && <div className="max-w-xs truncate text-xs text-muted-foreground">{procedure.description}</div>}
@@ -133,7 +133,7 @@ function Catalog() {
                 {shownCombos.map((combo) => {
                   const state = comboStatus(combo);
                   return (
-                    <tr key={combo.id} className={cn('border-b border-border hover:bg-muted/40', combo.active === false && 'opacity-70')}>
+                    <tr key={combo.id} className={cn('border-b border-border transition-colors duration-150 hover:bg-muted/40', combo.active === false && 'opacity-70')}>
                       <td className={td}>
                         <Link to="/procedimentos/combos/$comboId" params={{ comboId: combo.id }} className="font-semibold text-foreground no-underline hover:text-primary">{combo.name}</Link>
                         {combo.description && <div className="max-w-xs truncate text-xs text-muted-foreground">{combo.description}</div>}

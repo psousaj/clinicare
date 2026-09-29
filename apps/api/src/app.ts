@@ -108,6 +108,20 @@ async function dropUnusedStandalone(appointment: any) {
     await Promise.all([Followup.deleteOne({ _id: followup._id }), PatientAnamnesis.deleteMany({ followupId: followup._id, 'response.submittedAt': null })]);
   }
 }
+// Contrato padrão vale para todos; o específico precisa apontar para um procedimento ou combo existente.
+async function contractTarget(input: any): Promise<{ procedureId: unknown; comboId: unknown } | { error: string; status: 400 | 404 }> {
+  if (input.kind === 'procedure') {
+    if (!isValidObjectId(input.procedureId)) return { error: 'Escolha o procedimento do contrato.', status: 400 };
+    if (!await Procedure.exists({ _id: input.procedureId })) return { error: 'Procedimento não encontrado.', status: 404 };
+    return { procedureId: input.procedureId, comboId: null };
+  }
+  if (input.kind === 'combo') {
+    if (!isValidObjectId(input.comboId)) return { error: 'Escolha o combo do contrato.', status: 400 };
+    if (!await Combo.exists({ _id: input.comboId })) return { error: 'Combo não encontrado.', status: 404 };
+    return { procedureId: null, comboId: input.comboId };
+  }
+  return { procedureId: null, comboId: null };
+}
 const monthsFromNow = (months: number) => { const date = new Date(); date.setMonth(date.getMonth() + months); return date; };
 const buildResponse = async (anamnesisId: unknown, answers: Record<string, unknown>) => ({ answers, submittedAt: new Date(), validUntil: monthsFromNow(((await Anamnesis.findById(anamnesisId).lean()) as any)?.validityMonths ?? 12) });
 
@@ -244,16 +258,34 @@ export const app = new Hono()
   })
   .post('/api/contracts', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || typeof body.title !== 'string' || !['standard', 'procedure', 'combo'].includes(body.kind)) return fail(c, 'Contrato inválido.');
-    return c.json(await Contract.create({ ...body, versions: [{ version: 1, content: body.content ?? null, createdAt: new Date() }] }), 201);
+    if (!isRecord(body) || typeof body.title !== 'string' || body.title.trim().length < 2 || !['standard', 'procedure', 'combo'].includes(body.kind)) return fail(c, 'Informe o nome e a aplicação do contrato.');
+    if (typeof body.content !== 'string' || !body.content.trim()) return fail(c, 'Informe o conteúdo do contrato.');
+    const target = await contractTarget(body);
+    if ('error' in target) return fail(c, target.error, target.status);
+    return c.json(await Contract.create({ title: body.title.trim(), kind: body.kind, ...target, versions: [{ version: 1, content: body.content, origin: 'created', createdAt: new Date() }] }), 201);
+  })
+  .patch('/api/contracts/:id', async (c) => {
+    const contract = isValidObjectId(c.req.param('id')) ? await Contract.findById(c.req.param('id')) : null;
+    if (!contract) return fail(c, 'Contrato não encontrado.', 404);
+    const body = await c.req.json().catch(() => null);
+    if (!isRecord(body) || (body.title !== undefined && (typeof body.title !== 'string' || body.title.trim().length < 2)) || (body.active !== undefined && typeof body.active !== 'boolean') || (body.kind !== undefined && !['standard', 'procedure', 'combo'].includes(body.kind))) return fail(c, 'Dados do contrato inválidos.');
+    const target = await contractTarget({ kind: body.kind ?? contract.kind, procedureId: body.procedureId ?? (body.kind ? undefined : contract.procedureId), comboId: body.comboId ?? (body.kind ? undefined : contract.comboId) });
+    if ('error' in target) return fail(c, target.error, target.status);
+    if (body.title !== undefined) contract.title = body.title.trim();
+    if (body.active !== undefined) contract.active = body.active;
+    contract.kind = body.kind ?? contract.kind; contract.set(target);
+    await contract.save(); return c.json(contract.toObject());
   })
   .post('/api/contracts/:id/versions', async (c) => {
-    const contract = await Contract.findById(c.req.param('id'));
+    const contract = isValidObjectId(c.req.param('id')) ? await Contract.findById(c.req.param('id')) : null;
     if (!contract) return fail(c, 'Contrato não encontrado.', 404);
-    const body = await c.req.json().catch(() => null), source = contract.versions.find((v: any) => v.version === body?.restoreVersion);
-    const content = source?.content ?? body?.content;
-    if (typeof content !== 'string') return fail(c, 'Conteúdo do contrato inválido.');
-    contract.versions.push({ version: (contract.versions.at(-1)?.version ?? 0) + 1, content, createdAt: new Date() }); await contract.save();
+    const body = await c.req.json().catch(() => null), restoring = Number.isInteger(body?.restoreVersion);
+    const source: any = restoring ? contract.versions.find((v: any) => v.version === body.restoreVersion) : null;
+    if (restoring && !source) return fail(c, 'Versão não encontrada.', 404);
+    const content = source ? source.content : body?.content;
+    if (typeof content !== 'string' || !content.trim()) return fail(c, 'Conteúdo do contrato inválido.');
+    contract.versions.push({ version: (contract.versions.at(-1)?.version ?? 0) + 1, content, sourceObjectKey: source?.sourceObjectKey ?? null, origin: source ? 'restored' : 'edited', restoredFromVersion: source?.version ?? null, createdAt: new Date() });
+    await contract.save();
     return c.json(contract.versions.at(-1), 201);
   })
   .get('/api/plans', async (c) => c.json(await Plan.find().sort({ createdAt: -1 }).lean()))
