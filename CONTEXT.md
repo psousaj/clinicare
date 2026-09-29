@@ -41,11 +41,11 @@ Pessoa que realiza ou pretende realizar procedimentos na clínica e cujos dados,
 _Avoid_: cliente (como termo principal do domínio)
 
 **Procedimento**:
-Oferta individual de uma intervenção estética, com duração por sessão obrigatória e um número base de sessões, que pode ser sobrescrito por um combo. É **avulso** quando pode ser realizado em uma única sessão sem contrato; caso contrário é um procedimento que só faz sentido em combo ou plano (mínimo de 2 sessões). Os botões de novo atendimento/agendamento oferecem procedimentos avulsos e, para acompanhamentos, combos e planos.
+Oferta individual de uma intervenção estética, com duração por sessão obrigatória e um número base de sessões, que pode ser sobrescrito por um combo. É **avulso** quando pode ser realizado em uma única sessão sem combo ou plano; caso contrário só faz sentido dentro de um combo ou plano (mínimo de 2 sessões). Procedimento avulso também é cobrado e segue a mesma regra de anamnese e validade dos demais: ao ser agendado ou registrado, gera internamente um registro de cobrança de uma única sessão (preço do procedimento, pagamentos, anamnese pendente), exibido como "Atendimento avulso" e não como acompanhamento. Os botões de novo atendimento/agendamento oferecem procedimentos avulsos e, para acompanhamentos, combos e planos.
 _Avoid_: sessão, combo
 
 **Acompanhamento**:
-Registro iniciado pelo profissional na ficha do paciente ("Novo acompanhamento") a partir de um combo ou de um plano (procedimento avulso não gera acompanhamento). Congela as condições comerciais (itens, sessões, preço, validade), deriva os contratos e as anamneses exigidos e reúne atendimentos e pagamentos. Um paciente pode ter vários acompanhamentos, inclusive da mesma oferta.
+Registro iniciado pelo profissional na ficha do paciente ("Novo acompanhamento") a partir de um combo ou de um plano (procedimento avulso tem apenas o registro interno de cobrança, sem ser um acompanhamento). Congela as condições comerciais (itens, sessões, preço, validade), deriva os contratos e as anamneses exigidos e reúne atendimentos e pagamentos. Um paciente pode ter vários acompanhamentos, inclusive da mesma oferta.
 _Avoid_: tratamento, plano aplicado, contratação, pedido, atendimento (nome antigo)
 
 **Plano**:
@@ -53,7 +53,7 @@ Oferta de catálogo, distinta do combo, que agrupa procedimentos e/ou combos e c
 _Avoid_: combo, acompanhamento
 
 **Atendimento**:
-Realização de um procedimento, registrada pelo profissional, pertencente a um acompanhamento (combo ou plano) ou avulsa (sem acompanhamento, contrato ou pagamento), e opcionalmente relacionada a um agendamento. Cada procedimento realizado gera seu próprio atendimento, mesmo quando vários fazem parte do mesmo agendamento. Não existe atendimento parcialmente realizado. No código e na API o registro ainda se chama `Session` / `/api/sessions`.
+Realização de um procedimento, registrada pelo profissional, pertencente a um acompanhamento (combo ou plano) ou avulsa (com registro de cobrança próprio de uma sessão), e opcionalmente relacionada a um agendamento. Cada procedimento realizado gera seu próprio atendimento, mesmo quando vários fazem parte do mesmo agendamento. Não existe atendimento parcialmente realizado. No código o registro se chama `Attendance` (`/api/attendances`).
 _Avoid_: consulta, sessão parcial
 
 **Sessão**:
@@ -120,7 +120,7 @@ Cópia gerada de um documento modelo para um paciente ou plano específico, pres
 _Avoid_: documento dinâmico, template preenchido
 
 **Agendamento**:
-Compromisso planejado no calendário semanal (grade de 1 hora), com início e fim escolhidos pelo profissional, que define a duração da sessão. Vale para qualquer coisa: procedimentos avulsos e/ou atendimentos de acompanhamentos (combo ou plano) do paciente. Cada item indica o procedimento e quantas vezes será realizado (mais de uma sessão do mesmo procedimento é permitido); a soma dos minutos dos itens não pode ultrapassar a duração do agendamento. Pode ser remarcado, cancelado ou registrado como não comparecimento sem se confundir com o atendimento realizado. Com acompanhamento ativo, o profissional marca o máximo de itens que couberem no tempo.
+Compromisso planejado no calendário semanal (grade de 1 hora), com início e fim escolhidos pelo profissional, que define a duração da sessão. Vale para qualquer coisa: procedimentos avulsos e/ou atendimentos de acompanhamentos (combo ou plano) do paciente. Cada item indica o procedimento e quantas vezes será realizado (mais de uma sessão do mesmo procedimento é permitido); a soma dos minutos dos itens não pode ultrapassar a duração do agendamento, e a duração de cada item de acompanhamento é a congelada na contratação. Sessões já reservadas em outros agendamentos futuros não podem ser reservadas de novo. Pode ser remarcado, cancelado ou registrado como não comparecimento sem se confundir com o atendimento realizado. Com acompanhamento ativo, o profissional marca o máximo de itens que couberem no tempo.
 _Avoid_: consulta (quando significar o compromisso planejado)
 
 **Duração do procedimento**:

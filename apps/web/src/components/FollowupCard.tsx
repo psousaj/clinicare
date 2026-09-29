@@ -31,7 +31,7 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
             </span>
             {done
               ? <span className="text-xs font-medium text-primary">Concluído</span>
-              : <Link className="text-button" to="/pacientes/$patientId/sessao/$itemId" params={{ patientId, itemId: item.id }}>Registrar atendimento</Link>}
+              : <Link className="text-button" to="/pacientes/$patientId/novo-atendimento/$itemId" params={{ patientId, itemId: item.id }}>Registrar atendimento</Link>}
           </div>
         );
       })}

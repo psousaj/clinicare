@@ -41,7 +41,7 @@ function renderAt(path: string) {
 
 describe('Clinic dashboard', () => {
   it('shows prototype mode, patient entry point and recently attended patients from the API (_id → id)', async () => {
-    routes['GET /api/sessions'] = () => [
+    routes['GET /api/attendances'] = () => [
       { _id: 's2', patientId: { _id: 'p1', fullName: 'Marina Alves' }, procedureName: 'Peeling', performedAt: '2026-09-29T15:00:00Z', schemaSnapshot: {}, photos: [] },
       { _id: 's1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, procedureName: 'Limpeza de pele', performedAt: '2026-09-01T15:00:00Z', schemaSnapshot: {}, photos: [] },
     ];
@@ -55,7 +55,7 @@ describe('Clinic dashboard', () => {
     expect(screen.getAllByRole('link', { name: /Marina Alves/ })).toHaveLength(1);
   });
 
-  it('only lists patients with a performed session as recently attended', async () => {
+  it('only lists patients with a performed attendance as recently attended', async () => {
     renderAt('/');
     expect(await screen.findByText(/Nenhum atendimento realizado ainda/)).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Marina Alves/ })).not.toBeInTheDocument();
@@ -328,13 +328,13 @@ describe('Anamnesis edit and versions', () => {
   });
 });
 
-describe('Session page', () => {
+describe('Attendance page', () => {
   it('records a session from a full page using the procedure fields', async () => {
     routes['GET /api/followups'] = () => [{ _id: 'pl1', patientId: 'p1', offerName: 'Limpeza', priceCents: 1000, payments: [], items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3, sessionSchema: { type: 'object', properties: { produto: { type: 'string', title: 'Produto' } } } }] }];
-    routes['POST /api/sessions'] = () => ({ _id: 's1' });
-    routes['GET /api/sessions/s1'] = () => ({ _id: 's1', patientId: 'p1', procedureName: 'Limpeza de pele', performedAt: '2026-09-29T15:00:00Z', data: {}, schemaSnapshot: { type: 'object', properties: {} }, photos: [] });
+    routes['POST /api/attendances'] = () => ({ _id: 's1' });
+    routes['GET /api/attendances/s1'] = () => ({ _id: 's1', patientId: 'p1', procedureName: 'Limpeza de pele', performedAt: '2026-09-29T15:00:00Z', data: {}, schemaSnapshot: { type: 'object', properties: {} }, photos: [] });
     const user = userEvent.setup();
-    renderAt('/pacientes/p1/sessao/it1');
+    renderAt('/pacientes/p1/novo-atendimento/it1');
     await user.type(await screen.findByLabelText('Produto'), 'Ácido');
     await user.type(screen.getByLabelText('Observações'), 'Sem intercorrências');
     await user.click(screen.getByRole('button', { name: /salvar atendimento/i }));
@@ -365,14 +365,14 @@ describe('Agenda', () => {
   });
 });
 
-describe('Session follow-up', () => {
+describe('Attendance follow-up', () => {
   const session = (photos: unknown[] = []) => ({ _id: 's1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, procedureName: 'Limpeza de pele', performedAt: '2026-09-29T15:00:00Z', notes: 'Pele sensível', data: { produto: 'Ácido' }, schemaSnapshot: { type: 'object', properties: { produto: { type: 'string', title: 'Produto' } } }, photos });
 
-  it('edits notes and data of a performed session', async () => {
-    routes['GET /api/sessions/s1'] = () => session();
-    routes['PATCH /api/sessions/s1'] = () => ({});
+  it('edits notes and data of a performed attendance', async () => {
+    routes['GET /api/attendances/s1'] = () => session();
+    routes['PATCH /api/attendances/s1'] = () => ({});
     const user = userEvent.setup();
-    renderAt('/pacientes/p1/sessoes/s1');
+    renderAt('/pacientes/p1/atendimentos/s1');
     const notes = await screen.findByLabelText(/observações do atendimento/i);
     expect(notes).toHaveValue('Pele sensível');
     await user.clear(notes);
@@ -382,27 +382,27 @@ describe('Session follow-up', () => {
   });
 
   it('attaches a photo (presign → upload → register) and removes another', async () => {
-    routes['GET /api/sessions/s1'] = () => session([{ _id: 'ph1', objectKey: 'uploads/a', phase: 'before', notes: 'Antes do peeling', url: 'https://files.test/a.png' }]);
+    routes['GET /api/attendances/s1'] = () => session([{ _id: 'ph1', objectKey: 'uploads/a', phase: 'before', notes: 'Antes do peeling', url: 'https://files.test/a.png' }]);
     routes['POST /api/uploads/presign'] = () => ({ uploadUrl: 'https://files.test/upload', objectKey: 'uploads/new' });
     routes['PUT https://files.test/upload'] = () => ({});
-    routes['POST /api/sessions/s1/photos'] = () => ({ _id: 'ph2' });
-    routes['DELETE /api/sessions/s1/photos/ph1'] = () => ({ deleted: true });
+    routes['POST /api/attendances/s1/photos'] = () => ({ _id: 'ph2' });
+    routes['DELETE /api/attendances/s1/photos/ph1'] = () => ({ deleted: true });
     const user = userEvent.setup();
-    renderAt('/pacientes/p1/sessoes/s1');
+    renderAt('/pacientes/p1/atendimentos/s1');
     expect(await screen.findByAltText('Antes do peeling')).toHaveAttribute('src', 'https://files.test/a.png');
     await user.click(screen.getByRole('radio', { name: 'Depois' }));
     await user.type(screen.getByLabelText(/legenda da foto/i), 'Resultado');
     await user.upload(screen.getByLabelText(/selecionar fotos/i), new File(['x'], 'depois.png', { type: 'image/png' }));
-    await waitFor(() => expect(calls.find((call) => call.url === '/api/sessions/s1/photos')?.body).toEqual({ objectKey: 'uploads/new', phase: 'after', notes: 'Resultado' }));
+    await waitFor(() => expect(calls.find((call) => call.url === '/api/attendances/s1/photos')?.body).toEqual({ objectKey: 'uploads/new', phase: 'after', notes: 'Resultado' }));
     expect(calls.some((call) => call.method === 'PUT' && call.url === 'https://files.test/upload')).toBe(true);
     await user.click(screen.getByRole('button', { name: /remover foto/i }));
-    await waitFor(() => expect(calls.some((call) => call.method === 'DELETE' && call.url === '/api/sessions/s1/photos/ph1')).toBe(true));
+    await waitFor(() => expect(calls.some((call) => call.method === 'DELETE' && call.url === '/api/attendances/s1/photos/ph1')).toBe(true));
   });
 
   it('rejects files that are not images', async () => {
-    routes['GET /api/sessions/s1'] = () => session();
+    routes['GET /api/attendances/s1'] = () => session();
     const user = userEvent.setup({ applyAccept: false });
-    renderAt('/pacientes/p1/sessoes/s1');
+    renderAt('/pacientes/p1/atendimentos/s1');
     await user.upload(await screen.findByLabelText(/selecionar fotos/i), new File(['x'], 'nota.pdf', { type: 'application/pdf' }));
     expect(calls.some((call) => call.url === '/api/uploads/presign')).toBe(false);
   });
@@ -497,6 +497,23 @@ describe('Acompanhamentos', () => {
 });
 
 describe('Atendimento avulso', () => {
+  it('lists charged standalone procedures apart from acompanhamentos and blocks scheduling while their anamnesis is pending', async () => {
+    const proc = { _id: 'pr1', name: 'Limpeza de pele', baseSessions: 1, durationMinutes: 60, standalone: true, active: true, priceCents: 15000, sessionSchema: {}, versions: [] };
+    routes['GET /api/procedures'] = () => [proc];
+    routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
+    routes['GET /api/followups'] = () => [
+      pendingFollowup({ _id: 'av1', offerType: 'procedure', offerName: 'Limpeza de pele', items: [{ _id: 'it9', procedureId: 'pr1', procedureName: 'Limpeza de pele', sessionsTotal: 1, sessionsPerformed: 0, durationMinutes: 60 }] }),
+    ];
+    const user = userEvent.setup();
+    renderAt('/pacientes/p1');
+    expect(await screen.findByRole('heading', { name: 'Atendimentos avulsos' })).toBeInTheDocument();
+    expect(screen.getAllByText(/Anamnese pendente/).length).toBeGreaterThan(0);
+    await user.click(screen.getByRole('button', { name: /novo agendamento/i }));
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(/anamnese pendente/i);
+    expect(within(dialog).getByRole('checkbox', { name: /Limpeza de pele/ })).toBeDisabled();
+  });
+
   it('picks a standalone procedure from the patient page and opens its registration', async () => {
     routes['GET /api/procedures'] = () => [
       { _id: 'pr1', name: 'Limpeza de pele', baseSessions: 1, durationMinutes: 60, standalone: true, active: true, priceCents: 15000, sessionSchema: {}, versions: [] },
@@ -515,8 +532,8 @@ describe('Atendimento avulso', () => {
 
   it('registers a standalone session without a followup', async () => {
     routes['GET /api/procedures'] = () => [{ _id: 'pr1', name: 'Limpeza de pele', baseSessions: 1, durationMinutes: 45, standalone: true, active: true, priceCents: 15000, sessionSchema: { type: 'object', properties: {} }, versions: [] }];
-    routes['POST /api/sessions'] = () => ({ _id: 's1' });
-    routes['GET /api/sessions/s1'] = () => ({ _id: 's1', patientId: 'p1', procedureName: 'Limpeza de pele', performedAt: '2026-09-29T15:00:00Z', data: {}, schemaSnapshot: { type: 'object', properties: {} }, photos: [] });
+    routes['POST /api/attendances'] = () => ({ _id: 's1' });
+    routes['GET /api/attendances/s1'] = () => ({ _id: 's1', patientId: 'p1', procedureName: 'Limpeza de pele', performedAt: '2026-09-29T15:00:00Z', data: {}, schemaSnapshot: { type: 'object', properties: {} }, photos: [] });
     const user = userEvent.setup();
     renderAt('/pacientes/p1/avulso/pr1');
     await user.type(await screen.findByLabelText('Observações'), 'Tudo certo');
@@ -541,15 +558,15 @@ describe('Planos', () => {
 
 describe('Relacionamento do paciente', () => {
   const report = (extra: Record<string, unknown> = {}) => ({
-    totals: { followups: 1, sessionsPerformed: 2, sessionsContracted: 4, minutesTotal: 135, sessionsWithoutDuration: 0, contractedCents: 40000, paidCents: 15000, pendingCents: 25000, dueForPerformedCents: 5000, noShows: 1 },
-    firstSessionAt: '2026-09-01T15:00:00Z', lastSessionAt: '2026-09-29T15:00:00Z', nextAppointmentAt: null, averageIntervalDays: 28,
-    monthly: [{ month: '2026-09', sessions: 2, minutes: 135, paidCents: 15000 }],
+    totals: { followups: 1, attendancesPerformed: 2, attendancesContracted: 4, minutesTotal: 135, attendancesWithoutDuration: 0, contractedCents: 40000, paidCents: 15000, pendingCents: 25000, dueForPerformedCents: 5000, noShows: 1 },
+    firstAttendanceAt: '2026-09-01T15:00:00Z', lastAttendanceAt: '2026-09-29T15:00:00Z', nextAppointmentAt: null, averageIntervalDays: 28,
+    monthly: [{ month: '2026-09', attendances: 2, minutes: 135, paidCents: 15000 }],
     followups: [{ id: 'at1', offerName: 'Drenagem', priceCents: 40000, paidCents: 15000, pendingCents: 25000, sessionsTotal: 4, sessionsPerformed: 2 }],
-    procedures: [{ name: 'Drenagem', sessions: 2, minutes: 135 }],
+    procedures: [{ name: 'Drenagem', attendances: 2, minutes: 135 }],
     ...extra,
   });
 
-  it('shows sessions, total time, paid and pending values', async () => {
+  it('shows attendances, total time, paid and pending values', async () => {
     routes['GET /api/patients/p1/relationship'] = () => report();
     renderAt('/pacientes/p1/relacionamento');
     expect(await screen.findByText('2 de 4')).toBeInTheDocument();
@@ -558,7 +575,7 @@ describe('Relacionamento do paciente', () => {
     expect(screen.getAllByText(/R\$\s*250,00/).length).toBeGreaterThan(0);
     expect(screen.getByText(/R\$\s*50,00 já realizados e não pagos/)).toBeInTheDocument();
     expect(screen.getByText(/28 dias/)).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Sessões por mês' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Atendimentos por mês' })).toBeInTheDocument();
   });
 
   it('explains when the patient has no followups yet', async () => {
@@ -567,12 +584,12 @@ describe('Relacionamento do paciente', () => {
     expect(await screen.findByText(/ainda não tem acompanhamentos/)).toBeInTheDocument();
   });
 
-  it('records the session duration when registering a session', async () => {
+  it('records the attendance duration when registering an attendance', async () => {
     routes['GET /api/followups'] = () => [pendingFollowup({ blocked: false, items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3, sessionsPerformed: 0, sessionSchema: { type: 'object', properties: {} } }] })];
-    routes['POST /api/sessions'] = () => ({ _id: 's1' });
-    routes['GET /api/sessions/s1'] = () => ({ _id: 's1', patientId: 'p1', procedureName: 'Limpeza de pele', performedAt: '2026-09-29T15:00:00Z', data: {}, schemaSnapshot: { type: 'object', properties: {} }, photos: [] });
+    routes['POST /api/attendances'] = () => ({ _id: 's1' });
+    routes['GET /api/attendances/s1'] = () => ({ _id: 's1', patientId: 'p1', procedureName: 'Limpeza de pele', performedAt: '2026-09-29T15:00:00Z', data: {}, schemaSnapshot: { type: 'object', properties: {} }, photos: [] });
     const user = userEvent.setup();
-    renderAt('/pacientes/p1/sessao/it1');
+    renderAt('/pacientes/p1/novo-atendimento/it1');
     await user.type(await screen.findByLabelText('Duração (minutos)'), '75');
     await user.click(screen.getByRole('button', { name: /salvar atendimento/i }));
     await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ durationMinutes: 75 }));

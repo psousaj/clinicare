@@ -5,4 +5,4 @@ import { configure } from '@testing-library/react';
 globalThis.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} };
 
 // A primeira renderização de cada rota compila módulos pesados (rjsf, calendário) sob demanda.
-configure({ asyncUtilTimeout: 5000 });
+configure({ asyncUtilTimeout: 8000 });

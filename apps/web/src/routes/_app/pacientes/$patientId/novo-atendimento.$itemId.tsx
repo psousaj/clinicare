@@ -2,12 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { QueryError } from '@/components/QueryState';
-import { SessionRecordForm } from '@/components/SessionRecordForm';
+import { AttendanceRecordForm } from '@/components/AttendanceRecordForm';
 import { followupsQuery, proceduresQuery } from '@/lib/queries';
 
-export const Route = createFileRoute('/_app/pacientes/$patientId/sessao/$itemId')({ component: NewSession });
+export const Route = createFileRoute('/_app/pacientes/$patientId/novo-atendimento/$itemId')({ component: NewAttendance });
 
-function NewSession() {
+function NewAttendance() {
   const { patientId, itemId } = Route.useParams();
   const followups = useQuery(followupsQuery), procedures = useQuery(proceduresQuery);
   const followup = (followups.data ?? []).find((candidate) => candidate.items.some((entry) => entry.id === itemId));
@@ -24,7 +24,7 @@ function NewSession() {
       </div>
       <QueryError query={followups} />
       {followups.isSuccess && !item && <p className="section-note" role="alert">Procedimento contratado não encontrado.</p>}
-      {item && <SessionRecordForm patientId={patientId} procedureName={item.procedureName} schema={(item.sessionSchema ?? { type: 'object', properties: {} }) as Record<string, unknown>} target={{ followupId: followup!.id, followupItemId: item.id }} defaultDuration={procedure?.durationMinutes} />}
+      {item && <AttendanceRecordForm patientId={patientId} procedureName={item.procedureName} schema={(item.sessionSchema ?? { type: 'object', properties: {} }) as Record<string, unknown>} target={{ followupId: followup!.id, followupItemId: item.id }} defaultDuration={procedure?.durationMinutes} />}
     </section>
   );
 }

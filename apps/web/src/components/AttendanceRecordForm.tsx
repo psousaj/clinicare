@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useCreateSession } from '@/lib/queries';
+import { useCreateAttendance } from '@/lib/queries';
 
 // Formulário de registro de um atendimento realizado (procedimento de um acompanhamento ou avulso).
-export function SessionRecordForm({ patientId, procedureName, schema, target, defaultDuration }: { patientId: string; procedureName: string; schema: Record<string, unknown>; target: Record<string, unknown>; defaultDuration?: number | null }): ReactNode {
+export function AttendanceRecordForm({ patientId, procedureName, schema, target, defaultDuration }: { patientId: string; procedureName: string; schema: Record<string, unknown>; target: Record<string, unknown>; defaultDuration?: number | null }): ReactNode {
   const navigate = useNavigate();
-  const create = useCreateSession();
+  const create = useCreateAttendance();
   const [data, setData] = useState<Record<string, unknown>>({});
   const [notes, setNotes] = useState('');
   const [duration, setDuration] = useState(defaultDuration ? String(defaultDuration) : '');
@@ -21,7 +21,7 @@ export function SessionRecordForm({ patientId, procedureName, schema, target, de
         schema={schema}
         value={data}
         onChange={setData}
-        onSubmit={(answers) => create.mutateAsync({ ...target, appointmentId: null, durationMinutes: duration ? Number(duration) : null, data: answers, notes: notes.trim() || null }).then((created) => navigate({ to: '/pacientes/$patientId/sessoes/$sessionId', params: { patientId, sessionId: created.id } }), () => undefined)}
+        onSubmit={(answers) => create.mutateAsync({ ...target, appointmentId: null, durationMinutes: duration ? Number(duration) : null, data: answers, notes: notes.trim() || null }).then((created) => navigate({ to: '/pacientes/$patientId/atendimentos/$attendanceId', params: { patientId, attendanceId: created.id } }), () => undefined)}
         actions={(
           <div className="mt-4 grid gap-4">
             <Label className="flex-col items-stretch gap-1.5">

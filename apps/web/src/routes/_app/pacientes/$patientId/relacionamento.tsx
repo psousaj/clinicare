@@ -37,7 +37,7 @@ function Relationship() {
   const data = report.data, totals = data?.totals;
   const monthly = (data?.monthly ?? []).map((row) => ({ ...row, label: monthLabel(row.month), duration: row.minutes ? duration(row.minutes) : '—' }));
   const followups = (data?.followups ?? []).map((row) => ({ name: row.offerName, Pago: row.paidCents / 100, Pendente: row.pendingCents / 100 }));
-  const procedures = (data?.procedures ?? []).map((row) => ({ name: row.name, Minutos: row.minutes, sessions: row.sessions }));
+  const procedures = (data?.procedures ?? []).map((row) => ({ name: row.name, Minutos: row.minutes, attendances: row.attendances }));
   const money = (value: unknown) => currency(Math.round(Number(value) * 100));
 
   return (
@@ -47,7 +47,7 @@ function Relationship() {
           <div>
             <Link to="/pacientes/$patientId" params={{ patientId }} className="text-button mb-2"><ArrowLeft size={14} /> {patient?.fullName ?? 'Paciente'}</Link>
             <h2>Relacionamento</h2>
-            <p className="section-note m-0">Tempo de atendimento, sessões e valores de {patient?.fullName ?? 'paciente'} em um só lugar.</p>
+            <p className="section-note m-0">Tempo de atendimento, atendimentos e valores de {patient?.fullName ?? 'paciente'} em um só lugar.</p>
           </div>
         </div>
         <QueryError query={report} />
@@ -57,26 +57,26 @@ function Relationship() {
       {data && totals && totals.followups > 0 && (
         <>
           <section className="stats-grid">
-            <Card heading="Sessões realizadas" icon={Sparkles} tone="violet" value={`${totals.sessionsPerformed} de ${totals.sessionsContracted}`} foot="Realizadas × contratadas" />
-            <Card heading="Tempo de atendimento" icon={Clock} tone="peach" value={duration(totals.minutesTotal)} foot={totals.sessionsWithoutDuration ? `${totals.sessionsWithoutDuration} sessão(ões) sem duração informada` : 'Soma da duração das sessões'} />
+            <Card heading="Atendimentos realizados" icon={Sparkles} tone="violet" value={`${totals.attendancesPerformed} de ${totals.attendancesContracted}`} foot="Realizadas × contratadas" />
+            <Card heading="Tempo de atendimento" icon={Clock} tone="peach" value={duration(totals.minutesTotal)} foot={totals.attendancesWithoutDuration ? `${totals.attendancesWithoutDuration} atendimento(s) sem duração informada` : 'Soma da duração das sessões'} />
             <Card heading="Valores pagos" icon={Wallet} tone="mint" value={currency(totals.paidCents)} foot={`de ${currency(totals.contractedCents)} contratados`} />
             <Card heading="Valores pendentes" icon={HandCoins} tone="blue" value={currency(totals.pendingCents)} foot={`${currency(totals.dueForPerformedCents)} já realizados e não pagos`} />
           </section>
           <section className="stats-grid">
-            <Card heading="Última sessão" icon={CalendarDays} tone="violet" value={data.lastSessionAt ? shortDate(data.lastSessionAt) : '—'} foot={data.firstSessionAt ? `Primeira em ${shortDate(data.firstSessionAt)}` : 'Nenhuma sessão ainda'} />
+            <Card heading="Último atendimento" icon={CalendarDays} tone="violet" value={data.lastAttendanceAt ? shortDate(data.lastAttendanceAt) : '—'} foot={data.firstAttendanceAt ? `Primeira em ${shortDate(data.firstAttendanceAt)}` : 'Nenhum atendimento ainda'} />
             <Card heading="Próximo agendamento" icon={CalendarClock} tone="peach" value={data.nextAppointmentAt ? shortDate(data.nextAppointmentAt) : '—'} foot={data.nextAppointmentAt ? 'Agenda em aberto' : 'Nada agendado'} />
-            <Card heading="Frequência" icon={Repeat} tone="mint" value={data.averageIntervalDays === null ? '—' : `${String(data.averageIntervalDays).replace('.', ',')} dias`} foot="Intervalo médio entre sessões" />
+            <Card heading="Frequência" icon={Repeat} tone="mint" value={data.averageIntervalDays === null ? '—' : `${String(data.averageIntervalDays).replace('.', ',')} dias`} foot="Intervalo médio entre atendimentos" />
             <Card heading="Faltas" icon={UserX} tone="blue" value={String(totals.noShows)} foot="Agendamentos com falta" />
           </section>
           <div className="grid items-start gap-4 lg:grid-cols-2">
-            <Chart title="Sessões por mês" empty={monthly.length === 0 ? 'Nenhuma sessão registrada ainda.' : undefined} note="Passe o mouse para ver o tempo de acompanhamento do mês.">
+            <Chart title="Atendimentos por mês" empty={monthly.length === 0 ? 'Nenhum atendimento registrado ainda.' : undefined} note="Passe o mouse para ver o tempo de acompanhamento do mês.">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={monthly}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={12} />
                   <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={12} width={28} />
-                  <Tooltip formatter={(value, _name, item) => [`${value} (${(item.payload as { duration: string }).duration})`, 'Sessões']} />
-                  <Bar dataKey="sessions" name="Sessões" fill={GREEN} radius={[4, 4, 0, 0]} maxBarSize={56} />
+                  <Tooltip formatter={(value, _name, item) => [`${value} (${(item.payload as { duration: string }).duration})`, 'Atendimentos']} />
+                  <Bar dataKey="attendances" name="Atendimentos" fill={GREEN} radius={[4, 4, 0, 0]} maxBarSize={56} />
                 </BarChart>
               </ResponsiveContainer>
             </Chart>
@@ -93,13 +93,13 @@ function Relationship() {
                 </BarChart>
               </ResponsiveContainer>
             </Chart>
-            <Chart title="Tempo por procedimento" empty={procedures.length === 0 ? 'Nenhuma sessão registrada ainda.' : totals.minutesTotal === 0 ? 'Informe a duração ao registrar as sessões para ver o tempo por procedimento.' : undefined}>
+            <Chart title="Tempo por procedimento" empty={procedures.length === 0 ? 'Nenhum atendimento registrado ainda.' : totals.minutesTotal === 0 ? 'Informe a duração ao registrar os atendimentos para ver o tempo por procedimento.' : undefined}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={procedures} layout="vertical" margin={{ left: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" tickLine={false} axisLine={false} fontSize={12} tickFormatter={(value) => duration(Number(value))} />
                   <YAxis type="category" dataKey="name" tickLine={false} axisLine={false} fontSize={12} width={110} />
-                  <Tooltip formatter={(value, _name, item) => [`${duration(Number(value))} em ${(item.payload as { sessions: number }).sessions} sessão(ões)`, 'Tempo']} />
+                  <Tooltip formatter={(value, _name, item) => [`${duration(Number(value))} em ${(item.payload as { attendances: number }).attendances} atendimento(s)`, 'Tempo']} />
                   <Bar dataKey="Minutos" name="Tempo" fill={BLUE} radius={[0, 4, 4, 0]} maxBarSize={36} />
                 </BarChart>
               </ResponsiveContainer>

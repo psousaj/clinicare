@@ -4,8 +4,8 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { photoPhases } from '@/lib/format';
-import { useAddSessionPhoto, useDeleteSessionPhoto } from '@/lib/queries';
-import type { SessionPhoto } from '@/lib/schemas';
+import { useAddAttendancePhoto, useDeleteAttendancePhoto } from '@/lib/queries';
+import type { AttendancePhoto } from '@/lib/schemas';
 import { cn } from '@/lib/utils';
 
 type Phase = keyof typeof photoPhases;
@@ -14,8 +14,8 @@ const allowed = ['image/jpeg', 'image/png', 'image/webp'];
 const maxBytes = 10_000_000;
 
 // Anexa e lista as fotos da sessão, agrupadas por momento (antes/durante/depois).
-export function SessionPhotos({ sessionId, photos }: { sessionId: string; photos: SessionPhoto[] }) {
-  const add = useAddSessionPhoto(sessionId), remove = useDeleteSessionPhoto(sessionId);
+export function AttendancePhotos({ attendanceId, photos }: { attendanceId: string; photos: AttendancePhoto[] }) {
+  const add = useAddAttendancePhoto(attendanceId), remove = useDeleteAttendancePhoto(attendanceId);
   const [phase, setPhase] = useState<Phase>('before');
   const [notes, setNotes] = useState('');
   const [uploading, setUploading] = useState(false);

@@ -54,12 +54,15 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const capacity = selection ? minutesBetween(selection.start, selection.end) : date && start && end ? minutesBetween(`${date}T${start}`, `${date}T${end}`) : 0;
   const minutesOf = (procedureId?: string | null) => procedures.find((procedure) => procedure.id === procedureId)?.durationMinutes ?? 60;
-  const mine = followups.filter((followup) => followup.patientId === patientId).map((followup) => ({ ...followup, items: followup.items.filter((item) => item.sessionsPerformed < item.sessionsTotal) })).filter((followup) => followup.items.length > 0);
+  const minutesOfItem = (item: { procedureId?: string | null; durationMinutes?: number | null }) => item.durationMinutes ?? minutesOf(item.procedureId);
+  const patientFollowups = followups.filter((followup) => followup.patientId === patientId);
+  const blockedStandalone = new Set(patientFollowups.filter((followup) => followup.offerType === 'procedure' && followup.blocked).flatMap((followup) => followup.items.map((item) => item.procedureId)));
+  const mine = patientFollowups.filter((followup) => followup.offerType !== 'procedure').map((followup) => ({ ...followup, items: followup.items.filter((item) => item.sessionsPerformed < item.sessionsTotal) })).filter((followup) => followup.items.length > 0);
   const avulsos = procedures.filter((procedure) => procedure.active !== false && procedure.standalone !== false);
-  const pending = mine.filter((followup) => followup.blocked).flatMap((followup) => followup.anamneses.filter((form) => form.required && !form.answered).map((form) => form.title));
+  const pending = patientFollowups.filter((followup) => followup.blocked).flatMap((followup) => followup.anamneses.filter((form) => form.required && !form.answered).map((form) => form.title));
   const rows = [
     ...avulsos.map((procedure) => ({ key: `p:${procedure.id}`, minutes: minutesOf(procedure.id), max: 1 })),
-    ...mine.flatMap((followup) => followup.items.map((item) => ({ key: `f:${item.id}`, minutes: minutesOf(item.procedureId), max: item.sessionsTotal - item.sessionsPerformed }))),
+    ...mine.flatMap((followup) => followup.items.map((item) => ({ key: `f:${item.id}`, minutes: minutesOfItem(item), max: item.sessionsTotal - item.sessionsPerformed }))),
   ];
   const used = rows.reduce((total, row) => total + (quantities[row.key] ?? 0) * row.minutes, 0);
   const left = capacity - used;
@@ -103,7 +106,7 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
           <div key={followup.id} className="grid gap-1">
             <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{offerLabel(followup.offerType, followup.offerName)}</div>
             {followup.items.map((item) => {
-              const key = `f:${item.id}`, minutes = minutesOf(item.procedureId), quantity = quantities[key] ?? 0, max = item.sessionsTotal - item.sessionsPerformed;
+              const key = `f:${item.id}`, minutes = minutesOfItem(item), quantity = quantities[key] ?? 0, max = item.sessionsTotal - item.sessionsPerformed;
               return (
                 <div key={item.id} className="flex items-center gap-3 rounded-md border border-border px-3 py-2">
                   <div className="flex-1 text-sm"><strong>{item.procedureName}</strong><div className="text-xs text-muted-foreground">{minutes} min por sessão · {item.sessionsPerformed}/{item.sessionsTotal} realizadas</div></div>
@@ -121,7 +124,7 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
           const key = `p:${procedure.id}`, minutes = minutesOf(procedure.id), checked = (quantities[key] ?? 0) > 0;
           return (
             <Label key={procedure.id} className="cursor-pointer gap-3 rounded-md border border-border px-3 py-2">
-              <Checkbox checked={checked} disabled={!checked && !fits(minutes)} onCheckedChange={(value) => change(key, value === true ? 1 : 0)} />
+              <Checkbox checked={checked} disabled={!checked && (!fits(minutes) || blockedStandalone.has(procedure.id))} onCheckedChange={(value) => change(key, value === true ? 1 : 0)} />
               <span className="flex-1 text-sm"><strong>{procedure.name}</strong> <span className="text-xs text-muted-foreground">· {minutes} min</span></span>
             </Label>
           );
@@ -212,7 +215,7 @@ export function PaymentDialog({ followup, onClose }: { followup: Followup | null
 }
 
 // Atendimento avulso: sem acompanhamento nem contrato, só registrar o procedimento realizado.
-export function StandaloneSessionDialog({ open, patientId, procedures, onClose }: { open: boolean; patientId: string; procedures: Procedure[]; onClose: () => void }) {
+export function StandaloneAttendanceDialog({ open, patientId, procedures, onClose }: { open: boolean; patientId: string; procedures: Procedure[]; onClose: () => void }) {
   const navigate = useNavigate();
   const avulsos = procedures.filter((procedure) => procedure.active !== false && procedure.standalone !== false);
   return (

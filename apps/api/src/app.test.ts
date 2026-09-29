@@ -67,11 +67,55 @@ describe('API integration with MongoDB', () => {
     expect((await slot(90, [{ procedureId: String(light._id), quantity: 2 }])).status).toBe(409);
     expect((await slot(90, [{ procedureId: String(light._id) }, { procedureId: String(light._id) }])).status).toBe(400);
     expect((await slot(90, [])).status).toBe(400);
-    const avulso = await post('/api/sessions', { patientId, procedureId: String(light._id) });
+    const avulso = await post('/api/attendances', { patientId, procedureId: String(light._id) });
     expect(avulso.status).toBe(201);
-    expect(await avulso.json()).toMatchObject({ procedureName: 'Limpeza', durationMinutes: 30, followupId: null });
-    expect((await post('/api/sessions', { patientId, procedureId: String(course._id) })).status).toBe(409);
+    const performed = await avulso.json() as any;
+    expect(performed).toMatchObject({ procedureName: 'Limpeza', durationMinutes: 30 });
+    expect(await Followup.findById(performed.followupId).lean()).toMatchObject({ offerType: 'procedure', priceCents: 10000 });
+    expect((await post('/api/attendances', { patientId, procedureId: String(course._id) })).status).toBe(409);
+  });
+  it('charges standalone procedures: payments, anamnesis validity and cleanup of unused ones', async () => {
+    const patient = await Patient.create({ fullName: 'Lia Teste' }), patientId = String(patient._id);
+    const procedure = await Procedure.create({ name: 'Peeling leve', baseSessions: 1, durationMinutes: 30, priceCents: 12000, sessionSchema: { type: 'object', properties: {} }, versions: [] });
+    const form = await (await post('/api/anamneses', { title: 'Anamnese facial', schema: { type: 'object', properties: { queixa: { type: 'string' } } }, procedureIds: [String(procedure._id)], validityMonths: 6 })).json() as any;
+    const slot = () => post('/api/appointments', { patientId, items: [{ procedureId: String(procedure._id) }], startsAt: '2030-01-01T10:00:00Z', endsAt: '2030-01-01T11:00:00Z' });
+    const blocked = await slot();
+    expect(blocked.status).toBe(409);
+    expect((await blocked.json() as any).error).toContain('Anamnese facial');
+    expect((await slot()).status).toBe(409);
     expect(await Followup.countDocuments()).toBe(1);
+    const [listed] = await (await app.request('/api/followups')).json() as any[];
+    expect(listed).toMatchObject({ offerType: 'procedure', priceCents: 12000, blocked: true });
+    expect((await post('/api/attendances', { patientId, procedureId: String(procedure._id) })).status).toBe(409);
+    expect((await post(`/api/patient-anamneses/${listed.anamneses[0].id}/answers`, { answers: { queixa: 'Sensibilidade' } })).status).toBe(201);
+    const created = await slot();
+    expect(created.status).toBe(201);
+    const appointment = await created.json() as any;
+    expect(appointment.items[0]).toMatchObject({ followupId: listed._id, procedureName: 'Peeling leve' });
+    expect(await Followup.countDocuments()).toBe(1);
+    const deleted = await app.request(`/api/appointments/${appointment._id}`, { method: 'DELETE' });
+    expect(deleted.status).toBe(200);
+    expect(await Followup.countDocuments()).toBe(0);
+    const again = await slot();
+    expect(again.status).toBe(201);
+    const performed = await (await post('/api/attendances', { patientId, procedureId: String(procedure._id), appointmentId: (await again.json() as any)._id })).json() as any;
+    expect((await post('/api/payments', { followupId: String(performed.followupId), amountCents: 5000, method: 'pix' })).status).toBe(201);
+    const report = await (await app.request(`/api/patients/${patientId}/relationship`)).json() as any;
+    expect(report.totals).toMatchObject({ contractedCents: 12000, paidCents: 5000, pendingCents: 7000, attendancesPerformed: 1 });
+    expect(form.title).toBe('Anamnese facial');
+  });
+  it('snapshots procedure duration and counts sessions already booked in other appointments', async () => {
+    const patient = await Patient.create({ fullName: 'Nina Teste' }), patientId = String(patient._id);
+    const course = await Procedure.create({ name: 'Radiofrequência', baseSessions: 3, durationMinutes: 40, standalone: false, priceCents: 9000, sessionSchema: { type: 'object', properties: {} }, versions: [] });
+    const followup = await startFollowup(patient, await comboOf(course));
+    expect(followup.items[0].durationMinutes).toBe(40);
+    await Procedure.updateOne({ _id: course._id }, { durationMinutes: 90 });
+    const book = (quantity: number, day: number) => post('/api/appointments', { patientId, items: [{ followupItemId: followup.items[0]._id, quantity }], startsAt: `2030-01-0${day}T10:00:00Z`, endsAt: `2030-01-0${day}T13:00:00Z` });
+    const first = await book(2, 1);
+    expect(first.status).toBe(201);
+    expect(await first.json()).toMatchObject({ items: [{ minutesEach: 40 }] });
+    expect((await book(2, 2)).status).toBe(409);
+    expect((await book(1, 2)).status).toBe(201);
   });
   it('creates a procedure with dynamic schema and keeps schema versions', async () => {
     const response = await post('/api/procedures', { name: 'Limpeza facial', baseSessions: 2, durationMinutes: 45, priceCents: 20000, sessionSchema: { type: 'object', properties: { intensity: { type: 'string' } } } });
@@ -80,7 +124,7 @@ describe('API integration with MongoDB', () => {
     const edit = await app.request(`/api/procedures/${procedure._id}`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...procedure, sessionSchema: { type: 'object', properties: { intensity: { type: 'string' }, notes: { type: 'string' } } } }) });
     expect((await edit.json() as any).versions).toHaveLength(2);
   });
-  it('does not create followups for standalone procedures, but repeats combos and snapshots the offer', async () => {
+  it('does not start followups from a procedure, but repeats combos and snapshots the offer', async () => {
     const patient = await Patient.create({ fullName: 'Maria Teste' });
     const procedure = await Procedure.create({ name: 'Peeling', baseSessions: 3, priceCents: 10000, sessionSchema: { type: 'object', properties: {} }, versions: [] });
     expect((await post('/api/followups', { patientId: String(patient._id), offerType: 'procedure', offerId: String(procedure._id) })).status).toBe(400);
@@ -191,7 +235,7 @@ describe('API integration with MongoDB', () => {
     expect(stored.title).toBe('Facial completo');
     expect(stored.versions).toHaveLength(3);
   });
-  it('deletes appointments and follows up a session with notes, data and photos', async () => {
+  it('deletes appointments and follows up an attendance with notes, data and photos', async () => {
     const patient = await Patient.create({ fullName: 'Maria Teste' });
     const procedure = await Procedure.create({ name: 'Peeling', baseSessions: 3, priceCents: 10000, sessionSchema: { type: 'object', properties: { produto: { type: 'string' } } }, versions: [] });
     const followup = await startFollowup(patient, await comboOf(procedure));
@@ -200,33 +244,33 @@ describe('API integration with MongoDB', () => {
     expect((await app.request(`/api/appointments/${appointment._id}`, { method: 'DELETE' })).status).toBe(200);
     expect((await app.request(`/api/appointments/${appointment._id}`, { method: 'DELETE' })).status).toBe(404);
 
-    const session = await (await post('/api/sessions', { followupId: followup._id, followupItemId: itemId, data: { produto: 'Ácido' } })).json() as any;
-    const patch = (body: unknown) => app.request(`/api/sessions/${session._id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const attendance = await (await post('/api/attendances', { followupId: followup._id, followupItemId: itemId, data: { produto: 'Ácido' } })).json() as any;
+    const patch = (body: unknown) => app.request(`/api/attendances/${attendance._id}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     expect((await patch({ notes: ' Pele sensível ', data: { produto: 'Ácido mandélico' } })).status).toBe(200);
     expect((await patch({ data: [] })).status).toBe(400);
-    expect((await post(`/api/sessions/${session._id}/photos`, { objectKey: 'uploads/abc-123', phase: 'before', notes: 'Antes' })).status).toBe(201);
-    expect((await post(`/api/sessions/${session._id}/photos`, { objectKey: 'uploads/abc-123', phase: 'sideways' })).status).toBe(400);
-    const stored = await (await app.request(`/api/sessions/${session._id}`)).json() as any;
+    expect((await post(`/api/attendances/${attendance._id}/photos`, { objectKey: 'uploads/abc-123', phase: 'before', notes: 'Antes' })).status).toBe(201);
+    expect((await post(`/api/attendances/${attendance._id}/photos`, { objectKey: 'uploads/abc-123', phase: 'sideways' })).status).toBe(400);
+    const stored = await (await app.request(`/api/attendances/${attendance._id}`)).json() as any;
     expect(stored).toMatchObject({ notes: 'Pele sensível', data: { produto: 'Ácido mandélico' }, patientId: { fullName: 'Maria Teste' } });
     expect(stored.photos).toHaveLength(1);
     expect(stored.photos[0]).toMatchObject({ phase: 'before', notes: 'Antes', objectKey: 'uploads/abc-123' });
-    expect((await app.request('/api/sessions/000000000000000000000000')).status).toBe(404);
+    expect((await app.request('/api/attendances/000000000000000000000000')).status).toBe(404);
   });
-  it('summarizes the patient relationship: sessions, time, paid and pending values', async () => {
+  it('summarizes the patient relationship: attendances, time, paid and pending values', async () => {
     const patient = await Patient.create({ fullName: 'Rita Teste' });
     const procedure = await Procedure.create({ name: 'Drenagem', baseSessions: 4, priceCents: 10000, sessionSchema: { type: 'object', properties: {} }, versions: [] });
     const followup = await startFollowup(patient, await comboOf(procedure));
     const itemId = followup.items[0]._id;
     const appointment = await (await post('/api/appointments', { patientId: String(patient._id), items: [{ followupItemId: itemId }], startsAt: '2030-01-01T10:00:00Z', endsAt: '2030-01-01T11:30:00Z' })).json() as any;
-    expect((await post('/api/sessions', { followupId: followup._id, followupItemId: itemId, durationMinutes: -5 })).status).toBe(400);
-    const first = await (await post('/api/sessions', { followupId: followup._id, followupItemId: itemId, appointmentId: appointment._id })).json() as any;
+    expect((await post('/api/attendances', { followupId: followup._id, followupItemId: itemId, durationMinutes: -5 })).status).toBe(400);
+    const first = await (await post('/api/attendances', { followupId: followup._id, followupItemId: itemId, appointmentId: appointment._id })).json() as any;
     expect(first.durationMinutes).toBe(60);
-    await post('/api/sessions', { followupId: followup._id, followupItemId: itemId, durationMinutes: 30 });
+    await post('/api/attendances', { followupId: followup._id, followupItemId: itemId, durationMinutes: 30 });
     expect((await post('/api/payments', { followupId: followup._id, amountCents: 15000, method: 'pix' })).status).toBe(201);
     const report = await (await app.request(`/api/patients/${patient._id}/relationship`)).json() as any;
-    expect(report.totals).toMatchObject({ followups: 1, sessionsPerformed: 2, sessionsContracted: 4, minutesTotal: 90, contractedCents: 40000, paidCents: 15000, pendingCents: 25000, dueForPerformedCents: 5000 });
-    expect(report.monthly.at(-1)).toMatchObject({ sessions: 2, minutes: 90, paidCents: 15000 });
-    expect(report.procedures).toEqual([{ name: 'Drenagem', sessions: 2, minutes: 90 }]);
+    expect(report.totals).toMatchObject({ followups: 1, attendancesPerformed: 2, attendancesContracted: 4, minutesTotal: 90, contractedCents: 40000, paidCents: 15000, pendingCents: 25000, dueForPerformedCents: 5000 });
+    expect(report.monthly.at(-1)).toMatchObject({ attendances: 2, minutes: 90, paidCents: 15000 });
+    expect(report.procedures).toEqual([{ name: 'Drenagem', attendances: 2, minutes: 90 }]);
     expect(report.nextAppointmentAt).toBe('2030-01-01T10:00:00.000Z');
     expect((await app.request('/api/patients/000000000000000000000000/relationship')).status).toBe(404);
   });

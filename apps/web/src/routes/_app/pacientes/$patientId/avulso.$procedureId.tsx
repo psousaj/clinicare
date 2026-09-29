@@ -2,12 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
 import { QueryError } from '@/components/QueryState';
-import { SessionRecordForm } from '@/components/SessionRecordForm';
+import { AttendanceRecordForm } from '@/components/AttendanceRecordForm';
 import { proceduresQuery } from '@/lib/queries';
 
-export const Route = createFileRoute('/_app/pacientes/$patientId/avulso/$procedureId')({ component: NewStandaloneSession });
+export const Route = createFileRoute('/_app/pacientes/$patientId/avulso/$procedureId')({ component: NewStandaloneAttendance });
 
-function NewStandaloneSession() {
+function NewStandaloneAttendance() {
   const { patientId, procedureId } = Route.useParams();
   const procedures = useQuery(proceduresQuery);
   const procedure = procedures.data?.find((candidate) => candidate.id === procedureId && candidate.active !== false && candidate.standalone !== false);
@@ -21,7 +21,7 @@ function NewStandaloneSession() {
       </div>
       <QueryError query={procedures} />
       {procedures.isSuccess && !procedure && <p className="section-note" role="alert">Procedimento avulso não encontrado.</p>}
-      {procedure && <SessionRecordForm patientId={patientId} procedureName={procedure.name} schema={(procedure.sessionSchema ?? { type: 'object', properties: {} }) as Record<string, unknown>} target={{ patientId, procedureId: procedure.id }} defaultDuration={procedure.durationMinutes} />}
+      {procedure && <AttendanceRecordForm patientId={patientId} procedureName={procedure.name} schema={(procedure.sessionSchema ?? { type: 'object', properties: {} }) as Record<string, unknown>} target={{ patientId, procedureId: procedure.id }} defaultDuration={procedure.durationMinutes} />}
     </section>
   );
 }

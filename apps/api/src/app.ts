@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { isValidObjectId } from 'mongoose';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { Appointment, Anamnesis, Contract, Combo, Patient, PatientAnamnesis, Payment, Followup, Plan, Procedure, Session } from '@clinicare/db';
+import { Appointment, Anamnesis, Contract, Combo, Patient, PatientAnamnesis, Payment, Followup, Plan, Procedure, Attendance } from '@clinicare/db';
 import { buildRelationship } from './relationship';
 import { uploadUrl, uploadUrlForDocument, downloadUrl, deleteObject } from './storage';
 
@@ -20,9 +20,9 @@ const handleError = (c: Context, error: unknown) => {
   return c.json({ error: 'Ocorreu um erro inesperado.' }, 500);
 };
 
-type OfferItem = { procedureId: unknown; procedureName: string; sessionsTotal: number; sessionSchema: unknown; priceCents: number; anamneses: unknown[] };
+type OfferItem = { procedureId: unknown; procedureName: string; sessionsTotal: number; durationMinutes: number; sessionSchema: unknown; priceCents: number; anamneses: unknown[] };
 type ResolvedOffer = { name: string; priceCents: number; items: OfferItem[]; comboIds: unknown[]; contractIds: unknown[]; requireNewAnamnesis: boolean; validUntil: Date | null };
-const procedureItem = (procedure: any, override: { sessions?: number | null; priceCents?: number | null } = {}): OfferItem => ({ procedureId: procedure._id, procedureName: procedure.name, sessionsTotal: override.sessions ?? procedure.baseSessions, sessionSchema: procedure.sessionSchema, priceCents: override.priceCents ?? procedure.priceCents, anamneses: [] });
+const procedureItem = (procedure: any, override: { sessions?: number | null; priceCents?: number | null } = {}): OfferItem => ({ procedureId: procedure._id, procedureName: procedure.name, sessionsTotal: override.sessions ?? procedure.baseSessions, durationMinutes: procedure.durationMinutes ?? 60, sessionSchema: procedure.sessionSchema, priceCents: override.priceCents ?? procedure.priceCents, anamneses: [] });
 const comboAvailable = (combo: any) => { const today = new Date(); return combo.active && !(combo.validFrom && combo.validFrom > today) && !(combo.validUntil && combo.validUntil < today); };
 // Valor integral = soma de (preço do procedimento × sessões). Combo nunca abaixo dele; promoção nunca acima do preço do combo.
 async function comboPriceError(items: any[], priceCents: number, promotionalPriceCents: number | null) {
@@ -68,6 +68,45 @@ async function resolveOffer(offerType: string, offerId: string): Promise<Resolve
   }
   if (!items.length) return { error: 'Plano sem procedimentos disponíveis.', status: 409 };
   return { name: plan.name, priceCents: plan.priceCents, items, comboIds, contractIds: plan.contractIds, requireNewAnamnesis, validUntil: plan.validityDays ? expiry(plan.validityDays) : null };
+}
+// Contrata uma oferta para o paciente: congela itens e preço, deriva contratos e gera as anamneses pendentes (reaproveitando as ainda válidas).
+async function startFollowup(patientId: unknown, offerType: string, offerId: string) {
+  const offer = await resolveOffer(offerType, offerId);
+  if ('error' in offer) return offer;
+  const procedureIds = offer.items.map((item) => item.procedureId);
+  const [contracts, forms] = await Promise.all([
+    Contract.find({ active: true, $or: [{ kind: 'standard' }, { kind: 'procedure', procedureId: { $in: procedureIds } }, { kind: 'combo', comboId: { $in: offer.comboIds } }, { _id: { $in: offer.contractIds } }] }).lean(),
+    Anamnesis.find({ procedureIds: { $in: procedureIds }, active: true, requiredByDefault: true }).lean(),
+  ]);
+  for (const item of offer.items) item.anamneses = forms.filter((form: any) => form.procedureIds.some((id: any) => String(id) === String(item.procedureId))).map((form: any) => ({ anamnesisId: form._id, required: true, version: form.versions.at(-1)?.version, schemaSnapshot: form.versions.at(-1)?.schema }));
+  const followup = await Followup.create({ patientId, offerType, offerId, offerName: offer.name, priceCents: offer.priceCents, validUntil: offer.validUntil, items: offer.items, contracts: contracts.map((contract: any) => ({ contractId: contract._id, title: contract.title, version: contract.versions.at(-1)?.version, contentSnapshot: contract.versions.at(-1)?.content, objectKey: contract.versions.at(-1)?.sourceObjectKey })) });
+  const now = new Date();
+  for (const form of forms as any[]) {
+    const reusable = offer.requireNewAnamnesis ? null : await PatientAnamnesis.exists({ patientId, anamnesisId: form._id, 'response.validUntil': { $gt: now } });
+    if (reusable) continue;
+    const current = form.versions.at(-1);
+    await PatientAnamnesis.create({ patientId, anamnesisId: form._id, followupId: followup._id, version: current.version, schemaSnapshot: current.schema, required: true });
+  }
+  return { followup };
+}
+const liveStatuses = ['planned', 'confirmed', 'rescheduled'];
+// Procedimento avulso também é cobrado e exige anamnese: é um acompanhamento de uma única sessão, criado ao agendar ou registrar e reaproveitado enquanto não for usado.
+async function openStandalone(patientId: unknown, procedure: any) {
+  const candidates: any[] = await Followup.find({ patientId, offerType: 'procedure', offerId: procedure._id, 'items.0.sessionsPerformed': 0 }).lean();
+  for (const candidate of candidates) if (!await Appointment.exists({ 'items.followupId': candidate._id, status: { $in: liveStatuses } })) return { followup: await Followup.findById(candidate._id) as any };
+  const started = await startFollowup(patientId, 'procedure', String(procedure._id));
+  return 'error' in started ? started : { followup: started.followup as any };
+}
+const pendingForms = (followupIds: unknown[]) => PatientAnamnesis.find({ followupId: { $in: followupIds }, required: true, 'response.submittedAt': null }).populate('anamnesisId', 'title').lean();
+// Ao cancelar ou apagar um agendamento, descarta o avulso que ainda não foi realizado nem pago.
+async function dropUnusedStandalone(appointment: any) {
+  for (const item of appointment?.items ?? []) {
+    if (!item.followupId) continue;
+    const followup: any = await Followup.findById(item.followupId).lean();
+    if (!followup || followup.offerType !== 'procedure' || followup.items.some((entry: any) => entry.sessionsPerformed > 0)) continue;
+    if (await Payment.exists({ followupId: followup._id }) || await Appointment.exists({ _id: { $ne: appointment._id }, 'items.followupId': followup._id, status: { $in: liveStatuses } })) continue;
+    await Promise.all([Followup.deleteOne({ _id: followup._id }), PatientAnamnesis.deleteMany({ followupId: followup._id, 'response.submittedAt': null })]);
+  }
 }
 const monthsFromNow = (months: number) => { const date = new Date(); date.setMonth(date.getMonth() + months); return date; };
 const buildResponse = async (anamnesisId: unknown, answers: Record<string, unknown>) => ({ answers, submittedAt: new Date(), validUntil: monthsFromNow(((await Anamnesis.findById(anamnesisId).lean()) as any)?.validityMonths ?? 12) });
@@ -232,25 +271,10 @@ export const app = new Hono()
   })
   .post('/api/followups', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || !isValidObjectId(body.patientId) || !['combo', 'plan'].includes(body.offerType) || !isValidObjectId(body.offerId)) return fail(c, 'Paciente e um combo ou plano são obrigatórios; procedimento avulso é só agendado e realizado.');
+    if (!body || !isValidObjectId(body.patientId) || !['combo', 'plan'].includes(body.offerType) || !isValidObjectId(body.offerId)) return fail(c, 'Paciente e um combo ou plano são obrigatórios; procedimento avulso é criado ao agendar ou registrar o atendimento.');
     if (!await Patient.exists({ _id: body.patientId })) return fail(c, 'Paciente não encontrado.', 404);
-    const offer = await resolveOffer(body.offerType, body.offerId);
-    if ('error' in offer) return fail(c, offer.error, offer.status);
-    const procedureIds = offer.items.map((item) => item.procedureId);
-    const [contracts, forms] = await Promise.all([
-      Contract.find({ active: true, $or: [{ kind: 'standard' }, { kind: 'procedure', procedureId: { $in: procedureIds } }, { kind: 'combo', comboId: { $in: offer.comboIds } }, { _id: { $in: offer.contractIds } }] }).lean(),
-      Anamnesis.find({ procedureIds: { $in: procedureIds }, active: true, requiredByDefault: true }).lean(),
-    ]);
-    for (const item of offer.items) item.anamneses = forms.filter((form: any) => form.procedureIds.some((id: any) => String(id) === String(item.procedureId))).map((form: any) => ({ anamnesisId: form._id, required: true, version: form.versions.at(-1)?.version, schemaSnapshot: form.versions.at(-1)?.schema }));
-    const followup = await Followup.create({ patientId: body.patientId, offerType: body.offerType, offerId: body.offerId, offerName: offer.name, priceCents: offer.priceCents, validUntil: offer.validUntil, items: offer.items, contracts: contracts.map((contract: any) => ({ contractId: contract._id, title: contract.title, version: contract.versions.at(-1)?.version, contentSnapshot: contract.versions.at(-1)?.content, objectKey: contract.versions.at(-1)?.sourceObjectKey })) });
-    const now = new Date();
-    for (const form of forms as any[]) {
-      const reusable = offer.requireNewAnamnesis ? null : await PatientAnamnesis.exists({ patientId: body.patientId, anamnesisId: form._id, 'response.validUntil': { $gt: now } });
-      if (reusable) continue;
-      const current = form.versions.at(-1);
-      await PatientAnamnesis.create({ patientId: body.patientId, anamnesisId: form._id, followupId: followup._id, version: current.version, schemaSnapshot: current.schema, required: true });
-    }
-    return c.json(followup, 201);
+    const started = await startFollowup(body.patientId, body.offerType, body.offerId);
+    return 'error' in started ? fail(c, started.error, started.status) : c.json(started.followup, 201);
   })
   .get('/api/followups', async (c) => {
     const followups = await Followup.find().populate('patientId', 'fullName').sort({ createdAt: -1 }).lean();
@@ -276,7 +300,7 @@ export const app = new Hono()
     if (!isRecord(body) || !isValidObjectId(body.patientId) || !Array.isArray(body.items) || !body.items.length || !(endsAt > startsAt)) return fail(c, 'Agendamento inválido.');
     if (!await Patient.exists({ _id: body.patientId })) return fail(c, 'Paciente não encontrado.', 404);
     const capacity = Math.round((endsAt.getTime() - startsAt.getTime()) / 60000);
-    const items: any[] = [], seen = new Set<string>(), followupIds = new Set<string>();
+    const items: any[] = [], standalone: { procedure: any; index: number }[] = [], seen = new Set<string>(), followupIds = new Set<string>();
     for (const entry of body.items) {
       const quantity = entry?.quantity ?? 1;
       if (!isRecord(entry) || !Number.isInteger(quantity) || quantity < 1) return fail(c, 'Agendamento inválido.');
@@ -287,72 +311,91 @@ export const app = new Hono()
         const followup: any = await Followup.findOne({ 'items._id': entry.followupItemId, patientId: body.patientId });
         if (!followup) return fail(c, 'Procedimento não pertence a um acompanhamento deste paciente.', 404);
         const item = followup.items.id(entry.followupItemId);
-        if (quantity > item.sessionsTotal - item.sessionsPerformed) return fail(c, `${item.procedureName}: restam ${item.sessionsTotal - item.sessionsPerformed} sessão(ões) neste acompanhamento.`, 409);
-        const procedure: any = await Procedure.findById(item.procedureId).lean();
+        const booked = (await Appointment.find({ 'items.followupItemId': item._id, status: { $in: liveStatuses }, endsAt: { $gt: new Date() } }).lean() as any[]).reduce((total, appointment) => total + appointment.items.filter((entry: any) => String(entry.followupItemId) === String(item._id)).reduce((sum: number, entry: any) => sum + entry.quantity, 0), 0);
+        const left = item.sessionsTotal - item.sessionsPerformed - booked;
+        if (quantity > left) return fail(c, `${item.procedureName}: restam ${Math.max(left, 0)} sessão(ões) sem agendamento neste acompanhamento.`, 409);
+        const procedure: any = item.durationMinutes ? null : await Procedure.findById(item.procedureId).lean();
         followupIds.add(String(followup._id));
-        items.push({ followupId: followup._id, followupItemId: item._id, procedureId: item.procedureId, procedureName: item.procedureName, quantity, minutesEach: procedure?.durationMinutes ?? 60 });
+        items.push({ followupId: followup._id, followupItemId: item._id, procedureId: item.procedureId, procedureName: item.procedureName, quantity, minutesEach: item.durationMinutes ?? procedure?.durationMinutes ?? 60 });
       } else if (isValidObjectId(entry.procedureId)) {
         const procedure: any = await Procedure.findById(entry.procedureId).lean();
         if (!procedure || !procedure.active) return fail(c, 'Procedimento não encontrado.', 404);
         if (procedure.standalone === false) return fail(c, `${procedure.name} só pode ser feito dentro de um combo ou plano.`, 409);
         if (quantity !== 1) return fail(c, `${procedure.name}: procedimento avulso permite uma única sessão.`, 409);
+        standalone.push({ procedure, index: items.length });
         items.push({ procedureId: procedure._id, procedureName: procedure.name, quantity, minutesEach: procedure.durationMinutes ?? 60 });
       } else return fail(c, 'Agendamento inválido.');
     }
     const used = items.reduce((total, item) => total + item.quantity * item.minutesEach, 0);
     if (used > capacity) return fail(c, `Os procedimentos somam ${used} min e o agendamento tem ${capacity} min.`, 409);
-    const pending = await PatientAnamnesis.find({ followupId: { $in: [...followupIds] }, required: true, 'response.submittedAt': null }).populate('anamnesisId', 'title').lean();
+    for (const { procedure, index } of standalone) {
+      const opened = await openStandalone(body.patientId, procedure);
+      if ('error' in opened) return fail(c, opened.error, opened.status);
+      items[index] = { ...items[index], followupId: opened.followup._id, followupItemId: opened.followup.items[0]._id };
+      followupIds.add(String(opened.followup._id));
+    }
+    const pending = await pendingForms([...followupIds]);
     if (pending.length) return fail(c, `Anamnese pendente: ${pending.map((form: any) => form.anamnesisId?.title ?? 'Anamnese').join(', ')}. Conclua antes de agendar.`, 409);
     return c.json(await Appointment.create({ patientId: body.patientId, items, startsAt, endsAt, status: 'planned', notes: body.notes ?? null }), 201);
   })
   .patch('/api/appointments/:id', async (c) => {
     const body = await c.req.json().catch(() => null);
     const result = await Appointment.findByIdAndUpdate(c.req.param('id'), body, { returnDocument: 'after', runValidators: true }).lean();
+    if (result && ['cancelled', 'no_show'].includes((result as any).status)) await dropUnusedStandalone(result);
     return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404);
   })
   .delete('/api/appointments/:id', async (c) => {
     const result = isValidObjectId(c.req.param('id')) ? await Appointment.findByIdAndDelete(c.req.param('id')).lean() : null;
+    if (result) await dropUnusedStandalone(result);
     return result ? c.json({ deleted: true }) : fail(c, 'Agendamento não encontrado.', 404);
   })
-  .post('/api/sessions', async (c) => {
+  .post('/api/attendances', async (c) => {
     const body = await c.req.json().catch(() => null);
     if (!isRecord(body) || (!(isValidObjectId(body.followupId) && isValidObjectId(body.followupItemId)) && !isValidObjectId(body.procedureId))) return fail(c, 'Informe o procedimento do acompanhamento ou um procedimento avulso.');
     if (body.durationMinutes != null && !validDuration(body.durationMinutes)) return fail(c, 'Duração inválida.');
     const appointment: any = isValidObjectId(body.appointmentId) ? await Appointment.findById(body.appointmentId).lean() : null;
     const fromAppointment = (procedureId: unknown) => appointment?.items?.find((entry: any) => String(entry.procedureId) === String(procedureId))?.minutesEach ?? null;
+    let followup: any;
     if (isValidObjectId(body.followupId) && isValidObjectId(body.followupItemId)) {
-      const followup = await Followup.findOne({ _id: body.followupId, 'items._id': body.followupItemId });
+      followup = await Followup.findOne({ _id: body.followupId, 'items._id': body.followupItemId });
       if (!followup) return fail(c, 'Procedimento contratado não encontrado.', 404);
-      const item: any = followup.items.id(body.followupItemId);
-      if (item.sessionsPerformed >= item.sessionsTotal) return fail(c, 'Todas as sessões já foram realizadas.', 409);
-      const session = await Session.create({ patientId: followup.patientId, followupId: followup._id, followupItemId: item._id, procedureId: item.procedureId, appointmentId: body.appointmentId ?? null, procedureName: item.procedureName, performedAt: body.performedAt ?? new Date(), durationMinutes: body.durationMinutes ?? fromAppointment(item.procedureId), data: body.data ?? {}, schemaSnapshot: item.sessionSchema, notes: body.notes ?? null });
-      item.sessionsPerformed += 1;
-      try { await followup.save(); } catch (error) { await Session.deleteOne({ _id: session._id }); throw error; }
-      return c.json(session, 201);
+    } else {
+      if (!isValidObjectId(body.patientId) || !await Patient.exists({ _id: body.patientId })) return fail(c, 'Paciente não encontrado.', 404);
+      const procedure: any = await Procedure.findById(body.procedureId).lean();
+      if (!procedure || !procedure.active) return fail(c, 'Procedimento não encontrado.', 404);
+      if (procedure.standalone === false) return fail(c, `${procedure.name} só pode ser realizado dentro de um combo ou plano.`, 409);
+      const booked = appointment?.items?.find((entry: any) => String(entry.procedureId) === String(procedure._id) && entry.followupId);
+      const reserved: any = booked ? await Followup.findOne({ _id: booked.followupId, patientId: body.patientId, offerType: 'procedure' }) : null;
+      const opened = reserved ? { followup: reserved } : await openStandalone(body.patientId, procedure);
+      if ('error' in opened) return fail(c, opened.error, opened.status);
+      followup = opened.followup;
+      const pending = await pendingForms([followup._id]);
+      if (pending.length) return fail(c, `Anamnese pendente: ${pending.map((form: any) => form.anamnesisId?.title ?? 'Anamnese').join(', ')}. Conclua antes de registrar o atendimento.`, 409);
     }
-    if (!isValidObjectId(body.patientId) || !await Patient.exists({ _id: body.patientId })) return fail(c, 'Paciente não encontrado.', 404);
-    const procedure: any = await Procedure.findById(body.procedureId).lean();
-    if (!procedure || !procedure.active) return fail(c, 'Procedimento não encontrado.', 404);
-    if (procedure.standalone === false) return fail(c, `${procedure.name} só pode ser realizado dentro de um combo ou plano.`, 409);
-    return c.json(await Session.create({ patientId: body.patientId, procedureId: procedure._id, appointmentId: body.appointmentId ?? null, procedureName: procedure.name, performedAt: body.performedAt ?? new Date(), durationMinutes: body.durationMinutes ?? fromAppointment(procedure._id) ?? procedure.durationMinutes ?? null, data: body.data ?? {}, schemaSnapshot: procedure.sessionSchema, notes: body.notes ?? null }), 201);
+    const item: any = followup.items.id(body.followupItemId ?? followup.items[0]._id);
+    if (item.sessionsPerformed >= item.sessionsTotal) return fail(c, 'Todas as sessões já foram realizadas.', 409);
+    const attendance = await Attendance.create({ patientId: followup.patientId, followupId: followup._id, followupItemId: item._id, procedureId: item.procedureId, appointmentId: body.appointmentId ?? null, procedureName: item.procedureName, performedAt: body.performedAt ?? new Date(), durationMinutes: body.durationMinutes ?? fromAppointment(item.procedureId) ?? item.durationMinutes ?? null, data: body.data ?? {}, schemaSnapshot: item.sessionSchema, notes: body.notes ?? null });
+    item.sessionsPerformed += 1;
+    try { await followup.save(); } catch (error) { await Attendance.deleteOne({ _id: attendance._id }); throw error; }
+    return c.json(attendance, 201);
   })
-  .get('/api/sessions/:id', async (c) => {
-    const session: any = isValidObjectId(c.req.param('id')) ? await Session.findById(c.req.param('id')).populate('patientId', 'fullName').lean() : null;
-    if (!session) return fail(c, 'Sessão não encontrada.', 404);
-    const photos = await Promise.all((session.photos ?? []).map(async (photo: any) => ({ ...photo, url: await downloadUrl(photo.objectKey).catch(() => null) })));
-    return c.json({ ...session, photos });
+  .get('/api/attendances/:id', async (c) => {
+    const attendance: any = isValidObjectId(c.req.param('id')) ? await Attendance.findById(c.req.param('id')).populate('patientId', 'fullName').lean() : null;
+    if (!attendance) return fail(c, 'Atendimento não encontrado.', 404);
+    const photos = await Promise.all((attendance.photos ?? []).map(async (photo: any) => ({ ...photo, url: await downloadUrl(photo.objectKey).catch(() => null) })));
+    return c.json({ ...attendance, photos });
   })
-  .patch('/api/sessions/:id', async (c) => {
+  .patch('/api/attendances/:id', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || (body.notes !== undefined && body.notes !== null && typeof body.notes !== 'string') || (body.data !== undefined && (typeof body.data !== 'object' || body.data === null || Array.isArray(body.data))) || (body.durationMinutes != null && !validDuration(body.durationMinutes))) return fail(c, 'Dados da sessão inválidos.');
+    if (!body || (body.notes !== undefined && body.notes !== null && typeof body.notes !== 'string') || (body.data !== undefined && (typeof body.data !== 'object' || body.data === null || Array.isArray(body.data))) || (body.durationMinutes != null && !validDuration(body.durationMinutes))) return fail(c, 'Dados do atendimento inválidos.');
     const update: Record<string, unknown> = {};
     if (body.notes !== undefined) update.notes = body.notes?.trim() || null;
     if (body.data !== undefined) update.data = body.data;
     if (body.durationMinutes !== undefined) update.durationMinutes = body.durationMinutes;
-    const result = isValidObjectId(c.req.param('id')) ? await Session.findByIdAndUpdate(c.req.param('id'), update, { returnDocument: 'after' }).lean() : null;
-    return result ? c.json(result) : fail(c, 'Sessão não encontrada.', 404);
+    const result = isValidObjectId(c.req.param('id')) ? await Attendance.findByIdAndUpdate(c.req.param('id'), update, { returnDocument: 'after' }).lean() : null;
+    return result ? c.json(result) : fail(c, 'Atendimento não encontrado.', 404);
   })
-  .get('/api/sessions', async (c) => c.json(await Session.find().populate('patientId', 'fullName').sort({ performedAt: -1 }).lean()))
+  .get('/api/attendances', async (c) => c.json(await Attendance.find().populate('patientId', 'fullName').sort({ performedAt: -1 }).lean()))
   .post('/api/uploads/presign', async (c) => {
     const body = await c.req.json().catch(() => null);
     if (!body || typeof body.contentType !== 'string' || !/^image\/(jpeg|png|webp)$/.test(body.contentType) || !Number.isInteger(body.size) || body.size < 1 || body.size > 10_000_000) return fail(c, 'Imagem inválida ou maior que 10 MB.');
@@ -360,19 +403,19 @@ export const app = new Hono()
     try { return c.json({ uploadUrl: await uploadUrl(key, body.contentType), objectKey: key, expiresInSeconds: 300 }); }
     catch { return c.json({ error: 'R2 não configurado.' }, 503); }
   })
-  .post('/api/sessions/:id/photos', async (c) => {
-    const body = await c.req.json().catch(() => null), session = await Session.findById(c.req.param('id'));
-    if (!session) return fail(c, 'Sessão não encontrada.', 404);
+  .post('/api/attendances/:id/photos', async (c) => {
+    const body = await c.req.json().catch(() => null), attendance = await Attendance.findById(c.req.param('id'));
+    if (!attendance) return fail(c, 'Atendimento não encontrado.', 404);
     if (!body || typeof body.objectKey !== 'string' || !/^uploads\/[\w-]+$/.test(body.objectKey) || !['before', 'during', 'after'].includes(body.phase)) return fail(c, 'Foto inválida.');
-    session.photos.push(body); await session.save(); return c.json(session.photos.at(-1), 201);
+    attendance.photos.push(body); await attendance.save(); return c.json(attendance.photos.at(-1), 201);
   })
-  .delete('/api/sessions/:id/photos/:photoId', async (c) => {
-    const session = await Session.findById(c.req.param('id'));
-    if (!session) return fail(c, 'Sessão não encontrada.', 404);
-    const photo = session.photos.id(c.req.param('photoId'));
+  .delete('/api/attendances/:id/photos/:photoId', async (c) => {
+    const attendance = await Attendance.findById(c.req.param('id'));
+    if (!attendance) return fail(c, 'Atendimento não encontrado.', 404);
+    const photo = attendance.photos.id(c.req.param('photoId'));
     if (!photo) return fail(c, 'Foto não encontrada.', 404);
     try { await deleteObject(photo.objectKey); } catch (error) { console.error(error); }
-    photo.deleteOne(); await session.save(); return c.json({ deleted: true });
+    photo.deleteOne(); await attendance.save(); return c.json({ deleted: true });
   })
   .post('/api/patient-anamneses', async (c) => {
     const body = await c.req.json().catch(() => null);
@@ -431,16 +474,16 @@ export const app = new Hono()
   .get('/api/patients/:id/relationship', async (c) => {
     if (!isValidObjectId(c.req.param('id'))) return fail(c, 'Paciente não encontrado.', 404);
     const patient = await Patient.findById(c.req.param('id')).lean(); if (!patient) return fail(c, 'Paciente não encontrado.', 404);
-    const [followups, sessions, appointments] = await Promise.all([Followup.find({ patientId: patient._id }).lean(), Session.find({ patientId: patient._id }).sort({ performedAt: 1 }).lean(), Appointment.find({ patientId: patient._id }).lean()]);
+    const [followups, attendances, appointments] = await Promise.all([Followup.find({ patientId: patient._id }).lean(), Attendance.find({ patientId: patient._id }).sort({ performedAt: 1 }).lean(), Appointment.find({ patientId: patient._id }).lean()]);
     const payments: any[] = await Payment.find({ followupId: { $in: followups.map((followup: any) => followup._id) } }).lean();
-    return c.json(buildRelationship(followups, sessions, payments, appointments));
+    return c.json(buildRelationship(followups, attendances, payments, appointments));
   })
   .get('/api/patients/:id/history', async (c) => {
     if (!isValidObjectId(c.req.param('id'))) return fail(c, 'Paciente não encontrado.', 404);
     const patient = await Patient.findById(c.req.param('id')).lean(); if (!patient) return fail(c, 'Paciente não encontrado.', 404);
-    const [followups, appointments, sessions, forms] = await Promise.all([Followup.find({ patientId: patient._id }).lean(), Appointment.find({ patientId: patient._id }).lean(), Session.find({ patientId: patient._id }).lean(), PatientAnamnesis.find({ patientId: patient._id }).populate('anamnesisId', 'title').lean()]);
+    const [followups, appointments, attendances, forms] = await Promise.all([Followup.find({ patientId: patient._id }).lean(), Appointment.find({ patientId: patient._id }).lean(), Attendance.find({ patientId: patient._id }).lean(), PatientAnamnesis.find({ patientId: patient._id }).populate('anamnesisId', 'title').lean()]);
     const followupIds = followups.map((p: any) => p._id), payments = await Payment.find({ followupId: { $in: followupIds } }).lean();
-    const events: any[] = [...followups.map((p: any) => ({ type: 'followup', at: p.createdAt, title: `Acompanhamento: ${p.offerName}`, details: p })), ...appointments.map((a: any) => ({ type: 'appointment', at: a.startsAt, title: `Agendamento · ${appointmentStatusLabel[a.status] ?? a.status}`, details: a })), ...sessions.map((s: any) => ({ type: 'session', at: s.performedAt, title: `${s.procedureName} realizado`, details: s })), ...payments.map((p: any) => ({ type: 'payment', at: p.receivedAt, title: `Pagamento ${p.method}`, details: p })), ...forms.map((f: any) => ({ type: 'anamnesis', at: f.response?.submittedAt ?? f._id.getTimestamp(), title: `${f.anamnesisId?.title ?? 'Anamnese'} · ${f.response ? f.response.validUntil < new Date() ? 'vencida' : 'respondida' : 'pendente'}`, details: f }))];
+    const events: any[] = [...followups.map((p: any) => ({ type: 'followup', at: p.createdAt, title: `Acompanhamento: ${p.offerName}`, details: p })), ...appointments.map((a: any) => ({ type: 'appointment', at: a.startsAt, title: `Agendamento · ${appointmentStatusLabel[a.status] ?? a.status}`, details: a })), ...attendances.map((s: any) => ({ type: 'attendance', at: s.performedAt, title: `${s.procedureName} realizado`, details: s })), ...payments.map((p: any) => ({ type: 'payment', at: p.receivedAt, title: `Pagamento ${p.method}`, details: p })), ...forms.map((f: any) => ({ type: 'anamnesis', at: f.response?.submittedAt ?? f._id.getTimestamp(), title: `${f.anamnesisId?.title ?? 'Anamnese'} · ${f.response ? f.response.validUntil < new Date() ? 'vencida' : 'respondida' : 'pendente'}`, details: f }))];
     const pending = events.filter((event) => /pendente|vencida/.test(event.title) || (event.type === 'appointment' && event.details.status === 'planned'));
     return c.json({ patient, events: events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()), pending });
   });

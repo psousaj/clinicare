@@ -40,7 +40,7 @@ export function ProcedureFormPage({ procedure }: { procedure?: Procedure }) {
             <h3 className="m-0 text-sm font-semibold">Campos da sessão</h3>
             <p className="m-0 text-xs text-muted-foreground">
               Informações registradas a cada sessão realizada deste procedimento.
-              {procedure && ` Ao alterar os campos, uma nova versão (v${(version ?? 1) + 1}) é criada; sessões já registradas mantêm a versão em que foram feitas.`}
+              {procedure && ` Ao alterar os campos, uma nova versão (v${(version ?? 1) + 1}) é criada; atendimentos já registrados mantêm a versão em que foram feitos.`}
             </p>
           </div>
           <SchemaEditor value={schema} onChange={setSchema} />
