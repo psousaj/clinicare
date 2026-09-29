@@ -1,50 +1,149 @@
+import { useNavigate } from '@tanstack/react-router';
+import { useState } from 'react';
 import { Field, FormDialog } from '@/components/FormDialog';
+import { DatePicker, TimePicker } from '@/components/pickers';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { appointmentForm, parseForm, paymentForm } from '@/lib/forms';
-import { useCreateAppointment, useCreatePayment } from '@/lib/queries';
-import type { Patient, Plan } from '@/lib/schemas';
-import { currency } from '@/lib/format';
+import { appointmentForm, attendanceForm, parseForm, paymentForm } from '@/lib/forms';
+import { useCreateAppointment, useCreateAttendance, useCreatePayment } from '@/lib/queries';
+import type { Attendance, Combo, Patient, Plan, Procedure } from '@/lib/schemas';
+import { currency, offerLabel } from '@/lib/format';
 
-export function AppointmentDialog({ selection, patients, plans, onClose }: { selection: { start: string; end: string } | null; patients: Patient[]; plans: Plan[]; onClose: () => void }) {
+type Selection = { start: string; end: string };
+
+// Sem `selection` (ex.: botão da visão geral) o horário é escolhido no próprio formulário.
+export function AppointmentDialog({ open, selection, patientId, patients, attendances, onClose }: { open: boolean; selection?: Selection | null; patientId?: string; patients: Patient[]; attendances: Attendance[]; onClose: () => void }) {
   const create = useCreateAppointment();
   return (
     <FormDialog
-      open={!!selection}
-      onOpenChange={(open) => !open && onClose()}
+      open={open}
+      onOpenChange={(next) => !next && onClose()}
       title="Novo agendamento"
       submitLabel="Agendar"
-      description={selection && `${new Date(selection.start).toLocaleString('pt-BR')} – ${new Date(selection.end).toLocaleTimeString('pt-BR')}`}
+      description={selection ? `${new Date(selection.start).toLocaleString('pt-BR')} – ${new Date(selection.end).toLocaleTimeString('pt-BR')}` : 'Escolha o paciente, o procedimento e o horário.'}
       onSubmit={(form) => {
-        const { patientId, planItemId } = parseForm(appointmentForm, form);
-        return create.mutateAsync({ patientId, planItemIds: [planItemId], startsAt: new Date(selection!.start).toISOString(), endsAt: new Date(selection!.end).toISOString(), status: 'planned' });
+        const { patientId: patient, attendanceItemId } = parseForm(appointmentForm, form);
+        let startsAt = selection?.start, endsAt = selection?.end;
+        if (!selection) {
+          const date = String(form.get('date') ?? ''), start = String(form.get('start') ?? ''), end = String(form.get('end') ?? '');
+          if (!date || !start || !end) throw new Error('Informe a data e os horários de início e fim.');
+          startsAt = new Date(`${date}T${start}`).toISOString();
+          endsAt = new Date(`${date}T${end}`).toISOString();
+        }
+        if (new Date(endsAt!) <= new Date(startsAt!)) throw new Error('O horário final deve ser depois do início.');
+        return create.mutateAsync({ patientId: patient, attendanceItemIds: [attendanceItemId], startsAt: new Date(startsAt!).toISOString(), endsAt: new Date(endsAt!).toISOString(), status: 'planned' });
       }}
     >
-      <Field label="Paciente">
-        <NativeSelect name="patientId" required>
-          {patients.map((patient) => <NativeSelectOption key={patient.id} value={patient.id}>{patient.fullName}</NativeSelectOption>)}
-        </NativeSelect>
-      </Field>
-      <Field label="Procedimento contratado">
-        <NativeSelect name="planItemId" required>
-          {plans.flatMap((plan) => plan.items.map((item) => <NativeSelectOption key={item.id} value={item.id}>{patients.find((patient) => patient.id === plan.patientId)?.fullName} · {item.procedureName}</NativeSelectOption>))}
-        </NativeSelect>
-      </Field>
+      <AppointmentFields manual={!selection} lockedPatientId={patientId} patients={patients} attendances={attendances} />
     </FormDialog>
   );
 }
 
-export function PaymentDialog({ plan, onClose }: { plan: Plan | null; onClose: () => void }) {
+function AppointmentFields({ manual, lockedPatientId, patients, attendances }: { manual: boolean; lockedPatientId?: string; patients: Patient[]; attendances: Attendance[] }) {
+  const [patientId, setPatientId] = useState(lockedPatientId ?? patients[0]?.id ?? '');
+  const [date, setDate] = useState<string>(), [start, setStart] = useState<string>(), [end, setEnd] = useState<string>();
+  // Só o que o paciente já contratou e ainda tem sessões a realizar; o catálogo não entra aqui.
+  const mine = attendances.filter((attendance) => attendance.patientId === patientId).map((attendance) => ({ ...attendance, items: attendance.items.filter((item) => item.sessionsPerformed < item.sessionsTotal) })).filter((attendance) => attendance.items.length > 0);
+  const pending = mine.filter((attendance) => attendance.blocked).flatMap((attendance) => attendance.anamneses.filter((form) => form.required && !form.answered).map((form) => form.title));
+  return (
+    <>
+      <Field label="Paciente">
+        {lockedPatientId ? (
+          <>
+            <input type="hidden" name="patientId" value={lockedPatientId} />
+            <div className="flex h-9 items-center rounded-md border border-border bg-muted px-3 text-sm">{patients.find((patient) => patient.id === lockedPatientId)?.fullName}</div>
+          </>
+        ) : (
+          <NativeSelect name="patientId" required value={patientId} onChange={(event) => setPatientId(event.target.value)}>
+            {patients.map((patient) => <NativeSelectOption key={patient.id} value={patient.id}>{patient.fullName}</NativeSelectOption>)}
+          </NativeSelect>
+        )}
+      </Field>
+      <Field label="Procedimento">
+        <NativeSelect name="attendanceItemId" required key={patientId}>
+          {mine.length === 0 && <NativeSelectOption value="">Nenhum atendimento ativo para este paciente</NativeSelectOption>}
+          {mine.flatMap((attendance) => attendance.items.map((item) => (
+            <NativeSelectOption key={item.id} value={item.id} disabled={attendance.blocked}>{`${attendance.offerType === 'procedure' ? offerLabel('procedure', item.procedureName) : `${offerLabel(attendance.offerType, attendance.offerName)} · ${item.procedureName}`} (${item.sessionsPerformed}/${item.sessionsTotal})${attendance.blocked ? ' — anamnese pendente' : ''}`}</NativeSelectOption>
+          )))}
+        </NativeSelect>
+      </Field>
+      {pending.length > 0 && <p role="alert" className="m-0 rounded-md bg-amber-50 p-3 text-sm text-amber-900">Procedimentos bloqueados por anamnese pendente ({pending.join(", ")}). Conclua na ficha do paciente para liberar o agendamento.</p>}
+      {manual && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="Data"><DatePicker name="date" value={date} onChange={setDate} /></Field>
+          <Field label="Início"><TimePicker name="start" value={start} onChange={setStart} /></Field>
+          <Field label="Fim"><TimePicker name="end" value={end} onChange={setEnd} /></Field>
+        </div>
+      )}
+    </>
+  );
+}
+
+// Escolha uma oferta do catálogo (procedimento avulso, combo ou plano) para iniciar o atendimento do paciente.
+export function NewAttendanceDialog({ open, patientId, patients, procedures, combos, plans, onClose }: { open: boolean; patientId?: string; patients: Patient[]; procedures: Procedure[]; combos: Combo[]; plans: Plan[]; onClose: () => void }) {
+  const create = useCreateAttendance();
+  const navigate = useNavigate();
+  return (
+    <FormDialog
+      open={open}
+      onOpenChange={(next) => !next && onClose()}
+      title="Novo atendimento"
+      description="Escolha o procedimento avulso, combo ou plano. Contratos e anamneses exigidos são gerados automaticamente."
+      submitLabel="Iniciar atendimento"
+      onSubmit={async (form) => {
+        const { patientId: patient, offer } = parseForm(attendanceForm, form);
+        const [offerType, offerId] = offer.split(':');
+        await create.mutateAsync({ patientId: patient, offerType, offerId });
+        if (!patientId) await navigate({ to: '/pacientes/$patientId', params: { patientId: patient } });
+      }}
+    >
+      <OfferFields lockedPatientId={patientId} patients={patients} procedures={procedures} combos={combos} plans={plans} />
+    </FormDialog>
+  );
+}
+
+function OfferFields({ lockedPatientId, patients, procedures, combos, plans }: { lockedPatientId?: string; patients: Patient[]; procedures: Procedure[]; combos: Combo[]; plans: Plan[] }) {
+  const [offer, setOffer] = useState('');
+  const [type, id] = offer.split(':');
+  const price = type === 'procedure' ? procedures.find((item) => item.id === id)?.priceCents : type === 'combo' ? (combos.find((item) => item.id === id)?.promotionalPriceCents ?? combos.find((item) => item.id === id)?.priceCents) : type === 'plan' ? plans.find((item) => item.id === id)?.priceCents : undefined;
+  return (
+    <>
+      <Field label="Paciente">
+        {lockedPatientId ? (
+          <>
+            <input type="hidden" name="patientId" value={lockedPatientId} />
+            <div className="flex h-9 items-center rounded-md border border-border bg-muted px-3 text-sm">{patients.find((patient) => patient.id === lockedPatientId)?.fullName}</div>
+          </>
+        ) : (
+          <NativeSelect name="patientId" required>
+            {patients.map((patient) => <NativeSelectOption key={patient.id} value={patient.id}>{patient.fullName}</NativeSelectOption>)}
+          </NativeSelect>
+        )}
+      </Field>
+      <Field label="Oferta">
+        <NativeSelect name="offer" required value={offer} onChange={(event) => setOffer(event.target.value)}>
+          <NativeSelectOption value="">Selecione…</NativeSelectOption>
+          {procedures.filter((procedure) => procedure.active !== false).map((procedure) => <NativeSelectOption key={procedure.id} value={`procedure:${procedure.id}`}>{offerLabel('procedure', procedure.name)}</NativeSelectOption>)}
+          {combos.filter((combo) => combo.active !== false).map((combo) => <NativeSelectOption key={combo.id} value={`combo:${combo.id}`}>{offerLabel('combo', combo.name)}</NativeSelectOption>)}
+          {plans.map((plan) => <NativeSelectOption key={plan.id} value={`plan:${plan.id}`}>{offerLabel('plan', plan.name)}</NativeSelectOption>)}
+        </NativeSelect>
+      </Field>
+      {price !== undefined && <p className="m-0 text-sm text-muted-foreground">Valor: <strong className="text-foreground">{currency(price)}</strong></p>}
+    </>
+  );
+}
+
+export function PaymentDialog({ attendance, onClose }: { attendance: Attendance | null; onClose: () => void }) {
   const create = useCreatePayment();
   return (
     <FormDialog
-      open={!!plan}
+      open={!!attendance}
       onOpenChange={(open) => !open && onClose()}
       title="Registrar pagamento"
       submitLabel="Registrar"
-      description={plan && `${plan.offerName} · total ${currency(plan.priceCents)}`}
+      description={attendance && `${attendance.offerName} · total ${currency(attendance.priceCents)}`}
       onSubmit={(form) => {
         const { amount, ...data } = parseForm(paymentForm, form);
-        return create.mutateAsync({ ...data, planId: plan!.id, amountCents: amount });
+        return create.mutateAsync({ ...data, attendanceId: attendance!.id, amountCents: amount });
       }}
     >
       <Field label="Valor recebido R$" name="amount" type="number" step="0.01" min="0.01" required />

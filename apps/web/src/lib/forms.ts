@@ -18,13 +18,15 @@ export const anamnesisForm = z.object({ title: text('Nome do formulário') });
 export const contractForm = z.object({ title: text('Nome do documento'), kind: z.enum(['standard', 'procedure', 'combo']), content: z.string() });
 export const comboForm = z.object({
   name: text('Nome'),
+  description: optionalText,
   price: reais('Preço'),
   promo: optionalReais,
   validFrom: optionalText,
   validUntil: optionalText,
 });
-export const planForm = z.object({ patientId: text('Paciente'), offer: z.string().regex(/^(procedure|combo):.+$/, 'Escolha um procedimento ou combo.'), price: reais('Preço') });
-export const appointmentForm = z.object({ patientId: text('Paciente'), planItemId: text('Procedimento contratado') });
+export const planForm = z.object({ name: text('Nome'), description: optionalText, price: reais('Preço'), durationDays: optionalInt, validityDays: optionalInt });
+export const attendanceForm = z.object({ patientId: text('Paciente'), offer: z.string().regex(/^(procedure|combo|plan):.+$/, 'Escolha um procedimento, combo ou plano.') });
+export const appointmentForm = z.object({ patientId: text('Paciente'), attendanceItemId: text('Procedimento') });
 export const paymentForm = z.object({ amount: reais('Valor', 0.01), method: z.enum(['pix', 'cash', 'credit_card']), installments: z.coerce.number().int().min(1).default(1) });
 
 export function parseForm<S extends z.ZodType>(schema: S, form: FormData): z.output<S> {

@@ -2,7 +2,7 @@ import { queryOptions, useMutation, useQueryClient, type QueryKey } from '@tanst
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { api } from './api';
-import { anamnesisSchema, anySchema, appointmentSchema, contractSchema, createdSchema, comboSchema, patientHistorySchema, patientSchema, planSchema, procedureSchema, publicFormSchema, requestSchema, sessionSchema } from './schemas';
+import { anamnesisSchema, anySchema, appointmentSchema, contractSchema, createdSchema, comboSchema, planSchema, patientHistorySchema, relationshipSchema, patientSchema, attendanceSchema, procedureSchema, publicFormSchema, requestSchema, sessionSchema } from './schemas';
 
 export const keys = {
   patients: ['patients'] as const,
@@ -11,8 +11,11 @@ export const keys = {
   contracts: ['contracts'] as const,
   combos: ['combos'] as const,
   plans: ['plans'] as const,
+  attendances: ['attendances'] as const,
   appointments: ['appointments'] as const,
   history: (patientId: string) => ['patients', patientId, 'history'] as const,
+  sessions: ['sessions'] as const,
+  relationship: (patientId: string) => ['patients', patientId, 'relationship'] as const,
   session: (id: string) => ['sessions', id] as const,
   publicForm: (token: string) => ['public-form', token] as const,
 };
@@ -26,9 +29,13 @@ export const anamnesesQuery = list(keys.anamneses, '/api/anamneses', anamnesisSc
 export const contractsQuery = list(keys.contracts, '/api/contracts', contractSchema);
 export const combosQuery = list(keys.combos, '/api/combos', comboSchema);
 export const plansQuery = list(keys.plans, '/api/plans', planSchema);
+export const attendancesQuery = list(keys.attendances, '/api/attendances', attendanceSchema);
+export const sessionsQuery = list(keys.sessions, '/api/sessions', sessionSchema);
 export const appointmentsQuery = list(keys.appointments, '/api/appointments', appointmentSchema);
 export const sessionQuery = (id: string) =>
   queryOptions({ queryKey: keys.session(id), queryFn: () => api(`/api/sessions/${id}`, { schema: sessionSchema, fallbackError: 'Não foi possível carregar a sessão.' }) });
+export const relationshipQuery = (patientId: string) =>
+  queryOptions({ queryKey: keys.relationship(patientId), queryFn: () => api(`/api/patients/${patientId}/relationship`, { schema: relationshipSchema, fallbackError: 'Não foi possível carregar o relacionamento.' }) });
 export const patientHistoryQuery = (patientId: string) =>
   queryOptions({ queryKey: keys.history(patientId), queryFn: () => api(`/api/patients/${patientId}/history`, { schema: patientHistorySchema, fallbackError: 'Não foi possível carregar o paciente.' }) });
 export const publicFormQuery = (token: string) =>
@@ -51,7 +58,7 @@ export function useApiMutation<V, R = unknown>({ mutationFn, invalidate, success
 
 const post = <S extends z.ZodType>(path: string, body: unknown, schema: S = anySchema as unknown as S) => api(path, { method: 'POST', body, schema });
 const patientRefresh = [keys.patients];
-const everything = [keys.patients, keys.procedures, keys.anamneses, keys.contracts, keys.combos, keys.plans, keys.appointments];
+const everything = [keys.patients, keys.procedures, keys.anamneses, keys.contracts, keys.combos, keys.plans, keys.attendances, keys.appointments, keys.sessions];
 
 export const useCreatePatient = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/patients', body), invalidate: patientRefresh, success: 'Paciente cadastrado.' });
 export const useCreateProcedure = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/procedures', body), invalidate: [keys.procedures], success: 'Procedimento cadastrado.' });
@@ -60,8 +67,9 @@ export const useRestoreAnamnesis = () =>
   useApiMutation({ mutationFn: ({ id, version }: { id: string; version: number }) => post(`/api/anamneses/${id}/versions`, { restoreVersion: version }), invalidate: [keys.anamneses], success: (_, { version }) => `Rollback feito: nova versão criada a partir da v${version}.` });
 export const useUpdateAnamnesis = () =>
   useApiMutation({
-    mutationFn: async ({ id, title, schema }: { id: string; title?: string; schema?: Record<string, unknown> }) => {
-      if (title !== undefined) await api(`/api/anamneses/${id}`, { method: 'PATCH', body: { title }, schema: anySchema });
+    mutationFn: async ({ id, title, schema, validityMonths, procedureIds }: { id: string; title?: string; schema?: Record<string, unknown>; validityMonths?: number; procedureIds?: string[] }) => {
+      if (title !== undefined) await api(`/api/anamneses/${id}`, { method: 'PATCH', body: { title, validityMonths }, schema: anySchema });
+      if (procedureIds) await api(`/api/anamneses/${id}/associations`, { method: 'PUT', body: { procedures: procedureIds.map((procedureId) => ({ procedureId, required: true })) }, schema: anySchema });
       if (schema) await post(`/api/anamneses/${id}/versions`, { schema });
     },
     invalidate: [keys.anamneses],
@@ -70,14 +78,21 @@ export const useUpdateAnamnesis = () =>
 export const useCreateContract = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/contracts', body), invalidate: [keys.contracts], success: 'Contrato criado.' });
 export const useRestoreContract = () =>
   useApiMutation({ mutationFn: ({ id, version }: { id: string; version: number }) => post(`/api/contracts/${id}/versions`, { restoreVersion: version }), invalidate: [keys.contracts], success: 'Nova versão criada.' });
+export const useUpdateProcedure = () =>
+  useApiMutation({ mutationFn: ({ id, ...body }: { id: string } & Record<string, unknown>) => api(`/api/procedures/${id}`, { method: 'PUT', body, schema: anySchema }), invalidate: [keys.procedures], success: 'Procedimento atualizado.' });
+export const useUpdateCombo = () =>
+  useApiMutation({ mutationFn: ({ id, ...body }: { id: string } & Record<string, unknown>) => api(`/api/combos/${id}`, { method: 'PUT', body, schema: anySchema }), invalidate: [keys.combos], success: 'Combo atualizado.' });
 export const useCreateCombo = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/combos', body), invalidate: [keys.combos], success: 'Combo cadastrado.' });
-export const useCreatePlan = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/plans', body), invalidate: everything, success: 'Contratação registrada.' });
-export const useCreateAppointment = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/appointments', body), invalidate: [keys.appointments], success: 'Agendamento criado.' });
-export const useCreatePayment = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/payments', body), invalidate: [keys.plans], success: 'Pagamento registrado.' });
+export const useCreateAttendance = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/attendances', body), invalidate: everything, success: 'Atendimento iniciado.' });
+export const useCreatePlan = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/plans', body), invalidate: [keys.plans], success: 'Plano cadastrado.' });
+export const useAnswerAnamnesis = () =>
+  useApiMutation({ mutationFn: ({ id, answers }: { id: string; answers: Record<string, unknown> }) => post(`/api/patient-anamneses/${id}/answers`, { answers }), invalidate: [keys.attendances, keys.patients], success: 'Anamnese registrada.' });
+export const useCreateAppointment = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/appointments', body), invalidate: [keys.appointments, keys.patients], success: 'Agendamento criado.' });
+export const useCreatePayment = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/payments', body), invalidate: [keys.attendances, keys.patients], success: 'Pagamento registrado.' });
 export const useDeleteAppointment = () =>
   useApiMutation({ mutationFn: (id: string) => api(`/api/appointments/${id}`, { method: 'DELETE', schema: anySchema }), invalidate: [keys.appointments, keys.patients], success: 'Agendamento excluído.' });
 export const useUpdateSession = (id: string) =>
-  useApiMutation({ mutationFn: (body: { notes?: string | null; data?: Record<string, unknown> }) => api(`/api/sessions/${id}`, { method: 'PATCH', body, schema: anySchema }), invalidate: [keys.session(id), keys.patients], success: 'Acompanhamento salvo.' });
+  useApiMutation({ mutationFn: (body: { notes?: string | null; data?: Record<string, unknown>; durationMinutes?: number | null }) => api(`/api/sessions/${id}`, { method: 'PATCH', body, schema: anySchema }), invalidate: [keys.session(id), keys.patients], success: 'Acompanhamento salvo.' });
 export const useAddSessionPhoto = (id: string) =>
   useApiMutation({
     mutationFn: async ({ file, phase, notes }: { file: File; phase: 'before' | 'during' | 'after'; notes: string }) => {
@@ -95,9 +110,8 @@ export const useCreateSession = () => useApiMutation({ mutationFn: (body: unknow
 
 export const useRequestAnamnesis = () =>
   useApiMutation({
-    mutationFn: async ({ patientId, anamnesisId }: { patientId: string; anamnesisId: string }) => {
-      const applied = await post('/api/patient-anamneses', { patientId, anamnesisId }, createdSchema);
-      const request = await post('/api/anamnesis-requests', { patientAnamnesisId: applied.id }, requestSchema);
+    mutationFn: async (patientAnamnesisId: string) => {
+      const request = await post('/api/anamnesis-requests', { patientAnamnesisId }, requestSchema);
       return `${location.origin}/formulario/${request.url.split('/').at(-1)}`;
     },
     invalidate: [],

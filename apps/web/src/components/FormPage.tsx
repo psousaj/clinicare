@@ -7,8 +7,9 @@ import { ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 type FormPageProps = {
-  backTo: '/pacientes' | '/procedimentos' | '/contratos';
+  backTo: '/pacientes' | '/procedimentos' | '/contratos' | '/planos';
   backLabel: string;
+  backSearch?: Record<string, string>;
   title: string;
   submitLabel: string;
   onSubmit: (form: FormData) => Promise<unknown> | unknown;
@@ -18,7 +19,7 @@ type FormPageProps = {
 };
 
 // Cadastro em página inteira: cabeçalho com voltar/cancelar/salvar, campos no painel e conteúdo extra (ex.: editor) abaixo.
-export function FormPage({ backTo, backLabel, title, submitLabel, onSubmit, narrow, children, below }: FormPageProps) {
+export function FormPage({ backTo, backLabel, backSearch, title, submitLabel, onSubmit, narrow, children, below }: FormPageProps) {
   const navigate = useNavigate();
   const [pending, setPending] = useState(false);
 
@@ -28,7 +29,7 @@ export function FormPage({ backTo, backLabel, title, submitLabel, onSubmit, narr
     setPending(true);
     try {
       await onSubmit(form);
-      await navigate({ to: backTo });
+      await navigate({ to: backTo, ...(backSearch && { search: backSearch as never }) });
     } catch (error) {
       // Erros da API já são exibidos pelo hook de mutation.
       if (!(error instanceof ApiError)) toast.error((error as Error).message);
@@ -42,11 +43,11 @@ export function FormPage({ backTo, backLabel, title, submitLabel, onSubmit, narr
       <section className="panel grid gap-4">
         <div className="panel-header">
           <div>
-            <Link to={backTo} className="text-button mb-2"><ArrowLeft size={14} /> {backLabel}</Link>
+            <Link to={backTo} search={backSearch as never} className="text-button mb-2"><ArrowLeft size={14} /> {backLabel}</Link>
             <h2>{title}</h2>
           </div>
           <div className="flex gap-2">
-            <Button type="button" variant="outline" asChild><Link to={backTo}>Cancelar</Link></Button>
+            <Button type="button" variant="outline" asChild><Link to={backTo} search={backSearch as never}>Cancelar</Link></Button>
             <Button type="submit" disabled={pending}>{submitLabel}</Button>
           </div>
         </div>

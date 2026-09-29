@@ -1,23 +1,27 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { Activity, CalendarDays, Search, Sparkles, UsersRound } from 'lucide-react';
+import { Activity, CalendarDays, ChevronRight, Search, Sparkles, UsersRound } from 'lucide-react';
 import { useState } from 'react';
-import { PatientRow, matchesPatient } from '@/components/PatientRow';
+import { matchesPatient } from '@/components/PatientRow';
 import { QueryError } from '@/components/QueryState';
-import { dateTime } from '@/lib/format';
-import { appointmentsQuery, patientsQuery, plansQuery, proceduresQuery } from '@/lib/queries';
+import { dateTime, shortDate } from '@/lib/format';
+import { appointmentsQuery, patientsQuery, attendancesQuery, proceduresQuery, sessionsQuery } from '@/lib/queries';
 
 export const Route = createFileRoute('/_app/')({ component: Overview });
 
 function Overview() {
-  const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), appointments = useQuery(appointmentsQuery), plans = useQuery(plansQuery);
+  const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), appointments = useQuery(appointmentsQuery), attendances = useQuery(attendancesQuery), sessions = useQuery(sessionsQuery);
   const [query, setQuery] = useState('');
   const patientList = patients.data ?? [], appointmentList = appointments.data ?? [];
+  // Sessões já vêm da mais recente para a mais antiga; cada paciente aparece uma vez, na sua última sessão.
+  const recent = new Map<string, { patientId: string; procedureName: string; performedAt: string }>();
+  for (const session of sessions.data ?? []) if (!recent.has(session.patientId)) recent.set(session.patientId, session);
+  const recentPatients = [...recent.values()].map((session) => ({ session, patient: patientList.find((candidate) => candidate.id === session.patientId) })).filter((entry) => entry.patient && matchesPatient(entry.patient, query));
   const stats = [
     { heading: 'Pacientes cadastrados', icon: UsersRound, tone: 'violet', value: patientList.length, suffix: ' no total', foot: 'Base da clínica' },
     { heading: 'Procedimentos ativos', icon: Sparkles, tone: 'peach', value: (procedures.data ?? []).length, suffix: ' cadastrados', foot: 'Catálogo da clínica' },
     { heading: 'Agendamentos', icon: CalendarDays, tone: 'blue', value: appointmentList.length, suffix: ' marcados', foot: 'Calendário semanal' },
-    { heading: 'Planos ativos', icon: Activity, tone: 'mint', value: (plans.data ?? []).length, suffix: ' contratados', foot: 'Acompanhamento' },
+    { heading: 'Atendimentos', icon: Activity, tone: 'mint', value: (attendances.data ?? []).length, suffix: ' iniciados', foot: 'Acompanhamento' },
   ];
   return (
     <>
@@ -33,9 +37,16 @@ function Overview() {
       </section>
       <section className="data-grid">
         <article className="panel">
-          <div className="panel-header"><div><div className="section-kicker">RELACIONAMENTO</div><h2>Pacientes recentes</h2></div></div>
+          <div className="panel-header"><div><div className="section-kicker">RELACIONAMENTO</div><h2>Pacientes atendidos recentemente</h2></div></div>
           <label className="search-box"><Search size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar paciente por nome ou telefone" /></label>
-          {patientList.filter((patient) => matchesPatient(patient, query)).slice(0, 5).map((patient) => <PatientRow key={patient.id} patient={patient} />)}
+          {sessions.isSuccess && recentPatients.length === 0 && <p className="text-sm text-muted-foreground">{query ? 'Nenhum paciente encontrado.' : 'Nenhuma sessão realizada ainda. Os pacientes aparecem aqui depois do primeiro atendimento.'}</p>}
+          {recentPatients.slice(0, 5).map(({ session, patient }) => (
+            <Link key={patient!.id} to="/pacientes/$patientId" params={{ patientId: patient!.id }} className="patient-row">
+              <span className="patient-initials">{patient!.fullName.slice(0, 2).toUpperCase()}</span>
+              <span className="patient-info"><strong>{patient!.fullName}</strong><small>{session.procedureName} · {shortDate(session.performedAt)}</small></span>
+              <ChevronRight size={16} />
+            </Link>
+          ))}
         </article>
         <article className="panel">
           <div className="panel-header"><div><div className="section-kicker">EXECUÇÃO</div><h2>Próximas sessões</h2></div><Link className="text-button" to="/agenda">Abrir agenda</Link></div>

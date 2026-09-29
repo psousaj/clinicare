@@ -6,7 +6,7 @@ import type { PatientHistory } from '@/lib/schemas';
 type Entry = PatientHistory['events'][number];
 
 const kinds: Record<string, { label: string; icon: LucideIcon; tone: string }> = {
-  plan: { label: 'Contratação', icon: FileText, tone: 'bg-[#e6eefb] text-[#2f5c9e]' },
+  attendance: { label: 'Atendimento', icon: FileText, tone: 'bg-[#e6eefb] text-[#2f5c9e]' },
   appointment: { label: 'Agendamento', icon: CalendarDays, tone: 'bg-[#fbf1d9] text-[#7a5610]' },
   session: { label: 'Sessão', icon: Sparkles, tone: 'bg-accent text-accent-foreground' },
   payment: { label: 'Pagamento', icon: Wallet, tone: 'bg-[#e9e4f7] text-[#5b449b]' },
@@ -19,7 +19,7 @@ function Body({ entry, patientId }: { entry: Entry; patientId: string }) {
     <>
       <strong className="text-sm">{entry.title}</strong>
       <span className="text-xs text-muted-foreground">{kinds[entry.type]?.label ?? entry.type} · {dateTime(entry.at)}</span>
-      {entry.type === 'session' && entry.details?.notes && <span className="line-clamp-2 text-xs text-foreground/80">{entry.details.notes}</span>}
+      {entry.type === 'session' && typeof entry.details?.notes === 'string' && entry.details.notes && <span className="line-clamp-2 text-xs text-foreground/80">{entry.details.notes}</span>}
       {entry.type === 'session' && (
         <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary"><Camera className="size-3.5" /> {photos} {photos === 1 ? 'foto' : 'fotos'} · acompanhar sessão</span>
       )}

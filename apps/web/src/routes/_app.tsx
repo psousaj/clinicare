@@ -1,5 +1,6 @@
 import { createFileRoute, Link, Outlet, useRouterState } from '@tanstack/react-router';
-import { Activity, CalendarDays, ChevronDown, ChevronRight, CircleHelp, ClipboardList, FileText, LayoutDashboard, Plus, Settings2, Sparkles, UsersRound, WalletCards } from 'lucide-react';
+import { Activity, CalendarDays, ChevronDown, ChevronRight, CircleHelp, ClipboardList, FileText, Layers, LayoutDashboard, Plus, Settings2, Sparkles, UsersRound, WalletCards } from 'lucide-react';
+import { QuickActions } from '@/components/QuickActions';
 import { Button } from '@/components/ui/button';
 
 const navigation = [
@@ -7,9 +8,10 @@ const navigation = [
   { to: '/pacientes', label: 'Pacientes', title: 'Pacientes', icon: UsersRound },
   { to: '/agenda', label: 'Agenda', title: 'Agenda semanal', icon: CalendarDays },
   { to: '/procedimentos', label: 'Procedimentos', title: 'Procedimentos e combos', icon: Sparkles },
+  { to: '/planos', label: 'Planos', title: 'Planos', icon: Layers },
   { to: '/formularios-anamnese', label: 'Formulários de anamnese', title: 'Formulários de anamnese', icon: ClipboardList },
   { to: '/contratos', label: 'Contratos', title: 'Contratos da clínica', icon: FileText },
-  { to: '/financeiro', label: 'Financeiro', title: 'Contratações e pagamentos', icon: WalletCards },
+  { to: '/financeiro', label: 'Financeiro', title: 'Atendimentos e pagamentos', icon: WalletCards },
 ] as const;
 
 export const Route = createFileRoute('/_app')({ component: AppLayout });
@@ -17,7 +19,8 @@ export const Route = createFileRoute('/_app')({ component: AppLayout });
 function AppLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const current = navigation.find(({ to }) => (to === '/' ? pathname === '/' : pathname.startsWith(to))) ?? navigation[0];
-  const showNewPatient = ['/', '/pacientes'].includes(pathname.replace(/(.)\/$/, '$1'));
+  const path = pathname.replace(/(.)\/$/, '$1');
+  const showNewPatient = path === '/pacientes';
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -66,6 +69,7 @@ function AppLayout() {
               <h1>{current.title}</h1>
               <p className="welcome-subtitle">Gestão de pacientes, procedimentos e cuidados.</p>
             </div>
+            {path === '/' && <QuickActions />}
             {showNewPatient && <Button asChild><Link to="/pacientes/novo"><Plus size={17} /> Novo paciente</Link></Button>}
           </section>
           <Outlet />

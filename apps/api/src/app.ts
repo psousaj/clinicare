@@ -2,7 +2,8 @@ import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { isValidObjectId } from 'mongoose';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { Appointment, Anamnesis, Contract, Combo, Patient, PatientAnamnesis, Payment, Plan, Procedure, Session } from '@clinicare/db';
+import { Appointment, Anamnesis, Contract, Combo, Patient, PatientAnamnesis, Payment, Attendance, Plan, Procedure, Session } from '@clinicare/db';
+import { buildRelationship } from './relationship';
 import { uploadUrl, uploadUrlForDocument, downloadUrl, deleteObject } from './storage';
 
 const fail = (c: Context, message: string, status: 400 | 404 | 409 | 503 = 400) => c.json({ error: message }, status);
@@ -10,6 +11,7 @@ const hashToken = (token: string) => createHash('sha256').update(token).digest('
 const validEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const isRecord = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);
 const validSchema = (value: unknown) => isRecord(value) && value.type === 'object' && isRecord(value.properties);
+const validDuration = (value: unknown) => Number.isInteger(value) && (value as number) > 0 && (value as number) <= 1440;
 const expiry = (days: number) => new Date(Date.now() + days * 86400000);
 const handleError = (c: Context, error: unknown) => {
   if (error && typeof error === 'object' && 'code' in error && (error as { code: number }).code === 11000) return c.json({ error: 'Este registro já existe.' }, 409);
@@ -17,6 +19,53 @@ const handleError = (c: Context, error: unknown) => {
   console.error(error);
   return c.json({ error: 'Ocorreu um erro inesperado.' }, 500);
 };
+
+type OfferItem = { procedureId: unknown; procedureName: string; sessionsTotal: number; sessionSchema: unknown; priceCents: number; anamneses: unknown[] };
+type ResolvedOffer = { name: string; priceCents: number; items: OfferItem[]; comboIds: unknown[]; contractIds: unknown[]; requireNewAnamnesis: boolean; validUntil: Date | null };
+const procedureItem = (procedure: any, override: { sessions?: number | null; priceCents?: number | null } = {}): OfferItem => ({ procedureId: procedure._id, procedureName: procedure.name, sessionsTotal: override.sessions ?? procedure.baseSessions, sessionSchema: procedure.sessionSchema, priceCents: override.priceCents ?? procedure.priceCents, anamneses: [] });
+const comboAvailable = (combo: any) => { const today = new Date(); return combo.active && !(combo.validFrom && combo.validFrom > today) && !(combo.validUntil && combo.validUntil < today); };
+// Valor integral = soma de (preço do procedimento × sessões). Combo nunca abaixo dele; promoção nunca acima do preço do combo.
+async function comboPriceError(items: any[], priceCents: number, promotionalPriceCents: number | null) {
+  const procedures = await Procedure.find({ _id: { $in: items.map((item) => item.procedureId?._id ?? item.procedureId) } }).lean();
+  const integral = items.reduce((total, item) => {
+    const procedure: any = procedures.find((candidate: any) => String(candidate._id) === String(item.procedureId?._id ?? item.procedureId));
+    return total + (item.priceOverrideCents ?? procedure?.priceCents ?? 0) * (item.sessionsOverride ?? procedure?.baseSessions ?? 1);
+  }, 0);
+  if (priceCents < integral) return `O preço do combo não pode ser menor que o valor integral dos procedimentos (${(integral / 100).toFixed(2).replace('.', ',')}).`;
+  if (promotionalPriceCents != null && promotionalPriceCents > priceCents) return 'O preço promocional não pode ser maior que o preço do combo.';
+  return null;
+}
+const comboItems = (combo: any) => combo.items.map((item: any) => procedureItem(item.procedureId, { sessions: item.sessionsOverride, priceCents: item.priceOverrideCents }));
+async function resolveOffer(offerType: string, offerId: string): Promise<ResolvedOffer | { error: string; status: 404 | 409 }> {
+  if (offerType === 'procedure') {
+    const procedure = await Procedure.findById(offerId).lean();
+    if (!procedure || !procedure.active) return { error: 'Procedimento não encontrado.', status: 404 };
+    return { name: procedure.name, priceCents: procedure.priceCents, items: [procedureItem(procedure)], comboIds: [], contractIds: [], requireNewAnamnesis: procedure.requireNewAnamnesis === true, validUntil: null };
+  }
+  if (offerType === 'combo') {
+    const combo = await Combo.findById(offerId).populate('items.procedureId').lean() as any;
+    if (!combo || !combo.active) return { error: 'Combo não encontrado.', status: 404 };
+    if (!comboAvailable(combo)) return { error: 'Combo fora da validade.', status: 409 };
+    return { name: combo.name, priceCents: combo.promotionalPriceCents ?? combo.priceCents, items: comboItems(combo), comboIds: [combo._id], contractIds: [], requireNewAnamnesis: combo.requireNewAnamnesis === true, validUntil: null };
+  }
+  const plan = await Plan.findById(offerId).lean() as any;
+  if (!plan || !plan.active) return { error: 'Plano não encontrado.', status: 404 };
+  const items: OfferItem[] = [], comboIds: unknown[] = [];
+  let requireNewAnamnesis = plan.requireNewAnamnesis === true;
+  for (const entry of plan.items) {
+    if (entry.offerType === 'procedure') {
+      const procedure = await Procedure.findById(entry.offerId).lean();
+      if (procedure?.active) { items.push(procedureItem(procedure)); requireNewAnamnesis ||= procedure.requireNewAnamnesis === true; }
+    } else {
+      const combo = await Combo.findById(entry.offerId).populate('items.procedureId').lean() as any;
+      if (combo?.active) { items.push(...comboItems(combo)); comboIds.push(combo._id); requireNewAnamnesis ||= combo.requireNewAnamnesis === true; }
+    }
+  }
+  if (!items.length) return { error: 'Plano sem procedimentos disponíveis.', status: 409 };
+  return { name: plan.name, priceCents: plan.priceCents, items, comboIds, contractIds: plan.contractIds, requireNewAnamnesis, validUntil: plan.validityDays ? expiry(plan.validityDays) : null };
+}
+const monthsFromNow = (months: number) => { const date = new Date(); date.setMonth(date.getMonth() + months); return date; };
+const buildResponse = async (anamnesisId: unknown, answers: Record<string, unknown>) => ({ answers, submittedAt: new Date(), validUntil: monthsFromNow(((await Anamnesis.findById(anamnesisId).lean()) as any)?.validityMonths ?? 12) });
 
 const appointmentStatusLabel: Record<string, string> = { planned: 'agendado', confirmed: 'confirmado', rescheduled: 'remarcado', cancelled: 'cancelado', no_show: 'faltou' };
 export const app = new Hono()
@@ -61,26 +110,33 @@ export const app = new Hono()
     const procedure = await Procedure.findById(c.req.param('id'));
     if (!procedure) return fail(c, 'Procedimento não encontrado.', 404);
     const body = await c.req.json().catch(() => null);
-    if (!body || typeof body.name !== 'string' || !validSchema(body.sessionSchema ?? procedure.sessionSchema)) return fail(c, 'Dados de procedimento inválidos.');
-    const versions = procedure.versions.map((version: any) => version.toObject());
-    if (JSON.stringify(body.sessionSchema ?? procedure.sessionSchema) !== JSON.stringify(procedure.sessionSchema)) versions.push({ version: (versions.at(-1)?.version ?? 0) + 1, sessionSchema: body.sessionSchema, createdAt: new Date() });
-    Object.assign(procedure, body);
-    procedure.set('versions', versions);
-    procedure.markModified('versions');
-    if (body.sessionSchema !== undefined) procedure.markModified('sessionSchema');
+    if (!isRecord(body)) return fail(c, 'Dados de procedimento inválidos.');
+    const has = (key: string) => body[key] !== undefined;
+    if ((has('name') && (typeof body.name !== 'string' || body.name.trim().length < 2)) || (has('baseSessions') && (!Number.isInteger(body.baseSessions) || body.baseSessions < 1)) || (body.durationMinutes != null && (!Number.isInteger(body.durationMinutes) || body.durationMinutes < 1))
+      || (has('priceCents') && (!Number.isSafeInteger(body.priceCents) || body.priceCents < 0)) || (has('active') && typeof body.active !== 'boolean') || (has('requireNewAnamnesis') && typeof body.requireNewAnamnesis !== 'boolean') || (has('sessionSchema') && !validSchema(body.sessionSchema))) return fail(c, 'Dados de procedimento inválidos.');
+    if (has('sessionSchema') && JSON.stringify(body.sessionSchema) !== JSON.stringify(procedure.sessionSchema)) {
+      const versions = procedure.versions.map((version: any) => version.toObject());
+      versions.push({ version: (versions.at(-1)?.version ?? 0) + 1, sessionSchema: body.sessionSchema, createdAt: new Date() });
+      procedure.set('versions', versions);
+      procedure.markModified('versions');
+      procedure.set('sessionSchema', body.sessionSchema);
+      procedure.markModified('sessionSchema');
+    }
+    for (const key of ['name', 'description', 'baseSessions', 'durationMinutes', 'priceCents', 'active', 'requireNewAnamnesis']) if (has(key)) procedure.set(key, body[key]);
     await procedure.save(); return c.json(procedure.toObject());
   })
   .get('/api/anamneses', async (c) => c.json(await Anamnesis.find().sort({ createdAt: -1 }).lean()))
   .post('/api/anamneses', async (c) => {
     const body = await c.req.json().catch(() => null);
     if (!body || typeof body.title !== 'string' || body.title.trim().length < 2 || !validSchema(body.schema)) return fail(c, 'Informe o nome e ao menos um campo válido.');
-    return c.json(await Anamnesis.create({ title: body.title, versions: [{ version: 1, schema: body.schema }], procedureIds: body.procedureIds ?? [], requiredByDefault: body.requiredByDefault !== false }), 201);
+    return c.json(await Anamnesis.create({ title: body.title, versions: [{ version: 1, schema: body.schema }], procedureIds: body.procedureIds ?? [], requiredByDefault: body.requiredByDefault !== false, validityMonths: Number.isInteger(body.validityMonths) && body.validityMonths > 0 ? body.validityMonths : 12 }), 201);
   })
   .patch('/api/anamneses/:id', async (c) => {
     const body = await c.req.json().catch(() => null);
     if (!isValidObjectId(c.req.param('id'))) return fail(c, 'Formulário de anamnese não encontrado.', 404);
     if (typeof body?.title !== 'string' || body.title.trim().length < 2) return fail(c, 'Informe o nome do formulário.');
-    const anamnesis = await Anamnesis.findByIdAndUpdate(c.req.param('id'), { title: body.title.trim() }, { new: true, runValidators: true }).lean();
+    if (body.validityMonths !== undefined && (!Number.isInteger(body.validityMonths) || body.validityMonths < 1)) return fail(c, 'Validade deve ser um número inteiro de meses.');
+    const anamnesis = await Anamnesis.findByIdAndUpdate(c.req.param('id'), { title: body.title.trim(), ...(body.validityMonths !== undefined && { validityMonths: body.validityMonths }) }, { new: true, runValidators: true }).lean();
     return anamnesis ? c.json(anamnesis) : fail(c, 'Formulário de anamnese não encontrado.', 404);
   })
   .post('/api/anamneses/:id/versions', async (c) => {
@@ -111,7 +167,27 @@ export const app = new Hono()
     if (!body || typeof body.name !== 'string' || !Number.isSafeInteger(body.priceCents) || !Array.isArray(body.items) || !body.items.length) return fail(c, 'Combo requer nome, preço e procedimentos.');
     if (body.promotionalPriceCents != null && (!Number.isSafeInteger(body.promotionalPriceCents) || body.promotionalPriceCents < 0 || !body.validUntil)) return fail(c, 'Combo promocional exige preço promocional e validade.');
     for (const item of body.items) if (!await Procedure.exists({ _id: item.procedureId })) return fail(c, 'Procedimento não encontrado.', 404);
+    const priceError = await comboPriceError(body.items, body.priceCents, body.promotionalPriceCents ?? null);
+    if (priceError) return fail(c, priceError);
     return c.json(await Combo.create(body), 201);
+  })
+  .put('/api/combos/:id', async (c) => {
+    const combo = isValidObjectId(c.req.param('id')) ? await Combo.findById(c.req.param('id')) : null;
+    if (!combo) return fail(c, 'Combo não encontrado.', 404);
+    const body = await c.req.json().catch(() => null);
+    if (!isRecord(body)) return fail(c, 'Dados do combo inválidos.');
+    const has = (key: string) => body[key] !== undefined;
+    if ((has('name') && (typeof body.name !== 'string' || body.name.trim().length < 2)) || (has('priceCents') && (!Number.isSafeInteger(body.priceCents) || body.priceCents < 0)) || (has('active') && typeof body.active !== 'boolean') || (has('requireNewAnamnesis') && typeof body.requireNewAnamnesis !== 'boolean')
+      || (has('items') && (!Array.isArray(body.items) || !body.items.length || body.items.some((item: any) => !isRecord(item) || !isValidObjectId(item.procedureId) || (item.sessionsOverride != null && (!Number.isInteger(item.sessionsOverride) || item.sessionsOverride < 1)))))) return fail(c, 'Dados do combo inválidos.');
+    const promotional = has('promotionalPriceCents') ? body.promotionalPriceCents : combo.promotionalPriceCents, until = has('validUntil') ? body.validUntil : combo.validUntil;
+    if (promotional != null && (!Number.isSafeInteger(promotional) || promotional < 0 || !until)) return fail(c, 'Combo promocional exige preço promocional e validade.');
+    if (has('items')) for (const item of body.items) if (!await Procedure.exists({ _id: item.procedureId })) return fail(c, 'Procedimento não encontrado.', 404);
+    if (has('items') || has('priceCents') || has('promotionalPriceCents')) {
+      const priceError = await comboPriceError(has('items') ? body.items : combo.items, has('priceCents') ? body.priceCents : combo.priceCents, promotional ?? null);
+      if (priceError) return fail(c, priceError);
+    }
+    for (const key of ['name', 'description', 'priceCents', 'promotionalPriceCents', 'validFrom', 'validUntil', 'active', 'requireNewAnamnesis', 'items']) if (has(key)) combo.set(key, body[key]);
+    await combo.save(); return c.json(combo.toObject());
   })
   .get('/api/contracts', async (c) => c.json(await Contract.find().sort({ createdAt: -1 }).lean()))
   .post('/api/contracts/upload-url', async (c) => {
@@ -135,28 +211,54 @@ export const app = new Hono()
     contract.versions.push({ version: (contract.versions.at(-1)?.version ?? 0) + 1, content, createdAt: new Date() }); await contract.save();
     return c.json(contract.versions.at(-1), 201);
   })
+  .get('/api/plans', async (c) => c.json(await Plan.find().sort({ createdAt: -1 }).lean()))
   .post('/api/plans', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || !isValidObjectId(body.patientId) || !['procedure', 'combo'].includes(body.offerType) || !isValidObjectId(body.offerId) || !Number.isSafeInteger(body.priceCents) || body.priceCents < 0) return fail(c, 'Paciente, oferta e preço válido são obrigatórios.');
-    const patient = await Patient.exists({ _id: body.patientId }); if (!patient) return fail(c, 'Paciente não encontrado.', 404);
-    let items: any[] = [], name = '', priceCents = Number(body.priceCents);
-    if (body.offerType === 'procedure') { const procedure = await Procedure.findById(body.offerId).lean(); if (!procedure || !procedure.active) return fail(c, 'Procedimento não encontrado.', 404); name = procedure.name; priceCents = procedure.priceCents; items = [{ procedureId: procedure._id, procedureName: procedure.name, sessionsTotal: procedure.baseSessions, sessionSchema: procedure.sessionSchema, priceCents: procedure.priceCents, anamneses: [] }]; }
-    else { const combo = await Combo.findById(body.offerId).populate('items.procedureId').lean() as any; if (!combo || !combo.active) return fail(c, 'Combo não encontrado.', 404); const today = new Date(); if ((combo.validFrom && combo.validFrom > today) || (combo.validUntil && combo.validUntil < today)) return fail(c, 'Combo fora da validade.', 409); name = combo.name; priceCents = combo.promotionalPriceCents ?? combo.priceCents; items = combo.items.map((item: any) => ({ procedureId: item.procedureId._id, procedureName: item.procedureId.name, sessionsTotal: item.sessionsOverride ?? item.procedureId.baseSessions, sessionSchema: item.procedureId.sessionSchema, priceCents: item.priceOverrideCents ?? item.procedureId.priceCents, anamneses: [] })); }
-    const anamneses = await Anamnesis.find({ procedureIds: { $in: items.map((item) => item.procedureId) }, active: true }).lean();
-    for (const item of items) item.anamneses = anamneses.map((a: any) => ({ anamnesisId: a._id, required: a.requiredByDefault, version: a.versions.at(-1)?.version, schemaSnapshot: a.versions.at(-1)?.schema }));
-    const contracts = await Contract.find({ active: true, $or: [{ kind: 'standard' }, { kind: 'procedure', procedureId: { $in: items.map((item) => item.procedureId) } }, { kind: 'combo', comboId: body.offerId }] }).lean();
-    return c.json(await Plan.create({ patientId: body.patientId, offerType: body.offerType, offerId: body.offerId, offerName: name, priceCents, items, contracts: contracts.map((contract: any) => ({ contractId: contract._id, title: contract.title, version: contract.versions.at(-1)?.version, contentSnapshot: contract.versions.at(-1)?.content, objectKey: contract.versions.at(-1)?.sourceObjectKey })) }), 201);
+    if (!body || typeof body.name !== 'string' || body.name.trim().length < 2 || !Number.isSafeInteger(body.priceCents) || body.priceCents < 0 || !Array.isArray(body.items) || !body.items.length) return fail(c, 'Plano requer nome, preço e ao menos um procedimento ou combo.');
+    for (const field of ['durationDays', 'validityDays']) if (body[field] != null && (!Number.isInteger(body[field]) || body[field] < 1)) return fail(c, 'Duração e validade devem ser dias inteiros.');
+    for (const item of body.items) {
+      const model = item?.offerType === 'combo' ? Combo : item?.offerType === 'procedure' ? Procedure : null;
+      if (!model || !isValidObjectId(item.offerId) || !await model.exists({ _id: item.offerId })) return fail(c, 'Procedimento ou combo do plano não encontrado.', 404);
+    }
+    const contractIds = body.contractIds ?? [];
+    if (!Array.isArray(contractIds) || (contractIds.length && await Contract.countDocuments({ _id: { $in: contractIds } }) !== contractIds.length)) return fail(c, 'Contrato não encontrado.', 404);
+    return c.json(await Plan.create({ name: body.name, description: body.description, priceCents: body.priceCents, durationDays: body.durationDays, validityDays: body.validityDays, items: body.items.map((item: any) => ({ offerType: item.offerType, offerId: item.offerId })), contractIds, requireNewAnamnesis: body.requireNewAnamnesis === true }), 201);
   })
-  .get('/api/plans', async (c) => {
-    const plans = await Plan.find().populate('patientId', 'fullName').sort({ createdAt: -1 }).lean();
-    const ids = plans.map((plan: any) => plan._id);
-    const payments = await Payment.find({ planId: { $in: ids } }).lean();
-    return c.json(plans.map((plan: any) => ({ ...plan, payments: payments.filter((payment: any) => String(payment.planId) === String(plan._id)) })));
+  .post('/api/attendances', async (c) => {
+    const body = await c.req.json().catch(() => null);
+    if (!body || !isValidObjectId(body.patientId) || !['procedure', 'combo', 'plan'].includes(body.offerType) || !isValidObjectId(body.offerId)) return fail(c, 'Paciente e oferta são obrigatórios.');
+    if (!await Patient.exists({ _id: body.patientId })) return fail(c, 'Paciente não encontrado.', 404);
+    const offer = await resolveOffer(body.offerType, body.offerId);
+    if ('error' in offer) return fail(c, offer.error, offer.status);
+    const procedureIds = offer.items.map((item) => item.procedureId);
+    const [contracts, forms] = await Promise.all([
+      Contract.find({ active: true, $or: [{ kind: 'standard' }, { kind: 'procedure', procedureId: { $in: procedureIds } }, { kind: 'combo', comboId: { $in: offer.comboIds } }, { _id: { $in: offer.contractIds } }] }).lean(),
+      Anamnesis.find({ procedureIds: { $in: procedureIds }, active: true, requiredByDefault: true }).lean(),
+    ]);
+    for (const item of offer.items) item.anamneses = forms.filter((form: any) => form.procedureIds.some((id: any) => String(id) === String(item.procedureId))).map((form: any) => ({ anamnesisId: form._id, required: true, version: form.versions.at(-1)?.version, schemaSnapshot: form.versions.at(-1)?.schema }));
+    const attendance = await Attendance.create({ patientId: body.patientId, offerType: body.offerType, offerId: body.offerId, offerName: offer.name, priceCents: offer.priceCents, validUntil: offer.validUntil, items: offer.items, contracts: contracts.map((contract: any) => ({ contractId: contract._id, title: contract.title, version: contract.versions.at(-1)?.version, contentSnapshot: contract.versions.at(-1)?.content, objectKey: contract.versions.at(-1)?.sourceObjectKey })) });
+    const now = new Date();
+    for (const form of forms as any[]) {
+      const reusable = offer.requireNewAnamnesis ? null : await PatientAnamnesis.exists({ patientId: body.patientId, anamnesisId: form._id, 'response.validUntil': { $gt: now } });
+      if (reusable) continue;
+      const current = form.versions.at(-1);
+      await PatientAnamnesis.create({ patientId: body.patientId, anamnesisId: form._id, attendanceId: attendance._id, version: current.version, schemaSnapshot: current.schema, required: true });
+    }
+    return c.json(attendance, 201);
+  })
+  .get('/api/attendances', async (c) => {
+    const attendances = await Attendance.find().populate('patientId', 'fullName').sort({ createdAt: -1 }).lean();
+    const ids = attendances.map((attendance: any) => attendance._id);
+    const [payments, forms] = await Promise.all([Payment.find({ attendanceId: { $in: ids } }).lean(), PatientAnamnesis.find({ attendanceId: { $in: ids } }).populate('anamnesisId', 'title validityMonths').lean()]);
+    return c.json(attendances.map((attendance: any) => {
+      const anamneses = forms.filter((form: any) => String(form.attendanceId) === String(attendance._id)).map((form: any) => ({ id: form._id, title: form.anamnesisId?.title ?? 'Anamnese', required: form.required, schemaSnapshot: form.schemaSnapshot, answered: !!form.response?.submittedAt, answers: form.response?.answers ?? null, submittedAt: form.response?.submittedAt ?? null, validUntil: form.response?.validUntil ?? null }));
+      return { ...attendance, payments: payments.filter((payment: any) => String(payment.attendanceId) === String(attendance._id)), anamneses, blocked: anamneses.some((form: any) => form.required && !form.answered) };
+    }));
   })
   .post('/api/payments', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || !isValidObjectId(body.planId) || !Number.isSafeInteger(body.amountCents) || body.amountCents <= 0 || !['cash', 'pix', 'credit_card'].includes(body.method)) return fail(c, 'Pagamento inválido.');
-    if (!await Plan.exists({ _id: body.planId })) return fail(c, 'Plano não encontrado.', 404);
+    if (!body || !isValidObjectId(body.attendanceId) || !Number.isSafeInteger(body.amountCents) || body.amountCents <= 0 || !['cash', 'pix', 'credit_card'].includes(body.method)) return fail(c, 'Pagamento inválido.');
+    if (!await Attendance.exists({ _id: body.attendanceId })) return fail(c, 'Atendimento não encontrado.', 404);
     return c.json(await Payment.create(body), 201);
   })
   .get('/api/appointments', async (c) => {
@@ -165,9 +267,12 @@ export const app = new Hono()
   })
   .post('/api/appointments', async (c) => {
     const body = await c.req.json().catch(() => null), startsAt = new Date(body?.startsAt), endsAt = new Date(body?.endsAt);
-    if (!body || !isValidObjectId(body.patientId) || !Array.isArray(body.planItemIds) || !body.planItemIds.length || endsAt <= startsAt) return fail(c, 'Agendamento inválido.');
+    if (!body || !isValidObjectId(body.patientId) || !Array.isArray(body.attendanceItemIds) || !body.attendanceItemIds.length || endsAt <= startsAt) return fail(c, 'Agendamento inválido.');
     if (!await Patient.exists({ _id: body.patientId })) return fail(c, 'Paciente não encontrado.', 404);
-    for (const itemId of body.planItemIds) if (!await Plan.exists({ 'items._id': itemId, patientId: body.patientId })) return fail(c, 'Procedimento não pertence a plano deste paciente.', 404);
+    for (const itemId of body.attendanceItemIds) if (!await Attendance.exists({ 'items._id': itemId, patientId: body.patientId })) return fail(c, 'Procedimento não pertence a um atendimento deste paciente.', 404);
+    const owners = await Attendance.find({ 'items._id': { $in: body.attendanceItemIds }, patientId: body.patientId }).select('_id').lean();
+    const pending = await PatientAnamnesis.find({ attendanceId: { $in: owners.map((owner: any) => owner._id) }, required: true, 'response.submittedAt': null }).populate('anamnesisId', 'title').lean();
+    if (pending.length) return fail(c, `Anamnese pendente: ${pending.map((form: any) => form.anamnesisId?.title ?? 'Anamnese').join(', ')}. Conclua antes de agendar.`, 409);
     return c.json(await Appointment.create({ ...body, startsAt, endsAt }), 201);
   })
   .patch('/api/appointments/:id', async (c) => {
@@ -181,14 +286,17 @@ export const app = new Hono()
   })
   .post('/api/sessions', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || !isValidObjectId(body.planId) || !isValidObjectId(body.planItemId)) return fail(c, 'Plano e procedimento contratado são obrigatórios.');
-    const plan = await Plan.findOne({ _id: body.planId, 'items._id': body.planItemId });
-    if (!plan) return fail(c, 'Procedimento contratado não encontrado.', 404);
-    const item: any = plan.items.id(body.planItemId);
+    if (!body || !isValidObjectId(body.attendanceId) || !isValidObjectId(body.attendanceItemId)) return fail(c, 'Atendimento e procedimento são obrigatórios.');
+    const attendance = await Attendance.findOne({ _id: body.attendanceId, 'items._id': body.attendanceItemId });
+    if (!attendance) return fail(c, 'Procedimento contratado não encontrado.', 404);
+    const item: any = attendance.items.id(body.attendanceItemId);
     if (item.sessionsPerformed >= item.sessionsTotal) return fail(c, 'Todas as sessões já foram realizadas.', 409);
-    const session = await Session.create({ patientId: plan.patientId, planId: plan._id, planItemId: item._id, appointmentId: body.appointmentId ?? null, procedureName: item.procedureName, performedAt: body.performedAt ?? new Date(), data: body.data ?? {}, schemaSnapshot: item.sessionSchema, notes: body.notes ?? null });
+    if (body.durationMinutes != null && !validDuration(body.durationMinutes)) return fail(c, 'Duração inválida.');
+    const appointment: any = body.durationMinutes == null && isValidObjectId(body.appointmentId) ? await Appointment.findById(body.appointmentId).lean() : null;
+    const durationMinutes = body.durationMinutes ?? (appointment ? Math.round((appointment.endsAt.getTime() - appointment.startsAt.getTime()) / 60000) : null);
+    const session = await Session.create({ patientId: attendance.patientId, attendanceId: attendance._id, attendanceItemId: item._id, appointmentId: body.appointmentId ?? null, procedureName: item.procedureName, performedAt: body.performedAt ?? new Date(), durationMinutes, data: body.data ?? {}, schemaSnapshot: item.sessionSchema, notes: body.notes ?? null });
     item.sessionsPerformed += 1;
-    try { await plan.save(); } catch (error) { await Session.deleteOne({ _id: session._id }); throw error; }
+    try { await attendance.save(); } catch (error) { await Session.deleteOne({ _id: session._id }); throw error; }
     return c.json(session, 201);
   })
   .get('/api/sessions/:id', async (c) => {
@@ -199,10 +307,11 @@ export const app = new Hono()
   })
   .patch('/api/sessions/:id', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || (body.notes !== undefined && body.notes !== null && typeof body.notes !== 'string') || (body.data !== undefined && (typeof body.data !== 'object' || body.data === null || Array.isArray(body.data)))) return fail(c, 'Dados da sessão inválidos.');
+    if (!body || (body.notes !== undefined && body.notes !== null && typeof body.notes !== 'string') || (body.data !== undefined && (typeof body.data !== 'object' || body.data === null || Array.isArray(body.data))) || (body.durationMinutes != null && !validDuration(body.durationMinutes))) return fail(c, 'Dados da sessão inválidos.');
     const update: Record<string, unknown> = {};
     if (body.notes !== undefined) update.notes = body.notes?.trim() || null;
     if (body.data !== undefined) update.data = body.data;
+    if (body.durationMinutes !== undefined) update.durationMinutes = body.durationMinutes;
     const result = isValidObjectId(c.req.param('id')) ? await Session.findByIdAndUpdate(c.req.param('id'), update, { returnDocument: 'after' }).lean() : null;
     return result ? c.json(result) : fail(c, 'Sessão não encontrada.', 404);
   })
@@ -234,7 +343,7 @@ export const app = new Hono()
     const [patient, anamnesis] = await Promise.all([Patient.exists({ _id: body.patientId }), Anamnesis.findById(body.anamnesisId)]);
     if (!patient || !anamnesis) return fail(c, 'Paciente ou anamnese não encontrados.', 404);
     const current: any = anamnesis.versions.at(-1);
-    return c.json(await PatientAnamnesis.create({ patientId: body.patientId, anamnesisId: body.anamnesisId, planId: body.planId ?? null, version: current.version, schemaSnapshot: current.schema, required: body.required ?? anamnesis.requiredByDefault }), 201);
+    return c.json(await PatientAnamnesis.create({ patientId: body.patientId, anamnesisId: body.anamnesisId, attendanceId: body.attendanceId ?? null, version: current.version, schemaSnapshot: current.schema, required: body.required ?? anamnesis.requiredByDefault }), 201);
   })
   .post('/api/anamnesis-requests', async (c) => {
     const body = await c.req.json().catch(() => null), applied = await PatientAnamnesis.findById(body?.patientAnamnesisId);
@@ -262,8 +371,19 @@ export const app = new Hono()
   .post('/public/anamnesis/:token/submit', async (c) => {
     const body = await c.req.json().catch(() => null);
     if (!isRecord(body?.answers)) return fail(c, 'Respostas inválidas.');
-    const applied = await PatientAnamnesis.findOneAndUpdate({ 'request.tokenHash': hashToken(c.req.param('token')), 'request.expiresAt': { $gt: new Date() }, 'request.submittedAt': null }, { $set: { response: { answers: body.answers, submittedAt: new Date(), validUntil: expiry(365) }, 'request.submittedAt': new Date() } }, { new: true });
+    const open = { 'request.tokenHash': hashToken(c.req.param('token')), 'request.expiresAt': { $gt: new Date() }, 'request.submittedAt': null };
+    const found = await PatientAnamnesis.findOne(open).lean() as any;
+    if (!found) return fail(c, 'Link inválido, expirado ou já enviado.', 409);
+    const applied = await PatientAnamnesis.findOneAndUpdate({ _id: found._id, ...open }, { $set: { response: await buildResponse(found.anamnesisId, body.answers), 'request.submittedAt': new Date() } }, { new: true });
     return applied ? c.json({ submitted: true, validUntil: applied.response?.validUntil }, 201) : fail(c, 'Link inválido, expirado ou já enviado.', 409);
+  })
+  .post('/api/patient-anamneses/:id/answers', async (c) => {
+    const body = await c.req.json().catch(() => null);
+    if (!isRecord(body?.answers)) return fail(c, 'Respostas inválidas.');
+    const applied = isValidObjectId(c.req.param('id')) ? await PatientAnamnesis.findOne({ _id: c.req.param('id'), 'response.submittedAt': null }).lean() as any : null;
+    if (!applied) return fail(c, 'Anamnese não encontrada ou já respondida.', 404);
+    await PatientAnamnesis.updateOne({ _id: applied._id }, { $set: { response: await buildResponse(applied.anamnesisId, body.answers) } });
+    return c.json({ submitted: true }, 201);
   })
   .post('/api/anamnesis-responses/:id/notes', async (c) => {
     const body = await c.req.json().catch(() => null), applied = await PatientAnamnesis.findOne({ 'response._id': c.req.param('id') });
@@ -271,12 +391,19 @@ export const app = new Hono()
     if (typeof body?.content !== 'string' || !body.content.trim()) return fail(c, 'Observação obrigatória.');
     applied.notes.push({ content: body.content.trim(), createdAt: new Date() }); await applied.save(); return c.json(applied.notes.at(-1), 201);
   })
+  .get('/api/patients/:id/relationship', async (c) => {
+    if (!isValidObjectId(c.req.param('id'))) return fail(c, 'Paciente não encontrado.', 404);
+    const patient = await Patient.findById(c.req.param('id')).lean(); if (!patient) return fail(c, 'Paciente não encontrado.', 404);
+    const [attendances, sessions, appointments] = await Promise.all([Attendance.find({ patientId: patient._id }).lean(), Session.find({ patientId: patient._id }).sort({ performedAt: 1 }).lean(), Appointment.find({ patientId: patient._id }).lean()]);
+    const payments: any[] = await Payment.find({ attendanceId: { $in: attendances.map((attendance: any) => attendance._id) } }).lean();
+    return c.json(buildRelationship(attendances, sessions, payments, appointments));
+  })
   .get('/api/patients/:id/history', async (c) => {
     if (!isValidObjectId(c.req.param('id'))) return fail(c, 'Paciente não encontrado.', 404);
     const patient = await Patient.findById(c.req.param('id')).lean(); if (!patient) return fail(c, 'Paciente não encontrado.', 404);
-    const [plans, appointments, sessions, forms] = await Promise.all([Plan.find({ patientId: patient._id }).lean(), Appointment.find({ patientId: patient._id }).lean(), Session.find({ patientId: patient._id }).lean(), PatientAnamnesis.find({ patientId: patient._id }).populate('anamnesisId', 'title').lean()]);
-    const planIds = plans.map((p: any) => p._id), payments = await Payment.find({ planId: { $in: planIds } }).lean();
-    const events: any[] = [...plans.map((p: any) => ({ type: 'plan', at: p.createdAt, title: `Contratação: ${p.offerName}`, details: p })), ...appointments.map((a: any) => ({ type: 'appointment', at: a.startsAt, title: `Agendamento · ${appointmentStatusLabel[a.status] ?? a.status}`, details: a })), ...sessions.map((s: any) => ({ type: 'session', at: s.performedAt, title: `${s.procedureName} realizado`, details: s })), ...payments.map((p: any) => ({ type: 'payment', at: p.receivedAt, title: `Pagamento ${p.method}`, details: p })), ...forms.map((f: any) => ({ type: 'anamnesis', at: f.response?.submittedAt ?? f.createdAt, title: `${f.anamnesisId?.title ?? 'Anamnese'} · ${f.response ? f.response.validUntil < new Date() ? 'vencida' : 'respondida' : 'pendente'}`, details: f }))];
+    const [attendances, appointments, sessions, forms] = await Promise.all([Attendance.find({ patientId: patient._id }).lean(), Appointment.find({ patientId: patient._id }).lean(), Session.find({ patientId: patient._id }).lean(), PatientAnamnesis.find({ patientId: patient._id }).populate('anamnesisId', 'title').lean()]);
+    const attendanceIds = attendances.map((p: any) => p._id), payments = await Payment.find({ attendanceId: { $in: attendanceIds } }).lean();
+    const events: any[] = [...attendances.map((p: any) => ({ type: 'attendance', at: p.createdAt, title: `Atendimento: ${p.offerName}`, details: p })), ...appointments.map((a: any) => ({ type: 'appointment', at: a.startsAt, title: `Agendamento · ${appointmentStatusLabel[a.status] ?? a.status}`, details: a })), ...sessions.map((s: any) => ({ type: 'session', at: s.performedAt, title: `${s.procedureName} realizado`, details: s })), ...payments.map((p: any) => ({ type: 'payment', at: p.receivedAt, title: `Pagamento ${p.method}`, details: p })), ...forms.map((f: any) => ({ type: 'anamnesis', at: f.response?.submittedAt ?? f._id.getTimestamp(), title: `${f.anamnesisId?.title ?? 'Anamnese'} · ${f.response ? f.response.validUntil < new Date() ? 'vencida' : 'respondida' : 'pendente'}`, details: f }))];
     const pending = events.filter((event) => /pendente|vencida/.test(event.title) || (event.type === 'appointment' && event.details.status === 'planned'));
     return c.json({ patient, events: events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()), pending });
   });

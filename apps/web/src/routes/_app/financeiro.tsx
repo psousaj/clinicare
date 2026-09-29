@@ -1,73 +1,35 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { WalletCards } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
-import { toast } from 'sonner';
+import { useState } from 'react';
 import { PaymentDialog } from '@/components/dialogs';
 import { QueryError } from '@/components/QueryState';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { ApiError } from '@/lib/api';
-import { parseForm, planForm } from '@/lib/forms';
 import { currency } from '@/lib/format';
-import { combosQuery, patientsQuery, plansQuery, proceduresQuery, useCreatePlan } from '@/lib/queries';
-import type { Plan } from '@/lib/schemas';
+import { patientsQuery, attendancesQuery } from '@/lib/queries';
+import type { Attendance } from '@/lib/schemas';
 
 export const Route = createFileRoute('/_app/financeiro')({ component: Finance });
 
 function Finance() {
-  const plans = useQuery(plansQuery), patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), combos = useQuery(combosQuery);
-  const createPlan = useCreatePlan();
-  const [paymentPlan, setPaymentPlan] = useState<Plan | null>(null);
+  const attendances = useQuery(attendancesQuery), patients = useQuery(patientsQuery);
+  const [paymentAttendance, setPaymentAttendance] = useState<Attendance | null>(null);
   const patientList = patients.data ?? [];
-
-  async function submitPlan(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const formElement = event.currentTarget;
-    try {
-      const { patientId, offer, price } = parseForm(planForm, new FormData(formElement));
-      const [offerType, offerId] = offer.split(':');
-      await createPlan.mutateAsync({ patientId, offerType, offerId, priceCents: price });
-      formElement.reset();
-    } catch (error) {
-      if (!(error instanceof ApiError)) toast.error((error as Error).message);
-    }
-  }
-
   return (
     <section className="panel">
-      <div className="panel-header"><h2>Contratações</h2></div>
-      <QueryError query={plans} />
-      {(plans.data ?? []).map((plan) => (
-        <div className="procedure-row" key={plan.id}>
+      <div className="panel-header"><h2>Atendimentos</h2></div>
+      <QueryError query={attendances} />
+      {attendances.isSuccess && attendances.data.length === 0 && <p className="text-sm text-muted-foreground">Nenhum atendimento iniciado. Inicie um atendimento pela ficha do paciente ou pela visão geral.</p>}
+      {(attendances.data ?? []).map((attendance) => (
+        <div className="procedure-row" key={attendance.id}>
           <WalletCards size={18} />
           <span className="procedure-info">
-            <strong>{plan.offerName}</strong>
-            <small>{patientList.find((patient) => patient.id === plan.patientId)?.fullName} · recebido {currency(plan.payments.reduce((sum, payment) => sum + payment.amountCents, 0))} de {currency(plan.priceCents)}</small>
+            <strong>{attendance.offerName}</strong>
+            <small>{patientList.find((patient) => patient.id === attendance.patientId)?.fullName} · recebido {currency(attendance.payments.reduce((sum, payment) => sum + payment.amountCents, 0))} de {currency(attendance.priceCents)}</small>
           </span>
-          <button className="text-button" onClick={() => setPaymentPlan(plan)}>Registrar pagamento</button>
+          <button className="text-button" onClick={() => setPaymentAttendance(attendance)}>Registrar pagamento</button>
         </div>
       ))}
-      {patientList.length > 0 && (
-        <form className="mt-6 grid gap-3 sm:grid-cols-2" onSubmit={submitPlan}>
-          <h3 className="text-sm font-semibold sm:col-span-2">Registrar nova contratação</h3>
-          <NativeSelect name="patientId" aria-label="Paciente" required>
-            {patientList.map((patient) => <NativeSelectOption key={patient.id} value={patient.id}>{patient.fullName}</NativeSelectOption>)}
-          </NativeSelect>
-          <NativeSelect name="offer" aria-label="Oferta" required>
-            <optgroup label="Procedimentos">
-              {(procedures.data ?? []).map((procedure) => <NativeSelectOption key={procedure.id} value={`procedure:${procedure.id}`}>{procedure.name}</NativeSelectOption>)}
-            </optgroup>
-            <optgroup label="Combos">
-              {(combos.data ?? []).map((combo) => <NativeSelectOption key={combo.id} value={`combo:${combo.id}`}>{combo.name}</NativeSelectOption>)}
-            </optgroup>
-          </NativeSelect>
-          <Input name="price" type="number" min="0" step="0.01" placeholder="Preço contratado R$" required />
-          <Button type="submit" disabled={createPlan.isPending}>Registrar contratação</Button>
-        </form>
-      )}
-      <PaymentDialog plan={paymentPlan} onClose={() => setPaymentPlan(null)} />
+      <PaymentDialog attendance={paymentAttendance} onClose={() => setPaymentAttendance(null)} />
     </section>
   );
 }

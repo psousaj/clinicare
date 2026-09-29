@@ -21,10 +21,16 @@ import { Route as AppFormulariosAnamneseAnamnesisIdRouteImport } from './routes/
 import { Route as AppFormulariosAnamneseNovaRouteImport } from './routes/_app/formularios-anamnese/nova'
 import { Route as AppPacientesIndexRouteImport } from './routes/_app/pacientes/index'
 import { Route as AppPacientesNovoRouteImport } from './routes/_app/pacientes/novo'
+import { Route as AppPlanosIndexRouteImport } from './routes/_app/planos/index'
+import { Route as AppPlanosNovoRouteImport } from './routes/_app/planos/novo'
 import { Route as AppProcedimentosIndexRouteImport } from './routes/_app/procedimentos/index'
+import { Route as AppProcedimentosProcedureIdRouteImport } from './routes/_app/procedimentos/$procedureId'
 import { Route as AppProcedimentosNovoRouteImport } from './routes/_app/procedimentos/novo'
 import { Route as AppPacientesPatientIdIndexRouteImport } from './routes/_app/pacientes/$patientId/index'
+import { Route as AppPacientesPatientIdRelacionamentoRouteImport } from './routes/_app/pacientes/$patientId/relacionamento'
+import { Route as AppProcedimentosCombosComboIdRouteImport } from './routes/_app/procedimentos/combos/$comboId'
 import { Route as AppProcedimentosCombosNovoRouteImport } from './routes/_app/procedimentos/combos/novo'
+import { Route as AppPacientesPatientIdAnamnesesFormIdRouteImport } from './routes/_app/pacientes/$patientId/anamneses.$formId'
 import { Route as AppPacientesPatientIdSessaoItemIdRouteImport } from './routes/_app/pacientes/$patientId/sessao.$itemId'
 import { Route as AppPacientesPatientIdSessoesSessionIdRouteImport } from './routes/_app/pacientes/$patientId/sessoes.$sessionId'
 
@@ -90,11 +96,27 @@ const AppPacientesNovoRoute = AppPacientesNovoRouteImport.update({
   path: '/pacientes/novo',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPlanosIndexRoute = AppPlanosIndexRouteImport.update({
+  id: '/planos/',
+  path: '/planos/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPlanosNovoRoute = AppPlanosNovoRouteImport.update({
+  id: '/planos/novo',
+  path: '/planos/novo',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppProcedimentosIndexRoute = AppProcedimentosIndexRouteImport.update({
   id: '/procedimentos/',
   path: '/procedimentos/',
   getParentRoute: () => AppRoute,
 } as any)
+const AppProcedimentosProcedureIdRoute =
+  AppProcedimentosProcedureIdRouteImport.update({
+    id: '/procedimentos/$procedureId',
+    path: '/procedimentos/$procedureId',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppProcedimentosNovoRoute = AppProcedimentosNovoRouteImport.update({
   id: '/procedimentos/novo',
   path: '/procedimentos/novo',
@@ -106,10 +128,28 @@ const AppPacientesPatientIdIndexRoute =
     path: '/pacientes/$patientId/',
     getParentRoute: () => AppRoute,
   } as any)
+const AppPacientesPatientIdRelacionamentoRoute =
+  AppPacientesPatientIdRelacionamentoRouteImport.update({
+    id: '/pacientes/$patientId/relacionamento',
+    path: '/pacientes/$patientId/relacionamento',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppProcedimentosCombosComboIdRoute =
+  AppProcedimentosCombosComboIdRouteImport.update({
+    id: '/procedimentos/combos/$comboId',
+    path: '/procedimentos/combos/$comboId',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppProcedimentosCombosNovoRoute =
   AppProcedimentosCombosNovoRouteImport.update({
     id: '/procedimentos/combos/novo',
     path: '/procedimentos/combos/novo',
+    getParentRoute: () => AppRoute,
+  } as any)
+const AppPacientesPatientIdAnamnesesFormIdRoute =
+  AppPacientesPatientIdAnamnesesFormIdRouteImport.update({
+    id: '/pacientes/$patientId/anamneses/$formId',
+    path: '/pacientes/$patientId/anamneses/$formId',
     getParentRoute: () => AppRoute,
   } as any)
 const AppPacientesPatientIdSessaoItemIdRoute =
@@ -134,13 +174,19 @@ export interface FileRoutesByFullPath {
   '/formularios-anamnese/$anamnesisId': typeof AppFormulariosAnamneseAnamnesisIdRoute
   '/formularios-anamnese/nova': typeof AppFormulariosAnamneseNovaRoute
   '/pacientes/novo': typeof AppPacientesNovoRoute
+  '/planos/novo': typeof AppPlanosNovoRoute
+  '/procedimentos/$procedureId': typeof AppProcedimentosProcedureIdRoute
   '/procedimentos/novo': typeof AppProcedimentosNovoRoute
   '/contratos/': typeof AppContratosIndexRoute
   '/formularios-anamnese/': typeof AppFormulariosAnamneseIndexRoute
   '/pacientes/': typeof AppPacientesIndexRoute
+  '/planos/': typeof AppPlanosIndexRoute
   '/procedimentos/': typeof AppProcedimentosIndexRoute
+  '/pacientes/$patientId/relacionamento': typeof AppPacientesPatientIdRelacionamentoRoute
+  '/procedimentos/combos/$comboId': typeof AppProcedimentosCombosComboIdRoute
   '/procedimentos/combos/novo': typeof AppProcedimentosCombosNovoRoute
   '/pacientes/$patientId/': typeof AppPacientesPatientIdIndexRoute
+  '/pacientes/$patientId/anamneses/$formId': typeof AppPacientesPatientIdAnamnesesFormIdRoute
   '/pacientes/$patientId/sessao/$itemId': typeof AppPacientesPatientIdSessaoItemIdRoute
   '/pacientes/$patientId/sessoes/$sessionId': typeof AppPacientesPatientIdSessoesSessionIdRoute
 }
@@ -153,13 +199,19 @@ export interface FileRoutesByTo {
   '/formularios-anamnese/$anamnesisId': typeof AppFormulariosAnamneseAnamnesisIdRoute
   '/formularios-anamnese/nova': typeof AppFormulariosAnamneseNovaRoute
   '/pacientes/novo': typeof AppPacientesNovoRoute
+  '/planos/novo': typeof AppPlanosNovoRoute
+  '/procedimentos/$procedureId': typeof AppProcedimentosProcedureIdRoute
   '/procedimentos/novo': typeof AppProcedimentosNovoRoute
   '/contratos': typeof AppContratosIndexRoute
   '/formularios-anamnese': typeof AppFormulariosAnamneseIndexRoute
   '/pacientes': typeof AppPacientesIndexRoute
+  '/planos': typeof AppPlanosIndexRoute
   '/procedimentos': typeof AppProcedimentosIndexRoute
+  '/pacientes/$patientId/relacionamento': typeof AppPacientesPatientIdRelacionamentoRoute
+  '/procedimentos/combos/$comboId': typeof AppProcedimentosCombosComboIdRoute
   '/procedimentos/combos/novo': typeof AppProcedimentosCombosNovoRoute
   '/pacientes/$patientId': typeof AppPacientesPatientIdIndexRoute
+  '/pacientes/$patientId/anamneses/$formId': typeof AppPacientesPatientIdAnamnesesFormIdRoute
   '/pacientes/$patientId/sessao/$itemId': typeof AppPacientesPatientIdSessaoItemIdRoute
   '/pacientes/$patientId/sessoes/$sessionId': typeof AppPacientesPatientIdSessoesSessionIdRoute
 }
@@ -174,13 +226,19 @@ export interface FileRoutesById {
   '/_app/formularios-anamnese/$anamnesisId': typeof AppFormulariosAnamneseAnamnesisIdRoute
   '/_app/formularios-anamnese/nova': typeof AppFormulariosAnamneseNovaRoute
   '/_app/pacientes/novo': typeof AppPacientesNovoRoute
+  '/_app/planos/novo': typeof AppPlanosNovoRoute
+  '/_app/procedimentos/$procedureId': typeof AppProcedimentosProcedureIdRoute
   '/_app/procedimentos/novo': typeof AppProcedimentosNovoRoute
   '/_app/contratos/': typeof AppContratosIndexRoute
   '/_app/formularios-anamnese/': typeof AppFormulariosAnamneseIndexRoute
   '/_app/pacientes/': typeof AppPacientesIndexRoute
+  '/_app/planos/': typeof AppPlanosIndexRoute
   '/_app/procedimentos/': typeof AppProcedimentosIndexRoute
+  '/_app/pacientes/$patientId/relacionamento': typeof AppPacientesPatientIdRelacionamentoRoute
+  '/_app/procedimentos/combos/$comboId': typeof AppProcedimentosCombosComboIdRoute
   '/_app/procedimentos/combos/novo': typeof AppProcedimentosCombosNovoRoute
   '/_app/pacientes/$patientId/': typeof AppPacientesPatientIdIndexRoute
+  '/_app/pacientes/$patientId/anamneses/$formId': typeof AppPacientesPatientIdAnamnesesFormIdRoute
   '/_app/pacientes/$patientId/sessao/$itemId': typeof AppPacientesPatientIdSessaoItemIdRoute
   '/_app/pacientes/$patientId/sessoes/$sessionId': typeof AppPacientesPatientIdSessoesSessionIdRoute
 }
@@ -195,13 +253,19 @@ export interface FileRouteTypes {
     | '/formularios-anamnese/$anamnesisId'
     | '/formularios-anamnese/nova'
     | '/pacientes/novo'
+    | '/planos/novo'
+    | '/procedimentos/$procedureId'
     | '/procedimentos/novo'
     | '/contratos/'
     | '/formularios-anamnese/'
     | '/pacientes/'
+    | '/planos/'
     | '/procedimentos/'
+    | '/pacientes/$patientId/relacionamento'
+    | '/procedimentos/combos/$comboId'
     | '/procedimentos/combos/novo'
     | '/pacientes/$patientId/'
+    | '/pacientes/$patientId/anamneses/$formId'
     | '/pacientes/$patientId/sessao/$itemId'
     | '/pacientes/$patientId/sessoes/$sessionId'
   fileRoutesByTo: FileRoutesByTo
@@ -214,13 +278,19 @@ export interface FileRouteTypes {
     | '/formularios-anamnese/$anamnesisId'
     | '/formularios-anamnese/nova'
     | '/pacientes/novo'
+    | '/planos/novo'
+    | '/procedimentos/$procedureId'
     | '/procedimentos/novo'
     | '/contratos'
     | '/formularios-anamnese'
     | '/pacientes'
+    | '/planos'
     | '/procedimentos'
+    | '/pacientes/$patientId/relacionamento'
+    | '/procedimentos/combos/$comboId'
     | '/procedimentos/combos/novo'
     | '/pacientes/$patientId'
+    | '/pacientes/$patientId/anamneses/$formId'
     | '/pacientes/$patientId/sessao/$itemId'
     | '/pacientes/$patientId/sessoes/$sessionId'
   id:
@@ -234,13 +304,19 @@ export interface FileRouteTypes {
     | '/_app/formularios-anamnese/$anamnesisId'
     | '/_app/formularios-anamnese/nova'
     | '/_app/pacientes/novo'
+    | '/_app/planos/novo'
+    | '/_app/procedimentos/$procedureId'
     | '/_app/procedimentos/novo'
     | '/_app/contratos/'
     | '/_app/formularios-anamnese/'
     | '/_app/pacientes/'
+    | '/_app/planos/'
     | '/_app/procedimentos/'
+    | '/_app/pacientes/$patientId/relacionamento'
+    | '/_app/procedimentos/combos/$comboId'
     | '/_app/procedimentos/combos/novo'
     | '/_app/pacientes/$patientId/'
+    | '/_app/pacientes/$patientId/anamneses/$formId'
     | '/_app/pacientes/$patientId/sessao/$itemId'
     | '/_app/pacientes/$patientId/sessoes/$sessionId'
   fileRoutesById: FileRoutesById
@@ -336,11 +412,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPacientesNovoRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/planos/': {
+      id: '/_app/planos/'
+      path: '/planos'
+      fullPath: '/planos/'
+      preLoaderRoute: typeof AppPlanosIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/planos/novo': {
+      id: '/_app/planos/novo'
+      path: '/planos/novo'
+      fullPath: '/planos/novo'
+      preLoaderRoute: typeof AppPlanosNovoRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/procedimentos/': {
       id: '/_app/procedimentos/'
       path: '/procedimentos'
       fullPath: '/procedimentos/'
       preLoaderRoute: typeof AppProcedimentosIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/procedimentos/$procedureId': {
+      id: '/_app/procedimentos/$procedureId'
+      path: '/procedimentos/$procedureId'
+      fullPath: '/procedimentos/$procedureId'
+      preLoaderRoute: typeof AppProcedimentosProcedureIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/procedimentos/novo': {
@@ -357,11 +454,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPacientesPatientIdIndexRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/pacientes/$patientId/relacionamento': {
+      id: '/_app/pacientes/$patientId/relacionamento'
+      path: '/pacientes/$patientId/relacionamento'
+      fullPath: '/pacientes/$patientId/relacionamento'
+      preLoaderRoute: typeof AppPacientesPatientIdRelacionamentoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/procedimentos/combos/$comboId': {
+      id: '/_app/procedimentos/combos/$comboId'
+      path: '/procedimentos/combos/$comboId'
+      fullPath: '/procedimentos/combos/$comboId'
+      preLoaderRoute: typeof AppProcedimentosCombosComboIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/procedimentos/combos/novo': {
       id: '/_app/procedimentos/combos/novo'
       path: '/procedimentos/combos/novo'
       fullPath: '/procedimentos/combos/novo'
       preLoaderRoute: typeof AppProcedimentosCombosNovoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/pacientes/$patientId/anamneses/$formId': {
+      id: '/_app/pacientes/$patientId/anamneses/$formId'
+      path: '/pacientes/$patientId/anamneses/$formId'
+      fullPath: '/pacientes/$patientId/anamneses/$formId'
+      preLoaderRoute: typeof AppPacientesPatientIdAnamnesesFormIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/pacientes/$patientId/sessao/$itemId': {
@@ -389,13 +507,19 @@ interface AppRouteChildren {
   AppFormulariosAnamneseAnamnesisIdRoute: typeof AppFormulariosAnamneseAnamnesisIdRoute
   AppFormulariosAnamneseNovaRoute: typeof AppFormulariosAnamneseNovaRoute
   AppPacientesNovoRoute: typeof AppPacientesNovoRoute
+  AppPlanosNovoRoute: typeof AppPlanosNovoRoute
+  AppProcedimentosProcedureIdRoute: typeof AppProcedimentosProcedureIdRoute
   AppProcedimentosNovoRoute: typeof AppProcedimentosNovoRoute
   AppContratosIndexRoute: typeof AppContratosIndexRoute
   AppFormulariosAnamneseIndexRoute: typeof AppFormulariosAnamneseIndexRoute
   AppPacientesIndexRoute: typeof AppPacientesIndexRoute
+  AppPlanosIndexRoute: typeof AppPlanosIndexRoute
   AppProcedimentosIndexRoute: typeof AppProcedimentosIndexRoute
+  AppPacientesPatientIdRelacionamentoRoute: typeof AppPacientesPatientIdRelacionamentoRoute
+  AppProcedimentosCombosComboIdRoute: typeof AppProcedimentosCombosComboIdRoute
   AppProcedimentosCombosNovoRoute: typeof AppProcedimentosCombosNovoRoute
   AppPacientesPatientIdIndexRoute: typeof AppPacientesPatientIdIndexRoute
+  AppPacientesPatientIdAnamnesesFormIdRoute: typeof AppPacientesPatientIdAnamnesesFormIdRoute
   AppPacientesPatientIdSessaoItemIdRoute: typeof AppPacientesPatientIdSessaoItemIdRoute
   AppPacientesPatientIdSessoesSessionIdRoute: typeof AppPacientesPatientIdSessoesSessionIdRoute
 }
@@ -409,13 +533,21 @@ const AppRouteChildren: AppRouteChildren = {
     AppFormulariosAnamneseAnamnesisIdRoute,
   AppFormulariosAnamneseNovaRoute: AppFormulariosAnamneseNovaRoute,
   AppPacientesNovoRoute: AppPacientesNovoRoute,
+  AppPlanosNovoRoute: AppPlanosNovoRoute,
+  AppProcedimentosProcedureIdRoute: AppProcedimentosProcedureIdRoute,
   AppProcedimentosNovoRoute: AppProcedimentosNovoRoute,
   AppContratosIndexRoute: AppContratosIndexRoute,
   AppFormulariosAnamneseIndexRoute: AppFormulariosAnamneseIndexRoute,
   AppPacientesIndexRoute: AppPacientesIndexRoute,
+  AppPlanosIndexRoute: AppPlanosIndexRoute,
   AppProcedimentosIndexRoute: AppProcedimentosIndexRoute,
+  AppPacientesPatientIdRelacionamentoRoute:
+    AppPacientesPatientIdRelacionamentoRoute,
+  AppProcedimentosCombosComboIdRoute: AppProcedimentosCombosComboIdRoute,
   AppProcedimentosCombosNovoRoute: AppProcedimentosCombosNovoRoute,
   AppPacientesPatientIdIndexRoute: AppPacientesPatientIdIndexRoute,
+  AppPacientesPatientIdAnamnesesFormIdRoute:
+    AppPacientesPatientIdAnamnesesFormIdRoute,
   AppPacientesPatientIdSessaoItemIdRoute:
     AppPacientesPatientIdSessaoItemIdRoute,
   AppPacientesPatientIdSessoesSessionIdRoute:
