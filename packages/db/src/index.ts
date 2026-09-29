@@ -1,9 +1,13 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { Pool } from 'pg';
-import * as tables from './schema';
+import mongoose from 'mongoose';
 
-const connectionString = process.env.DATABASE_URL;
-
-export const pool = connectionString ? new Pool({ connectionString }) : null;
-export const db = pool ? drizzle(pool, { schema: tables }) : null;
+let connection: Promise<typeof mongoose> | null = null;
+export function connectDatabase(uri = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.MONGODB_URI) {
+  if (!uri) throw new Error('MONGODB_URI is required.');
+  connection ??= mongoose.connect(uri);
+  return connection;
+}
+export async function disconnectDatabase() {
+  connection = null;
+  await mongoose.disconnect();
+}
 export * from './schema';

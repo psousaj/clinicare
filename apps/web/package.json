@@ -6,7 +6,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run --config vite.config.ts"
   },
   "dependencies": {
     "@fullcalendar/core": "6.1.21",

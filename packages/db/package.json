@@ -2,19 +2,7 @@
   "name": "@clinicare/db",
   "private": true,
   "type": "module",
-  "scripts": {
-    "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate",
-    "typecheck": "tsc --noEmit",
-    "test": "bun test"
-  },
-  "dependencies": {
-    "drizzle-orm": "latest",
-    "pg": "latest"
-  },
-  "devDependencies": {
-    "drizzle-kit": "latest",
-    "typescript": "latest",
-    "@types/pg": "latest"
-  }
+  "scripts": { "typecheck": "tsc --noEmit", "test": "bun test" },
+  "dependencies": { "mongoose": "latest" },
+  "devDependencies": { "typescript": "latest", "@types/bun": "latest", "mongodb-memory-server": "latest" }
 }

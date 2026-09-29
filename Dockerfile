@@ -1,0 +1,25 @@
+FROM oven/bun:1.2 AS dependencies
+WORKDIR /app
+COPY package.json bun.lock ./
+COPY apps/api/package.json ./apps/api/package.json
+COPY apps/web/package.json ./apps/web/package.json
+COPY packages/db/package.json ./packages/db/package.json
+RUN bun install --frozen-lockfile
+
+FROM dependencies AS build
+COPY . .
+RUN bun run build:web
+RUN bun run build:api
+
+FROM oven/bun:1.2 AS runtime
+WORKDIR /app
+ENV NODE_ENV=production PORT=3000
+COPY --from=build /app/apps/web/dist ./apps/web/dist
+COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
+COPY --from=build /app/packages/db ./packages/db
+COPY --from=build /app/apps/api/package.json ./apps/api/package.json
+COPY --from=build /app/package.json ./package.json
+EXPOSE 3000
+CMD ["bun", "apps/api/dist/index.js"]

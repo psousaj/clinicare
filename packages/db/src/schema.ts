@@ -1,194 +1,56 @@
-import { boolean, integer, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import mongoose, { Schema } from 'mongoose';
 
-export const patients = pgTable('patients', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  fullName: text('full_name').notNull(),
-  phone: text('phone'),
-  email: text('email'),
-  notes: text('notes'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+const patientSchema = new Schema({
+  fullName: { type: String, required: true, trim: true, minlength: 2, index: true },
+  phone: { type: String, trim: true, default: null, index: true },
+  email: { type: String, trim: true, lowercase: true, default: null },
+  notes: { type: String, trim: true, default: null },
+}, { timestamps: true, versionKey: false });
+export const Patient = mongoose.models.Patient ?? mongoose.model('Patient', patientSchema);
 
-export const procedures = pgTable('procedures', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  name: text('name').notNull(),
-  description: text('description'),
-  baseSessions: integer('base_sessions').default(1).notNull(),
-  durationMinutes: integer('duration_minutes'),
-  priceCents: integer('price_cents').default(0).notNull(),
-  sessionSchema: jsonb('session_schema').$type<Record<string, unknown>>().default({ type: 'object', properties: {} }).notNull(),
-  active: boolean('active').default(true).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+const procedureVersionSchema = new Schema({
+  version: { type: Number, required: true },
+  sessionSchema: { type: Schema.Types.Mixed, required: true },
+  createdAt: { type: Date, default: Date.now },
+}, { _id: true });
+const procedureSchema = new Schema({
+  name: { type: String, required: true, trim: true, minlength: 2 },
+  description: { type: String, trim: true, default: null },
+  baseSessions: { type: Number, required: true, min: 1, default: 1 },
+  durationMinutes: { type: Number, min: 1, default: null },
+  priceCents: { type: Number, required: true, min: 0, default: 0 },
+  sessionSchema: { type: Schema.Types.Mixed, required: true, default: { type: 'object', properties: {} } },
+  versions: { type: [procedureVersionSchema], default: [] },
+  active: { type: Boolean, default: true },
+}, { timestamps: true, versionKey: false });
+export const Procedure = mongoose.models.Procedure ?? mongoose.model('Procedure', procedureSchema);
 
-export const anamneses = pgTable('anamneses', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  title: text('title').notNull(),
-  active: boolean('active').default(true).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+const formVersionSchema = new Schema({ version: { type: Number, required: true }, schema: { type: Schema.Types.Mixed, required: true }, createdAt: { type: Date, default: Date.now } });
+const anamnesisSchema = new Schema({ title: { type: String, required: true, trim: true, minlength: 2 }, active: { type: Boolean, default: true }, versions: { type: [formVersionSchema], default: [] }, procedureIds: [{ type: Schema.Types.ObjectId, ref: 'Procedure' }], requiredByDefault: { type: Boolean, default: true } }, { timestamps: true, versionKey: false });
+export const Anamnesis = mongoose.models.Anamnesis ?? mongoose.model('Anamnesis', anamnesisSchema);
 
-export const anamnesisVersions = pgTable('anamnesis_versions', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  anamnesisId: uuid('anamnesis_id').references(() => anamneses.id, { onDelete: 'cascade' }).notNull(),
-  version: integer('version').notNull(),
-  schema: jsonb('schema').$type<Record<string, unknown>>().notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+const packageItemSchema = new Schema({ procedureId: { type: Schema.Types.ObjectId, ref: 'Procedure', required: true }, sessionsOverride: { type: Number, min: 1, default: null }, priceOverrideCents: { type: Number, min: 0, default: null } });
+const packageSchema = new Schema({ name: { type: String, required: true, trim: true }, description: { type: String, default: null }, priceCents: { type: Number, required: true, min: 0 }, promotionalPriceCents: { type: Number, min: 0, default: null }, validFrom: { type: Date, default: null }, validUntil: { type: Date, default: null }, active: { type: Boolean, default: true }, items: { type: [packageItemSchema], validate: (items: unknown[]) => items.length > 0 } }, { timestamps: true, versionKey: false });
+export const PackageOffer = mongoose.models.PackageOffer ?? mongoose.model('PackageOffer', packageSchema);
 
-export const procedureAnamneses = pgTable('procedure_anamneses', {
-  procedureId: uuid('procedure_id').references(() => procedures.id, { onDelete: 'cascade' }).notNull(),
-  anamnesisId: uuid('anamnesis_id').references(() => anamneses.id, { onDelete: 'cascade' }).notNull(),
-  required: boolean('required').default(true).notNull(),
-});
+const contractVersionSchema = new Schema({ version: { type: Number, required: true }, content: { type: String, default: null }, sourceObjectKey: { type: String, default: null }, createdAt: { type: Date, default: Date.now } });
+const contractSchema = new Schema({ title: { type: String, required: true, trim: true }, kind: { type: String, enum: ['standard', 'procedure', 'package'], required: true }, procedureId: { type: Schema.Types.ObjectId, ref: 'Procedure', default: null }, packageId: { type: Schema.Types.ObjectId, ref: 'PackageOffer', default: null }, active: { type: Boolean, default: true }, versions: { type: [contractVersionSchema], default: [] } }, { timestamps: true, versionKey: false });
+export const Contract = mongoose.models.Contract ?? mongoose.model('Contract', contractSchema);
 
-export const packages = pgTable('packages', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  name: text('name').notNull(),
-  description: text('description'),
-  priceCents: integer('price_cents').notNull(),
-  promotionalPriceCents: integer('promotional_price_cents'),
-  validFrom: timestamp('valid_from', { withTimezone: true }),
-  validUntil: timestamp('valid_until', { withTimezone: true }),
-  active: boolean('active').default(true).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+const planItemSchema = new Schema({ procedureId: { type: Schema.Types.ObjectId, ref: 'Procedure', required: true }, procedureName: { type: String, required: true }, sessionsTotal: { type: Number, required: true, min: 1 }, sessionsPerformed: { type: Number, default: 0, min: 0 }, sessionSchema: { type: Schema.Types.Mixed, required: true }, priceCents: { type: Number, required: true, min: 0 }, anamneses: [{ anamnesisId: { type: Schema.Types.ObjectId, ref: 'Anamnesis' }, required: Boolean, version: Number, schemaSnapshot: Schema.Types.Mixed }] });
+const planSchema = new Schema({ patientId: { type: Schema.Types.ObjectId, ref: 'Patient', required: true, index: true }, offerType: { type: String, enum: ['procedure', 'package'], required: true }, offerId: { type: Schema.Types.ObjectId, required: true }, offerName: { type: String, required: true }, priceCents: { type: Number, required: true, min: 0 }, items: { type: [planItemSchema], default: [] }, contracts: [{ contractId: { type: Schema.Types.ObjectId, ref: 'Contract' }, title: String, version: Number, contentSnapshot: String, objectKey: String }], createdAt: { type: Date, default: Date.now } }, { versionKey: false });
+planSchema.index({ patientId: 1, offerType: 1, offerId: 1 }, { unique: true });
+export const Plan = mongoose.models.Plan ?? mongoose.model('Plan', planSchema);
 
-export const packageItems = pgTable('package_items', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  packageId: uuid('package_id').references(() => packages.id, { onDelete: 'cascade' }).notNull(),
-  procedureId: uuid('procedure_id').references(() => procedures.id).notNull(),
-  sessionsOverride: integer('sessions_override'),
-  priceOverrideCents: integer('price_override_cents'),
-});
+const paymentSchema = new Schema({ planId: { type: Schema.Types.ObjectId, ref: 'Plan', required: true, index: true }, amountCents: { type: Number, required: true, min: 1 }, method: { type: String, enum: ['cash', 'pix', 'credit_card'], required: true }, installments: { type: Number, min: 1, default: 1 }, receivedAt: { type: Date, default: Date.now }, notes: { type: String, default: null } }, { versionKey: false });
+export const Payment = mongoose.models.Payment ?? mongoose.model('Payment', paymentSchema);
 
-export const contracts = pgTable('contracts', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  title: text('title').notNull(),
-  kind: text('kind').notNull(),
-  procedureId: uuid('procedure_id').references(() => procedures.id, { onDelete: 'cascade' }),
-  packageId: uuid('package_id').references(() => packages.id, { onDelete: 'cascade' }),
-  active: boolean('active').default(true).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+const appointmentSchema = new Schema({ patientId: { type: Schema.Types.ObjectId, ref: 'Patient', required: true, index: true }, planItemIds: [{ type: Schema.Types.ObjectId }], startsAt: { type: Date, required: true, index: true }, endsAt: { type: Date, required: true }, status: { type: String, enum: ['planned', 'confirmed', 'rescheduled', 'cancelled', 'no_show'], default: 'planned' }, notes: { type: String, default: null } }, { timestamps: true, versionKey: false });
+export const Appointment = mongoose.models.Appointment ?? mongoose.model('Appointment', appointmentSchema);
 
-export const contractVersions = pgTable('contract_versions', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  contractId: uuid('contract_id').references(() => contracts.id, { onDelete: 'cascade' }).notNull(),
-  version: integer('version').notNull(),
-  sourceObjectKey: text('source_object_key'),
-  content: text('content'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+const sessionPhotoSchema = new Schema({ objectKey: { type: String, required: true }, phase: { type: String, enum: ['before', 'during', 'after'], required: true }, notes: { type: String, default: null }, createdAt: { type: Date, default: Date.now } });
+const sessionSchema = new Schema({ patientId: { type: Schema.Types.ObjectId, ref: 'Patient', required: true, index: true }, planId: { type: Schema.Types.ObjectId, ref: 'Plan', required: true }, planItemId: { type: Schema.Types.ObjectId, required: true }, appointmentId: { type: Schema.Types.ObjectId, ref: 'Appointment', default: null }, procedureName: { type: String, required: true }, performedAt: { type: Date, default: Date.now }, data: { type: Schema.Types.Mixed, default: {} }, schemaSnapshot: { type: Schema.Types.Mixed, required: true }, notes: { type: String, default: null }, photos: { type: [sessionPhotoSchema], default: [] } }, { timestamps: true, versionKey: false });
+export const Session = mongoose.models.Session ?? mongoose.model('Session', sessionSchema);
 
-export const plans = pgTable('plans', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  patientId: uuid('patient_id').references(() => patients.id).notNull(),
-  offerType: text('offer_type').notNull(),
-  offerId: uuid('offer_id').notNull(),
-  offerName: text('offer_name').notNull(),
-  priceCents: integer('price_cents').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
-
-export const planItems = pgTable('plan_items', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  planId: uuid('plan_id').references(() => plans.id, { onDelete: 'cascade' }).notNull(),
-  procedureId: uuid('procedure_id').references(() => procedures.id),
-  procedureName: text('procedure_name').notNull(),
-  sessionsTotal: integer('sessions_total').notNull(),
-  sessionSchema: jsonb('session_schema').$type<Record<string, unknown>>().notNull(),
-  priceCents: integer('price_cents').notNull(),
-});
-
-export const appliedContracts = pgTable('applied_contracts', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  planId: uuid('plan_id').references(() => plans.id, { onDelete: 'cascade' }).notNull(),
-  contractVersionId: uuid('contract_version_id').references(() => contractVersions.id),
-  title: text('title').notNull(),
-  objectKey: text('object_key'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
-
-export const payments = pgTable('payments', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  planId: uuid('plan_id').references(() => plans.id, { onDelete: 'cascade' }).notNull(),
-  amountCents: integer('amount_cents').notNull(),
-  method: text('method').notNull(),
-  installments: integer('installments').default(1).notNull(),
-  receivedAt: timestamp('received_at', { withTimezone: true }).defaultNow().notNull(),
-  notes: text('notes'),
-});
-
-export const appointments = pgTable('appointments', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  patientId: uuid('patient_id').references(() => patients.id).notNull(),
-  startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
-  endsAt: timestamp('ends_at', { withTimezone: true }).notNull(),
-  status: text('status').default('planned').notNull(),
-  notes: text('notes'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
-
-export const appointmentItems = pgTable('appointment_items', {
-  appointmentId: uuid('appointment_id').references(() => appointments.id, { onDelete: 'cascade' }).notNull(),
-  planItemId: uuid('plan_item_id').references(() => planItems.id).notNull(),
-});
-
-export const sessions = pgTable('sessions', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  planItemId: uuid('plan_item_id').references(() => planItems.id).notNull(),
-  appointmentId: uuid('appointment_id').references(() => appointments.id),
-  performedAt: timestamp('performed_at', { withTimezone: true }).defaultNow().notNull(),
-  data: jsonb('data').$type<Record<string, unknown>>().default({}).notNull(),
-  schemaSnapshot: jsonb('schema_snapshot').$type<Record<string, unknown>>().notNull(),
-  notes: text('notes'),
-});
-
-export const sessionPhotos = pgTable('session_photos', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  sessionId: uuid('session_id').references(() => sessions.id, { onDelete: 'cascade' }).notNull(),
-  objectKey: text('object_key').notNull(),
-  phase: text('phase').notNull(),
-  notes: text('notes'),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
-
-export const patientAnamneses = pgTable('patient_anamneses', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  patientId: uuid('patient_id').references(() => patients.id).notNull(),
-  planId: uuid('plan_id').references(() => plans.id, { onDelete: 'cascade' }),
-  anamnesisId: uuid('anamnesis_id').references(() => anamneses.id).notNull(),
-  versionId: uuid('version_id').references(() => anamnesisVersions.id).notNull(),
-  required: boolean('required').default(true).notNull(),
-});
-
-export const anamnesisRequests = pgTable('anamnesis_requests', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  patientAnamnesisId: uuid('patient_anamnesis_id').references(() => patientAnamneses.id, { onDelete: 'cascade' }).notNull(),
-  tokenHash: text('token_hash').notNull(),
-  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-  submittedAt: timestamp('submitted_at', { withTimezone: true }),
-  draft: jsonb('draft').$type<Record<string, unknown>>().default({}).notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
-
-export const anamnesisResponses = pgTable('anamnesis_responses', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  patientAnamnesisId: uuid('patient_anamnesis_id').references(() => patientAnamneses.id, { onDelete: 'cascade' }).notNull(),
-  answers: jsonb('answers').$type<Record<string, unknown>>().notNull(),
-  submittedAt: timestamp('submitted_at', { withTimezone: true }).defaultNow().notNull(),
-  validUntil: timestamp('valid_until', { withTimezone: true }).notNull(),
-});
-
-export const responseNotes = pgTable('response_notes', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  responseId: uuid('response_id').references(() => anamnesisResponses.id, { onDelete: 'cascade' }).notNull(),
-  content: text('content').notNull(),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+const patientFormSchema = new Schema({ anamnesisId: { type: Schema.Types.ObjectId, ref: 'Anamnesis', required: true }, planId: { type: Schema.Types.ObjectId, ref: 'Plan', default: null }, version: { type: Number, required: true }, schemaSnapshot: { type: Schema.Types.Mixed, required: true }, required: { type: Boolean, default: true }, request: { tokenHash: String, expiresAt: Date, submittedAt: Date, draft: Schema.Types.Mixed }, response: { answers: Schema.Types.Mixed, submittedAt: Date, validUntil: Date }, notes: [{ content: String, createdAt: { type: Date, default: Date.now } }] });
+export const PatientAnamnesis = mongoose.models.PatientAnamnesis ?? mongoose.model('PatientAnamnesis', patientFormSchema);

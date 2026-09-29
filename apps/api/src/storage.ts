@@ -14,3 +14,7 @@ export const deleteObject = async (key: string) => {
   if (!storage || !bucket) throw new Error('R2 is not configured.');
   await storage.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 };
+export const uploadUrlForDocument = async (key: string) => {
+  if (!storage || !bucket) throw new Error('R2 is not configured.');
+  return getSignedUrl(storage, new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), { expiresIn: 300 });
+};

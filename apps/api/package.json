@@ -5,7 +5,6 @@
   "scripts": {
     "dev": "bun --hot src/index.ts",
     "build": "bun build src/index.ts --target=bun --outdir=dist",
-    "migrate": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f drizzle/0000_initial.sql && psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f drizzle/0001_indexes.sql",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
@@ -13,13 +12,12 @@
     "@aws-sdk/client-s3": "^3.1142.0",
     "@aws-sdk/s3-request-presigner": "^3.1142.0",
     "@hono/node-server": "latest",
-    "drizzle-orm": "latest",
     "hono": "latest",
-    "pg": "latest"
+    "mongoose": "latest"
   },
   "devDependencies": {
-    "@types/pg": "latest",
-    "@testcontainers/postgresql": "^12.2.0",
+    "@types/bun": "latest",
+    "mongodb-memory-server": "latest",
     "typescript": "latest"
   }
 }

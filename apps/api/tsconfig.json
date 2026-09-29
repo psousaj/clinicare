@@ -1,7 +1,5 @@
 {
   "extends": "../../tsconfig.json",
-  "compilerOptions": {
-    "types": []
-  },
-  "include": ["src/app.ts", "src/index.ts", "src/storage.ts"]
+  "compilerOptions": { "types": ["bun"], "allowImportingTsExtensions": true },
+  "include": ["src"]
 }
