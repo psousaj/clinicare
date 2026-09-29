@@ -11,7 +11,7 @@ export const procedureForm = z.object({
   name: text('Nome'),
   description: optionalText,
   baseSessions: z.coerce.number().int('Sessões inválidas.').min(1, 'Sessões inválidas.'),
-  durationMinutes: optionalInt,
+  durationMinutes: z.coerce.number().int('Duração inválida.').min(1, 'Informe a duração em minutos.'),
   price: reais('Preço'),
 });
 export const anamnesisForm = z.object({ title: text('Nome do formulário') });
@@ -26,7 +26,7 @@ export const comboForm = z.object({
 });
 export const planForm = z.object({ name: text('Nome'), description: optionalText, price: reais('Preço'), durationDays: optionalInt, validityDays: optionalInt });
 export const followupForm = z.object({ patientId: text('Paciente'), offer: z.string().regex(/^(procedure|combo|plan):.+$/, 'Escolha um procedimento, combo ou plano.') });
-export const appointmentForm = z.object({ patientId: text('Paciente'), followupItemId: text('Procedimento') });
+export const appointmentForm = z.object({ patientId: text('Paciente') });
 export const paymentForm = z.object({ amount: reais('Valor', 0.01), method: z.enum(['pix', 'cash', 'credit_card']), installments: z.coerce.number().int().min(1).default(1) });
 
 export function parseForm<S extends z.ZodType>(schema: S, form: FormData): z.output<S> {

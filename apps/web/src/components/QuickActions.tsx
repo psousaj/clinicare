@@ -16,8 +16,8 @@ export function QuickActions() {
       <Button variant="outline" onClick={() => setDialog('followup')}><ClipboardPlus size={17} /> Novo acompanhamento</Button>
       <Button variant="outline" onClick={() => setDialog('appointment')}><CalendarPlus size={17} /> Novo agendamento</Button>
       <Button asChild><Link to="/pacientes/novo"><Plus size={17} /> Novo paciente</Link></Button>
-      <NewFollowupDialog open={dialog === 'followup'} patients={patients.data ?? []} procedures={procedures.data ?? []} combos={combos.data ?? []} plans={plans.data ?? []} onClose={close} />
-      <AppointmentDialog open={dialog === 'appointment'} patients={patients.data ?? []} followups={followups.data ?? []} onClose={close} />
+      <NewFollowupDialog open={dialog === 'followup'} patients={patients.data ?? []} combos={combos.data ?? []} plans={plans.data ?? []} onClose={close} />
+      <AppointmentDialog open={dialog === 'appointment'} patients={patients.data ?? []} followups={followups.data ?? []} procedures={procedures.data ?? []} onClose={close} />
     </div>
   );
 }

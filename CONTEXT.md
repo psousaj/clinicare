@@ -41,38 +41,42 @@ Pessoa que realiza ou pretende realizar procedimentos na clínica e cujos dados,
 _Avoid_: cliente (como termo principal do domínio)
 
 **Procedimento**:
-Oferta individual de uma intervenção estética, configurada pelo profissional como atendimento único ou como tratamento composto por sessões. O procedimento possui um número base de sessões, que pode ser sobrescrito por um combo.
+Oferta individual de uma intervenção estética, com duração por sessão obrigatória e um número base de sessões, que pode ser sobrescrito por um combo. É **avulso** quando pode ser realizado em uma única sessão sem contrato; caso contrário é um procedimento que só faz sentido em combo ou plano (mínimo de 2 sessões). Os botões de novo atendimento/agendamento oferecem procedimentos avulsos e, para acompanhamentos, combos e planos.
 _Avoid_: sessão, combo
 
-**Atendimento**:
-Registro iniciado pelo profissional na ficha do paciente ("Novo atendimento") a partir de um procedimento avulso, de um combo ou de um plano. Congela as condições comerciais (itens, sessões, preço, validade), deriva os contratos e as anamneses exigidos e reúne sessões e pagamentos. Um paciente pode ter vários atendimentos, inclusive da mesma oferta.
-_Avoid_: tratamento, plano aplicado, contratação, pedido
+**Acompanhamento**:
+Registro iniciado pelo profissional na ficha do paciente ("Novo acompanhamento") a partir de um combo ou de um plano (procedimento avulso não gera acompanhamento). Congela as condições comerciais (itens, sessões, preço, validade), deriva os contratos e as anamneses exigidos e reúne atendimentos e pagamentos. Um paciente pode ter vários acompanhamentos, inclusive da mesma oferta.
+_Avoid_: tratamento, plano aplicado, contratação, pedido, atendimento (nome antigo)
 
 **Plano**:
 Oferta de catálogo, distinta do combo, que agrupa procedimentos e/ou combos e contratos, com duração e validade próprias. Plano vencido apenas exibe o selo "Vencido" e não bloqueia nada.
-_Avoid_: combo, atendimento
+_Avoid_: combo, acompanhamento
+
+**Atendimento**:
+Realização de um procedimento, registrada pelo profissional, pertencente a um acompanhamento (combo ou plano) ou avulsa (sem acompanhamento, contrato ou pagamento), e opcionalmente relacionada a um agendamento. Cada procedimento realizado gera seu próprio atendimento, mesmo quando vários fazem parte do mesmo agendamento. Não existe atendimento parcialmente realizado. No código e na API o registro ainda se chama `Session` / `/api/sessions`.
+_Avoid_: consulta, sessão parcial
 
 **Sessão**:
-Registro de um procedimento efetivamente realizado, pertencente a um atendimento e opcionalmente relacionado a um agendamento. Cada procedimento realizado gera sua própria sessão, mesmo quando vários procedimentos fazem parte do mesmo agendamento. Não existe sessão parcialmente realizada.
-_Avoid_: consulta, atendimento, sessão parcial
+Tempo em que o paciente está com o profissional, correspondente a um agendamento; nela podem ser realizados vários atendimentos (procedimentos) até o limite de minutos do horário.
+_Avoid_: consulta, atendimento (quando significar o tempo com o paciente)
 
 **Duração da sessão**:
-Tempo em minutos informado ao registrar ou acompanhar a sessão. Alimenta o tempo total de atendimento do paciente; sessões sem duração não entram na soma.
+Tempo em minutos informado ao registrar ou editar o atendimento (por padrão, a duração do procedimento). Alimenta o tempo total do paciente; atendimentos sem duração não entram na soma.
 
 **Relacionamento do paciente**:
-Página do paciente com indicadores e gráficos: sessões realizadas × contratadas, tempo total de atendimento, valores pagos e pendentes, frequência e faltas. O valor pendente é o saldo do atendimento (preço contratado menos pagamentos); o valor já realizado e não pago considera a fração de sessões realizadas.
+Página do paciente com indicadores e gráficos: atendimentos realizados × contratados, tempo total, valores pagos e pendentes, frequência e faltas. O valor pendente é o saldo do acompanhamento (preço contratado menos pagamentos); o valor já realizado e não pago considera a fração realizada.
 _Avoid_: CRM, fidelidade
 
-**Sessão realizada**:
-Sessão registrada pelo profissional como efetivamente concluída, consumindo uma unidade da quantidade de sessões do atendimento.
-_Avoid_: sessão consumida (como status), atendimento concluído
+**Atendimento realizado**:
+Atendimento registrado pelo profissional como efetivamente concluído, consumindo uma unidade das sessões do procedimento no acompanhamento.
+_Avoid_: sessão consumida (como status)
 
-**Acompanhamento da sessão**:
-Registro complementar de uma sessão realizada: campos do procedimento, observações e fotos classificadas como antes, durante ou depois. Pode ser editado a qualquer momento a partir da ficha do paciente.
-_Avoid_: prontuário da sessão, galeria
+**Detalhes do atendimento**:
+Registro complementar de um atendimento realizado: campos do procedimento, observações e fotos classificadas como antes, durante ou depois. Pode ser editado a qualquer momento a partir da ficha do paciente.
+_Avoid_: prontuário, galeria
 
 **Consumo de sessão**:
-Acontece somente quando o profissional registra o procedimento como realizado. Agendamentos, cancelamentos e não comparecimentos não consomem sessões automaticamente; o não comparecimento não gera uma sessão.
+Acontece somente quando o profissional registra o procedimento como realizado. Agendamentos, cancelamentos e não comparecimentos não consomem sessões automaticamente; o não comparecimento não gera um atendimento.
 _Avoid_: baixa automática, sessão utilizada
 
 **Campos configuráveis do procedimento**:
@@ -84,7 +88,7 @@ Informações específicas preenchidas pelo profissional ao registrar uma sessã
 _Avoid_: anamnese, dados do agendamento
 
 **Versão do formulário de sessão**:
-Estado imutável do formulário baseado em esquema configurado para um procedimento. Uma versão é congelada no atendimento; alterações posteriores criam uma nova versão para novos planos e não alteram tratamentos já iniciados.
+Estado imutável do formulário baseado em esquema configurado para um procedimento. Uma versão é congelada no acompanhamento; alterações posteriores criam uma nova versão para novos planos e não alteram tratamentos já iniciados.
 _Avoid_: schema atual, formulário da sessão (quando for necessário distinguir a versão)
 
 **Foto da sessão**:
@@ -116,12 +120,12 @@ Cópia gerada de um documento modelo para um paciente ou plano específico, pres
 _Avoid_: documento dinâmico, template preenchido
 
 **Agendamento**:
-Compromisso planejado no calendário semanal, com início e fim selecionados pelo profissional em intervalos de uma hora. Pode incluir vários procedimentos do plano de um paciente. Pode ser remarcado, cancelado ou registrado como não comparecimento sem se confundir com a sessão realizada.
-_Avoid_: sessão, consulta (quando significar o compromisso planejado)
+Compromisso planejado no calendário semanal (grade de 1 hora), com início e fim escolhidos pelo profissional, que define a duração da sessão. Vale para qualquer coisa: procedimentos avulsos e/ou atendimentos de acompanhamentos (combo ou plano) do paciente. Cada item indica o procedimento e quantas vezes será realizado (mais de uma sessão do mesmo procedimento é permitido); a soma dos minutos dos itens não pode ultrapassar a duração do agendamento. Pode ser remarcado, cancelado ou registrado como não comparecimento sem se confundir com o atendimento realizado. Com acompanhamento ativo, o profissional marca o máximo de itens que couberem no tempo.
+_Avoid_: consulta (quando significar o compromisso planejado)
 
 **Duração do procedimento**:
-Tempo estimado configurado para um procedimento e usado como sugestão ao criar um agendamento. O profissional pode ajustar manualmente o horário de início e fim da sessão agendada.
-_Avoid_: duração da sessão realizada (quando se tratar apenas da estimativa)
+Tempo em minutos de cada sessão do procedimento, obrigatório no cadastro. Define quantos procedimentos cabem em um agendamento.
+_Avoid_: duração do atendimento realizado (quando se tratar apenas da estimativa)
 
 **Calendário semanal**:
 Visão da agenda organizada por semana, permitindo ao profissional selecionar diretamente um intervalo de horário e criar ou ajustar agendamentos. No MVP há uma única agenda do profissional-administrador.
@@ -156,19 +160,19 @@ Procedimento ou item de combo que o profissional vincula ao acompanhamento de um
 _Avoid_: pedido, compra
 
 **Preço contratado**:
-Valor total acordado para um atendimento no momento em que é iniciado, preservado mesmo que os preços do procedimento, combo ou plano mudem depois.
+Valor total acordado para um acompanhamento no momento em que é iniciado, preservado mesmo que os preços do procedimento, combo ou plano mudem depois.
 _Avoid_: valor atual, preço da sessão
 
 **Valor recebido**:
-Quantia informada pelo profissional como recebida para um atendimento. Pode ser registrada em pagamentos separados e compõe o saldo do atendimento.
+Quantia informada pelo profissional como recebida para um acompanhamento. Pode ser registrada em pagamentos separados e compõe o saldo do acompanhamento.
 _Avoid_: preço contratado, cobrança
 
 **Forma de pagamento**:
-Modalidade usada para quitar um atendimento, incluindo cartão de crédito à vista ou cartão de crédito parcelado no MVP.
+Modalidade usada para quitar um acompanhamento, incluindo cartão de crédito à vista ou cartão de crédito parcelado no MVP.
 _Avoid_: método financeiro
 
 **Pagamento parcelado**:
-Pagamento de um atendimento no cartão de crédito com quantidade de parcelas definida no momento da cobrança e confirmada pelo gateway.
+Pagamento de um acompanhamento no cartão de crédito com quantidade de parcelas definida no momento da cobrança e confirmada pelo gateway.
 _Avoid_: sessão parcelada, plano parcelado
 
 **Condições de contratação**:
@@ -176,7 +180,7 @@ Conjunto comercial registrado para um paciente, incluindo preço total contratad
 _Avoid_: tratamento, condições da sessão
 
 **Registro de pagamento**:
-Lançamento manual feito pelo profissional para registrar um valor recebido pela clínica, vinculado a um atendimento e com forma de pagamento e situação informadas. No MVP, pagamentos são registrados, não processados pelo sistema.
+Lançamento manual feito pelo profissional para registrar um valor recebido pela clínica, vinculado a um acompanhamento e com forma de pagamento e situação informadas. No MVP, pagamentos são registrados, não processados pelo sistema.
 _Avoid_: cobrança, gateway
 
 **Forma de pagamento**:
@@ -187,27 +191,27 @@ _Avoid_: método financeiro
 Pagamento em cartão de crédito cuja quantidade de parcelas é informada pelo profissional ao registrar o valor recebido. O sistema não processa o cartão nem acompanha parcelas junto à operadora no MVP.
 _Avoid_: sessão parcelada, plano parcelado
 
-**Saldo do atendimento**:
+**Saldo do acompanhamento**:
 Diferença entre o preço contratado e a soma dos pagamentos registrados. Permite acompanhar valores pendentes sem processar cobranças ou parcelas automaticamente.
-_Avoid_: saldo do tratamento, saldo de sessões
+_Avoid_: saldo do tratamento, saldo de sessões, saldo do atendimento
 
 **Gateway de pagamento**:
 Integração futura com serviço externo para processar cobranças e receber confirmações. Fica fora do MVP.
 _Avoid_: registro manual de pagamento
 
 **Contrato exigido**:
-Contrato do atendimento (o padrão, mais os vinculados ao procedimento, combo ou plano). No MVP é apenas listado como "assinatura pendente"; quando houver assinatura, deverá bloquear o agendamento.
+Contrato do acompanhamento (o padrão, mais os vinculados ao procedimento, combo ou plano). No MVP é apenas listado como "assinatura pendente"; quando houver assinatura, deverá bloquear o agendamento.
 _Avoid_: contratação
 
 **Anamnese pendente**:
-Anamnese exigida pelos procedimentos do atendimento e ainda não respondida. Bloqueia o novo agendamento até o paciente responder pelo link ou o profissional preencher na clínica. É dispensada se o paciente respondeu o mesmo formulário dentro da validade da anamnese, salvo quando a oferta exige nova anamnese.
+Anamnese exigida pelos procedimentos do acompanhamento e ainda não respondida. Bloqueia o novo agendamento até o paciente responder pelo link ou o profissional preencher na clínica. É dispensada se o paciente respondeu o mesmo formulário dentro da validade da anamnese, salvo quando a oferta exige nova anamnese.
 _Avoid_: solicitação de anamnese
 
 **Validade da anamnese**:
 Prazo em meses (padrão 12) definido no formulário de anamnese durante o qual uma resposta pode ser reaproveitada.
 
 **Execução do procedimento**:
-Realização prática de um procedimento por meio de sessões, combinada entre o profissional e o paciente depois de iniciado o atendimento. A execução não altera as condições comerciais já registradas.
+Realização prática de um procedimento por meio de sessões, combinada entre o profissional e o paciente depois de iniciado o acompanhamento. A execução não altera as condições comerciais já registradas.
 _Avoid_: venda
 
 ## Documentos e coleta
@@ -303,11 +307,11 @@ Aviso ao profissional sobre respostas de anamneses ou assinaturas concluídas. F
 _Avoid_: alerta (como termo do domínio)
 
 **Assinatura digital**:
-Fluxo futuro para o paciente assinar contratos eletronicamente e produzir um documento assinado associado ao atendimento. Está fora do MVP; no MVP o profissional pode criar ou importar documentos, gerar o documento aplicado e disponibilizá-lo para leitura, mas não há assinatura pelo sistema.
+Fluxo futuro para o paciente assinar contratos eletronicamente e produzir um documento assinado associado ao acompanhamento. Está fora do MVP; no MVP o profissional pode criar ou importar documentos, gerar o documento aplicado e disponibilizá-lo para leitura, mas não há assinatura pelo sistema.
 _Avoid_: aceite eletrônico, assinatura simples
 
 **Documento assinado**:
-Versão futura do documento aplicado que registra o atendimento após a assinatura do paciente. A existência e o armazenamento desse documento fazem parte da direção do produto, mas sua geração e validação ficam fora do MVP.
+Versão futura do documento aplicado que registra o acompanhamento após a assinatura do paciente. A existência e o armazenamento desse documento fazem parte da direção do produto, mas sua geração e validação ficam fora do MVP.
 _Avoid_: contrato aplicado (o documento aplicado ainda não está assinado)
 
 **JSON Schema Form**:

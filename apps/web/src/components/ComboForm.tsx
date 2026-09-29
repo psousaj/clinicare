@@ -1,15 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
+import { Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Field } from '@/components/Field';
 import { FormPage } from '@/components/FormPage';
 import { DatePicker } from '@/components/pickers';
+import { StatusBadge } from '@/components/StatusBadge';
+import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { comboForm, parseForm } from '@/lib/forms';
 import { currency } from '@/lib/format';
 import { proceduresQuery, useCreateCombo, useUpdateCombo } from '@/lib/queries';
-import type { Combo } from '@/lib/schemas';
+import type { Combo, Procedure } from '@/lib/schemas';
 
 const day = (value?: string | null) => value?.slice(0, 10);
 
@@ -30,6 +34,7 @@ export function ComboFormPage({ combo }: { combo?: Combo }) {
   const integral = (integralCents / 100).toFixed(2);
   const shownPrice = price ?? integral;
   const available = procedures.filter((procedure) => procedure.active !== false || procedure.id in selected);
+  const chosen = Object.keys(selected).map((id) => procedures.find((procedure) => procedure.id === id)).filter((procedure): procedure is Procedure => !!procedure);
   return (
     <FormPage
       backTo="/procedimentos"
@@ -41,6 +46,8 @@ export function ComboFormPage({ combo }: { combo?: Combo }) {
         for (const key of ['promo', 'validFrom', 'validUntil']) if (!form.has(key)) form.set(key, '');
         const { price, promo, validFrom, validUntil, ...data } = parseForm(comboForm, form);
         const items = Object.entries(selected).map(([procedureId, sessions]) => ({ procedureId, sessionsOverride: Number(sessions) || null }));
+        const tooShort = chosen.find((procedure) => procedure.standalone === false && (Number(selected[procedure.id]) || procedure.baseSessions) < 2);
+        if (tooShort) throw new Error(`${tooShort.name} só existe em combo ou plano e precisa de ao menos 2 sessões.`);
         if (!items.length) throw new Error('Escolha ao menos um procedimento para o combo.');
         if (price < integralCents) throw new Error(`O preço do combo não pode ser menor que o valor integral (${currency(integralCents)}).`);
         if (promotional && promo !== null && promo > price) throw new Error('O preço promocional não pode ser maior que o preço do combo.');
@@ -55,31 +62,38 @@ export function ComboFormPage({ combo }: { combo?: Combo }) {
       </div>
       <Field label="Descrição" name="description" defaultValue={combo?.description ?? ''} />
       <p className="-mt-2 text-xs text-muted-foreground">Valor integral: {currency(integralCents)} (preço de cada procedimento × sessões). O preço do combo começa nesse valor e só pode ser aumentado.</p>
-      <div role="group" aria-label="Procedimentos do combo" className="grid gap-2">
-        <span className="text-sm font-medium">Procedimentos do combo</span>
-        {available.length === 0 && <p className="text-sm text-muted-foreground">Cadastre um procedimento antes de montar um combo.</p>}
-        {available.map((procedure) => {
-          const checked = procedure.id in selected;
+      <section aria-label="Procedimentos do combo" className="grid gap-2">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-medium">Procedimentos do combo</span>
+          <ProcedurePicker options={available.filter((procedure) => !(procedure.id in selected))} onPick={(procedure) => setSelected((current) => ({ ...current, [procedure.id]: String(procedure.baseSessions) }))} />
+        </div>
+        {chosen.length === 0 && <p className="m-0 rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground">Nenhum procedimento ainda. Use “Adicionar procedimento” para montar o combo.</p>}
+        {chosen.map((procedure) => {
+          const sessions = Number(selected[procedure.id]) || procedure.baseSessions;
           return (
-            <div key={procedure.id} className="flex items-center gap-3 rounded-md border border-border px-3 py-2">
-              <Label className="flex-1 cursor-pointer">
-                <Checkbox checked={checked} onCheckedChange={(value) => setSelected(({ [procedure.id]: _removed, ...rest }) => (value === true ? { ...rest, [procedure.id]: '' } : rest))} />
-                {procedure.name}{procedure.active === false && <span className="text-xs text-muted-foreground"> (inativo)</span>}
-              </Label>
+            <div key={procedure.id} className="flex flex-wrap items-center gap-3 rounded-md border border-border px-3 py-2">
+              <div className="min-w-40 flex-1">
+                <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                  {procedure.name}
+                  {procedure.standalone === false && <StatusBadge tone="warning">Só em combo/plano</StatusBadge>}
+                  {procedure.active === false && <StatusBadge tone="neutral">Inativo</StatusBadge>}
+                </div>
+                <div className="text-xs text-muted-foreground">{procedure.durationMinutes ?? 60} min por sessão · {currency(procedure.priceCents)} por sessão</div>
+              </div>
               <Input
                 aria-label={`Sessões de ${procedure.name}`}
-                className="w-56"
+                className="w-24"
                 type="number"
-                min="1"
-                placeholder={`Sessões (padrão ${procedure.baseSessions})`}
-                disabled={!checked}
+                min={procedure.standalone === false ? 2 : 1}
                 value={selected[procedure.id] ?? ''}
                 onChange={(event) => setSelected((current) => ({ ...current, [procedure.id]: event.target.value }))}
               />
+              <span className="w-28 text-right text-sm font-semibold">{currency(procedure.priceCents * sessions)}</span>
+              <Button type="button" variant="ghost" size="icon" aria-label={`Remover ${procedure.name}`} onClick={() => setSelected(({ [procedure.id]: _removed, ...rest }) => rest)}><Trash2 /></Button>
             </div>
           );
         })}
-      </div>
+      </section>
       <Label className="cursor-pointer">
         <Checkbox checked={promotional} onCheckedChange={(value) => setPromotional(value === true)} />
         Combo promocional
@@ -102,5 +116,31 @@ export function ComboFormPage({ combo }: { combo?: Combo }) {
         </Label>
       )}
     </FormPage>
+  );
+}
+
+// Busca entre os procedimentos cadastrados e adiciona ao combo.
+function ProcedurePicker({ options, onPick }: { options: Procedure[]; onPick: (procedure: Procedure) => void }) {
+  const [open, setOpen] = useState(false), [query, setQuery] = useState('');
+  const matches = options.filter((procedure) => procedure.name.toLowerCase().includes(query.trim().toLowerCase()));
+  return (
+    <Popover open={open} onOpenChange={(next) => { setOpen(next); if (!next) setQuery(''); }}>
+      <PopoverTrigger asChild><Button type="button" variant="outline" size="sm"><Plus /> Adicionar procedimento</Button></PopoverTrigger>
+      <PopoverContent align="end" className="w-80 p-2">
+        <label className="mb-2 flex items-center gap-2 rounded-md border border-border px-2">
+          <Search className="size-4 text-muted-foreground" />
+          <input autoFocus className="h-8 flex-1 border-0 bg-transparent text-sm outline-none" placeholder="Buscar procedimento" aria-label="Buscar procedimento" value={query} onChange={(event) => setQuery(event.target.value)} />
+        </label>
+        <div className="grid max-h-64 gap-1 overflow-y-auto">
+          {matches.length === 0 && <p className="m-0 p-3 text-center text-sm text-muted-foreground">{options.length === 0 ? 'Todos os procedimentos já foram adicionados.' : 'Nenhum procedimento encontrado.'}</p>}
+          {matches.map((procedure) => (
+            <button key={procedure.id} type="button" className="cursor-pointer rounded-md border-0 bg-transparent px-2 py-1.5 text-left hover:bg-muted" onClick={() => { onPick(procedure); setOpen(false); setQuery(''); }}>
+              <span className="block text-sm font-medium">{procedure.name}</span>
+              <span className="block text-xs text-muted-foreground">{procedure.durationMinutes ?? 60} min · {currency(procedure.priceCents)} por sessão{procedure.standalone === false ? ' · só em combo/plano' : ''}</span>
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }

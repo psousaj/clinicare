@@ -31,6 +31,11 @@ async function comboPriceError(items: any[], priceCents: number, promotionalPric
     const procedure: any = procedures.find((candidate: any) => String(candidate._id) === String(item.procedureId?._id ?? item.procedureId));
     return total + (item.priceOverrideCents ?? procedure?.priceCents ?? 0) * (item.sessionsOverride ?? procedure?.baseSessions ?? 1);
   }, 0);
+  const single = items.find((item) => {
+    const procedure: any = procedures.find((candidate: any) => String(candidate._id) === String(item.procedureId?._id ?? item.procedureId));
+    return procedure?.standalone === false && (item.sessionsOverride ?? procedure.baseSessions) < 2;
+  });
+  if (single) return 'Procedimento que não pode ser avulso precisa de ao menos 2 sessões no combo.';
   if (priceCents < integral) return `O preço do combo não pode ser menor que o valor integral dos procedimentos (${(integral / 100).toFixed(2).replace('.', ',')}).`;
   if (promotionalPriceCents != null && promotionalPriceCents > priceCents) return 'O preço promocional não pode ser maior que o preço do combo.';
   return null;
@@ -102,7 +107,7 @@ export const app = new Hono()
   .get('/api/procedures', async (c) => c.json(await Procedure.find().sort({ createdAt: -1 }).lean()))
   .post('/api/procedures', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || typeof body.name !== 'string' || body.name.trim().length < 2 || !Number.isInteger(body.baseSessions ?? 1) || (body.baseSessions ?? 1) < 1 || (body.durationMinutes != null && (!Number.isInteger(body.durationMinutes) || body.durationMinutes < 1)) || !Number.isSafeInteger(body.priceCents ?? 0) || (body.priceCents ?? 0) < 0 || !validSchema(body.sessionSchema ?? { type: 'object', properties: {} })) return fail(c, 'Dados ou formulário de procedimento inválidos.');
+    if (!body || typeof body.name !== 'string' || body.name.trim().length < 2 || !Number.isInteger(body.baseSessions ?? 1) || (body.baseSessions ?? 1) < 1 || !Number.isInteger(body.durationMinutes) || body.durationMinutes < 1 || (body.standalone != null && typeof body.standalone !== 'boolean') || (body.standalone === false && (body.baseSessions ?? 1) < 2) || !Number.isSafeInteger(body.priceCents ?? 0) || (body.priceCents ?? 0) < 0 || !validSchema(body.sessionSchema ?? { type: 'object', properties: {} })) return fail(c, 'Dados ou formulário de procedimento inválidos.');
     return c.json(await Procedure.create({ ...body, sessionSchema: body.sessionSchema ?? { type: 'object', properties: {} }, versions: [{ version: 1, sessionSchema: body.sessionSchema ?? { type: 'object', properties: {} } }] }), 201);
   })
   .put('/api/procedures/:id', async (c) => {
@@ -112,8 +117,9 @@ export const app = new Hono()
     const body = await c.req.json().catch(() => null);
     if (!isRecord(body)) return fail(c, 'Dados de procedimento inválidos.');
     const has = (key: string) => body[key] !== undefined;
-    if ((has('name') && (typeof body.name !== 'string' || body.name.trim().length < 2)) || (has('baseSessions') && (!Number.isInteger(body.baseSessions) || body.baseSessions < 1)) || (body.durationMinutes != null && (!Number.isInteger(body.durationMinutes) || body.durationMinutes < 1))
+    if ((has('name') && (typeof body.name !== 'string' || body.name.trim().length < 2)) || (has('baseSessions') && (!Number.isInteger(body.baseSessions) || body.baseSessions < 1)) || (has('durationMinutes') && (!Number.isInteger(body.durationMinutes) || body.durationMinutes < 1)) || (has('standalone') && typeof body.standalone !== 'boolean')
       || (has('priceCents') && (!Number.isSafeInteger(body.priceCents) || body.priceCents < 0)) || (has('active') && typeof body.active !== 'boolean') || (has('requireNewAnamnesis') && typeof body.requireNewAnamnesis !== 'boolean') || (has('sessionSchema') && !validSchema(body.sessionSchema))) return fail(c, 'Dados de procedimento inválidos.');
+    if ((has('standalone') ? body.standalone : procedure.standalone) === false && (has('baseSessions') ? body.baseSessions : procedure.baseSessions) < 2) return fail(c, 'Procedimento que não pode ser avulso precisa de ao menos 2 sessões.');
     if (has('sessionSchema') && JSON.stringify(body.sessionSchema) !== JSON.stringify(procedure.sessionSchema)) {
       const versions = procedure.versions.map((version: any) => version.toObject());
       versions.push({ version: (versions.at(-1)?.version ?? 0) + 1, sessionSchema: body.sessionSchema, createdAt: new Date() });
@@ -122,7 +128,7 @@ export const app = new Hono()
       procedure.set('sessionSchema', body.sessionSchema);
       procedure.markModified('sessionSchema');
     }
-    for (const key of ['name', 'description', 'baseSessions', 'durationMinutes', 'priceCents', 'active', 'requireNewAnamnesis']) if (has(key)) procedure.set(key, body[key]);
+    for (const key of ['name', 'description', 'baseSessions', 'durationMinutes', 'standalone', 'priceCents', 'active', 'requireNewAnamnesis']) if (has(key)) procedure.set(key, body[key]);
     await procedure.save(); return c.json(procedure.toObject());
   })
   .get('/api/anamneses', async (c) => c.json(await Anamnesis.find().sort({ createdAt: -1 }).lean()))
@@ -226,7 +232,7 @@ export const app = new Hono()
   })
   .post('/api/followups', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || !isValidObjectId(body.patientId) || !['procedure', 'combo', 'plan'].includes(body.offerType) || !isValidObjectId(body.offerId)) return fail(c, 'Paciente e oferta são obrigatórios.');
+    if (!body || !isValidObjectId(body.patientId) || !['combo', 'plan'].includes(body.offerType) || !isValidObjectId(body.offerId)) return fail(c, 'Paciente e um combo ou plano são obrigatórios; procedimento avulso é só agendado e realizado.');
     if (!await Patient.exists({ _id: body.patientId })) return fail(c, 'Paciente não encontrado.', 404);
     const offer = await resolveOffer(body.offerType, body.offerId);
     if ('error' in offer) return fail(c, offer.error, offer.status);
@@ -267,13 +273,37 @@ export const app = new Hono()
   })
   .post('/api/appointments', async (c) => {
     const body = await c.req.json().catch(() => null), startsAt = new Date(body?.startsAt), endsAt = new Date(body?.endsAt);
-    if (!body || !isValidObjectId(body.patientId) || !Array.isArray(body.followupItemIds) || !body.followupItemIds.length || endsAt <= startsAt) return fail(c, 'Agendamento inválido.');
+    if (!isRecord(body) || !isValidObjectId(body.patientId) || !Array.isArray(body.items) || !body.items.length || !(endsAt > startsAt)) return fail(c, 'Agendamento inválido.');
     if (!await Patient.exists({ _id: body.patientId })) return fail(c, 'Paciente não encontrado.', 404);
-    for (const itemId of body.followupItemIds) if (!await Followup.exists({ 'items._id': itemId, patientId: body.patientId })) return fail(c, 'Procedimento não pertence a um acompanhamento deste paciente.', 404);
-    const owners = await Followup.find({ 'items._id': { $in: body.followupItemIds }, patientId: body.patientId }).select('_id').lean();
-    const pending = await PatientAnamnesis.find({ followupId: { $in: owners.map((owner: any) => owner._id) }, required: true, 'response.submittedAt': null }).populate('anamnesisId', 'title').lean();
+    const capacity = Math.round((endsAt.getTime() - startsAt.getTime()) / 60000);
+    const items: any[] = [], seen = new Set<string>(), followupIds = new Set<string>();
+    for (const entry of body.items) {
+      const quantity = entry?.quantity ?? 1;
+      if (!isRecord(entry) || !Number.isInteger(quantity) || quantity < 1) return fail(c, 'Agendamento inválido.');
+      const key = String(entry.followupItemId ?? entry.procedureId);
+      if (seen.has(key)) return fail(c, 'Procedimento repetido no agendamento; use a quantidade.');
+      seen.add(key);
+      if (isValidObjectId(entry.followupItemId)) {
+        const followup: any = await Followup.findOne({ 'items._id': entry.followupItemId, patientId: body.patientId });
+        if (!followup) return fail(c, 'Procedimento não pertence a um acompanhamento deste paciente.', 404);
+        const item = followup.items.id(entry.followupItemId);
+        if (quantity > item.sessionsTotal - item.sessionsPerformed) return fail(c, `${item.procedureName}: restam ${item.sessionsTotal - item.sessionsPerformed} sessão(ões) neste acompanhamento.`, 409);
+        const procedure: any = await Procedure.findById(item.procedureId).lean();
+        followupIds.add(String(followup._id));
+        items.push({ followupId: followup._id, followupItemId: item._id, procedureId: item.procedureId, procedureName: item.procedureName, quantity, minutesEach: procedure?.durationMinutes ?? 60 });
+      } else if (isValidObjectId(entry.procedureId)) {
+        const procedure: any = await Procedure.findById(entry.procedureId).lean();
+        if (!procedure || !procedure.active) return fail(c, 'Procedimento não encontrado.', 404);
+        if (procedure.standalone === false) return fail(c, `${procedure.name} só pode ser feito dentro de um combo ou plano.`, 409);
+        if (quantity !== 1) return fail(c, `${procedure.name}: procedimento avulso permite uma única sessão.`, 409);
+        items.push({ procedureId: procedure._id, procedureName: procedure.name, quantity, minutesEach: procedure.durationMinutes ?? 60 });
+      } else return fail(c, 'Agendamento inválido.');
+    }
+    const used = items.reduce((total, item) => total + item.quantity * item.minutesEach, 0);
+    if (used > capacity) return fail(c, `Os procedimentos somam ${used} min e o agendamento tem ${capacity} min.`, 409);
+    const pending = await PatientAnamnesis.find({ followupId: { $in: [...followupIds] }, required: true, 'response.submittedAt': null }).populate('anamnesisId', 'title').lean();
     if (pending.length) return fail(c, `Anamnese pendente: ${pending.map((form: any) => form.anamnesisId?.title ?? 'Anamnese').join(', ')}. Conclua antes de agendar.`, 409);
-    return c.json(await Appointment.create({ ...body, startsAt, endsAt }), 201);
+    return c.json(await Appointment.create({ patientId: body.patientId, items, startsAt, endsAt, status: 'planned', notes: body.notes ?? null }), 201);
   })
   .patch('/api/appointments/:id', async (c) => {
     const body = await c.req.json().catch(() => null);
@@ -286,18 +316,25 @@ export const app = new Hono()
   })
   .post('/api/sessions', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || !isValidObjectId(body.followupId) || !isValidObjectId(body.followupItemId)) return fail(c, 'Acompanhamento e procedimento são obrigatórios.');
-    const followup = await Followup.findOne({ _id: body.followupId, 'items._id': body.followupItemId });
-    if (!followup) return fail(c, 'Procedimento contratado não encontrado.', 404);
-    const item: any = followup.items.id(body.followupItemId);
-    if (item.sessionsPerformed >= item.sessionsTotal) return fail(c, 'Todas as sessões já foram realizadas.', 409);
+    if (!isRecord(body) || (!(isValidObjectId(body.followupId) && isValidObjectId(body.followupItemId)) && !isValidObjectId(body.procedureId))) return fail(c, 'Informe o procedimento do acompanhamento ou um procedimento avulso.');
     if (body.durationMinutes != null && !validDuration(body.durationMinutes)) return fail(c, 'Duração inválida.');
-    const appointment: any = body.durationMinutes == null && isValidObjectId(body.appointmentId) ? await Appointment.findById(body.appointmentId).lean() : null;
-    const durationMinutes = body.durationMinutes ?? (appointment ? Math.round((appointment.endsAt.getTime() - appointment.startsAt.getTime()) / 60000) : null);
-    const session = await Session.create({ patientId: followup.patientId, followupId: followup._id, followupItemId: item._id, appointmentId: body.appointmentId ?? null, procedureName: item.procedureName, performedAt: body.performedAt ?? new Date(), durationMinutes, data: body.data ?? {}, schemaSnapshot: item.sessionSchema, notes: body.notes ?? null });
-    item.sessionsPerformed += 1;
-    try { await followup.save(); } catch (error) { await Session.deleteOne({ _id: session._id }); throw error; }
-    return c.json(session, 201);
+    const appointment: any = isValidObjectId(body.appointmentId) ? await Appointment.findById(body.appointmentId).lean() : null;
+    const fromAppointment = (procedureId: unknown) => appointment?.items?.find((entry: any) => String(entry.procedureId) === String(procedureId))?.minutesEach ?? null;
+    if (isValidObjectId(body.followupId) && isValidObjectId(body.followupItemId)) {
+      const followup = await Followup.findOne({ _id: body.followupId, 'items._id': body.followupItemId });
+      if (!followup) return fail(c, 'Procedimento contratado não encontrado.', 404);
+      const item: any = followup.items.id(body.followupItemId);
+      if (item.sessionsPerformed >= item.sessionsTotal) return fail(c, 'Todas as sessões já foram realizadas.', 409);
+      const session = await Session.create({ patientId: followup.patientId, followupId: followup._id, followupItemId: item._id, procedureId: item.procedureId, appointmentId: body.appointmentId ?? null, procedureName: item.procedureName, performedAt: body.performedAt ?? new Date(), durationMinutes: body.durationMinutes ?? fromAppointment(item.procedureId), data: body.data ?? {}, schemaSnapshot: item.sessionSchema, notes: body.notes ?? null });
+      item.sessionsPerformed += 1;
+      try { await followup.save(); } catch (error) { await Session.deleteOne({ _id: session._id }); throw error; }
+      return c.json(session, 201);
+    }
+    if (!isValidObjectId(body.patientId) || !await Patient.exists({ _id: body.patientId })) return fail(c, 'Paciente não encontrado.', 404);
+    const procedure: any = await Procedure.findById(body.procedureId).lean();
+    if (!procedure || !procedure.active) return fail(c, 'Procedimento não encontrado.', 404);
+    if (procedure.standalone === false) return fail(c, `${procedure.name} só pode ser realizado dentro de um combo ou plano.`, 409);
+    return c.json(await Session.create({ patientId: body.patientId, procedureId: procedure._id, appointmentId: body.appointmentId ?? null, procedureName: procedure.name, performedAt: body.performedAt ?? new Date(), durationMinutes: body.durationMinutes ?? fromAppointment(procedure._id) ?? procedure.durationMinutes ?? null, data: body.data ?? {}, schemaSnapshot: procedure.sessionSchema, notes: body.notes ?? null }), 201);
   })
   .get('/api/sessions/:id', async (c) => {
     const session: any = isValidObjectId(c.req.param('id')) ? await Session.findById(c.req.param('id')).populate('patientId', 'fullName').lean() : null;

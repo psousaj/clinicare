@@ -17,6 +17,7 @@ export const procedureSchema = z.looseObject({
   description: z.string().nullish(),
   baseSessions: z.number(),
   durationMinutes: z.number().nullish(),
+  standalone: z.boolean().optional(),
   priceCents: z.number(),
   active: z.boolean().optional(),
   requireNewAnamnesis: z.boolean().optional(),
@@ -69,6 +70,7 @@ export const planSchema = z.looseObject({
 });
 export const followupItemSchema = z.looseObject({
   id: z.string(),
+  procedureId: z.string().nullish(),
   procedureName: z.string(),
   sessionsTotal: z.number(),
   sessionsPerformed: z.number().default(0),
@@ -98,12 +100,21 @@ export const followupSchema = z.looseObject({
   items: z.array(followupItemSchema),
   payments: z.array(z.looseObject({ amountCents: z.number() })),
 });
+export const appointmentItemSchema = z.looseObject({
+  followupId: z.string().nullish(),
+  followupItemId: z.string().nullish(),
+  procedureId: z.string(),
+  procedureName: z.string(),
+  quantity: z.number(),
+  minutesEach: z.number(),
+});
 export const appointmentSchema = z.looseObject({
   id: z.string(),
   patientId: refId,
   startsAt: z.string(),
   endsAt: z.string(),
   status: z.string(),
+  items: z.array(appointmentItemSchema).default([]),
 });
 export const sessionPhotoSchema = z.looseObject({
   id: z.string(),

@@ -99,7 +99,7 @@ function Catalog() {
         {aba === 'procedimentos' ? (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
-              <thead><tr className="border-b border-border"><th className={th}>Procedimento</th><th className={th}>Sessões</th><th className={th}>Duração</th><th className={th}>Anamneses</th><th className={cn(th, 'text-right')}>Preço</th><th className={th}>Situação</th><th className={th}><span className="sr-only">Ações</span></th></tr></thead>
+              <thead><tr className="border-b border-border"><th className={th}>Procedimento</th><th className={th}>Tipo</th><th className={th}>Sessões</th><th className={th}>Duração</th><th className={th}>Anamneses</th><th className={cn(th, 'text-right')}>Preço</th><th className={th}>Situação</th><th className={th}><span className="sr-only">Ações</span></th></tr></thead>
               <tbody>
                 {shownProcedures.map((procedure) => (
                   <tr key={procedure.id} className={cn('border-b border-border hover:bg-muted/40', procedure.active === false && 'opacity-70')}>
@@ -107,8 +107,9 @@ function Catalog() {
                       <Link to="/procedimentos/$procedureId" params={{ procedureId: procedure.id }} className="font-semibold text-foreground no-underline hover:text-primary">{procedure.name}</Link>
                       {procedure.description && <div className="max-w-xs truncate text-xs text-muted-foreground">{procedure.description}</div>}
                     </td>
+                    <td className={td}><StatusBadge tone={procedure.standalone === false ? 'warning' : 'neutral'}>{procedure.standalone === false ? 'Só combo/plano' : 'Avulso'}</StatusBadge></td>
                     <td className={td}>{procedure.baseSessions}</td>
-                    <td className={td}>{procedure.durationMinutes ? `${procedure.durationMinutes} min` : 'Flexível'}</td>
+                    <td className={td}>{procedure.durationMinutes ?? 60} min</td>
                     <td className={td}>{formsFor(procedure.id) || '—'}</td>
                     <td className={cn(td, 'text-right font-semibold')}>{currency(procedure.priceCents)}</td>
                     <td className={td}><StatusBadge tone={procedure.active === false ? 'neutral' : 'success'}>{procedure.active === false ? 'Inativo' : 'Ativo'}</StatusBadge></td>

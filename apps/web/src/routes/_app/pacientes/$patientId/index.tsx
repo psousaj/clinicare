@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { ArrowLeft, Camera, CalendarPlus, ChartNoAxesCombined, ClipboardPlus } from 'lucide-react';
+import { ArrowLeft, Camera, CalendarPlus, ChartNoAxesCombined, ClipboardPlus, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { FollowupCard } from '@/components/FollowupCard';
-import { AppointmentDialog, NewFollowupDialog } from '@/components/dialogs';
+import { AppointmentDialog, NewFollowupDialog, StandaloneSessionDialog } from '@/components/dialogs';
 import { PatientTimeline } from '@/components/PatientTimeline';
 import { PendingRequirements } from '@/components/PendingRequirements';
 import { QueryError } from '@/components/QueryState';
@@ -17,7 +17,7 @@ function PatientDetail() {
   const { patientId } = Route.useParams();
   const history = useQuery(patientHistoryQuery(patientId)), followups = useQuery(followupsQuery);
   const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), combos = useQuery(combosQuery), plans = useQuery(plansQuery);
-  const [dialog, setDialog] = useState<'followup' | 'appointment' | null>(null);
+  const [dialog, setDialog] = useState<'followup' | 'standalone' | 'appointment' | null>(null);
   const patientFollowups = (followups.data ?? []).filter((followup) => followup.patientId === patientId);
 
   const patient = history.data?.patient;
@@ -34,6 +34,7 @@ function PatientDetail() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild><Link to="/pacientes/$patientId/relacionamento" params={{ patientId }}><ChartNoAxesCombined /> Relacionamento</Link></Button>
+            <Button variant="outline" onClick={() => setDialog('standalone')}><Sparkles /> Atendimento avulso</Button>
             <Button variant="outline" onClick={() => setDialog('followup')}><ClipboardPlus /> Novo acompanhamento</Button>
             <Button onClick={() => setDialog('appointment')}><CalendarPlus /> Novo agendamento</Button>
           </div>
@@ -74,8 +75,9 @@ function PatientDetail() {
           </section>
         </div>
       )}
-      <NewFollowupDialog open={dialog === 'followup'} patientId={patientId} patients={patients.data ?? []} procedures={procedures.data ?? []} combos={combos.data ?? []} plans={plans.data ?? []} onClose={() => setDialog(null)} />
-      <AppointmentDialog open={dialog === 'appointment'} patientId={patientId} patients={patients.data ?? []} followups={followups.data ?? []} onClose={() => setDialog(null)} />
+      <NewFollowupDialog open={dialog === 'followup'} patientId={patientId} patients={patients.data ?? []} combos={combos.data ?? []} plans={plans.data ?? []} onClose={() => setDialog(null)} />
+      <StandaloneSessionDialog open={dialog === 'standalone'} patientId={patientId} procedures={procedures.data ?? []} onClose={() => setDialog(null)} />
+      <AppointmentDialog open={dialog === 'appointment'} patientId={patientId} patients={patients.data ?? []} followups={followups.data ?? []} procedures={procedures.data ?? []} onClose={() => setDialog(null)} />
     </div>
   );
 }

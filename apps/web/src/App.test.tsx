@@ -142,7 +142,7 @@ describe('New anamnesis page', () => {
 
 describe('Combos', () => {
   it('creates a promotional combo with procedures and validity', async () => {
-    routes['GET /api/procedures'] = () => [{ _id: 'pr1', name: 'Limpeza de pele', baseSessions: 3, priceCents: 15000, versions: [] }];
+    routes['GET /api/procedures'] = () => [{ _id: 'pr1', name: 'Limpeza de pele', baseSessions: 3, durationMinutes: 60, standalone: true, active: true, priceCents: 15000, versions: [] }];
     routes['GET /api/combos'] = () => [{ _id: 'c0', name: 'Combo verão', priceCents: 50000, promotionalPriceCents: 40000, validUntil: '2999-01-01T00:00:00Z', items: [{}, {}] }];
     routes['POST /api/combos'] = () => ({ _id: 'c1' });
     const user = userEvent.setup();
@@ -151,8 +151,15 @@ describe('Combos', () => {
     expect(await screen.findByText('Promocional')).toBeInTheDocument();
     await user.click(await screen.findByRole('link', { name: /novo combo/i }));
     await user.type(await screen.findByLabelText(/^Nome/), 'Combo facial');
-    await user.click(screen.getByRole('checkbox', { name: /limpeza de pele/i }));
-    await user.type(screen.getByLabelText(/sessões de limpeza de pele/i), '5');
+    await user.click(screen.getByRole('button', { name: /adicionar procedimento/i }));
+    await user.type(await screen.findByLabelText('Buscar procedimento'), 'zzz');
+    expect(await screen.findByText(/nenhum procedimento encontrado/i)).toBeInTheDocument();
+    await user.clear(screen.getByLabelText('Buscar procedimento'));
+    await user.click(await screen.findByRole('button', { name: /Limpeza de pele/ }));
+    const sessions = screen.getByLabelText(/sessões de limpeza de pele/i);
+    expect(sessions).toHaveValue(3);
+    await user.clear(sessions);
+    await user.type(sessions, '5');
     expect(screen.getByLabelText(/preço do combo/i)).toHaveValue(750);
     expect(screen.getByText(/Valor integral: R\$\s*750,00/)).toBeInTheDocument();
     await user.click(screen.getByRole('checkbox', { name: /combo promocional/i }));
@@ -198,9 +205,11 @@ describe('Catalog list and editing', () => {
     expect(name).toHaveValue('Limpeza de pele');
     await user.clear(name);
     await user.type(name, 'Limpeza profunda');
+    expect(screen.getByLabelText(/duração por sessão/i)).toHaveValue(60);
+    await user.click(screen.getByRole('checkbox', { name: /pode ser realizado avulso/i }));
     await user.click(screen.getByRole('button', { name: /salvar alterações/i }));
     await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true));
-    expect(calls.find((call) => call.method === 'PUT')!.body).toMatchObject({ name: 'Limpeza profunda', baseSessions: 3, priceCents: 15000, active: true });
+    expect(calls.find((call) => call.method === 'PUT')!.body).toMatchObject({ name: 'Limpeza profunda', baseSessions: 3, durationMinutes: 60, standalone: false, priceCents: 15000, active: true });
     expect(await screen.findByRole('tab', { name: /procedimentos/i })).toBeInTheDocument();
   });
 
@@ -334,7 +343,7 @@ describe('Session page', () => {
 });
 
 describe('Agenda', () => {
-  const appointment = { _id: 'ap1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, followupItemIds: ['it1'], startsAt: '2026-09-29T14:00:00Z', endsAt: '2026-09-29T15:00:00Z', status: 'planned', notes: 'Trazer exames' };
+  const appointment = { _id: 'ap1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, items: [{ followupId: 'pl1', followupItemId: 'it1', procedureId: 'pr1', procedureName: 'Limpeza de pele', quantity: 2, minutesEach: 30 }], startsAt: '2026-09-29T14:00:00Z', endsAt: '2026-09-29T15:00:00Z', status: 'planned', notes: 'Trazer exames' };
   const followup = { _id: 'pl1', patientId: 'p1', offerName: 'Limpeza', priceCents: 1000, payments: [], items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3 }] };
 
   it('opens an appointment to view its details and deletes it after confirmation', async () => {
@@ -346,7 +355,7 @@ describe('Agenda', () => {
     const event = await screen.findByTitle('Marina Alves · Agendado');
     await user.click(event);
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Limpeza de pele')).toBeInTheDocument();
+    expect(within(dialog).getByText(/Limpeza de pele/)).toBeInTheDocument();
     expect(within(dialog).getByText('Trazer exames')).toBeInTheDocument();
     expect(within(dialog).queryByRole('button', { name: /salvar/i })).not.toBeInTheDocument();
     await user.click(within(dialog).getByRole('button', { name: /excluir/i }));
@@ -400,7 +409,7 @@ describe('Session follow-up', () => {
 });
 
 const pendingFollowup = (extra: Record<string, unknown> = {}) => ({
-  _id: 'at1', patientId: 'p1', offerType: 'procedure', offerName: 'Limpeza de pele', priceCents: 15000, payments: [], contracts: [{ title: 'Contrato padrão', signedAt: null }], blocked: true,
+  _id: 'at1', patientId: 'p1', offerType: 'combo', offerName: 'Combo pele', priceCents: 15000, payments: [], contracts: [{ title: 'Contrato padrão', signedAt: null }], blocked: true,
   items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3, sessionsPerformed: 0 }],
   anamneses: [{ id: 'pa1', title: 'Anamnese geral', required: true, answered: false, schemaSnapshot: { type: 'object', properties: { alergias: { type: 'string', title: 'Alergias' } } } }],
   ...extra,
@@ -414,7 +423,7 @@ describe('Acompanhamentos', () => {
   });
 
   it('starts an followup from the dashboard choosing patient and offer', async () => {
-    routes['GET /api/procedures'] = () => [{ _id: 'pr1', name: 'Limpeza de pele', baseSessions: 3, priceCents: 15000, versions: [] }];
+    routes['GET /api/combos'] = () => [{ _id: 'c1', name: 'Combo verão', priceCents: 80000, active: true, items: [] }];
     routes['GET /api/plans'] = () => [{ _id: 'pl1', name: 'Plano Pele', priceCents: 90000, items: [{ offerType: 'procedure', offerId: 'pr1' }], contractIds: [] }];
     routes['POST /api/followups'] = () => ({ _id: 'at1' });
     const user = userEvent.setup();
@@ -422,7 +431,7 @@ describe('Acompanhamentos', () => {
     await user.click(await screen.findByRole('button', { name: /novo acompanhamento/i }));
     const dialog = await screen.findByRole('dialog');
     await user.selectOptions(await within(dialog).findByLabelText('Paciente'), 'p1');
-    expect(within(within(dialog).getByLabelText('Oferta')).getAllByRole('option').map((option) => option.textContent)).toEqual(['Selecione…', 'Avulso - Limpeza de pele', 'Plano - Plano Pele']);
+    expect(within(within(dialog).getByLabelText('Oferta')).getAllByRole('option').map((option) => option.textContent)).toEqual(['Selecione…', 'Combo - Combo verão', 'Plano - Plano Pele']);
     await user.selectOptions(within(dialog).getByLabelText('Oferta'), 'plan:pl1');
     await user.click(within(dialog).getByRole('button', { name: /iniciar acompanhamento/i }));
     await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ patientId: 'p1', offerType: 'plan', offerId: 'pl1' }));
@@ -460,25 +469,59 @@ describe('Acompanhamentos', () => {
     await user.click(await screen.findByRole('button', { name: /novo agendamento/i }));
     const dialog = await screen.findByRole('dialog');
     await user.selectOptions(await within(dialog).findByLabelText('Paciente'), 'p1');
-    expect(await within(dialog).findByRole('option', { name: /anamnese pendente/i })).toBeDisabled();
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(/anamnese pendente/i);
+    expect(within(dialog).getByLabelText(/sessões de limpeza de pele/i)).toBeDisabled();
   });
 
-  it('lists only active contracted items of the patient when scheduling, labelled by kind', async () => {
-    const item = (id: string, name: string, done: number) => ({ _id: id, procedureName: name, sessionsTotal: 2, sessionsPerformed: done });
+  it('lists active followup items and standalone procedures only, limited by the appointment minutes', async () => {
+    const item = (id: string, procedureId: string, name: string, done: number) => ({ _id: id, procedureId, procedureName: name, sessionsTotal: 4, sessionsPerformed: done });
+    const proc = (id: string, name: string, extra: Record<string, unknown> = {}) => ({ _id: id, name, baseSessions: 1, durationMinutes: 30, standalone: true, active: true, priceCents: 10000, versions: [], ...extra });
+    routes['GET /api/procedures'] = () => [proc('pr1', 'Limpeza de pele', { durationMinutes: 60 }), proc('pr2', 'Peeling', { standalone: false, baseSessions: 4 }), proc('pr3', 'Massagem', { active: false })];
     routes['GET /api/followups'] = () => [
-      pendingFollowup({ _id: 'a1', offerType: 'procedure', offerName: 'Limpeza de pele', blocked: false, items: [item('i1', 'Limpeza de pele', 0)] }),
-      pendingFollowup({ _id: 'a2', offerType: 'plan', offerName: 'Plano Pele', blocked: false, items: [item('i2', 'Peeling', 1), item('i3', 'Drenagem', 2)] }),
-      pendingFollowup({ _id: 'a3', offerType: 'combo', offerName: 'Combo verão', blocked: false, items: [item('i4', 'Massagem', 0)] }),
-      pendingFollowup({ _id: 'a4', patientId: 'p2', offerType: 'procedure', offerName: 'Outro', blocked: false, items: [item('i5', 'Outro', 0)] }),
+      pendingFollowup({ _id: 'a2', offerType: 'plan', offerName: 'Plano Pele', blocked: false, items: [item('i2', 'pr2', 'Peeling', 1)] }),
+      pendingFollowup({ _id: 'a4', patientId: 'p2', offerType: 'combo', offerName: 'Outro', blocked: false, items: [item('i5', 'pr1', 'Outro', 0)] }),
     ];
+    routes['POST /api/appointments'] = () => ({ _id: 'ap1' });
     const user = userEvent.setup();
     renderAt('/');
     await user.click(await screen.findByRole('button', { name: /novo agendamento/i }));
     const dialog = await screen.findByRole('dialog');
     await user.selectOptions(await within(dialog).findByLabelText('Paciente'), 'p1');
-    await waitFor(() => expect(within(dialog).getAllByRole('option').map((option) => option.textContent).filter((text) => /\(\d\/\d\)/.test(text ?? ''))).toEqual([
-      'Avulso - Limpeza de pele (0/2)', 'Plano - Plano Pele · Peeling (1/2)', 'Combo - Combo verão · Massagem (0/2)',
-    ]));
+    expect(await within(dialog).findByLabelText('Sessões de Peeling (Plano Pele)')).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/Sessões de Outro/)).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('checkbox', { name: /Limpeza de pele/ })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('checkbox', { name: /Peeling/ })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('checkbox', { name: /Massagem/ })).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/Defina o horário/)).toBeInTheDocument();
+  });
+});
+
+describe('Atendimento avulso', () => {
+  it('picks a standalone procedure from the patient page and opens its registration', async () => {
+    routes['GET /api/procedures'] = () => [
+      { _id: 'pr1', name: 'Limpeza de pele', baseSessions: 1, durationMinutes: 60, standalone: true, active: true, priceCents: 15000, sessionSchema: {}, versions: [] },
+      { _id: 'pr2', name: 'Peeling', baseSessions: 4, durationMinutes: 45, standalone: false, active: true, priceCents: 9000, sessionSchema: {}, versions: [] },
+    ];
+    routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
+    const user = userEvent.setup();
+    const router = renderAt('/pacientes/p1');
+    await user.click(await screen.findByRole('button', { name: /atendimento avulso/i }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(within(dialog).getByLabelText('Procedimento')).getAllByRole('option').map((option) => option.textContent)).toEqual(['Selecione…', expect.stringContaining('Limpeza de pele')]);
+    await user.selectOptions(within(dialog).getByLabelText('Procedimento'), 'pr1');
+    await user.click(within(dialog).getByRole('button', { name: /continuar/i }));
+    await waitFor(() => expect(router.state.location.pathname).toBe('/pacientes/p1/avulso/pr1'));
+  });
+
+  it('registers a standalone session without a followup', async () => {
+    routes['GET /api/procedures'] = () => [{ _id: 'pr1', name: 'Limpeza de pele', baseSessions: 1, durationMinutes: 45, standalone: true, active: true, priceCents: 15000, sessionSchema: { type: 'object', properties: {} }, versions: [] }];
+    routes['POST /api/sessions'] = () => ({ _id: 's1' });
+    routes['GET /api/sessions/s1'] = () => ({ _id: 's1', patientId: 'p1', procedureName: 'Limpeza de pele', performedAt: '2026-09-29T15:00:00Z', data: {}, schemaSnapshot: { type: 'object', properties: {} }, photos: [] });
+    const user = userEvent.setup();
+    renderAt('/pacientes/p1/avulso/pr1');
+    await user.type(await screen.findByLabelText('Observações'), 'Tudo certo');
+    await user.click(screen.getByRole('button', { name: /salvar atendimento/i }));
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ patientId: 'p1', procedureId: 'pr1', notes: 'Tudo certo' }));
   });
 });
 

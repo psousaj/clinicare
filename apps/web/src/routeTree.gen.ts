@@ -31,6 +31,7 @@ import { Route as AppPacientesPatientIdRelacionamentoRouteImport } from './route
 import { Route as AppProcedimentosCombosComboIdRouteImport } from './routes/_app/procedimentos/combos/$comboId'
 import { Route as AppProcedimentosCombosNovoRouteImport } from './routes/_app/procedimentos/combos/novo'
 import { Route as AppPacientesPatientIdAnamnesesFormIdRouteImport } from './routes/_app/pacientes/$patientId/anamneses.$formId'
+import { Route as AppPacientesPatientIdAvulsoProcedureIdRouteImport } from './routes/_app/pacientes/$patientId/avulso.$procedureId'
 import { Route as AppPacientesPatientIdSessaoItemIdRouteImport } from './routes/_app/pacientes/$patientId/sessao.$itemId'
 import { Route as AppPacientesPatientIdSessoesSessionIdRouteImport } from './routes/_app/pacientes/$patientId/sessoes.$sessionId'
 
@@ -152,6 +153,12 @@ const AppPacientesPatientIdAnamnesesFormIdRoute =
     path: '/pacientes/$patientId/anamneses/$formId',
     getParentRoute: () => AppRoute,
   } as any)
+const AppPacientesPatientIdAvulsoProcedureIdRoute =
+  AppPacientesPatientIdAvulsoProcedureIdRouteImport.update({
+    id: '/pacientes/$patientId/avulso/$procedureId',
+    path: '/pacientes/$patientId/avulso/$procedureId',
+    getParentRoute: () => AppRoute,
+  } as any)
 const AppPacientesPatientIdSessaoItemIdRoute =
   AppPacientesPatientIdSessaoItemIdRouteImport.update({
     id: '/pacientes/$patientId/sessao/$itemId',
@@ -187,6 +194,7 @@ export interface FileRoutesByFullPath {
   '/procedimentos/combos/novo': typeof AppProcedimentosCombosNovoRoute
   '/pacientes/$patientId/': typeof AppPacientesPatientIdIndexRoute
   '/pacientes/$patientId/anamneses/$formId': typeof AppPacientesPatientIdAnamnesesFormIdRoute
+  '/pacientes/$patientId/avulso/$procedureId': typeof AppPacientesPatientIdAvulsoProcedureIdRoute
   '/pacientes/$patientId/sessao/$itemId': typeof AppPacientesPatientIdSessaoItemIdRoute
   '/pacientes/$patientId/sessoes/$sessionId': typeof AppPacientesPatientIdSessoesSessionIdRoute
 }
@@ -212,6 +220,7 @@ export interface FileRoutesByTo {
   '/procedimentos/combos/novo': typeof AppProcedimentosCombosNovoRoute
   '/pacientes/$patientId': typeof AppPacientesPatientIdIndexRoute
   '/pacientes/$patientId/anamneses/$formId': typeof AppPacientesPatientIdAnamnesesFormIdRoute
+  '/pacientes/$patientId/avulso/$procedureId': typeof AppPacientesPatientIdAvulsoProcedureIdRoute
   '/pacientes/$patientId/sessao/$itemId': typeof AppPacientesPatientIdSessaoItemIdRoute
   '/pacientes/$patientId/sessoes/$sessionId': typeof AppPacientesPatientIdSessoesSessionIdRoute
 }
@@ -239,6 +248,7 @@ export interface FileRoutesById {
   '/_app/procedimentos/combos/novo': typeof AppProcedimentosCombosNovoRoute
   '/_app/pacientes/$patientId/': typeof AppPacientesPatientIdIndexRoute
   '/_app/pacientes/$patientId/anamneses/$formId': typeof AppPacientesPatientIdAnamnesesFormIdRoute
+  '/_app/pacientes/$patientId/avulso/$procedureId': typeof AppPacientesPatientIdAvulsoProcedureIdRoute
   '/_app/pacientes/$patientId/sessao/$itemId': typeof AppPacientesPatientIdSessaoItemIdRoute
   '/_app/pacientes/$patientId/sessoes/$sessionId': typeof AppPacientesPatientIdSessoesSessionIdRoute
 }
@@ -266,6 +276,7 @@ export interface FileRouteTypes {
     | '/procedimentos/combos/novo'
     | '/pacientes/$patientId/'
     | '/pacientes/$patientId/anamneses/$formId'
+    | '/pacientes/$patientId/avulso/$procedureId'
     | '/pacientes/$patientId/sessao/$itemId'
     | '/pacientes/$patientId/sessoes/$sessionId'
   fileRoutesByTo: FileRoutesByTo
@@ -291,6 +302,7 @@ export interface FileRouteTypes {
     | '/procedimentos/combos/novo'
     | '/pacientes/$patientId'
     | '/pacientes/$patientId/anamneses/$formId'
+    | '/pacientes/$patientId/avulso/$procedureId'
     | '/pacientes/$patientId/sessao/$itemId'
     | '/pacientes/$patientId/sessoes/$sessionId'
   id:
@@ -317,6 +329,7 @@ export interface FileRouteTypes {
     | '/_app/procedimentos/combos/novo'
     | '/_app/pacientes/$patientId/'
     | '/_app/pacientes/$patientId/anamneses/$formId'
+    | '/_app/pacientes/$patientId/avulso/$procedureId'
     | '/_app/pacientes/$patientId/sessao/$itemId'
     | '/_app/pacientes/$patientId/sessoes/$sessionId'
   fileRoutesById: FileRoutesById
@@ -482,6 +495,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppPacientesPatientIdAnamnesesFormIdRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/pacientes/$patientId/avulso/$procedureId': {
+      id: '/_app/pacientes/$patientId/avulso/$procedureId'
+      path: '/pacientes/$patientId/avulso/$procedureId'
+      fullPath: '/pacientes/$patientId/avulso/$procedureId'
+      preLoaderRoute: typeof AppPacientesPatientIdAvulsoProcedureIdRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/pacientes/$patientId/sessao/$itemId': {
       id: '/_app/pacientes/$patientId/sessao/$itemId'
       path: '/pacientes/$patientId/sessao/$itemId'
@@ -520,6 +540,7 @@ interface AppRouteChildren {
   AppProcedimentosCombosNovoRoute: typeof AppProcedimentosCombosNovoRoute
   AppPacientesPatientIdIndexRoute: typeof AppPacientesPatientIdIndexRoute
   AppPacientesPatientIdAnamnesesFormIdRoute: typeof AppPacientesPatientIdAnamnesesFormIdRoute
+  AppPacientesPatientIdAvulsoProcedureIdRoute: typeof AppPacientesPatientIdAvulsoProcedureIdRoute
   AppPacientesPatientIdSessaoItemIdRoute: typeof AppPacientesPatientIdSessaoItemIdRoute
   AppPacientesPatientIdSessoesSessionIdRoute: typeof AppPacientesPatientIdSessoesSessionIdRoute
 }
@@ -548,6 +569,8 @@ const AppRouteChildren: AppRouteChildren = {
   AppPacientesPatientIdIndexRoute: AppPacientesPatientIdIndexRoute,
   AppPacientesPatientIdAnamnesesFormIdRoute:
     AppPacientesPatientIdAnamnesesFormIdRoute,
+  AppPacientesPatientIdAvulsoProcedureIdRoute:
+    AppPacientesPatientIdAvulsoProcedureIdRoute,
   AppPacientesPatientIdSessaoItemIdRoute:
     AppPacientesPatientIdSessaoItemIdRoute,
   AppPacientesPatientIdSessoesSessionIdRoute:
