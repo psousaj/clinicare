@@ -1,8 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import validator from '@rjsf/validator-ajv8';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import { SchemaForm } from '@/components/SchemaForm';
 import { Button } from '@/components/ui/button';
 import { publicFormQuery, useSaveDraft, useSubmitAnamnesis } from '@/lib/queries';
@@ -25,10 +23,8 @@ function AnamnesisForm({ token, title, schema, initialDraft }: { token: string; 
   const [draft, setDraft] = useState(initialDraft), [submitted, setSubmitted] = useState(false);
   const saveDraft = useSaveDraft(token), submit = useSubmitAnamnesis(token);
 
-  async function send() {
-    const { errors } = validator.validateFormData(draft, schema as never);
-    if (errors.length) return toast.error('Revise os campos obrigatórios antes de enviar.');
-    await submit.mutateAsync(draft);
+  async function send(answers: Record<string, unknown>) {
+    await submit.mutateAsync(answers);
     setSubmitted(true);
   }
 
@@ -38,11 +34,18 @@ function AnamnesisForm({ token, title, schema, initialDraft }: { token: string; 
       <div className="section-kicker">FORMULÁRIO DA CLÍNICA</div>
       <h1>{title}</h1>
       <p>Preencha com atenção. Ao enviar, suas respostas ficam registradas.</p>
-      <SchemaForm schema={schema} value={draft} onChange={setDraft} hideSubmit />
-      <div className="modal-actions">
-        <Button variant="outline" disabled={saveDraft.isPending} onClick={() => saveDraft.mutate(draft)}>Salvar rascunho</Button>
-        <Button disabled={submit.isPending} onClick={() => send().catch(() => undefined)}>Enviar anamnese</Button>
-      </div>
+      <SchemaForm
+        schema={schema}
+        value={draft}
+        onChange={setDraft}
+        onSubmit={(answers) => send(answers).catch(() => undefined)}
+        actions={(
+          <div className="modal-actions">
+            <Button type="button" variant="outline" disabled={saveDraft.isPending} onClick={() => saveDraft.mutate(draft)}>Salvar rascunho</Button>
+            <Button type="submit" disabled={submit.isPending}>Enviar anamnese</Button>
+          </div>
+        )}
+      />
     </section>
   );
 }

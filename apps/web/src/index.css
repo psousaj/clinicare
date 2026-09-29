@@ -1,5 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
 /* Sem preflight: o styles.css legado depende dos resets do navegador. */
-@layer theme, base, components, utilities;
+@layer legacy, theme, base, components, utilities;
+@import './styles.css' layer(legacy);
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
 @import 'tw-animate-css';
@@ -54,10 +56,27 @@
   --ring: #26785f;
 }
 
+@layer components {
+  /* O .panel legado tinha altura mínima de card de dashboard; nas páginas de conteúdo ela só cria espaço vazio. */
+  .panel {
+    min-height: 0;
+    padding-bottom: 17px;
+  }
+}
+
 @layer base {
   /* Substitui o border reset do preflight apenas nos componentes shadcn. */
   [data-slot] {
     border: 0 solid var(--border);
     margin: 0;
+  }
+  [data-slot='popover-content'] button {
+    background-color: transparent;
+    border: 0 solid var(--border);
+    color: inherit;
+  }
+  a[data-slot='button'] {
+    color: inherit;
+    text-decoration: none;
   }
 }

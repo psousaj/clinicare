@@ -10,6 +10,7 @@
     "dev": "turbo run dev",
     "dev:web": "turbo run dev --filter=@clinicare/web",
     "dev:api": "turbo run dev --filter=@clinicare/api",
+    "debug:api": "turbo run dev:debug --filter=@clinicare/api",
     "build": "turbo run build",
     "build:web": "turbo run build --filter=@clinicare/web",
     "build:api": "turbo run build --filter=@clinicare/api",

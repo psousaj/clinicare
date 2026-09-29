@@ -3,8 +3,6 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -56,11 +54,4 @@ export function FormDialog({ open, onOpenChange, title, kicker, description, sub
   );
 }
 
-export function Field({ label, className, children, ...props }: { label: string; className?: string; children?: ReactNode } & React.ComponentProps<'input'>) {
-  return (
-    <Label className={cn('flex-col items-stretch gap-1.5', className)}>
-      {label}
-      {children ?? <Input {...props} />}
-    </Label>
-  );
-}
+export { Field } from '@/components/Field';

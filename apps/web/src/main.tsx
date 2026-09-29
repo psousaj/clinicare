@@ -3,7 +3,6 @@ import { RouterProvider } from '@tanstack/react-router';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { createAppRouter, createQueryClient } from './router';
-import './styles.css';
 import './index.css';
 
 const queryClient = createQueryClient();

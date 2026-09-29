@@ -6,7 +6,7 @@ const reais = (label: string, min = 0) => z.coerce.number({ error: `${label} inv
 const optionalReais = z.string().trim().transform((value) => (value ? Math.round(Number(value) * 100) : null)).refine((value) => value === null || Number.isFinite(value), 'Valor promocional inválido.');
 const optionalInt = z.string().trim().transform((value) => Number(value) || null);
 
-export const patientForm = z.object({ fullName: text('Nome'), phone: optionalText, email: z.string().trim().pipe(z.union([z.literal(''), z.email('E-mail inválido.')])).transform((value) => value || null) });
+export const patientForm = z.object({ fullName: text('Nome'), phone: optionalText, notes: optionalText, email: z.string().trim().pipe(z.union([z.literal(''), z.email('E-mail inválido.')])).transform((value) => value || null) });
 export const procedureForm = z.object({
   name: text('Nome'),
   description: optionalText,
@@ -15,16 +15,15 @@ export const procedureForm = z.object({
   price: reais('Preço'),
 });
 export const anamnesisForm = z.object({ title: text('Nome do formulário') });
-export const contractForm = z.object({ title: text('Nome do documento'), kind: z.enum(['standard', 'procedure', 'package']), content: z.string() });
-export const packageForm = z.object({
+export const contractForm = z.object({ title: text('Nome do documento'), kind: z.enum(['standard', 'procedure', 'combo']), content: z.string() });
+export const comboForm = z.object({
   name: text('Nome'),
-  procedureId: text('Procedimento'),
-  sessionsOverride: optionalInt,
   price: reais('Preço'),
   promo: optionalReais,
+  validFrom: optionalText,
   validUntil: optionalText,
 });
-export const planForm = z.object({ patientId: text('Paciente'), offer: z.string().regex(/^(procedure|package):.+$/, 'Escolha um procedimento ou pacote.'), price: reais('Preço') });
+export const planForm = z.object({ patientId: text('Paciente'), offer: z.string().regex(/^(procedure|combo):.+$/, 'Escolha um procedimento ou combo.'), price: reais('Preço') });
 export const appointmentForm = z.object({ patientId: text('Paciente'), planItemId: text('Procedimento contratado') });
 export const paymentForm = z.object({ amount: reais('Valor', 0.01), method: z.enum(['pix', 'cash', 'credit_card']), installments: z.coerce.number().int().min(1).default(1) });
 

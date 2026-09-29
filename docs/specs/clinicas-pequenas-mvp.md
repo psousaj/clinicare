@@ -6,7 +6,7 @@ Profissionais de clínicas pequenas precisam acompanhar, num só lugar, quem sã
 
 ## Solução
 
-Construir uma aplicação para uma única clínica, operada no MVP pelo profissional que também é administrador. O fluxo começa com o cadastro do paciente e a contratação de procedimentos individuais ou pacotes. A contratação congela as condições comerciais; depois, a execução dos procedimentos ocorre por agendamentos e sessões registradas. Anamneses, contratos, fotos, pagamentos e pendências ficam ligados ao paciente e consultáveis em seu histórico.
+Construir uma aplicação para uma única clínica, operada no MVP pelo profissional que também é administrador. O fluxo começa com o cadastro do paciente e a contratação de procedimentos individuais ou combos. A contratação congela as condições comerciais; depois, a execução dos procedimentos ocorre por agendamentos e sessões registradas. Anamneses, contratos, fotos, pagamentos e pendências ficam ligados ao paciente e consultáveis em seu histórico.
 
 ## Histórias de usuário
 
@@ -20,13 +20,13 @@ Construir uma aplicação para uma única clínica, operada no MVP pelo profissi
 8. Como profissional-administrador, quero que links de anamnese expirem após sete dias e possam ser atualizados, para controlar o acesso sem exigir revogação manual.
 9. Como profissional-administrador, quero que respostas enviadas sejam imutáveis e possam receber apenas complementos registrados por mim, preservando o que o paciente respondeu originalmente.
 10. Como profissional-administrador, quero considerar uma resposta de anamnese vigente por um ano e poder solicitar outra quando estiver vencida, evitando pedir novamente dados ainda atuais.
-11. Como profissional-administrador, quero cadastrar pacotes com procedimentos e quantidades de sessões próprias por procedimento, para vender tratamentos combinados.
-12. Como profissional-administrador, quero cadastrar pacotes promocionais com período de validade e preço promocional, para oferecer ofertas temporárias.
+11. Como profissional-administrador, quero cadastrar combos com procedimentos e quantidades de sessões próprias por procedimento, para vender tratamentos combinados.
+12. Como profissional-administrador, quero cadastrar combos promocionais com período de validade e preço promocional, para oferecer ofertas temporárias.
 13. Como profissional-administrador, quero que a validade promocional limite a data de contratação, não a conclusão das sessões já contratadas.
-14. Como profissional-administrador, quero contratar um procedimento individual ou pacote para um paciente, congelando composição, número de sessões, preço e documentos aplicáveis naquele momento.
+14. Como profissional-administrador, quero contratar um procedimento individual ou combo para um paciente, congelando composição, número de sessões, preço e documentos aplicáveis naquele momento.
 15. Como profissional-administrador, quero poder contratar ofertas diferentes que compartilhem procedimentos, mas não repetir para o mesmo paciente exatamente a mesma oferta, para evitar duplicidade sem impedir tratamentos distintos.
 16. Como profissional-administrador, quero manter vários planos ativos para um paciente ao mesmo tempo, para acompanhar tratamentos independentes.
-17. Como profissional-administrador, quero definir um contrato padrão e contratos específicos por procedimento ou pacote, para apresentar os documentos pertinentes à contratação.
+17. Como profissional-administrador, quero definir um contrato padrão e contratos específicos por procedimento ou combo, para apresentar os documentos pertinentes à contratação.
 18. Como profissional-administrador, quero criar contratos no sistema ou importar modelos DOCX, editar seus conteúdos e versioná-los, para manter documentos comerciais atualizados.
 19. Como profissional-administrador, quero restaurar uma versão anterior de contrato criando uma nova versão, sem modificar contratos já aplicados a pacientes.
 20. Como profissional-administrador, quero gerar e preservar o documento aplicado à contratação a partir do modelo e dos dados do paciente, para consultar exatamente o documento associado àquele caso.
@@ -53,9 +53,9 @@ Construir uma aplicação para uma única clínica, operada no MVP pelo profissi
 - **Stack:** React e TypeScript no frontend com Vite; Bun como runtime e gerenciador de pacotes; API TypeScript com Hono; MongoDB com Mongoose. Modelagem por coleções e referências entre agregados, com snapshots/versionamento imutável embutidos no documento proprietário. Binários no Cloudflare R2 via API compatível com S3; metadados no MongoDB. FullCalendar para agenda semanal. JSON Schema para formulários; builder/renderizador visual validado via integração. DOCX via importação/geração, com Docxtemplater como candidato.
 - **Ambientes:** testes de integração da API com MongoDB Memory Server; Docker Compose executa web/API em um container de aplicação multi-stage e MongoDB em serviço separado. A troca de PostgreSQL é descartável no protótipo: não migrar registros fictícios existentes; documentar reset/reseed.
 - **Autenticação no MVP:** não haverá login, autenticação administrativa nem proteção de acesso no protótipo MVP; ele serve somente para testes e demonstrações com dados fictícios. A tarefa futura NEX-173 cobre autenticação administrativa básica, sem RBAC/permissões. Links de anamnese continuam temporários e protegidos por token forte, sem dados pessoais ou clínicos na URL.
-- **Catálogo e contratação:** procedimentos definem quantidade padrão de sessões e duração estimada. Pacotes contêm procedimentos e podem sobrescrever, por item, quantidade de sessões e preço. Pacotes promocionais têm vigência para aplicação. A aplicação a um paciente cria um plano congelado; mudanças posteriores no catálogo não alteram planos existentes. Bloquear repetição da mesma oferta para o paciente, permitindo ofertas diferentes com procedimentos em comum.
+- **Catálogo e contratação:** procedimentos definem quantidade padrão de sessões e duração estimada. Combos contêm procedimentos e podem sobrescrever, por item, quantidade de sessões e preço. Combos promocionais têm vigência para aplicação. A aplicação a um paciente cria um plano congelado; mudanças posteriores no catálogo não alteram planos existentes. Bloquear repetição da mesma oferta para o paciente, permitindo ofertas diferentes com procedimentos em comum.
 - **Anamneses:** formulários são configuráveis por JSON Schema e associáveis a vários procedimentos. A aplicação congela a versão do formulário no plano do paciente; o profissional pode adicionar/remover anamneses e alterar sua obrigatoriedade no caso específico. Versionamento é imutável; restaurar versão cria nova versão com o próximo número. Respostas submetidas são imutáveis, com complementos profissionais separados. Validade da resposta: um ano. Solicitações usam links seguros com validade de sete dias; o profissional pode atualizar o link. O paciente não precisa criar login.
-- **Contratos:** oferecer contrato padrão e contratos específicos para procedimentos/pacotes. Permitir importar DOCX e editar o documento no sistema. Versionar modelos de forma imutável; restauração cria nova versão. Ao aplicar contrato, preservar o documento gerado e sua versão junto ao plano. Assinatura digital e aceite eletrônico ficam fora do MVP.
+- **Contratos:** oferecer contrato padrão e contratos específicos para procedimentos/combos. Permitir importar DOCX e editar o documento no sistema. Versionar modelos de forma imutável; restauração cria nova versão. Ao aplicar contrato, preservar o documento gerado e sua versão junto ao plano. Assinatura digital e aceite eletrônico ficam fora do MVP.
 - **Pagamentos:** registrar manualmente valores recebidos, forma (incluindo cartão de crédito à vista ou parcelado), quantidade informada de parcelas e saldo da contratação. Não processar cartão, criar cobranças externas, acompanhar parcelas na operadora ou integrar gateway no MVP. Não armazenar dados sensíveis de cartão.
 - **Agenda e execução:** calendário semanal, seleção de intervalo por hora e sugestão de duração baseada no procedimento, sempre ajustável pelo profissional. Uma única agenda. Permitir sobreposição de horários. Agendamento é distinto de sessão; status de agendamento não consome sessões. Uma sessão realizada por procedimento consome uma unidade do plano aplicado.
 - **Sessões e fotos:** campos específicos de sessão são definidos no cadastro do procedimento por formulário JSON Schema e congelados no plano aplicado. Sessões mantêm a estrutura do formulário usada para permitir leitura histórica. Fotos pertencem a sessões, podem ter categoria antes/durante/depois e observação opcional, e podem ser excluídas no MVP.
@@ -64,12 +64,12 @@ Construir uma aplicação para uma única clínica, operada no MVP pelo profissi
 
 ## Decisões de teste
 
-- Testar externamente que alterações em procedimentos, pacotes, anamneses e contratos não mudam planos, documentos, respostas ou formulários já aplicados.
+- Testar externamente que alterações em procedimentos, combos, anamneses e contratos não mudam planos, documentos, respostas ou formulários já aplicados.
 - Testar que restaurar versão de anamnese ou contrato cria uma nova versão numerada com conteúdo da versão escolhida e mantém versões existentes.
 - Testar que link de anamnese permite retomar rascunho, expira após sete dias, pode ser atualizado e não permite uma segunda submissão da mesma solicitação após o envio.
 - Testar que respostas enviadas permanecem iguais após complementos profissionais e que uma resposta com mais de um ano aparece como vencida para acompanhamento.
 - Testar bloqueio da mesma oferta para o mesmo paciente e aceitação de ofertas diferentes com procedimentos compartilhados.
-- Testar que a expiração de pacote promocional impede novas aplicações após a vigência, mas não impede concluir sessões de plano aplicado anteriormente.
+- Testar que a expiração de combo promocional impede novas aplicações após a vigência, mas não impede concluir sessões de plano aplicado anteriormente.
 - Testar cálculo do saldo contratado após zero, um e múltiplos registros manuais de pagamento, incluindo registros parcelados e à vista.
 - Testar calendário semanal com seleção/ajuste de intervalo, sugestão de duração e criação de agendamentos sobrepostos.
 - Testar que cancelar ou marcar não comparecimento não cria sessão nem consome quantidade; registrar uma sessão realizada consome uma unidade e cada procedimento realizado gera sessão própria.
@@ -92,6 +92,6 @@ Construir uma aplicação para uma única clínica, operada no MVP pelo profissi
 
 - A ideia de usar uma ferramenta visual como `jsonjoy-builder` para editar JSON Schema com prévia ao lado é uma direção de produto; a biblioteca/componente a adotar deve ser validada durante a implementação.
 - Para DOCX, a intenção é permitir edição no sistema, importação e geração do documento aplicado. A tecnologia específica de edição e geração, incluindo eventual uso de Docxtemplater, ainda deve ser validada.
-- Há uma decisão ainda aberta sobre o critério técnico de identidade de “mesma oferta” quando o catálogo muda ou quando se trata de pacotes promocionais baseados nos mesmos procedimentos. O bloqueio deve usar a identidade da oferta contratada, não apenas a interseção de procedimentos.
+- Há uma decisão ainda aberta sobre o critério técnico de identidade de “mesma oferta” quando o catálogo muda ou quando se trata de combos promocionais baseados nos mesmos procedimentos. O bloqueio deve usar a identidade da oferta contratada, não apenas a interseção de procedimentos.
 - O `CONTEXT.md` registra o vocabulário e decisões de domínio acordadas nesta conversa.
 - ADRs: [0001 — Stack da aplicação](../adr/0001-stack-da-aplicacao.md) e [0002 — Proteção de acesso a dados clínicos](../adr/0002-seguranca-de-acesso-no-mvp.md).

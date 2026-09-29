@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "API (Bun)",
+      "type": "bun",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/api/src/index.ts",
+      "cwd": "${workspaceFolder}/apps/api",
+      "watchMode": "hot",
+      "stopOnEntry": false
+    },
+    {
+      "name": "API: testes (Bun)",
+      "type": "bun",
+      "request": "launch",
+      "runtime": "bun",
+      "args": ["test"],
+      "cwd": "${workspaceFolder}/apps/api",
+      "stopOnEntry": false
+    },
+    {
+      "name": "API: anexar (bun --inspect)",
+      "type": "bun",
+      "request": "attach",
+      "url": "ws://localhost:6499/clinicare"
+    }
+  ]
+}

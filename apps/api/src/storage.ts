@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -12,6 +12,10 @@ export const storage = endpoint && accessKeyId && secretAccessKey && bucket ? ne
 export const uploadUrl = async (key: string, contentType: string) => {
   if (!storage || !bucket) throw new Error('R2 is not configured.');
   return getSignedUrl(storage, new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }), { expiresIn: 300 });
+};
+export const downloadUrl = async (key: string) => {
+  if (!storage || !bucket) return null;
+  return getSignedUrl(storage, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: 3600 });
 };
 export const deleteObject = async (key: string) => {
   if (!storage || !bucket) throw new Error('R2 is not configured.');

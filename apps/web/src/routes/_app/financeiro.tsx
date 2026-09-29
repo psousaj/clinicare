@@ -11,13 +11,13 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { ApiError } from '@/lib/api';
 import { parseForm, planForm } from '@/lib/forms';
 import { currency } from '@/lib/format';
-import { packagesQuery, patientsQuery, plansQuery, proceduresQuery, useCreatePlan } from '@/lib/queries';
+import { combosQuery, patientsQuery, plansQuery, proceduresQuery, useCreatePlan } from '@/lib/queries';
 import type { Plan } from '@/lib/schemas';
 
 export const Route = createFileRoute('/_app/financeiro')({ component: Finance });
 
 function Finance() {
-  const plans = useQuery(plansQuery), patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), packages = useQuery(packagesQuery);
+  const plans = useQuery(plansQuery), patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), combos = useQuery(combosQuery);
   const createPlan = useCreatePlan();
   const [paymentPlan, setPaymentPlan] = useState<Plan | null>(null);
   const patientList = patients.data ?? [];
@@ -59,8 +59,8 @@ function Finance() {
             <optgroup label="Procedimentos">
               {(procedures.data ?? []).map((procedure) => <NativeSelectOption key={procedure.id} value={`procedure:${procedure.id}`}>{procedure.name}</NativeSelectOption>)}
             </optgroup>
-            <optgroup label="Pacotes">
-              {(packages.data ?? []).map((pack) => <NativeSelectOption key={pack.id} value={`package:${pack.id}`}>{pack.name}</NativeSelectOption>)}
+            <optgroup label="Combos">
+              {(combos.data ?? []).map((combo) => <NativeSelectOption key={combo.id} value={`combo:${combo.id}`}>{combo.name}</NativeSelectOption>)}
             </optgroup>
           </NativeSelect>
           <Input name="price" type="number" min="0" step="0.01" placeholder="Preço contratado R$" required />

@@ -41,12 +41,12 @@ Pessoa que realiza ou pretende realizar procedimentos na clínica e cujos dados,
 _Avoid_: cliente (como termo principal do domínio)
 
 **Procedimento**:
-Oferta individual de uma intervenção estética, configurada pelo profissional como atendimento único ou como tratamento composto por sessões. O procedimento possui um número base de sessões, que pode ser sobrescrito por um pacote.
-_Avoid_: sessão, pacote
+Oferta individual de uma intervenção estética, configurada pelo profissional como atendimento único ou como tratamento composto por sessões. O procedimento possui um número base de sessões, que pode ser sobrescrito por um combo.
+_Avoid_: sessão, combo
 
 **Tratamento**:
-Acompanhamento de um procedimento configurado para ocorrer em múltiplas sessões, usando a quantidade de sessões definida no procedimento ou sobrescrita pelo pacote aplicado.
-_Avoid_: pacote (quando significar a execução clínica do procedimento)
+Acompanhamento de um procedimento configurado para ocorrer em múltiplas sessões, usando a quantidade de sessões definida no procedimento ou sobrescrita pelo combo aplicado.
+_Avoid_: combo (quando significar a execução clínica do procedimento)
 
 **Sessão**:
 Registro de um procedimento efetivamente realizado, pertencente a um tratamento ou procedimento único e opcionalmente relacionado a um agendamento. Cada procedimento realizado gera sua própria sessão, mesmo quando vários procedimentos fazem parte do mesmo agendamento. Não existe sessão parcialmente realizada.
@@ -56,13 +56,17 @@ _Avoid_: consulta, atendimento, sessão parcial
 Sessão registrada pelo profissional como efetivamente concluída, consumindo uma unidade da quantidade de sessões do plano aplicado.
 _Avoid_: sessão consumida (como status), atendimento concluído
 
+**Acompanhamento da sessão**:
+Registro complementar de uma sessão realizada: campos do procedimento, observações e fotos classificadas como antes, durante ou depois. Pode ser editado a qualquer momento a partir da ficha do paciente.
+_Avoid_: prontuário da sessão, galeria
+
 **Consumo de sessão**:
 Acontece somente quando o profissional registra o procedimento como realizado. Agendamentos, cancelamentos e não comparecimentos não consomem sessões automaticamente; o não comparecimento não gera uma sessão.
 _Avoid_: baixa automática, sessão utilizada
 
 **Campos configuráveis do procedimento**:
 Conjunto de dados adicionais definido no cadastro de um procedimento para ser preenchido pelo profissional em cada sessão, além dos campos básicos comuns a todas as sessões.
-_Avoid_: campos da sessão (quando se tratar da configuração), formulário do pacote
+_Avoid_: campos da sessão (quando se tratar da configuração), formulário do combo
 
 **Dados da sessão**:
 Informações específicas preenchidas pelo profissional ao registrar uma sessão, conforme os campos básicos e os campos configuráveis do procedimento realizado. A estrutura desses campos deve ser preservada junto da sessão para que os dados históricos continuem interpretáveis.
@@ -79,6 +83,10 @@ _Avoid_: foto do paciente (quando a imagem estiver contextualizada por uma sess�
 **Formulário configurável**:
 Estrutura de perguntas e campos definida pela clínica para coletar dados de uma anamnese ou registrar dados específicos de uma sessão. O mesmo modelo de formulário pode ser reutilizado em diferentes contextos quando fizer sentido.
 _Avoid_: formulário livre, tela de cadastro
+
+**Tipo de campo**:
+Forma de resposta de um campo do formulário: texto curto, texto longo, número, apenas dígitos, data, hora, telefone, e-mail, CPF, sim/não, escolha única, múltipla escolha e escala de 0 a 10. O tipo define máscara, validação e o controle exibido ao responder (telefone/CPF mascarados; data e hora com seletor).
+_Avoid_: formato, máscara (quando significar o tipo do campo)
 
 **Documento modelo**:
 Arquivo-base de um contrato que pode ser importado como DOCX ou editado pelo profissional dentro do sistema. Pode conter campos variáveis para ser aplicado a um paciente e a um plano específico; o documento aplicado deve preservar o conteúdo gerado naquele momento.
@@ -120,32 +128,32 @@ _Avoid_: agenda do profissional (são recursos distintos)
 Estado operacional de um agendamento, como planejado, confirmado, remarcado, cancelado ou não compareceu. O status não prova que uma sessão foi realizada.
 _Avoid_: status da sessão
 
-**Pacote**:
-Conjunto comercial pré-configurado de procedimentos que são vendidos juntos. Para cada procedimento, pode manter o número base de sessões ou definir uma quantidade própria; também pode ter vigência e preço próprios.
-_Avoid_: tratamento (quando significar a oferta comercial)
+**Combo**:
+Conjunto comercial pré-configurado de procedimentos que são vendidos juntos. Pode ser padrão (sem prazo, preço fixo) ou promocional. Para cada procedimento, pode manter o número base de sessões ou definir uma quantidade própria; também pode ter vigência e preço próprios.
+_Avoid_: pacote, tratamento (quando significar a oferta comercial)
 
-**Item de pacote**:
-Procedimento incluído em um pacote, com uma quantidade de sessões opcional que sobrescreve a quantidade base do procedimento quando o pacote é aplicado a um paciente.
-_Avoid_: componente, produto do pacote
+**Item de combo**:
+Procedimento incluído em um combo, com uma quantidade de sessões opcional que sobrescreve a quantidade base do procedimento quando o combo é aplicado a um paciente.
+_Avoid_: componente, produto do combo
 
-**Pacote promocional**:
-Pacote comercial disponível durante um período de validade e com preço promocional diferente dos preços individuais ou do pacote padrão. A validade controla até quando o pacote pode ser aplicado; depois de aplicado, o paciente pode concluir as sessões mesmo após o fim da validade.
+**Combo promocional**:
+Combo comercial disponível durante um período de validade e com preço promocional diferente dos preços individuais ou do combo padrão. A validade controla até quando o combo pode ser aplicado; depois de aplicado, o paciente pode concluir as sessões mesmo após o fim da validade.
 _Avoid_: campanha (quando o conjunto de procedimentos e seu preço forem o foco)
 
 **Procedimento selecionado**:
-Procedimento ou item de pacote que o profissional vincula ao acompanhamento de um paciente após definir o que será realizado.
+Procedimento ou item de combo que o profissional vincula ao acompanhamento de um paciente após definir o que será realizado.
 _Avoid_: pedido, compra
 
 **Plano aplicado**:
-Registro congelado das condições de contratação escolhidas para um paciente, preservando os procedimentos, quantidades de sessões, preço e demais informações comerciais no momento da contratação. Alterações posteriores no procedimento ou pacote não modificam planos já aplicados. Um paciente pode ter vários planos ativos ao mesmo tempo, desde que não contrate duas vezes a mesma oferta.
-_Avoid_: pacote (quando se referir ao caso concreto do paciente), pedido
+Registro congelado das condições de contratação escolhidas para um paciente, preservando os procedimentos, quantidades de sessões, preço e demais informações comerciais no momento da contratação. Alterações posteriores no procedimento ou combo não modificam planos já aplicados. Um paciente pode ter vários planos ativos ao mesmo tempo, desde que não contrate duas vezes a mesma oferta.
+_Avoid_: combo (quando se referir ao caso concreto do paciente), pedido
 
 **Oferta duplicada**:
-O mesmo paciente não pode contratar novamente a mesma oferta, seja o mesmo pacote ou o mesmo procedimento. Ofertas diferentes podem ser contratadas mesmo quando incluem procedimentos em comum.
+O mesmo paciente não pode contratar novamente a mesma oferta, seja o mesmo combo ou o mesmo procedimento. Ofertas diferentes podem ser contratadas mesmo quando incluem procedimentos em comum.
 _Avoid_: procedimento duplicado (quando a duplicidade se refere à oferta inteira)
 
 **Preço contratado**:
-Valor total acordado para um plano aplicado no momento da contratação, preservado mesmo que os preços do procedimento ou pacote sejam alterados depois.
+Valor total acordado para um plano aplicado no momento da contratação, preservado mesmo que os preços do procedimento ou combo sejam alterados depois.
 _Avoid_: valor atual, preço da sessão
 
 **Valor recebido**:
@@ -194,9 +202,9 @@ _Avoid_: contratação, venda
 
 ## Documentos e coleta
 
-**Anamnese**:
-Formulário clínico configurável que o profissional associa aos procedimentos selecionados e que o paciente pode responder por um link. Uma anamnese pode ser associada a vários procedimentos.
-_Avoid_: questionário (quando se tratar de coleta clínica do paciente)
+**Formulário de anamnese**:
+Modelo de formulário clínico configurável que o profissional associa aos procedimentos selecionados e que o paciente pode responder por um link. Um formulário de anamnese pode ser associado a vários procedimentos. Na interface, o catálogo desses modelos é chamado de “Formulários de anamnese”.
+_Avoid_: anamnese (quando significar o modelo do catálogo), questionário (quando se tratar de coleta clínica do paciente)
 
 **Anamnese aplicada**:
 Cópia de uma anamnese associada ao plano de um paciente, preservando a versão do formulário e permitindo que o profissional adicione, remova ou altere a obrigatoriedade daquela anamnese para o caso específico.
@@ -211,7 +219,7 @@ Período de um ano durante o qual uma resposta de anamnese preenchida pode ser c
 _Avoid_: expiração do link
 
 **Versão da anamnese**:
-Estado imutável do formulário de uma anamnese em um momento específico. Versões podem ser consultadas, e uma versão anterior pode ser restaurada criando uma nova versão com o conteúdo selecionado; nenhuma versão existente é sobrescrita.
+Estado imutável do formulário de uma anamnese em um momento específico. Versões podem ser consultadas, e editar o formulário ou fazer rollback sempre cria uma nova versão (origem: criada, editada ou rollback da versão X); nenhuma versão existente é sobrescrita.
 _Avoid_: revisão, cópia (quando se referir à sequência oficial do formulário)
 
 **Anamnese ativa**:
@@ -223,7 +231,7 @@ Documento comercial geral apresentado ao paciente para leitura antes da realiza�
 _Avoid_: contrato genérico
 
 **Contrato específico de procedimento**:
-Documento adicional associado a um procedimento ou pacote específico, apresentado além do contrato padrão quando necessário. O documento pode ser importado como DOCX ou editado pelo profissional no sistema; assinatura digital fica fora do MVP.
+Documento adicional associado a um procedimento ou combo específico, apresentado além do contrato padrão quando necessário. O documento pode ser importado como DOCX ou editado pelo profissional no sistema; assinatura digital fica fora do MVP.
 _Avoid_: contrato da guia
 
 **Versão de contrato**:

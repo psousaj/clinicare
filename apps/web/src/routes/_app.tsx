@@ -1,15 +1,13 @@
 import { createFileRoute, Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { Activity, CalendarDays, ChevronDown, ChevronRight, CircleHelp, ClipboardList, FileText, LayoutDashboard, Plus, Settings2, Sparkles, UsersRound, WalletCards } from 'lucide-react';
-import { useState } from 'react';
-import { PatientDialog } from '@/components/dialogs';
 import { Button } from '@/components/ui/button';
 
 const navigation = [
   { to: '/', label: 'Visão geral', title: 'Sua clínica, em um só lugar.', icon: LayoutDashboard },
   { to: '/pacientes', label: 'Pacientes', title: 'Pacientes', icon: UsersRound },
   { to: '/agenda', label: 'Agenda', title: 'Agenda semanal', icon: CalendarDays },
-  { to: '/procedimentos', label: 'Procedimentos', title: 'Procedimentos e pacotes', icon: Sparkles },
-  { to: '/anamneses', label: 'Anamneses', title: 'Formulários de anamnese', icon: ClipboardList },
+  { to: '/procedimentos', label: 'Procedimentos', title: 'Procedimentos e combos', icon: Sparkles },
+  { to: '/formularios-anamnese', label: 'Formulários de anamnese', title: 'Formulários de anamnese', icon: ClipboardList },
   { to: '/contratos', label: 'Contratos', title: 'Contratos da clínica', icon: FileText },
   { to: '/financeiro', label: 'Financeiro', title: 'Contratações e pagamentos', icon: WalletCards },
 ] as const;
@@ -18,8 +16,8 @@ export const Route = createFileRoute('/_app')({ component: AppLayout });
 
 function AppLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const [patientOpen, setPatientOpen] = useState(false);
   const current = navigation.find(({ to }) => (to === '/' ? pathname === '/' : pathname.startsWith(to))) ?? navigation[0];
+  const showNewPatient = ['/', '/pacientes'].includes(pathname.replace(/(.)\/$/, '$1'));
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -68,7 +66,7 @@ function AppLayout() {
               <h1>{current.title}</h1>
               <p className="welcome-subtitle">Gestão de pacientes, procedimentos e cuidados.</p>
             </div>
-            <Button onClick={() => setPatientOpen(true)}><Plus size={17} /> Novo paciente</Button>
+            {showNewPatient && <Button asChild><Link to="/pacientes/novo"><Plus size={17} /> Novo paciente</Link></Button>}
           </section>
           <Outlet />
           <footer className="page-footer">
@@ -77,7 +75,6 @@ function AppLayout() {
           </footer>
         </div>
       </main>
-      <PatientDialog open={patientOpen} onOpenChange={setPatientOpen} />
     </div>
   );
 }

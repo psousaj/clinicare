@@ -1,0 +1,56 @@
+/* Tema do FullCalendar alinhado ao design system (verde da marca, bordas suaves). */
+.calendar-wrap .fc {
+  --fc-border-color: #e9ede8;
+  --fc-today-bg-color: #f3f8f5;
+  --fc-now-indicator-color: #c0392b;
+  --fc-page-bg-color: #fff;
+  --fc-neutral-bg-color: #f7f8f5;
+  --fc-event-border-color: transparent;
+  --fc-button-bg-color: #fff;
+  --fc-button-border-color: #e3eae4;
+  --fc-button-text-color: #25312d;
+  --fc-button-hover-bg-color: #f1f5f1;
+  --fc-button-hover-border-color: #e3eae4;
+  --fc-button-active-bg-color: #26785f;
+  --fc-button-active-border-color: #26785f;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+}
+.calendar-wrap .fc .fc-toolbar { margin-bottom: 16px; gap: 8px; flex-wrap: wrap; }
+.calendar-wrap .fc .fc-toolbar-title { font: 700 18px/1.2 Manrope, sans-serif; letter-spacing: -0.01em; color: #25312d; }
+.calendar-wrap .fc .fc-button {
+  height: 34px; padding: 0 12px; border-radius: 8px; font: 500 13px 'DM Sans', sans-serif;
+  text-transform: capitalize; box-shadow: none; display: inline-flex; align-items: center; justify-content: center;
+}
+.calendar-wrap .fc .fc-button-group { gap: 0; }
+.calendar-wrap .fc .fc-button-group > .fc-button { border-radius: 0; }
+.calendar-wrap .fc .fc-button-group > .fc-button:first-child { border-radius: 8px 0 0 8px; }
+.calendar-wrap .fc .fc-button-group > .fc-button:last-child { border-radius: 0 8px 8px 0; }
+.calendar-wrap .fc .fc-button-group > .fc-button:only-child { border-radius: 8px; }
+.calendar-wrap .fc .fc-button:focus { box-shadow: 0 0 0 3px rgb(38 120 95 / 0.25); }
+.calendar-wrap .fc .fc-button-primary:disabled { background: #f1f5f1; border-color: #e3eae4; color: #9aa59f; opacity: 1; }
+.calendar-wrap .fc .fc-button-primary:not(:disabled).fc-button-active,
+.calendar-wrap .fc .fc-button-primary:not(:disabled):active { background: #26785f; border-color: #26785f; color: #fff; }
+.calendar-wrap .fc .fc-scrollgrid { border-radius: 10px; overflow: hidden; border-color: #e9ede8; }
+.calendar-wrap .fc .fc-col-header-cell { background: #f7f8f5; border-color: #e9ede8; }
+.calendar-wrap .fc .fc-col-header-cell-cushion { padding: 10px 4px; font: 600 11px 'DM Sans', sans-serif; letter-spacing: 0.06em; text-transform: uppercase; color: #6f7c76; text-decoration: none; }
+.calendar-wrap .fc .fc-day-today .fc-col-header-cell-cushion { color: #26785f; }
+.calendar-wrap .fc .fc-timegrid-slot { height: 3.25rem; }
+.calendar-wrap .fc .fc-timegrid-slot-minor { border-top-style: none; }
+.calendar-wrap .fc .fc-timegrid-slot-label-cushion { font: 500 11px 'DM Sans', sans-serif; color: #85908b; padding: 0 8px; }
+.calendar-wrap .fc .fc-timegrid-axis-cushion { color: #85908b; }
+.calendar-wrap .fc .fc-timegrid-now-indicator-arrow { border-color: #c0392b; border-top-color: transparent; border-bottom-color: transparent; }
+.calendar-wrap .fc .fc-highlight { background: rgb(38 120 95 / 0.12); }
+.calendar-wrap .fc .fc-timegrid-col.fc-day-today { background: #f3f8f5; }
+
+.calendar-wrap .fc .fc-event { border-radius: 8px; border: 0; box-shadow: none; cursor: pointer; overflow: hidden; transition: filter 0.15s; }
+.calendar-wrap .fc .fc-event:hover { filter: brightness(0.97); }
+.calendar-wrap .fc .fc-timegrid-event .fc-event-main { padding: 0; }
+.appt { display: grid; gap: 1px; height: 100%; padding: 6px 8px 6px 10px; border-left: 3px solid var(--appt-accent); background: var(--appt-bg); color: var(--appt-ink); line-height: 1.25; }
+.appt strong { font: 700 12px 'DM Sans', sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.appt span { font-size: 11px; opacity: 0.85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.appt-neutral { --appt-accent: #26785f; --appt-bg: #e8f2ed; --appt-ink: #194d40; }
+.appt-success { --appt-accent: #1e674f; --appt-bg: #cfe7dc; --appt-ink: #124132; }
+.appt-warning { --appt-accent: #c68a16; --appt-bg: #fbf1d9; --appt-ink: #7a5610; }
+.appt-danger { --appt-accent: #c0392b; --appt-bg: #f8e4e1; --appt-ink: #8a2a1f; }
+.appt-danger strong { text-decoration: line-through; text-decoration-thickness: 1px; }

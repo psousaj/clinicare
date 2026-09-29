@@ -18,7 +18,7 @@ function withIds(value: unknown): unknown {
   return value;
 }
 
-type RequestOptions<S extends z.ZodType> = { method?: 'GET' | 'POST' | 'PUT'; body?: unknown; schema: S; fallbackError?: string };
+type RequestOptions<S extends z.ZodType> = { method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown; schema: S; fallbackError?: string };
 
 export async function api<S extends z.ZodType>(path: string, { method = 'GET', body, schema, fallbackError = 'Não foi possível concluir.' }: RequestOptions<S>): Promise<z.output<S>> {
   const response = await fetch(path, { method, headers: body === undefined ? undefined : { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
