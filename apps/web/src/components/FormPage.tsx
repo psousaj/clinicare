@@ -41,12 +41,12 @@ export function FormPage({ backTo, backLabel, backSearch, title, submitLabel, on
   return (
     <form className="grid gap-4" onSubmit={handleSubmit}>
       <section className="panel grid gap-4">
-        <div className="panel-header">
+        <div className="panel-header form-page-header">
           <div>
             <Link to={backTo} search={backSearch as never} className="text-button mb-2"><ArrowLeft size={14} /> {backLabel}</Link>
             <h2>{title}</h2>
           </div>
-          <div className="flex gap-2">
+          <div className="form-page-actions">
             <Button type="button" variant="outline" asChild><Link to={backTo} search={backSearch as never}>Cancelar</Link></Button>
             <Button type="submit" disabled={pending}>{submitLabel}</Button>
           </div>

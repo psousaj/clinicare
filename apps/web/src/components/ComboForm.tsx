@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { Link } from '@tanstack/react-router';
 import { Plus, Search, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Field } from '@/components/Field';
@@ -65,9 +66,13 @@ export function ComboFormPage({ combo }: { combo?: Combo }) {
       <section aria-label="Procedimentos do combo" className="grid gap-2">
         <div className="flex items-center justify-between gap-3">
           <span className="text-sm font-medium">Procedimentos do combo</span>
-          <ProcedurePicker options={available.filter((procedure) => !(procedure.id in selected))} onPick={(procedure) => setSelected((current) => ({ ...current, [procedure.id]: String(procedure.baseSessions) }))} />
+          {procedures.length === 0 ? (
+            <Button asChild type="button" variant="outline" size="sm"><Link to="/procedimentos/novo"><Plus /> Cadastrar procedimento</Link></Button>
+          ) : (
+            <ProcedurePicker options={available.filter((procedure) => !(procedure.id in selected))} onPick={(procedure) => setSelected((current) => ({ ...current, [procedure.id]: String(procedure.baseSessions) }))} />
+          )}
         </div>
-        {chosen.length === 0 && <p className="m-0 rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground">Nenhum procedimento ainda. Use “Adicionar procedimento” para montar o combo.</p>}
+        {chosen.length === 0 && <p className="m-0 rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground">{procedures.length === 0 ? 'Cadastre um procedimento antes de montar o combo.' : 'Adicione um procedimento para montar o combo.'}</p>}
         {chosen.map((procedure) => {
           const sessions = Number(selected[procedure.id]) || procedure.baseSessions;
           return (

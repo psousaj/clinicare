@@ -50,12 +50,12 @@ export function ContractFormPage({ heading, submitLabel, initial = {}, notice, a
   return (
     <form className="grid gap-4" onSubmit={submit} noValidate>
       <section className="panel grid gap-4">
-        <div className="panel-header">
+        <div className="panel-header form-page-header">
           <div>
             <Link to="/contratos" className="text-button mb-2"><ArrowLeft size={14} /> Contratos</Link>
             <h2>{heading}</h2>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="form-page-actions">
             {actions}
             <Button type="button" variant="outline" asChild><Link to="/contratos">Cancelar</Link></Button>
             <Button type="submit" disabled={saving}>{submitLabel}</Button>

@@ -268,6 +268,7 @@ nav {
 
 .main-area {
   margin-left: 252px;
+  min-width: 0;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -284,6 +285,17 @@ nav {
   padding: 0 36px;
   gap: 14px;
   background: #fff;
+}
+
+.mobile-drawer-header {
+  display: contents;
+}
+
+.mobile-dock,
+.mobile-drawer-close,
+.mobile-menu-trigger,
+.mobile-nav-backdrop {
+  display: none;
 }
 
 .breadcrumb {
@@ -338,6 +350,7 @@ nav {
 
 .content-wrap {
   flex: 1;
+  min-width: 0;
   padding: 36px 40px;
 }
 
@@ -476,6 +489,7 @@ nav {
 /* ----- Panel ----- */
 
 .panel {
+  min-width: 0;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -490,6 +504,11 @@ nav {
   justify-content: space-between;
   margin-bottom: 16px;
   gap: 12px;
+}
+
+.form-page-header > :first-child,
+.form-page-actions {
+  min-width: 0;
 }
 
 .panel-header h2 {
@@ -924,7 +943,7 @@ nav {
     gap: 9px;
   }
   .content-wrap {
-    padding: 25px 14px;
+    padding: 20px 12px calc(104px + env(safe-area-inset-bottom));
   }
   .welcome-row {
     align-items: flex-start;
@@ -958,7 +977,53 @@ nav {
     gap: 8px;
   }
   .panel {
-    padding: 16px 14px 0;
+    padding: 16px 12px 16px;
+    min-height: 0;
+  }
+  form > .panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  form > .panel > * {
+    min-width: 0;
+  }
+  form > .panel .flex {
+    flex-wrap: wrap;
+  }
+  .panel-header {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .form-page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .form-page-header > :first-child {
+    overflow-wrap: anywhere;
+  }
+  .form-page-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+  }
+  .form-page-actions > * {
+    width: 100%;
+  }
+  .form-page-actions a,
+  .form-page-actions button {
+    width: 100%;
+  }
+  .main-area {
+    width: 100%;
+    margin-left: 0;
+  }
+  .topbar {
+    min-width: 0;
+  }
+  .breadcrumb {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   .page-footer {
     gap: 10px;
@@ -967,19 +1032,188 @@ nav {
   .modal {
     padding: 22px;
   }
+  .mobile-menu-trigger {
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    flex: 0 0 56px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgb(233 237 232 / 90%);
+    border-radius: 50%;
+    background: #fff;
+    color: var(--ink);
+    box-shadow: 0 8px 24px rgb(24 35 31 / 12%);
+  }
+  .mobile-menu-trigger:active {
+    transform: scale(.97);
+  }
+  .mobile-dock {
+    position: fixed;
+    z-index: 4;
+    left: 50%;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    width: min(calc(100% - 32px), 420px);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transform: translateX(-50%);
+  }
+  .mobile-dock-links {
+    min-width: 0;
+    height: 64px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    gap: 2px;
+    padding: 6px;
+    border: 1px solid rgb(233 237 232 / 90%);
+    border-radius: 999px;
+    background: rgb(255 255 255 / 96%);
+    box-shadow: 0 8px 24px rgb(24 35 31 / 12%);
+    backdrop-filter: blur(12px);
+  }
+  .mobile-dock-link {
+    min-width: 44px;
+    height: 50px;
+    flex: 1;
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    color: #9aa39d;
+    text-decoration: none;
+    transition: background-color 160ms ease-out, color 160ms ease-out, transform 160ms ease-out;
+  }
+  .mobile-dock-link:active {
+    transform: scale(.96);
+  }
+  .mobile-dock-link.active {
+    color: var(--green);
+    background: #edf5ef;
+  }
+  .mobile-nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 5;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: rgb(24 35 31 / 26%);
+    backdrop-filter: blur(3px);
+  }
+  .mobile-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 2px;
+  }
+  .mobile-drawer-header .brand {
+    padding: 0 8px;
+  }
+  .mobile-drawer-close {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: #fff;
+    color: var(--muted);
+  }
   .sidebar {
-    width: 58px;
-    padding: 18px 7px;
+    inset: max(12px, env(safe-area-inset-top)) auto max(12px, env(safe-area-inset-bottom)) 16px;
+    width: min(320px, calc(100vw - 32px));
+    padding: 18px 14px 14px;
+    border: 1px solid rgb(233 237 232 / 90%);
+    border-radius: 24px;
+    box-shadow: 0 24px 70px rgb(24 35 31 / 24%);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-10px) scale(.985);
+    transform-origin: top left;
+    transition: transform 180ms cubic-bezier(.32, .72, 0, 1), opacity 140ms ease-out, visibility 180ms;
+    z-index: 6;
   }
-  .main-area {
-    margin-left: 58px;
+  .sidebar.mobile-nav-open {
+    visibility: visible;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0) scale(1);
   }
-  .brand {
-    padding: 0 7px;
+  .sidebar nav {
+    display: grid;
+    width: 100%;
+    gap: 4px;
   }
-  .brand-mark {
-    width: 30px;
-    height: 30px;
+  .sidebar .nav-link {
+    flex: initial;
+    height: 46px;
+    padding: 0 12px;
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 12px;
+    font-size: 13px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .sidebar .nav-link span {
+    display: block;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    -webkit-line-clamp: initial;
+  }
+  .sidebar .brand {
+    display: flex;
+    padding: 0;
+  }
+  .sidebar .brand > span:last-child,
+  .sidebar .clinic-label,
+  .sidebar .clinic-switch > svg,
+  .sidebar .nav-caption,
+  .sidebar .nav-link span,
+  .sidebar .help-card,
+  .sidebar .profile-copy {
+    display: initial;
+  }
+  .sidebar .clinic-label,
+  .sidebar .profile-copy {
+    display: grid;
+  }
+  .sidebar .help-card {
+    display: flex;
+  }
+  .sidebar .clinic-switch {
+    justify-content: flex-start;
+    padding: 10px 12px;
+    margin: 18px 2px 20px;
+  }
+  .sidebar .nav-caption {
+    display: block;
+  }
+  .sidebar .sidebar-bottom {
+    display: block;
+    margin-top: 16px;
+  }
+  .sidebar .profile-row {
+    justify-content: flex-start;
+  }
+  .sidebar .nav-link span {
+    display: block;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none;
   }
 }
 

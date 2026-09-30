@@ -1,5 +1,6 @@
 import { createFileRoute, Link, Outlet, useRouterState } from '@tanstack/react-router';
-import { Activity, CalendarDays, ChevronDown, ChevronRight, CircleHelp, ClipboardList, FileText, Layers, LayoutDashboard, Plus, Settings2, Sparkles, UsersRound, WalletCards } from 'lucide-react';
+import { Activity, CalendarDays, ChevronDown, ChevronRight, CircleHelp, ClipboardList, FileText, Layers, LayoutDashboard, Plus, Settings2, Sparkles, UsersRound, WalletCards, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { QuickActions } from '@/components/QuickActions';
 import { Button } from '@/components/ui/button';
 
@@ -13,21 +14,44 @@ const navigation = [
   { to: '/contratos', label: 'Contratos', title: 'Contratos da clínica', icon: FileText },
   { to: '/financeiro', label: 'Financeiro', title: 'Acompanhamentos e pagamentos', icon: WalletCards },
 ] as const;
+const mobileNavigation = [navigation[0], navigation[1], navigation[2], navigation[7]] as const;
 
 export const Route = createFileRoute('/_app')({ component: AppLayout });
 
 function AppLayout() {
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const mobileMenuTrigger = useRef<HTMLButtonElement>(null);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const current = navigation.find(({ to }) => (to === '/' ? pathname === '/' : pathname.startsWith(to))) ?? navigation[0];
   const path = pathname.replace(/(.)\/$/, '$1');
   const showNewPatient = path === '/pacientes';
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.querySelector<HTMLAnchorElement>('#mobile-navigation nav a')?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileNavOpen(false);
+    };
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', closeOnEscape);
+      mobileMenuTrigger.current?.focus();
+    };
+  }, [mobileNavOpen]);
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <Link className="brand" to="/">
-          <span className="brand-mark"><Activity size={19} /></span>
-          <span>clínicare<span className="brand-dot">.</span></span>
-        </Link>
+      {mobileNavOpen && <button type="button" className="mobile-nav-backdrop" aria-label="Fechar menu" onClick={() => setMobileNavOpen(false)} />}
+      <aside id="mobile-navigation" className={`sidebar${mobileNavOpen ? ' mobile-nav-open' : ''}`} aria-label="Navegação principal">
+        <div className="mobile-drawer-header">
+          <Link className="brand" to="/" onClick={() => setMobileNavOpen(false)}>
+            <span className="brand-mark"><Activity size={19} /></span>
+            <span>clínicare<span className="brand-dot">.</span></span>
+          </Link>
+          <button type="button" className="mobile-drawer-close" aria-label="Fechar menu" onClick={() => setMobileNavOpen(false)}><X size={18} /></button>
+        </div>
         <div className="clinic-switch">
           <span className="clinic-avatar">V</span>
           <span className="clinic-label"><strong>Clínica Vitta</strong><small>Estética & bem-estar</small></span>
@@ -36,7 +60,7 @@ function AppLayout() {
         <div className="nav-caption">MENU PRINCIPAL</div>
         <nav aria-label="Menu principal">
           {navigation.map(({ to, label, icon: Icon }) => (
-            <Link key={to} to={to} className="nav-link" activeProps={{ className: 'active' }} activeOptions={{ exact: to === '/' }}>
+            <Link key={to} to={to} className="nav-link" activeProps={{ className: 'active' }} activeOptions={{ exact: to === '/' }} onClick={() => setMobileNavOpen(false)}>
               <Icon size={18} />
               <span>{label}</span>
             </Link>
@@ -79,6 +103,26 @@ function AppLayout() {
           </footer>
         </div>
       </main>
+      <nav className="mobile-dock" aria-label="Atalhos principais">
+        <div className="mobile-dock-links">
+          {mobileNavigation.map(({ to, label, icon: Icon }) => (
+            <Link key={to} to={to} className="mobile-dock-link" aria-label={label} title={label} activeProps={{ className: 'active' }} activeOptions={{ exact: to === '/' }} onClick={() => setMobileNavOpen(false)}>
+              <Icon size={20} aria-hidden="true" />
+            </Link>
+          ))}
+        </div>
+        <button
+          ref={mobileMenuTrigger}
+          type="button"
+          className="mobile-menu-trigger"
+          aria-label={mobileNavOpen ? 'Fechar menu' : 'Abrir menu'}
+          aria-expanded={mobileNavOpen}
+          aria-controls="mobile-navigation"
+          onClick={() => setMobileNavOpen((open) => !open)}
+        >
+          {mobileNavOpen ? <X size={21} /> : <Plus size={21} />}
+        </button>
+      </nav>
     </div>
   );
 }
