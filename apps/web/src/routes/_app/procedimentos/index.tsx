@@ -71,23 +71,23 @@ function Catalog() {
       <section className="panel">
         <div className="panel-header">
           <div><div className="section-kicker">CATÁLOGO</div><h2>Ofertas da clínica</h2></div>
-          <Button asChild>
+          <Button asChild className="max-md:w-full">
             {aba === 'procedimentos'
               ? <Link to="/procedimentos/novo"><Plus /> Novo procedimento</Link>
               : <Link to="/procedimentos/combos/novo"><Plus /> Novo combo</Link>}
           </Button>
         </div>
-        <div className="mb-3 flex flex-wrap items-center gap-3">
-          <div role="tablist" aria-label="Catálogo" className="inline-flex rounded-lg bg-muted p-1">
+        <div className="mb-3 flex flex-wrap items-center gap-3 max-md:grid max-md:grid-cols-[minmax(0,1fr)_auto]">
+          <div role="tablist" aria-label="Catálogo" className="inline-flex rounded-lg bg-muted p-1 max-md:col-span-2 max-md:[&>button]:flex-1">
             {([['procedimentos', `Procedimentos (${procedureList.length})`], ['combos', `Combos (${comboList.length})`]] as const).map(([value, label]) => (
-              <button key={value} type="button" role="tab" aria-selected={aba === value} onClick={() => setSearch({ aba: value })} className={cn('cursor-pointer rounded-lg border-0 px-3.5 py-1.5 text-sm font-medium transition-[background-color,color,box-shadow] duration-[200ms] ease-[cubic-bezier(0.23,1,0.32,1)]', aba === value ? 'bg-background text-foreground shadow-sm' : 'bg-transparent text-muted-foreground hover:text-foreground')}>{label}</button>
+              <button key={value} type="button" role="tab" aria-selected={aba === value} onClick={() => setSearch({ aba: value })} className={cn('cursor-pointer rounded-lg border-0 px-3.5 py-2 text-sm font-medium transition-[background-color,color,box-shadow] duration-[200ms] ease-[cubic-bezier(0.23,1,0.32,1)]', aba === value ? 'bg-background text-foreground shadow-sm' : 'bg-transparent text-muted-foreground hover:text-foreground')}>{label}</button>
             ))}
           </div>
-          <label className="search-box m-0 min-w-56 flex-1">
+          <label className="search-box m-0 min-w-56 flex-1 max-md:min-w-0">
             <Search size={16} />
             <input value={q} onChange={(event) => setSearch({ q: event.target.value || undefined })} placeholder={aba === 'procedimentos' ? 'Buscar procedimento' : 'Buscar combo'} aria-label="Buscar no catálogo" />
           </label>
-          <div className="w-44">
+          <div className="w-44 max-md:w-36">
             <NativeSelect aria-label="Situação" value={status} onChange={(event) => setSearch({ status: event.target.value as typeof status })}>
               <NativeSelectOption value="ativos">Somente ativos</NativeSelectOption>
               <NativeSelectOption value="inativos">Inativos</NativeSelectOption>
@@ -98,7 +98,7 @@ function Catalog() {
         <QueryError query={aba === 'procedimentos' ? procedures : combos} />
         {aba === 'procedimentos' ? (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
+            <table className="hidden w-full border-collapse text-sm md:table">
               <thead><tr className="border-b border-border"><th className={th}>Procedimento</th><th className={th}>Tipo</th><th className={th}>Duração</th><th className={th}>Anamneses</th><th className={cn(th, 'text-right')}>Preço</th><th className={th}>Situação</th><th className={th}><span className="sr-only">Ações</span></th></tr></thead>
               <tbody>
                 {shownProcedures.map((procedure) => (
@@ -120,13 +120,36 @@ function Catalog() {
                 ))}
               </tbody>
             </table>
+            <ul className="grid gap-3 md:hidden">
+              {shownProcedures.map((procedure) => (
+                <li key={procedure.id} className={cn('grid gap-3 rounded-xl border border-border bg-card p-4', procedure.active === false && 'opacity-70')}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <Link to="/procedimentos/$procedureId" params={{ procedureId: procedure.id }} className="block break-words font-semibold text-foreground no-underline">{procedure.name}</Link>
+                      {procedure.description && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{procedure.description}</p>}
+                    </div>
+                    <StatusBadge tone={procedure.active === false ? 'neutral' : 'success'}>{procedure.active === false ? 'Inativo' : 'Ativo'}</StatusBadge>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
+                    <StatusBadge tone={procedure.standalone === false ? 'warning' : 'neutral'}>{procedure.standalone === false ? 'Só combo/plano' : 'Avulso'}</StatusBadge>
+                    <span>{procedure.durationMinutes ?? 60} min</span>
+                    {formsFor(procedure.id) > 0 && <span>{formsFor(procedure.id)} anamnese(s)</span>}
+                    <span className="ml-auto text-base font-semibold tabular-nums text-foreground">{currency(procedure.priceCents)}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="outline" asChild><Link to="/procedimentos/$procedureId" params={{ procedureId: procedure.id }} aria-label={`Editar ${procedure.name}`}><Pencil /> Editar</Link></Button>
+                    <Button variant="outline" disabled={updateProcedure.isPending} onClick={() => updateProcedure.mutate({ id: procedure.id, active: procedure.active === false })}>{procedure.active === false ? 'Ativar' : 'Desativar'}</Button>
+                  </div>
+                </li>
+              ))}
+            </ul>
             {procedures.isSuccess && shownProcedures.length === 0 && (
               <p className="py-8 text-center text-sm text-muted-foreground">{procedureList.length === 0 ? 'Nenhum procedimento cadastrado ainda.' : 'Nenhum procedimento encontrado com esses filtros.'}</p>
             )}
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
+            <table className="hidden w-full border-collapse text-sm md:table">
               <thead><tr className="border-b border-border"><th className={th}>Combo</th><th className={th}>Procedimentos</th><th className={th}>Validade</th><th className={cn(th, 'text-right')}>Preço</th><th className={th}>Situação</th><th className={th}><span className="sr-only">Ações</span></th></tr></thead>
               <tbody>
                 {shownCombos.map((combo) => {
@@ -156,6 +179,35 @@ function Catalog() {
                 })}
               </tbody>
             </table>
+            <ul className="grid gap-3 md:hidden">
+              {shownCombos.map((combo) => {
+                const state = comboStatus(combo);
+                return (
+                  <li key={combo.id} className={cn('grid gap-3 rounded-xl border border-border bg-card p-4', combo.active === false && 'opacity-70')}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <Link to="/procedimentos/combos/$comboId" params={{ comboId: combo.id }} className="block break-words font-semibold text-foreground no-underline">{combo.name}</Link>
+                        {combo.description && <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{combo.description}</p>}
+                      </div>
+                      <StatusBadge tone={state.tone}>{state.label}</StatusBadge>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {combo.items.map((item, index) => <span key={index} className="rounded-md bg-muted px-2 py-0.5 text-xs">{nameOf(item.procedureId)}{(item.sessions ?? item.sessionsOverride) ? ` · ${item.sessions ?? item.sessionsOverride}x` : ''}</span>)}
+                    </div>
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                      <span className="text-xs text-muted-foreground">{combo.validUntil ? `${combo.validFrom ? `${utcDate(combo.validFrom)} – ` : 'Até '}${utcDate(combo.validUntil)}` : 'Sem prazo'}</span>
+                      <span className="text-base font-semibold tabular-nums">
+                        {combo.promotionalPriceCents != null ? <><span className="mr-2 text-xs font-normal text-muted-foreground line-through">{currency(combo.priceCents)}</span>{currency(combo.promotionalPriceCents)}</> : currency(combo.priceCents)}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button variant="outline" asChild><Link to="/procedimentos/combos/$comboId" params={{ comboId: combo.id }} aria-label={`Editar ${combo.name}`}><Pencil /> Editar</Link></Button>
+                      <Button variant="outline" disabled={updateCombo.isPending} onClick={() => updateCombo.mutate({ id: combo.id, active: combo.active === false })}>{combo.active === false ? 'Ativar' : 'Desativar'}</Button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
             {combos.isSuccess && shownCombos.length === 0 && (
               <p className="py-8 text-center text-sm text-muted-foreground">{comboList.length === 0 ? 'Nenhum combo cadastrado ainda.' : 'Nenhum combo encontrado com esses filtros.'}</p>
             )}
