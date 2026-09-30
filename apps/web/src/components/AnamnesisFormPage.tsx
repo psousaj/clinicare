@@ -58,7 +58,7 @@ export function AnamnesisFormPage({ heading, submitLabel, initialTitle = '', ini
             <h2>{heading}</h2>
           </div>
           <div className="form-page-actions">
-            {actions}
+            {actions && <div className="form-page-extra-actions">{actions}</div>}
             <Button type="button" variant="outline" asChild><Link to="/formularios-anamnese">Cancelar</Link></Button>
             <Button type="submit" disabled={saving}>{submitLabel}</Button>
           </div>

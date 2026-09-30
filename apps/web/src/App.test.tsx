@@ -83,6 +83,21 @@ describe('Clinic dashboard', () => {
   });
 });
 
+describe('Finance', () => {
+  it('shows received amount, open balance and payment status separately', async () => {
+    routes['GET /api/followups'] = () => [{ _id: 'f1', patientId: 'p1', offerName: 'Combo facial', priceCents: 10000, payments: [{ amountCents: 2500 }], items: [], contracts: [], anamneses: [] }];
+    const user = userEvent.setup();
+    renderAt('/financeiro');
+    expect(await screen.findByRole('heading', { name: 'Financeiro' })).toBeInTheDocument();
+    expect(screen.getByText('Parcial')).toBeInTheDocument();
+    expect(screen.getByText('Recebido')).toBeInTheDocument();
+    expect(screen.getByText('Falta receber')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /registrar pagamento/i }));
+    expect(await screen.findByRole('dialog')).toHaveTextContent(/falta R\$\s*75,00/i);
+    expect(screen.getByLabelText(/valor recebido/i)).toHaveValue(75);
+  });
+});
+
 describe('Public anamnesis form', () => {
   it('loads by token, validates and submits the answers', async () => {
     routes['GET /public/anamnesis/tok'] = () => ({ title: 'Anamnese geral', schema: { type: 'object', required: ['alergias'], properties: { alergias: { type: 'string', title: 'Alergias' } } }, draft: {} });
@@ -142,7 +157,7 @@ describe('New anamnesis page', () => {
 
 describe('Combos', () => {
   it('creates a promotional combo with procedures and validity', async () => {
-    routes['GET /api/procedures'] = () => [{ _id: 'pr1', name: 'Limpeza de pele', baseSessions: 3, durationMinutes: 60, standalone: true, active: true, priceCents: 15000, versions: [] }];
+    routes['GET /api/procedures'] = () => [{ _id: 'pr1', name: 'Limpeza de pele', baseSessions: 3, durationMinutes: 60, standalone: false, active: true, priceCents: 15000, versions: [] }];
     routes['GET /api/combos'] = () => [{ _id: 'c0', name: 'Combo verão', priceCents: 50000, promotionalPriceCents: 40000, validUntil: '2999-01-01T00:00:00Z', items: [{}, {}] }];
     routes['POST /api/combos'] = () => ({ _id: 'c1' });
     const user = userEvent.setup();
@@ -171,12 +186,12 @@ describe('Combos', () => {
     expect(screen.getByRole('button', { name: /válido até/i })).toHaveTextContent('31/12/2030');
     await user.click(screen.getByRole('button', { name: /salvar combo/i }));
     await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url === '/api/combos')).toBe(true));
-    expect(calls.find((call) => call.method === 'POST')!.body).toMatchObject({ name: 'Combo facial', priceCents: 75000, promotionalPriceCents: 40000, validUntil: '2030-12-31', items: [{ procedureId: 'pr1', sessionsOverride: 5 }] });
+    expect(calls.find((call) => call.method === 'POST')!.body).toMatchObject({ name: 'Combo facial', priceCents: 75000, promotionalPriceCents: 40000, validUntil: '2030-12-31', items: [{ procedureId: 'pr1', sessions: 5 }] });
   });
 });
 
 describe('Catalog list and editing', () => {
-  const limpeza = { _id: 'pr1', name: 'Limpeza de pele', description: 'Higienização', baseSessions: 3, durationMinutes: 60, priceCents: 15000, active: true, sessionSchema: {}, versions: [] };
+  const limpeza = { _id: 'pr1', name: 'Limpeza de pele', description: 'Higienização', durationMinutes: 60, priceCents: 15000, active: true, sessionSchema: {}, versions: [] };
   const peeling = { ...limpeza, _id: 'pr2', name: 'Peeling', active: false };
   const verao = { _id: 'c0', name: 'Combo verão', priceCents: 80000, promotionalPriceCents: 40000, validUntil: '2999-01-01T00:00:00Z', active: true, requireNewAnamnesis: false, items: [{ procedureId: 'pr1', sessionsOverride: 5 }] };
 
@@ -206,10 +221,10 @@ describe('Catalog list and editing', () => {
     await user.clear(name);
     await user.type(name, 'Limpeza profunda');
     expect(screen.getByLabelText(/duração por sessão/i)).toHaveValue(60);
-    await user.click(screen.getByRole('checkbox', { name: /pode ser realizado avulso/i }));
+    await user.type(screen.getByLabelText(/sessões base/i), '3');
     await user.click(screen.getByRole('button', { name: /salvar alterações/i }));
     await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true));
-    expect(calls.find((call) => call.method === 'PUT')!.body).toMatchObject({ name: 'Limpeza profunda', baseSessions: 3, durationMinutes: 60, standalone: false, priceCents: 15000, active: true });
+    expect(calls.find((call) => call.method === 'PUT')!.body).toMatchObject({ name: 'Limpeza profunda', baseSessions: 3, durationMinutes: 60, priceCents: 15000, active: true });
     expect(await screen.findByRole('tab', { name: /procedimentos/i })).toBeInTheDocument();
   });
 
@@ -227,7 +242,7 @@ describe('Catalog list and editing', () => {
     await user.click(screen.getByRole('button', { name: /salvar alterações/i }));
     await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true));
     expect(calls.find((call) => call.method === 'PUT')!.url).toBe('/api/combos/c0');
-    expect(calls.find((call) => call.method === 'PUT')!.body).toMatchObject({ name: 'Combo verão 2', priceCents: 80000, promotionalPriceCents: 40000, items: [{ procedureId: 'pr1', sessionsOverride: 5 }] });
+    expect(calls.find((call) => call.method === 'PUT')!.body).toMatchObject({ name: 'Combo verão 2', priceCents: 80000, promotionalPriceCents: 40000, items: [{ procedureId: 'pr1', sessions: 5 }] });
   });
 });
 
@@ -413,7 +428,7 @@ describe('Agenda', () => {
   const appointment = { _id: 'ap1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, items: [{ followupId: 'pl1', followupItemId: 'it1', procedureId: 'pr1', procedureName: 'Limpeza de pele', quantity: 2, minutesEach: 30 }], startsAt: '2026-09-29T14:00:00Z', endsAt: '2026-09-29T15:00:00Z', status: 'planned', notes: 'Trazer exames' };
   const followup = { _id: 'pl1', patientId: 'p1', offerName: 'Limpeza', priceCents: 1000, payments: [], items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3 }] };
 
-  it('opens an appointment to view its details and deletes it after confirmation', async () => {
+  it('opens an appointment directly in the edit dialog and deletes it after confirmation', async () => {
     routes['GET /api/appointments'] = () => [appointment];
     routes['GET /api/followups'] = () => [followup];
     routes['DELETE /api/appointments/ap1'] = () => ({ deleted: true });
@@ -422,13 +437,35 @@ describe('Agenda', () => {
     const event = await screen.findByTitle('Marina Alves · Agendado');
     await user.click(event);
     const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Editar agendamento' })).toBeInTheDocument();
     expect(within(dialog).getByText(/Limpeza de pele/)).toBeInTheDocument();
-    expect(within(dialog).getByText('Trazer exames')).toBeInTheDocument();
-    expect(within(dialog).queryByRole('button', { name: /salvar/i })).not.toBeInTheDocument();
-    await user.click(within(dialog).getByRole('button', { name: /excluir/i }));
+    await user.click(within(dialog).getByRole('button', { name: /excluir agendamento/i }));
     expect(calls.some((call) => call.method === 'DELETE')).toBe(false);
-    await user.click(within(dialog).getByRole('button', { name: /sim, excluir/i }));
+    await user.click(within(dialog).getByRole('button', { name: /confirmar exclusão/i }));
     await waitFor(() => expect(calls.some((call) => call.method === 'DELETE' && call.url === '/api/appointments/ap1')).toBe(true));
+  });
+
+  it('opens a new appointment when a calendar time cell is clicked', async () => {
+    routes['GET /api/appointments'] = () => [];
+    const user = userEvent.setup();
+    renderAt('/agenda');
+    await screen.findByRole('heading', { name: 'Semana de agendamentos' });
+    const cell = document.querySelector('.fc-timegrid-slot-lane[data-time="10:00:00"]');
+    expect(cell).not.toBeNull();
+    await user.click(cell!);
+    expect(await screen.findByRole('heading', { name: 'Novo agendamento' })).toBeInTheDocument();
+  });
+
+  it('saves date and time changes from the calendar event editor', async () => {
+    routes['GET /api/appointments'] = () => [appointment];
+    routes['GET /api/followups'] = () => [followup];
+    routes['PATCH /api/appointments/ap1'] = () => appointment;
+    const user = userEvent.setup();
+    renderAt('/agenda');
+    await user.click(await screen.findByTitle('Marina Alves · Agendado'));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /salvar alterações/i }));
+    await waitFor(() => expect(calls.some((call) => call.method === 'PATCH' && call.url === '/api/appointments/ap1')).toBe(true));
   });
 });
 

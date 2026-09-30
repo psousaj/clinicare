@@ -10,7 +10,7 @@ export const patientForm = z.object({ fullName: text('Nome'), phone: optionalTex
 export const procedureForm = z.object({
   name: text('Nome'),
   description: optionalText,
-  baseSessions: z.coerce.number().int('Sessões inválidas.').min(1, 'Sessões inválidas.'),
+  baseSessions: optionalInt,
   durationMinutes: z.coerce.number().int('Duração inválida.').min(1, 'Informe a duração em minutos.'),
   price: reais('Preço'),
 });

@@ -1,5 +1,6 @@
 import type { DateSelectArg, EventClickArg, EventContentArg, EventInput } from '@fullcalendar/core';
 import ptBrLocale from '@fullcalendar/core/locales/pt-br';
+import type { DateClickArg } from '@fullcalendar/interaction';
 import interactionPlugin from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -19,7 +20,7 @@ function renderEvent({ event, timeText }: EventContentArg) {
   );
 }
 
-export function CalendarView({ events, onSelect, onOpen }: { events: CalendarEntry[]; onSelect: (selection: DateSelectArg) => void; onOpen: (event: EventClickArg) => void }) {
+export function CalendarView({ events, onSelect, onDateClick, onOpen }: { events: CalendarEntry[]; onSelect: (selection: DateSelectArg) => void; onDateClick: (click: DateClickArg) => void; onOpen: (event: EventClickArg) => void }) {
   return (
     <div className="calendar-wrap">
       <FullCalendar
@@ -41,6 +42,7 @@ export function CalendarView({ events, onSelect, onOpen }: { events: CalendarEnt
         events={events}
         eventContent={renderEvent}
         select={onSelect}
+        dateClick={onDateClick}
         eventClick={onOpen}
         height="auto"
         nowIndicator

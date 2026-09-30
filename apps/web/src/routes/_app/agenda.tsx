@@ -1,7 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
-import { AppointmentDetails } from '@/components/AppointmentDetails';
 import { AppointmentDialog } from '@/components/dialogs';
 import { CalendarView } from '@/components/CalendarView';
 import { QueryError } from '@/components/QueryState';
@@ -28,9 +27,13 @@ function Agenda() {
     <section className="panel">
       <div className="panel-header"><div><div className="section-kicker">AGENDA DO PROFISSIONAL</div><h2>Semana de agendamentos</h2></div></div>
       <QueryError query={appointments} />
-      <CalendarView events={events} onSelect={(range) => setSelection({ start: range.startStr, end: range.endStr })} onOpen={(event) => setOpenId(event.event.id)} />
-      <AppointmentDetails appointment={opened} patientName={opened ? patientName(opened.patientId) : ''} procedures={opened ? procedureNames(opened.items) : []} onClose={() => setOpenId(null)} />
-      <AppointmentDialog open={!!selection} selection={selection} patients={patients.data ?? []} followups={followups.data ?? []} procedures={procedures.data ?? []} onClose={() => setSelection(null)} />
+      <CalendarView
+        events={events}
+        onSelect={(range) => { setOpenId(null); setSelection({ start: range.startStr, end: range.endStr }); }}
+        onDateClick={(click) => { const end = new Date(click.date.getTime() + 60 * 60000); setOpenId(null); setSelection({ start: click.date.toISOString(), end: end.toISOString() }); }}
+        onOpen={(event) => setOpenId(event.event.id)}
+      />
+      <AppointmentDialog open={!!selection || !!opened} selection={selection} appointment={opened} patients={patients.data ?? []} followups={followups.data ?? []} procedures={procedures.data ?? []} onClose={() => { setSelection(null); setOpenId(null); }} />
     </section>
   );
 }

@@ -22,33 +22,35 @@ const handleError = (c: Context, error: unknown) => {
 
 type OfferItem = { procedureId: unknown; procedureName: string; sessionsTotal: number; durationMinutes: number; sessionSchema: unknown; priceCents: number; anamneses: unknown[] };
 type ResolvedOffer = { name: string; priceCents: number; items: OfferItem[]; comboIds: unknown[]; contractIds: unknown[]; requireNewAnamnesis: boolean; validUntil: Date | null };
-const procedureItem = (procedure: any, override: { sessions?: number | null; priceCents?: number | null } = {}): OfferItem => ({ procedureId: procedure._id, procedureName: procedure.name, sessionsTotal: override.sessions ?? procedure.baseSessions, durationMinutes: procedure.durationMinutes ?? 60, sessionSchema: procedure.sessionSchema, priceCents: override.priceCents ?? procedure.priceCents, anamneses: [] });
+const minimumSessions = (procedure: any) => Number.isInteger(procedure?.baseSessions) && procedure.baseSessions > 0 ? procedure.baseSessions : 1;
+const legacySessions = minimumSessions;
+const procedureItem = (procedure: any, override: { sessions?: number | null; priceCents?: number | null } = {}): OfferItem => ({ procedureId: procedure._id, procedureName: procedure.name, sessionsTotal: override.sessions ?? 1, durationMinutes: procedure.durationMinutes ?? 60, sessionSchema: procedure.sessionSchema, priceCents: override.priceCents ?? procedure.priceCents, anamneses: [] });
 const comboAvailable = (combo: any) => { const today = new Date(); return combo.active && !(combo.validFrom && combo.validFrom > today) && !(combo.validUntil && combo.validUntil < today); };
 // Valor integral = soma de (preço do procedimento × sessões). Combo nunca abaixo dele; promoção nunca acima do preço do combo.
 async function comboPriceError(items: any[], priceCents: number, promotionalPriceCents: number | null) {
-  const procedures = await Procedure.find({ _id: { $in: items.map((item) => item.procedureId?._id ?? item.procedureId) } }).lean();
+  const procedures = await Procedure.find({ _id: { $in: items.map((item) => item.procedureId?._id ?? item.procedureId) } }).select('+baseSessions').lean();
   const integral = items.reduce((total, item) => {
     const procedure: any = procedures.find((candidate: any) => String(candidate._id) === String(item.procedureId?._id ?? item.procedureId));
-    return total + (item.priceOverrideCents ?? procedure?.priceCents ?? 0) * (item.sessionsOverride ?? procedure?.baseSessions ?? 1);
+    return total + (item.priceOverrideCents ?? procedure?.priceCents ?? 0) * (item.sessions ?? item.sessionsOverride ?? minimumSessions(procedure));
   }, 0);
-  const single = items.find((item) => {
+  const belowMinimum = items.find((item) => {
     const procedure: any = procedures.find((candidate: any) => String(candidate._id) === String(item.procedureId?._id ?? item.procedureId));
-    return procedure?.standalone === false && (item.sessionsOverride ?? procedure.baseSessions) < 2;
+    return (item.sessions ?? item.sessionsOverride ?? minimumSessions(procedure)) < minimumSessions(procedure);
   });
-  if (single) return 'Procedimento que não pode ser avulso precisa de ao menos 2 sessões no combo.';
+  if (belowMinimum) return 'A quantidade do combo não pode ser menor que as sessões base do procedimento.';
   if (priceCents < integral) return `O preço do combo não pode ser menor que o valor integral dos procedimentos (${(integral / 100).toFixed(2).replace('.', ',')}).`;
   if (promotionalPriceCents != null && promotionalPriceCents > priceCents) return 'O preço promocional não pode ser maior que o preço do combo.';
   return null;
 }
-const comboItems = (combo: any) => combo.items.map((item: any) => procedureItem(item.procedureId, { sessions: item.sessionsOverride, priceCents: item.priceOverrideCents }));
+const comboItems = (combo: any) => combo.items.map((item: any) => procedureItem(item.procedureId, { sessions: item.sessions ?? item.sessionsOverride ?? legacySessions(item.procedureId), priceCents: item.priceOverrideCents }));
 async function resolveOffer(offerType: string, offerId: string): Promise<ResolvedOffer | { error: string; status: 404 | 409 }> {
   if (offerType === 'procedure') {
-    const procedure = await Procedure.findById(offerId).lean();
+    const procedure = await Procedure.findById(offerId).select('+baseSessions').lean();
     if (!procedure || !procedure.active) return { error: 'Procedimento não encontrado.', status: 404 };
     return { name: procedure.name, priceCents: procedure.priceCents, items: [procedureItem(procedure)], comboIds: [], contractIds: [], requireNewAnamnesis: procedure.requireNewAnamnesis === true, validUntil: null };
   }
   if (offerType === 'combo') {
-    const combo = await Combo.findById(offerId).populate('items.procedureId').lean() as any;
+    const combo = await Combo.findById(offerId).populate({ path: 'items.procedureId', select: '+baseSessions' }).lean() as any;
     if (!combo || !combo.active) return { error: 'Combo não encontrado.', status: 404 };
     if (!comboAvailable(combo)) return { error: 'Combo fora da validade.', status: 409 };
     return { name: combo.name, priceCents: combo.promotionalPriceCents ?? combo.priceCents, items: comboItems(combo), comboIds: [combo._id], contractIds: [], requireNewAnamnesis: combo.requireNewAnamnesis === true, validUntil: null };
@@ -59,10 +61,10 @@ async function resolveOffer(offerType: string, offerId: string): Promise<Resolve
   let requireNewAnamnesis = plan.requireNewAnamnesis === true;
   for (const entry of plan.items) {
     if (entry.offerType === 'procedure') {
-      const procedure = await Procedure.findById(entry.offerId).lean();
-      if (procedure?.active) { items.push(procedureItem(procedure)); requireNewAnamnesis ||= procedure.requireNewAnamnesis === true; }
+      const procedure = await Procedure.findById(entry.offerId).select('+baseSessions').lean();
+      if (procedure?.active) { items.push(procedureItem(procedure, { sessions: entry.sessions ?? legacySessions(procedure) })); requireNewAnamnesis ||= procedure.requireNewAnamnesis === true; }
     } else {
-      const combo = await Combo.findById(entry.offerId).populate('items.procedureId').lean() as any;
+      const combo = await Combo.findById(entry.offerId).populate({ path: 'items.procedureId', select: '+baseSessions' }).lean() as any;
       if (combo?.active) { items.push(...comboItems(combo)); comboIds.push(combo._id); requireNewAnamnesis ||= combo.requireNewAnamnesis === true; }
     }
   }
@@ -160,8 +162,10 @@ export const app = new Hono()
   .get('/api/procedures', async (c) => c.json(await Procedure.find().sort({ createdAt: -1 }).lean()))
   .post('/api/procedures', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || typeof body.name !== 'string' || body.name.trim().length < 2 || !Number.isInteger(body.baseSessions ?? 1) || (body.baseSessions ?? 1) < 1 || !Number.isInteger(body.durationMinutes) || body.durationMinutes < 1 || (body.standalone != null && typeof body.standalone !== 'boolean') || (body.standalone === false && (body.baseSessions ?? 1) < 2) || !Number.isSafeInteger(body.priceCents ?? 0) || (body.priceCents ?? 0) < 0 || !validSchema(body.sessionSchema ?? { type: 'object', properties: {} })) return fail(c, 'Dados ou formulário de procedimento inválidos.');
-    return c.json(await Procedure.create({ ...body, sessionSchema: body.sessionSchema ?? { type: 'object', properties: {} }, versions: [{ version: 1, sessionSchema: body.sessionSchema ?? { type: 'object', properties: {} } }] }), 201);
+    if (!body || typeof body.name !== 'string' || body.name.trim().length < 2 || !Number.isInteger(body.durationMinutes) || body.durationMinutes < 1 || (body.baseSessions != null && (!Number.isInteger(body.baseSessions) || body.baseSessions < 1)) || !Number.isSafeInteger(body.priceCents ?? 0) || (body.priceCents ?? 0) < 0 || !validSchema(body.sessionSchema ?? { type: 'object', properties: {} })) return fail(c, 'Dados ou formulário de procedimento inválidos.');
+    const { standalone: _legacyStandalone, ...data } = body;
+    const baseSessions = body.baseSessions ?? null;
+    return c.json(await Procedure.create({ ...data, baseSessions, standalone: baseSessions == null || baseSessions < 2, sessionSchema: body.sessionSchema ?? { type: 'object', properties: {} }, versions: [{ version: 1, sessionSchema: body.sessionSchema ?? { type: 'object', properties: {} } }] }), 201);
   })
   .put('/api/procedures/:id', async (c) => {
     if (!isValidObjectId(c.req.param('id'))) return fail(c, 'Procedimento não encontrado.', 404);
@@ -170,9 +174,8 @@ export const app = new Hono()
     const body = await c.req.json().catch(() => null);
     if (!isRecord(body)) return fail(c, 'Dados de procedimento inválidos.');
     const has = (key: string) => body[key] !== undefined;
-    if ((has('name') && (typeof body.name !== 'string' || body.name.trim().length < 2)) || (has('baseSessions') && (!Number.isInteger(body.baseSessions) || body.baseSessions < 1)) || (has('durationMinutes') && (!Number.isInteger(body.durationMinutes) || body.durationMinutes < 1)) || (has('standalone') && typeof body.standalone !== 'boolean')
+    if ((has('name') && (typeof body.name !== 'string' || body.name.trim().length < 2)) || (has('baseSessions') && body.baseSessions != null && (!Number.isInteger(body.baseSessions) || body.baseSessions < 1)) || (has('durationMinutes') && (!Number.isInteger(body.durationMinutes) || body.durationMinutes < 1))
       || (has('priceCents') && (!Number.isSafeInteger(body.priceCents) || body.priceCents < 0)) || (has('active') && typeof body.active !== 'boolean') || (has('requireNewAnamnesis') && typeof body.requireNewAnamnesis !== 'boolean') || (has('sessionSchema') && !validSchema(body.sessionSchema))) return fail(c, 'Dados de procedimento inválidos.');
-    if ((has('standalone') ? body.standalone : procedure.standalone) === false && (has('baseSessions') ? body.baseSessions : procedure.baseSessions) < 2) return fail(c, 'Procedimento que não pode ser avulso precisa de ao menos 2 sessões.');
     if (has('sessionSchema') && JSON.stringify(body.sessionSchema) !== JSON.stringify(procedure.sessionSchema)) {
       const versions = procedure.versions.map((version: any) => version.toObject());
       versions.push({ version: (versions.at(-1)?.version ?? 0) + 1, sessionSchema: body.sessionSchema, createdAt: new Date() });
@@ -181,7 +184,8 @@ export const app = new Hono()
       procedure.set('sessionSchema', body.sessionSchema);
       procedure.markModified('sessionSchema');
     }
-    for (const key of ['name', 'description', 'baseSessions', 'durationMinutes', 'standalone', 'priceCents', 'active', 'requireNewAnamnesis']) if (has(key)) procedure.set(key, body[key]);
+    for (const key of ['name', 'description', 'baseSessions', 'durationMinutes', 'priceCents', 'active', 'requireNewAnamnesis']) if (has(key)) procedure.set(key, body[key]);
+    if (has('baseSessions')) procedure.set('standalone', body.baseSessions == null || body.baseSessions < 2);
     await procedure.save(); return c.json(procedure.toObject());
   })
   .get('/api/anamneses', async (c) => c.json(await Anamnesis.find().sort({ createdAt: -1 }).lean()))
@@ -220,10 +224,18 @@ export const app = new Hono()
     anamnesis.requiredByDefault = body.procedures.some((item: any) => item.required); await anamnesis.save();
     return c.json(anamnesis.toObject());
   })
-  .get('/api/combos', async (c) => c.json(await Combo.find().populate('items.procedureId').sort({ createdAt: -1 }).lean()))
+  .get('/api/combos', async (c) => {
+    const combos = await Combo.find().populate({ path: 'items.procedureId', select: '+baseSessions' }).sort({ createdAt: -1 }).lean() as any[];
+    return c.json(combos.map((combo) => ({ ...combo, items: combo.items.map((item: any) => {
+      const procedure = item.procedureId && typeof item.procedureId === 'object' ? { ...item.procedureId } : item.procedureId;
+      const sessions = item.sessions ?? item.sessionsOverride ?? legacySessions(procedure);
+      if (procedure && typeof procedure === 'object') delete procedure.baseSessions;
+      return { ...item, procedureId: procedure, sessions };
+    }) })));
+  })
   .post('/api/combos', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || typeof body.name !== 'string' || !Number.isSafeInteger(body.priceCents) || !Array.isArray(body.items) || !body.items.length) return fail(c, 'Combo requer nome, preço e procedimentos.');
+    if (!body || typeof body.name !== 'string' || !Number.isSafeInteger(body.priceCents) || !Array.isArray(body.items) || !body.items.length || body.items.some((item: any) => !isRecord(item) || !isValidObjectId(item.procedureId) || !Number.isInteger(item.sessions) || item.sessions < 1)) return fail(c, 'Combo requer nome, preço e procedimentos com número de sessões válido.');
     if (body.promotionalPriceCents != null && (!Number.isSafeInteger(body.promotionalPriceCents) || body.promotionalPriceCents < 0 || !body.validUntil)) return fail(c, 'Combo promocional exige preço promocional e validade.');
     for (const item of body.items) if (!await Procedure.exists({ _id: item.procedureId })) return fail(c, 'Procedimento não encontrado.', 404);
     const priceError = await comboPriceError(body.items, body.priceCents, body.promotionalPriceCents ?? null);
@@ -237,7 +249,7 @@ export const app = new Hono()
     if (!isRecord(body)) return fail(c, 'Dados do combo inválidos.');
     const has = (key: string) => body[key] !== undefined;
     if ((has('name') && (typeof body.name !== 'string' || body.name.trim().length < 2)) || (has('priceCents') && (!Number.isSafeInteger(body.priceCents) || body.priceCents < 0)) || (has('active') && typeof body.active !== 'boolean') || (has('requireNewAnamnesis') && typeof body.requireNewAnamnesis !== 'boolean')
-      || (has('items') && (!Array.isArray(body.items) || !body.items.length || body.items.some((item: any) => !isRecord(item) || !isValidObjectId(item.procedureId) || (item.sessionsOverride != null && (!Number.isInteger(item.sessionsOverride) || item.sessionsOverride < 1)))))) return fail(c, 'Dados do combo inválidos.');
+      || (has('items') && (!Array.isArray(body.items) || !body.items.length || body.items.some((item: any) => !isRecord(item) || !isValidObjectId(item.procedureId) || !Number.isInteger(item.sessions) || item.sessions < 1)))) return fail(c, 'Dados do combo inválidos.');
     const promotional = has('promotionalPriceCents') ? body.promotionalPriceCents : combo.promotionalPriceCents, until = has('validUntil') ? body.validUntil : combo.validUntil;
     if (promotional != null && (!Number.isSafeInteger(promotional) || promotional < 0 || !until)) return fail(c, 'Combo promocional exige preço promocional e validade.');
     if (has('items')) for (const item of body.items) if (!await Procedure.exists({ _id: item.procedureId })) return fail(c, 'Procedimento não encontrado.', 404);
@@ -294,12 +306,17 @@ export const app = new Hono()
     if (!body || typeof body.name !== 'string' || body.name.trim().length < 2 || !Number.isSafeInteger(body.priceCents) || body.priceCents < 0 || !Array.isArray(body.items) || !body.items.length) return fail(c, 'Plano requer nome, preço e ao menos um procedimento ou combo.');
     for (const field of ['durationDays', 'validityDays']) if (body[field] != null && (!Number.isInteger(body[field]) || body[field] < 1)) return fail(c, 'Duração e validade devem ser dias inteiros.');
     for (const item of body.items) {
+      if (item?.offerType === 'procedure' && (!Number.isInteger(item.sessions) || item.sessions < 1)) return fail(c, 'Informe ao menos uma sessão para cada procedimento direto do plano.');
       const model = item?.offerType === 'combo' ? Combo : item?.offerType === 'procedure' ? Procedure : null;
       if (!model || !isValidObjectId(item.offerId) || !await model.exists({ _id: item.offerId })) return fail(c, 'Procedimento ou combo do plano não encontrado.', 404);
+      if (item.offerType === 'procedure') {
+        const procedure = await Procedure.findById(item.offerId).lean();
+        if (procedure && item.sessions < minimumSessions(procedure)) return fail(c, 'A quantidade de sessões do plano não pode ser menor que a base do procedimento.');
+      }
     }
     const contractIds = body.contractIds ?? [];
     if (!Array.isArray(contractIds) || (contractIds.length && await Contract.countDocuments({ _id: { $in: contractIds } }) !== contractIds.length)) return fail(c, 'Contrato não encontrado.', 404);
-    return c.json(await Plan.create({ name: body.name, description: body.description, priceCents: body.priceCents, durationDays: body.durationDays, validityDays: body.validityDays, items: body.items.map((item: any) => ({ offerType: item.offerType, offerId: item.offerId })), contractIds, requireNewAnamnesis: body.requireNewAnamnesis === true }), 201);
+    return c.json(await Plan.create({ name: body.name, description: body.description, priceCents: body.priceCents, durationDays: body.durationDays, validityDays: body.validityDays, items: body.items.map((item: any) => ({ offerType: item.offerType, offerId: item.offerId, ...(item.offerType === 'procedure' && { sessions: item.sessions }) })), contractIds, requireNewAnamnesis: body.requireNewAnamnesis === true }), 201);
   })
   .post('/api/followups', async (c) => {
     const body = await c.req.json().catch(() => null);
@@ -372,7 +389,21 @@ export const app = new Hono()
   })
   .patch('/api/appointments/:id', async (c) => {
     const body = await c.req.json().catch(() => null);
-    const result = await Appointment.findByIdAndUpdate(c.req.param('id'), body, { returnDocument: 'after', runValidators: true }).lean();
+    if (!isValidObjectId(c.req.param('id')) || !isRecord(body)) return fail(c, 'Dados de agendamento inválidos.');
+    const existing: any = await Appointment.findById(c.req.param('id')).lean();
+    if (!existing) return fail(c, 'Agendamento não encontrado.', 404);
+    const updates: Record<string, unknown> = {};
+    if (body.startsAt !== undefined || body.endsAt !== undefined) {
+      const startsAt = new Date(body.startsAt ?? existing.startsAt), endsAt = new Date(body.endsAt ?? existing.endsAt);
+      if (!Number.isFinite(startsAt.getTime()) || !Number.isFinite(endsAt.getTime()) || endsAt <= startsAt) return fail(c, 'Informe uma data e horários válidos; o fim deve ser depois do início.');
+      updates.startsAt = startsAt; updates.endsAt = endsAt;
+    }
+    if (body.status !== undefined) {
+      if (!['planned', 'confirmed', 'rescheduled', 'cancelled', 'no_show'].includes(body.status)) return fail(c, 'Status de agendamento inválido.');
+      updates.status = body.status;
+    }
+    if (!Object.keys(updates).length) return fail(c, 'Não há alterações para salvar.');
+    const result = await Appointment.findByIdAndUpdate(c.req.param('id'), updates, { returnDocument: 'after', runValidators: true }).lean();
     if (result && ['cancelled', 'no_show'].includes((result as any).status)) await dropUnusedStandalone(result);
     return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404);
   })

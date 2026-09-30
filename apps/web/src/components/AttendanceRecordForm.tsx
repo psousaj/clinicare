@@ -32,7 +32,7 @@ export function AttendanceRecordForm({ patientId, procedureName, schema, target,
               Observações
               <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} />
             </Label>
-            <div className="flex gap-2">
+            <div className="form-page-actions">
               <Button type="button" variant="outline" asChild><Link to="/pacientes/$patientId" params={{ patientId }}>Cancelar</Link></Button>
               <Button type="submit" disabled={create.isPending}>Salvar atendimento</Button>
             </div>

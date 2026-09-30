@@ -26,11 +26,11 @@ export function ComboFormPage({ combo }: { combo?: Combo }) {
   const [requireNewAnamnesis, setRequireNewAnamnesis] = useState(combo?.requireNewAnamnesis ?? false);
   const [active, setActive] = useState(combo?.active ?? true);
   const [validFrom, setValidFrom] = useState(day(combo?.validFrom)), [validUntil, setValidUntil] = useState(day(combo?.validUntil));
-  const [selected, setSelected] = useState<Record<string, string>>(() => Object.fromEntries((combo?.items ?? []).flatMap((item) => (item.procedureId ? [[item.procedureId, item.sessionsOverride ? String(item.sessionsOverride) : '']] : []))));
+  const [selected, setSelected] = useState<Record<string, string>>(() => Object.fromEntries((combo?.items ?? []).flatMap((item) => (item.procedureId ? [[item.procedureId, String(item.sessions ?? item.sessionsOverride ?? 1)]] : []))));
   const [price, setPrice] = useState<string | null>(combo ? (combo.priceCents / 100).toFixed(2) : null);
   const integralCents = Object.entries(selected).reduce((total, [id, sessions]) => {
     const procedure = procedures.find((candidate) => candidate.id === id);
-    return total + (procedure ? procedure.priceCents * (Number(sessions) || procedure.baseSessions) : 0);
+    return total + (procedure ? procedure.priceCents * (Number(sessions) || 0) : 0);
   }, 0);
   const integral = (integralCents / 100).toFixed(2);
   const shownPrice = price ?? integral;
@@ -46,9 +46,8 @@ export function ComboFormPage({ combo }: { combo?: Combo }) {
       onSubmit={(form) => {
         for (const key of ['promo', 'validFrom', 'validUntil']) if (!form.has(key)) form.set(key, '');
         const { price, promo, validFrom, validUntil, ...data } = parseForm(comboForm, form);
-        const items = Object.entries(selected).map(([procedureId, sessions]) => ({ procedureId, sessionsOverride: Number(sessions) || null }));
-        const tooShort = chosen.find((procedure) => procedure.standalone === false && (Number(selected[procedure.id]) || procedure.baseSessions) < 2);
-        if (tooShort) throw new Error(`${tooShort.name} só existe em combo ou plano e precisa de ao menos 2 sessões.`);
+        const items = Object.entries(selected).map(([procedureId, sessions]) => ({ procedureId, sessions: Number(sessions) }));
+        if (items.some((item) => { const minimum = procedures.find((procedure) => procedure.id === item.procedureId)?.baseSessions ?? 1; return !Number.isInteger(item.sessions) || item.sessions < minimum; })) throw new Error('A quantidade de sessões não pode ser menor que a base do procedimento.');
         if (!items.length) throw new Error('Escolha ao menos um procedimento para o combo.');
         if (price < integralCents) throw new Error(`O preço do combo não pode ser menor que o valor integral (${currency(integralCents)}).`);
         if (promotional && promo !== null && promo > price) throw new Error('O preço promocional não pode ser maior que o preço do combo.');
@@ -69,12 +68,12 @@ export function ComboFormPage({ combo }: { combo?: Combo }) {
           {procedures.length === 0 ? (
             <Button asChild type="button" variant="outline" size="sm"><Link to="/procedimentos/novo"><Plus /> Cadastrar procedimento</Link></Button>
           ) : (
-            <ProcedurePicker options={available.filter((procedure) => !(procedure.id in selected))} onPick={(procedure) => setSelected((current) => ({ ...current, [procedure.id]: String(procedure.baseSessions) }))} />
+            <ProcedurePicker options={available.filter((procedure) => !(procedure.id in selected))} onPick={(procedure) => setSelected((current) => ({ ...current, [procedure.id]: String(procedure.baseSessions ?? 1) }))} />
           )}
         </div>
         {chosen.length === 0 && <p className="m-0 rounded-md border border-dashed border-border p-4 text-center text-sm text-muted-foreground">{procedures.length === 0 ? 'Cadastre um procedimento antes de montar o combo.' : 'Adicione um procedimento para montar o combo.'}</p>}
         {chosen.map((procedure) => {
-          const sessions = Number(selected[procedure.id]) || procedure.baseSessions;
+          const sessions = Number(selected[procedure.id]) || 0;
           return (
             <div key={procedure.id} className="flex flex-wrap items-center gap-3 rounded-md border border-border px-3 py-2">
               <div className="min-w-40 flex-1">
@@ -89,7 +88,7 @@ export function ComboFormPage({ combo }: { combo?: Combo }) {
                 aria-label={`Sessões de ${procedure.name}`}
                 className="w-24"
                 type="number"
-                min={procedure.standalone === false ? 2 : 1}
+                min={procedure.baseSessions ?? 1}
                 value={selected[procedure.id] ?? ''}
                 onChange={(event) => setSelected((current) => ({ ...current, [procedure.id]: event.target.value }))}
               />

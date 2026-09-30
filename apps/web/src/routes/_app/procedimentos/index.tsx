@@ -99,7 +99,7 @@ function Catalog() {
         {aba === 'procedimentos' ? (
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-sm">
-              <thead><tr className="border-b border-border"><th className={th}>Procedimento</th><th className={th}>Tipo</th><th className={th}>Sessões</th><th className={th}>Duração</th><th className={th}>Anamneses</th><th className={cn(th, 'text-right')}>Preço</th><th className={th}>Situação</th><th className={th}><span className="sr-only">Ações</span></th></tr></thead>
+              <thead><tr className="border-b border-border"><th className={th}>Procedimento</th><th className={th}>Tipo</th><th className={th}>Duração</th><th className={th}>Anamneses</th><th className={cn(th, 'text-right')}>Preço</th><th className={th}>Situação</th><th className={th}><span className="sr-only">Ações</span></th></tr></thead>
               <tbody>
                 {shownProcedures.map((procedure) => (
                   <tr key={procedure.id} className={cn('border-b border-border transition-colors duration-150 hover:bg-muted/40', procedure.active === false && 'opacity-70')}>
@@ -108,7 +108,6 @@ function Catalog() {
                       {procedure.description && <div className="max-w-xs truncate text-xs text-muted-foreground">{procedure.description}</div>}
                     </td>
                     <td className={td}><StatusBadge tone={procedure.standalone === false ? 'warning' : 'neutral'}>{procedure.standalone === false ? 'Só combo/plano' : 'Avulso'}</StatusBadge></td>
-                    <td className={td}>{procedure.baseSessions}</td>
                     <td className={td}>{procedure.durationMinutes ?? 60} min</td>
                     <td className={td}>{formsFor(procedure.id) || '—'}</td>
                     <td className={cn(td, 'text-right font-semibold')}>{currency(procedure.priceCents)}</td>
@@ -140,7 +139,7 @@ function Catalog() {
                       </td>
                       <td className={td}>
                         <div className="flex max-w-sm flex-wrap gap-1">
-                          {combo.items.map((item, index) => <span key={index} className="rounded-md bg-muted px-2 py-0.5 text-xs">{nameOf(item.procedureId)}{item.sessionsOverride ? ` · ${item.sessionsOverride}x` : ''}</span>)}
+                          {combo.items.map((item, index) => <span key={index} className="rounded-md bg-muted px-2 py-0.5 text-xs">{nameOf(item.procedureId)}{(item.sessions ?? item.sessionsOverride) ? ` · ${item.sessions ?? item.sessionsOverride}x` : ''}</span>)}
                         </div>
                       </td>
                       <td className={td}>{combo.validUntil ? `${combo.validFrom ? `${utcDate(combo.validFrom)} – ` : 'Até '}${utcDate(combo.validUntil)}` : 'Sem prazo'}</td>

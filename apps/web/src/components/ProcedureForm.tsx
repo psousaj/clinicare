@@ -17,7 +17,6 @@ export function ProcedureFormPage({ procedure }: { procedure?: Procedure }) {
   const [schema, setSchema] = useState<Record<string, unknown>>((procedure?.sessionSchema as Record<string, unknown> | undefined) ?? emptySchema);
   const [requireNewAnamnesis, setRequireNewAnamnesis] = useState(procedure?.requireNewAnamnesis ?? false);
   const [active, setActive] = useState(procedure?.active ?? true);
-  const [standalone, setStandalone] = useState(procedure?.standalone ?? true);
   const version = procedure?.versions?.at(-1)?.version;
   return (
     <FormPage
@@ -29,8 +28,7 @@ export function ProcedureFormPage({ procedure }: { procedure?: Procedure }) {
         const problem = validateFormSchema(schema, { requireFields: false });
         if (problem) throw new Error(problem);
         const { price, ...data } = parseForm(procedureForm, form);
-        if (!standalone && data.baseSessions < 2) throw new Error('Procedimento que não pode ser avulso precisa de ao menos 2 sessões.');
-        const body = { ...data, priceCents: price, sessionSchema: schema, requireNewAnamnesis, standalone };
+        const body = { ...data, priceCents: price, sessionSchema: schema, requireNewAnamnesis };
         return procedure ? update.mutateAsync({ ...body, id: procedure.id, active }) : create.mutateAsync(body);
       }}
       below={(
@@ -50,14 +48,11 @@ export function ProcedureFormPage({ procedure }: { procedure?: Procedure }) {
       <Field label="Nome" name="name" required autoFocus defaultValue={procedure?.name} className="max-w-xl" />
       <Field label="Descrição" name="description" defaultValue={procedure?.description ?? ''} />
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field label="Sessões base" name="baseSessions" type="number" min={standalone ? 1 : 2} defaultValue={procedure?.baseSessions ?? 1} required />
         <Field label="Duração por sessão (minutos)" name="durationMinutes" type="number" min="5" step="5" defaultValue={procedure?.durationMinutes ?? 60} required />
         <Field label="Preço por sessão R$" name="price" type="number" min="0" step="0.01" defaultValue={procedure ? (procedure.priceCents / 100).toFixed(2) : '0'} required />
       </div>
-      <Label className="cursor-pointer">
-        <Checkbox checked={standalone} onCheckedChange={(value) => setStandalone(value === true)} />
-        <span>Pode ser realizado avulso <span className="text-xs font-normal text-muted-foreground">— uma única sessão, sem acompanhamento. Desmarque se ele só faz sentido em combo ou plano (várias sessões).</span></span>
-      </Label>
+      <Field label="Sessões base (mínimo)" name="baseSessions" type="number" min="1" placeholder="Opcional; vazio = avulso permitido" defaultValue={procedure?.baseSessions ?? (procedure?.standalone === false ? 2 : '')} />
+      <p className="-mt-3 text-xs text-muted-foreground">Sem valor, o procedimento pode ser avulso e combos/planos começam em 1 sessão. Mínimo de 2 ou mais bloqueia avulso e define a quantidade inicial nos combos e planos.</p>
       <Label className="cursor-pointer">
         <Checkbox checked={requireNewAnamnesis} onCheckedChange={(value) => setRequireNewAnamnesis(value === true)} />
         Exigir nova anamnese a cada acompanhamento, mesmo que a última ainda esteja válida

@@ -41,7 +41,7 @@ Pessoa que realiza ou pretende realizar procedimentos na clínica e cujos dados,
 _Avoid_: cliente (como termo principal do domínio)
 
 **Procedimento**:
-Oferta individual de uma intervenção estética, com duração por sessão obrigatória e um número base de sessões, que pode ser sobrescrito por um combo. É **avulso** quando pode ser realizado em uma única sessão sem combo ou plano; caso contrário só faz sentido dentro de um combo ou plano (mínimo de 2 sessões). Procedimento avulso também é cobrado e segue a mesma regra de anamnese e validade dos demais: ao ser agendado ou registrado, gera internamente um registro de cobrança de uma única sessão (preço do procedimento, pagamentos, anamnese pendente), exibido como "Atendimento avulso" e não como acompanhamento. Os botões de novo atendimento/agendamento oferecem procedimentos avulsos e, para acompanhamentos, combos e planos.
+Oferta individual de uma intervenção estética, com duração e preço por sessão e um mínimo opcional de sessões. Sem mínimo acima de uma sessão, pode ser realizado avulso; com mínimo de duas ou mais, só pode ser incluído em combo ou plano. O mínimo também é a quantidade inicial sugerida para o item de combo ou plano, que pode ser aumentada mas não reduzida abaixo dele. Um atendimento avulso corresponde a uma sessão, é cobrado e segue as regras de anamnese e validade; ao ser agendado ou registrado, gera internamente um registro de cobrança próprio, exibido como "Atendimento avulso" e não como acompanhamento.
 _Avoid_: sessão, combo
 
 **Acompanhamento**:
@@ -49,7 +49,7 @@ Registro iniciado pelo profissional na ficha do paciente ("Novo acompanhamento")
 _Avoid_: tratamento, plano aplicado, contratação, pedido, atendimento (nome antigo)
 
 **Plano**:
-Oferta de catálogo, distinta do combo, que agrupa procedimentos e/ou combos e contratos, com duração e validade próprias. Plano vencido apenas exibe o selo "Vencido" e não bloqueia nada.
+Oferta de catálogo, distinta do combo, que agrupa procedimentos e/ou combos e contratos. Cada procedimento incluído diretamente no plano tem sua própria quantidade de sessões, que respeita o mínimo do procedimento; um combo incluído mantém as quantidades definidas nos seus itens. O plano também pode ter duração e validade próprias. Plano vencido apenas exibe o selo "Vencido" e não bloqueia nada.
 _Avoid_: combo, acompanhamento
 
 **Atendimento**:
@@ -144,12 +144,16 @@ Estado operacional de um agendamento, como planejado, confirmado, remarcado, can
 _Avoid_: status da sessão
 
 **Combo**:
-Conjunto comercial pré-configurado de procedimentos que são vendidos juntos. Pode ser padrão (sem prazo) ou promocional. O valor integral é a soma de (preço do procedimento × sessões) de cada item; o preço do combo começa nele e só pode ser aumentado, e o preço promocional pode ser reduzido mas nunca passar do preço do combo. Para cada procedimento, pode manter o número base de sessões ou definir uma quantidade própria; também pode ter vigência e preço próprios.
+Conjunto comercial pré-configurado de procedimentos que são vendidos juntos. Cada item define a quantidade de sessões incluída, sugerida inicialmente pelo mínimo do procedimento e nunca inferior a ele. Pode ser padrão (sem prazo) ou promocional. O valor integral é a soma de (preço do procedimento × sessões) de cada item; o preço do combo começa nele e só pode ser aumentado, e o preço promocional pode ser reduzido mas nunca passar do preço do combo. Também pode ter vigência e preço próprios.
 _Avoid_: pacote, tratamento (quando significar a oferta comercial)
 
 **Item de combo**:
-Procedimento incluído em um combo, com uma quantidade de sessões opcional que sobrescreve a quantidade base do procedimento quando o combo é aplicado a um paciente.
+Procedimento incluído em um combo, com quantidade de sessões definida no próprio item e congelada quando o combo é aplicado a um paciente.
 _Avoid_: componente, produto do combo
+
+**Item de plano**:
+Procedimento incluído diretamente em um plano, com quantidade de sessões definida no próprio item e não inferior ao mínimo do procedimento; um item que referencia combo usa as quantidades já definidas naquele combo.
+_Avoid_: componente, produto do plano
 
 **Combo promocional**:
 Combo comercial disponível durante um período de validade e com preço promocional diferente dos preços individuais ou do combo padrão. A validade controla até quando o combo pode ser aplicado; depois de aplicado, o paciente pode concluir as sessões mesmo após o fim da validade.

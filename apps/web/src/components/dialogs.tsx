@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { Field, FormDialog } from '@/components/FormDialog';
 import { DatePicker, TimePicker } from '@/components/pickers';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -7,8 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { appointmentForm, followupForm, parseForm, paymentForm } from '@/lib/forms';
-import { useCreateAppointment, useCreateFollowup, useCreatePayment } from '@/lib/queries';
-import type { Followup, Combo, Patient, Plan, Procedure } from '@/lib/schemas';
+import { useCreateAppointment, useCreateFollowup, useCreatePayment, useDeleteAppointment, useUpdateAppointment } from '@/lib/queries';
+import type { Appointment, Followup, Combo, Patient, Plan, Procedure } from '@/lib/schemas';
 import { currency, offerLabel } from '@/lib/format';
 
 type Selection = { start: string; end: string };
@@ -17,17 +18,41 @@ type PlannedItem = { followupItemId?: string; procedureId?: string; quantity: nu
 const minutesBetween = (start: string, end: string) => Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000);
 
 // Sem `selection` (ex.: botão da visão geral) o horário é escolhido no próprio formulário.
-export function AppointmentDialog({ open, selection, patientId, patients, followups, procedures, onClose }: { open: boolean; selection?: Selection | null; patientId?: string; patients: Patient[]; followups: Followup[]; procedures: Procedure[]; onClose: () => void }) {
-  const create = useCreateAppointment();
+const localDate = (value: string) => { const date = new Date(value); return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`; };
+const localTime = (value: string) => { const date = new Date(value); return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`; };
+
+export function AppointmentDialog({ open, selection, appointment, patientId, patients, followups, procedures, onClose }: { open: boolean; selection?: Selection | null; appointment?: Appointment | null; patientId?: string; patients: Patient[]; followups: Followup[]; procedures: Procedure[]; onClose: () => void }) {
+  const create = useCreateAppointment(), update = useUpdateAppointment(), remove = useDeleteAppointment();
+  const [date, setDate] = useState<string>(), [start, setStart] = useState<string>(), [end, setEnd] = useState<string>();
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  useEffect(() => {
+    setConfirmDelete(false);
+    if (!appointment) { setDate(undefined); setStart(undefined); setEnd(undefined); return; }
+    setDate(localDate(appointment.startsAt)); setStart(localTime(appointment.startsAt)); setEnd(localTime(appointment.endsAt));
+  }, [appointment?.id]);
+  const description = appointment
+    ? `${new Date(appointment.startsAt).toLocaleString('pt-BR')} – ${new Date(appointment.endsAt).toLocaleTimeString('pt-BR')}`
+    : selection ? `${new Date(selection.start).toLocaleString('pt-BR')} – ${new Date(selection.end).toLocaleTimeString('pt-BR')}` : 'Escolha o paciente, o horário e o que será realizado na sessão.';
+  const actions = appointment ? (
+    confirmDelete ? <><Button type="button" variant="outline" onClick={() => setConfirmDelete(false)}>Manter</Button><Button type="button" variant="destructive" disabled={remove.isPending} onClick={() => remove.mutateAsync(appointment.id).then(onClose)}>Confirmar exclusão</Button></>
+      : <Button type="button" variant="destructive" onClick={() => setConfirmDelete(true)}>Excluir agendamento</Button>
+  ) : undefined;
   return (
     <FormDialog
       open={open}
       onOpenChange={(next) => !next && onClose()}
-      title="Novo agendamento"
+      title={appointment ? 'Editar agendamento' : 'Novo agendamento'}
       wide
-      submitLabel="Agendar"
-      description={selection ? `${new Date(selection.start).toLocaleString('pt-BR')} – ${new Date(selection.end).toLocaleTimeString('pt-BR')}` : 'Escolha o paciente, o horário e o que será realizado na sessão.'}
+      submitLabel={appointment ? 'Salvar alterações' : 'Agendar'}
+      description={description}
+      actions={actions}
       onSubmit={(form) => {
+        if (appointment) {
+          if (!date || !start || !end) throw new Error('Informe a data e os horários de início e fim.');
+          const startsAt = new Date(`${date}T${start}`).toISOString(), endsAt = new Date(`${date}T${end}`).toISOString();
+          if (new Date(endsAt) <= new Date(startsAt)) throw new Error('O horário final deve ser depois do início.');
+          return update.mutateAsync({ id: appointment.id, startsAt, endsAt });
+        }
         const { patientId: patient } = parseForm(appointmentForm, form);
         const items = JSON.parse(String(form.get('items') ?? '[]')) as PlannedItem[];
         let startsAt = selection?.start, endsAt = selection?.end;
@@ -42,7 +67,17 @@ export function AppointmentDialog({ open, selection, patientId, patients, follow
         return create.mutateAsync({ patientId: patient, items, startsAt: new Date(startsAt!).toISOString(), endsAt: new Date(endsAt!).toISOString(), status: 'planned' });
       }}
     >
-      <AppointmentFields selection={selection} lockedPatientId={patientId} patients={patients} followups={followups} procedures={procedures} />
+      {appointment ? (
+        <>
+          <Field label="Paciente"><div className="flex h-9 items-center rounded-lg border border-border bg-muted px-3 text-sm">{patients.find((patient) => patient.id === appointment.patientId)?.fullName ?? 'Paciente'}</div></Field>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label="Data"><DatePicker value={date} onChange={setDate} /></Field>
+            <Field label="Início"><TimePicker value={start} onChange={setStart} /></Field>
+            <Field label="Fim"><TimePicker value={end} onChange={setEnd} /></Field>
+          </div>
+          <div className="rounded-lg border border-border p-3"><div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Procedimentos agendados</div><ul className="m-0 grid gap-1 pl-5 text-sm">{appointment.items.map((item) => <li key={item.followupItemId ?? item.procedureId}>{item.procedureName}{item.quantity > 1 ? ` ×${item.quantity}` : ''}</li>)}</ul></div>
+        </>
+      ) : <AppointmentFields selection={selection} lockedPatientId={patientId} patients={patients} followups={followups} procedures={procedures} />}
     </FormDialog>
   );
 }
@@ -189,19 +224,21 @@ function OfferFields({ lockedPatientId, patients, combos, plans }: { lockedPatie
 
 export function PaymentDialog({ followup, onClose }: { followup: Followup | null; onClose: () => void }) {
   const create = useCreatePayment();
+  const received = followup?.payments.reduce((sum, payment) => sum + payment.amountCents, 0) ?? 0;
+  const due = Math.max((followup?.priceCents ?? 0) - received, 0);
   return (
     <FormDialog
       open={!!followup}
       onOpenChange={(open) => !open && onClose()}
       title="Registrar pagamento"
       submitLabel="Registrar"
-      description={followup && `${followup.offerName} · total ${currency(followup.priceCents)}`}
+      description={followup && `${followup.offerName} · total ${currency(followup.priceCents)} · recebido ${currency(received)} · falta ${currency(due)}`}
       onSubmit={(form) => {
         const { amount, ...data } = parseForm(paymentForm, form);
         return create.mutateAsync({ ...data, followupId: followup!.id, amountCents: amount });
       }}
     >
-      <Field label="Valor recebido R$" name="amount" type="number" step="0.01" min="0.01" required />
+      <Field label="Valor recebido R$" name="amount" type="number" step="0.01" min="0.01" defaultValue={followup ? (due / 100).toFixed(2) : ''} required />
       <Field label="Forma de pagamento">
         <NativeSelect name="method">
           <NativeSelectOption value="pix">PIX</NativeSelectOption>

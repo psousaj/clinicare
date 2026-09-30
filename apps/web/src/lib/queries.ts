@@ -97,6 +97,7 @@ export const useCreatePlan = () => useApiMutation({ mutationFn: (body: unknown) 
 export const useAnswerAnamnesis = () =>
   useApiMutation({ mutationFn: ({ id, answers }: { id: string; answers: Record<string, unknown> }) => post(`/api/patient-anamneses/${id}/answers`, { answers }), invalidate: [keys.followups, keys.patients], success: 'Anamnese registrada.' });
 export const useCreateAppointment = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/appointments', body), invalidate: [keys.appointments, keys.patients], success: 'Agendamento criado.' });
+export const useUpdateAppointment = () => useApiMutation({ mutationFn: ({ id, ...body }: { id: string; startsAt: string; endsAt: string }) => api(`/api/appointments/${id}`, { method: 'PATCH', body, schema: anySchema }), invalidate: [keys.appointments, keys.patients], success: 'Agendamento atualizado.' });
 export const useCreatePayment = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/payments', body), invalidate: [keys.followups, keys.patients], success: 'Pagamento registrado.' });
 export const useDeleteAppointment = () =>
   useApiMutation({ mutationFn: (id: string) => api(`/api/appointments/${id}`, { method: 'DELETE', schema: anySchema }), invalidate: [keys.appointments, keys.patients], success: 'Agendamento excluído.' });

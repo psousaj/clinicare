@@ -23,7 +23,7 @@ const procedureVersionSchema = new Schema({
 const procedureSchema = new Schema({
   name: { type: String, required: true, trim: true, minlength: 2 },
   description: { type: String, trim: true, default: null },
-  baseSessions: { type: Number, required: true, min: 1, default: 1 },
+  baseSessions: { type: Number, min: 1, default: null },
   durationMinutes: { type: Number, min: 1, default: 60 },
   standalone: { type: Boolean, default: true },
   priceCents: { type: Number, required: true, min: 0, default: 0 },
@@ -38,7 +38,7 @@ const formVersionSchema = new Schema({ version: { type: Number, required: true }
 const anamnesisSchema = new Schema({ title: { type: String, required: true, trim: true, minlength: 2 }, active: { type: Boolean, default: true }, versions: { type: [formVersionSchema], default: [] }, procedureIds: [{ type: Schema.Types.ObjectId, ref: 'Procedure' }], requiredByDefault: { type: Boolean, default: true }, validityMonths: { type: Number, min: 1, default: 12 } }, { timestamps: true, versionKey: false });
 export const Anamnesis = defineModel('Anamnesis', anamnesisSchema);
 
-const comboItemSchema = new Schema({ procedureId: { type: Schema.Types.ObjectId, ref: 'Procedure', required: true }, sessionsOverride: { type: Number, min: 1, default: null }, priceOverrideCents: { type: Number, min: 0, default: null } });
+const comboItemSchema = new Schema({ procedureId: { type: Schema.Types.ObjectId, ref: 'Procedure', required: true }, sessions: { type: Number, min: 1, default: null }, sessionsOverride: { type: Number, min: 1, default: null }, priceOverrideCents: { type: Number, min: 0, default: null } });
 const comboSchema = new Schema({ name: { type: String, required: true, trim: true }, description: { type: String, default: null }, priceCents: { type: Number, required: true, min: 0 }, promotionalPriceCents: { type: Number, min: 0, default: null }, validFrom: { type: Date, default: null }, validUntil: { type: Date, default: null }, active: { type: Boolean, default: true }, requireNewAnamnesis: { type: Boolean, default: false }, items: { type: [comboItemSchema], validate: (items: unknown[]) => items.length > 0 } }, { timestamps: true, versionKey: false });
 export const Combo = defineModel('Combo', comboSchema);
 
@@ -46,7 +46,7 @@ const contractVersionSchema = new Schema({ version: { type: Number, required: tr
 const contractSchema = new Schema({ title: { type: String, required: true, trim: true }, kind: { type: String, enum: ['standard', 'procedure', 'combo'], required: true }, procedureId: { type: Schema.Types.ObjectId, ref: 'Procedure', default: null }, comboId: { type: Schema.Types.ObjectId, ref: 'Combo', default: null }, active: { type: Boolean, default: true }, versions: { type: [contractVersionSchema], default: [] } }, { timestamps: true, versionKey: false });
 export const Contract = defineModel('Contract', contractSchema);
 
-const planSchema = new Schema({ name: { type: String, required: true, trim: true, minlength: 2 }, description: { type: String, default: null }, priceCents: { type: Number, required: true, min: 0 }, durationDays: { type: Number, min: 1, default: null }, validityDays: { type: Number, min: 1, default: null }, items: { type: [{ offerType: { type: String, enum: ['procedure', 'combo'], required: true }, offerId: { type: Schema.Types.ObjectId, required: true } }], validate: (items: unknown[]) => items.length > 0 }, contractIds: [{ type: Schema.Types.ObjectId, ref: 'Contract' }], requireNewAnamnesis: { type: Boolean, default: false }, active: { type: Boolean, default: true } }, { timestamps: true, versionKey: false });
+const planSchema = new Schema({ name: { type: String, required: true, trim: true, minlength: 2 }, description: { type: String, default: null }, priceCents: { type: Number, required: true, min: 0 }, durationDays: { type: Number, min: 1, default: null }, validityDays: { type: Number, min: 1, default: null }, items: { type: [{ offerType: { type: String, enum: ['procedure', 'combo'], required: true }, offerId: { type: Schema.Types.ObjectId, required: true }, sessions: { type: Number, min: 1, default: null } }], validate: (items: unknown[]) => items.length > 0 }, contractIds: [{ type: Schema.Types.ObjectId, ref: 'Contract' }], requireNewAnamnesis: { type: Boolean, default: false }, active: { type: Boolean, default: true } }, { timestamps: true, versionKey: false });
 export const Plan = defineModel('Plan', planSchema);
 
 const followupItemSchema = new Schema({ procedureId: { type: Schema.Types.ObjectId, ref: 'Procedure', required: true }, procedureName: { type: String, required: true }, sessionsTotal: { type: Number, required: true, min: 1 }, durationMinutes: { type: Number, min: 1, default: null }, sessionsPerformed: { type: Number, default: 0, min: 0 }, sessionSchema: { type: Schema.Types.Mixed, required: true }, priceCents: { type: Number, required: true, min: 0 }, anamneses: [{ anamnesisId: { type: Schema.Types.ObjectId, ref: 'Anamnesis' }, required: Boolean, version: Number, schemaSnapshot: Schema.Types.Mixed }] });
