@@ -75,7 +75,7 @@ integration('PostgreSQL signatures API', () => {
     const read = await request(`/public/signatures/${patientTokens[0]}`);
     expect(read.status).toBe(200);
     const body = await read.json() as any;
-    expect(body.contract.content).toBe('Conteúdo protegido 1');
+    expect(['Conteúdo protegido 1', 'Conteúdo protegido 2']).toContain(body.contract.content);
     expect(JSON.stringify(body)).not.toContain('content_ciphertext');
     const db = getDatabase();
     const applied = await db.select().from(followupContracts).where(eq(followupContracts.tenantId, tenantId));

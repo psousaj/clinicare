@@ -1,0 +1,290 @@
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import {
+  buildProtectedAad, decryptValue, encryptValue, getDatabase,
+  followupItems, followups, patients, procedures, appointments, appointmentItems, attendances, attendancePhotos,
+} from '@clinicare/db';
+
+const invalid = (message: string) => Object.assign(new Error(message), { status: 400 });
+const notFound = (message: string) => Object.assign(new Error(message), { status: 404 });
+const conflict = (message: string) => Object.assign(new Error(message), { status: 409 });
+const activeAppointmentStatuses = ['planned', 'confirmed', 'rescheduled'] as const;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const idShape = (row: any) => ({ ...row, _id: row.id });
+const validUuid = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
+
+const protect = (tenantId: string, table: string, id: string, column: string, value: unknown) => {
+  if (value == null || (typeof value === 'string' && !value.trim())) return { [`${column}Ciphertext`]: null, [`${column}Nonce`]: null, [`${column}KeyVersion`]: null };
+  const encrypted = encryptValue(typeof value === 'string' ? value : JSON.stringify(value), buildProtectedAad(tenantId, table, id, column));
+  return { [`${column}Ciphertext`]: encrypted.ciphertext, [`${column}Nonce`]: encrypted.nonce, [`${column}KeyVersion`]: encrypted.keyVersion };
+};
+
+function unprotect(row: any, tenantId: string, table: string, id: string, column: string): unknown {
+  const ciphertext = row[`${column}Ciphertext`], nonce = row[`${column}Nonce`], keyVersion = row[`${column}KeyVersion`];
+  if (!ciphertext) return null;
+  if (!nonce || !keyVersion) throw new Error(`Invalid encrypted ${table} ${column} value.`);
+  const value = decryptValue({ ciphertext, nonce, keyVersion }, buildProtectedAad(tenantId, table, id, column));
+  if (column === 'data') {
+    try { return JSON.parse(value); } catch { return value; }
+  }
+  return value;
+}
+
+function appointmentResponse(row: any, items: any[]) {
+  return { ...idShape(row), notes: unprotect(row, row.tenantId, 'appointments', row.id, 'notes'), items: items.map(idShape) };
+}
+async function attendanceResponse(row: any, executor = getDatabase()) {
+  const photos = await executor.select().from(attendancePhotos)
+    .where(and(eq(attendancePhotos.tenantId, row.tenantId), eq(attendancePhotos.attendanceId, row.id), isNull(attendancePhotos.deletedAt)))
+    .orderBy(asc(attendancePhotos.createdAt));
+  return { ...idShape(row), data: unprotect(row, row.tenantId, 'attendances', row.id, 'data'), notes: unprotect(row, row.tenantId, 'attendances', row.id, 'notes'), photos: photos.map(idShape) };
+}
+
+async function readAppointment(tenantId: string, id: string, executor: any) {
+  const row = (await executor.select().from(appointments).where(and(eq(appointments.tenantId, tenantId), eq(appointments.id, id)))).at(0);
+  if (!row) return null;
+  const items = await executor.select().from(appointmentItems)
+    .where(and(eq(appointmentItems.tenantId, tenantId), eq(appointmentItems.appointmentId, id)))
+    .orderBy(asc(appointmentItems.createdAt));
+  return appointmentResponse(row, items);
+}
+
+async function lockAppointment(tx: any, tenantId: string, id: string) {
+  const result = await tx.execute(sql`select id from appointments where tenant_id = ${tenantId} and id = ${id} for update`);
+  return result.rows?.length > 0;
+}
+async function lockItems(tx: any, tenantId: string, ids: string[]) {
+  for (const id of [...new Set(ids)].sort()) await tx.execute(sql`select id from followup_items where tenant_id = ${tenantId} and id = ${id} for update`);
+}
+async function reservationCount(tx: any, tenantId: string, itemId: string, excludeAppointmentId?: string) {
+  const rows = await tx.select({ total: sql<number>`coalesce(sum(${appointmentItems.quantity}), 0)` })
+    .from(appointmentItems)
+    .innerJoin(appointments, and(eq(appointments.tenantId, appointmentItems.tenantId), eq(appointments.id, appointmentItems.appointmentId)))
+    .where(and(
+      eq(appointmentItems.tenantId, tenantId), eq(appointmentItems.followupItemId, itemId),
+      inArray(appointments.status, [...activeAppointmentStatuses]), isNull(appointments.deletedAt),
+      sql`${appointmentItems.confirmationStatus} <> 'deselected'`,
+      excludeAppointmentId ? sql`${appointments.id} <> ${excludeAppointmentId}` : sql`true`,
+    ));
+  return Number(rows[0]?.total ?? 0);
+}
+
+export async function listAppointments(tenantId: string, from: Date, to: Date) {
+  if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || to <= from) throw invalid('Período de agendamentos inválido.');
+  const rows = await getDatabase().select().from(appointments).where(and(
+    eq(appointments.tenantId, tenantId), sql`${appointments.startsAt} >= ${from}`, sql`${appointments.startsAt} < ${to}`,
+    isNull(appointments.deletedAt), inArray(appointments.status, [...activeAppointmentStatuses]),
+  )).orderBy(asc(appointments.startsAt));
+  const items = rows.length ? await getDatabase().select().from(appointmentItems).where(and(eq(appointmentItems.tenantId, tenantId), inArray(appointmentItems.appointmentId, rows.map((row) => row.id)))) : [];
+  return rows.map((row) => appointmentResponse(row, items.filter((item) => item.appointmentId === row.id)));
+}
+
+export async function createAppointment(tenantId: string, input: any) {
+  if (!validUuid(input?.patientId) || !Array.isArray(input?.items) || !input.items.length) throw invalid('Agendamento inválido.');
+  const startsAt = new Date(input.startsAt), endsAt = new Date(input.endsAt);
+  if (!Number.isFinite(startsAt.getTime()) || !Number.isFinite(endsAt.getTime()) || endsAt <= startsAt) throw invalid('Agendamento inválido.');
+  return getDatabase().transaction(async (tx) => {
+    const patient = (await tx.select({ id: patients.id }).from(patients).where(and(eq(patients.tenantId, tenantId), eq(patients.id, input.patientId), isNull(patients.deletedAt)))).at(0);
+    if (!patient) throw notFound('Paciente não encontrado.');
+    await lockItems(tx, tenantId, input.items.map((item: any) => item.followupItemId).filter(validUuid));
+    const normalized: any[] = [], seen = new Set<string>(); let minutes = 0;
+    for (const entry of input.items) {
+      const quantity = entry?.quantity ?? 1;
+      if (!Number.isInteger(quantity) || quantity < 1) throw invalid('Agendamento inválido.');
+      const key = entry.followupItemId ?? entry.procedureId;
+      if (!validUuid(key) || seen.has(key)) throw invalid('Procedimento repetido no agendamento; use a quantidade.');
+      seen.add(key);
+      if (validUuid(entry.followupItemId)) {
+        const item = (await tx.select({ item: followupItems, followup: followups }).from(followupItems)
+          .innerJoin(followups, and(eq(followups.tenantId, followupItems.tenantId), eq(followups.id, followupItems.followupId)))
+          .where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.id, entry.followupItemId), eq(followups.patientId, input.patientId)))).at(0);
+        if (!item || item.followup.status !== 'active') throw notFound('Procedimento não pertence a um acompanhamento ativo deste paciente.');
+        const reserved = await reservationCount(tx, tenantId, item.item.id);
+        if (quantity > item.item.sessionsTotal - item.item.sessionsPerformed - reserved) throw conflict(`${item.item.procedureName}: sessões insuficientes para reservar.`);
+        minutes += quantity * item.item.durationMinutes;
+        normalized.push({ tenantId, followupId: item.item.followupId, followupItemId: item.item.id, procedureId: item.item.procedureId, procedureName: item.item.procedureName, quantity, minutesEach: item.item.durationMinutes });
+      } else {
+        const procedure = (await tx.select().from(procedures).where(and(eq(procedures.tenantId, tenantId), eq(procedures.id, entry.procedureId), eq(procedures.active, true)))).at(0);
+        if (!procedure || !procedure.standalone) throw notFound('Procedimento não encontrado.');
+        if (quantity !== 1) throw conflict(`${procedure.name}: procedimento avulso permite uma única sessão.`);
+        minutes += procedure.durationMinutes;
+        normalized.push({ tenantId, procedureId: procedure.id, procedureName: procedure.name, quantity, minutesEach: procedure.durationMinutes });
+      }
+    }
+    const capacity = Math.round((endsAt.getTime() - startsAt.getTime()) / 60000);
+    if (minutes > capacity) throw conflict(`Os procedimentos somam ${minutes} min e o agendamento tem ${capacity} min.`);
+    const id = crypto.randomUUID();
+    await tx.insert(appointments).values({ id, tenantId, patientId: input.patientId, startsAt, endsAt, status: 'planned', ...protect(tenantId, 'appointments', id, 'notes', input.notes) });
+    await tx.insert(appointmentItems).values(normalized.map((item) => ({ ...item, appointmentId: id })));
+    return readAppointment(tenantId, id, tx);
+  });
+}
+
+async function recomputeFollowup(tx: any, tenantId: string, followupId: string) {
+  const items = await tx.select().from(followupItems).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.followupId, followupId)));
+  const complete = items.length > 0 && items.every((item: any) => item.sessionsPerformed >= item.sessionsTotal);
+  await tx.update(followups).set({
+    status: sql`case when ${followups.status} = 'cancelled' then 'cancelled' when ${complete} then 'completed' else 'active' end`,
+    completedAt: sql`case when ${followups.status} = 'cancelled' then ${followups.completedAt} when ${complete} then coalesce(${followups.completedAt}, now()) else null end`,
+    updatedAt: new Date(),
+  }).where(and(eq(followups.tenantId, tenantId), eq(followups.id, followupId)));
+}
+
+export async function updateAppointment(tenantId: string, id: string, input: any) {
+  return getDatabase().transaction(async (tx) => {
+    if (!validUuid(id) || !(await lockAppointment(tx, tenantId, id))) return null;
+    const existing = (await tx.select().from(appointments).where(and(eq(appointments.tenantId, tenantId), eq(appointments.id, id)))).at(0);
+    if (!existing) return null;
+    const status = input?.status;
+    if (status && !['planned', 'confirmed', 'rescheduled', 'cancelled', 'no_show'].includes(status)) throw invalid('Status de agendamento inválido.');
+    // Confirmation creates attendances and advances contracted sessions atomically. It
+    // must go through /confirm rather than being smuggled into a generic PATCH.
+    if (status === 'confirmed') throw conflict('Use a rota de confirmação para confirmar o agendamento.');
+    if (status === 'no_show' && existing.endsAt > new Date()) throw conflict('Um agendamento só pode ser marcado como falta depois do horário final.');
+    if (status === 'confirmed' && existing.status === 'confirmed') throw conflict('Agendamento já confirmado.');
+    if (status === 'confirmed' && !['planned', 'rescheduled'].includes(existing.status)) throw conflict('Somente agendamentos planejados ou remarcados podem ser confirmados.');
+    if (existing.status === 'confirmed' && status && status !== 'cancelled') throw conflict('Agendamentos confirmados só podem ser cancelados.');
+    if (['cancelled', 'no_show'].includes(existing.status) && status && status !== existing.status) throw conflict('Agendamento já encerrado.');
+    if (status === 'cancelled' && ['cancelled', 'no_show'].includes(existing.status)) throw conflict('Agendamento já encerrado.');
+    if (status === 'no_show' && ['cancelled', 'no_show', 'confirmed'].includes(existing.status)) throw conflict('Estado do agendamento não permite marcar falta.');
+    const startsAt = input?.startsAt ? new Date(input.startsAt) : existing.startsAt;
+    const endsAt = input?.endsAt ? new Date(input.endsAt) : existing.endsAt;
+    if (!(endsAt > startsAt)) throw invalid('O fim deve ser depois do início.');
+    const items = await tx.select().from(appointmentItems).where(and(eq(appointmentItems.tenantId, tenantId), eq(appointmentItems.appointmentId, id)));
+    await lockItems(tx, tenantId, items.map((item: any) => item.followupItemId).filter((value: unknown): value is string => !!value));
+    if (status === 'planned' || status === 'rescheduled') {
+      for (const item of items.filter((x: any) => x.followupItemId && x.confirmationStatus !== 'deselected')) {
+        const row = (await tx.select().from(followupItems).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.id, item.followupItemId!)))).at(0);
+        if (!row || item.quantity > row.sessionsTotal - row.sessionsPerformed - await reservationCount(tx, tenantId, item.followupItemId!, id)) throw conflict('Sessões insuficientes para o reagendamento.');
+      }
+    }
+    await tx.update(appointments).set({ startsAt, endsAt, ...(status ? { status } : {}), updatedAt: new Date() }).where(and(eq(appointments.tenantId, tenantId), eq(appointments.id, id)));
+    return readAppointment(tenantId, id, tx);
+  });
+}
+export async function deleteAppointment(tenantId: string, id: string) { return updateAppointment(tenantId, id, { status: 'cancelled' }); }
+
+export async function listAttendances(tenantId: string) {
+  const rows = await getDatabase().select().from(attendances).where(and(eq(attendances.tenantId, tenantId), eq(attendances.status, 'performed'))).orderBy(desc(attendances.performedAt));
+  return Promise.all(rows.map((row) => attendanceResponse(row)));
+}
+
+export async function getAttendance(tenantId: string, id: string) {
+  if (!validUuid(id)) throw notFound('Atendimento não encontrado.');
+  const row = (await getDatabase().select().from(attendances).where(and(eq(attendances.tenantId, tenantId), eq(attendances.id, id)))).at(0);
+  return row ? attendanceResponse(row) : null;
+}
+
+export async function updateAttendance(tenantId: string, id: string, input: any) {
+  if (!validUuid(id)) throw notFound('Atendimento não encontrado.');
+  const duration = input?.durationMinutes;
+  if (duration !== undefined && duration !== null && (!Number.isInteger(duration) || duration < 1 || duration > 1440)) throw invalid('A duração deve estar entre 1 e 1440 minutos.');
+  if (input?.data !== undefined && input.data !== null && (typeof input.data !== 'object' || Array.isArray(input.data))) throw invalid('Dados do atendimento inválidos.');
+  if (input?.notes !== undefined && input.notes !== null && typeof input.notes !== 'string') throw invalid('Observações do atendimento inválidas.');
+  return getDatabase().transaction(async (tx) => {
+    await tx.execute(sql`select id from attendances where tenant_id = ${tenantId} and id = ${id} for update`);
+    const existing = (await tx.select().from(attendances).where(and(eq(attendances.tenantId, tenantId), eq(attendances.id, id)))).at(0);
+    if (!existing) return null;
+    if (existing.status !== 'performed') throw conflict('Atendimentos cancelados não podem ser alterados.');
+    const patch: any = { updatedAt: new Date() };
+    if (duration !== undefined) patch.durationMinutes = duration;
+    if (input?.data !== undefined) Object.assign(patch, protect(tenantId, 'attendances', id, 'data', input.data));
+    if (input?.notes !== undefined) Object.assign(patch, protect(tenantId, 'attendances', id, 'notes', input.notes));
+    const changed = (await tx.update(attendances).set(patch).where(and(eq(attendances.tenantId, tenantId), eq(attendances.id, id), eq(attendances.status, 'performed'))).returning()).at(0);
+    return changed ? attendanceResponse(changed, tx) : null;
+  });
+}
+
+async function perform(tx: any, tenantId: string, appointmentId: string | null, selected: string[] | undefined, input: any, returnAttendance = false) {
+  if (input?.durationMinutes !== undefined && input.durationMinutes !== null && (!Number.isInteger(input.durationMinutes) || input.durationMinutes < 1 || input.durationMinutes > 1440)) throw invalid('A duração deve estar entre 1 e 1440 minutos.');
+  if (input?.performedAt !== undefined && !Number.isFinite(new Date(input.performedAt).getTime())) throw invalid('Data do atendimento inválida.');
+  let appointment = appointmentId ? (await tx.select().from(appointments).where(and(eq(appointments.tenantId, tenantId), eq(appointments.id, appointmentId)))).at(0) : null;
+  if (appointmentId && (!appointment || !(await lockAppointment(tx, tenantId, appointmentId)))) throw notFound('Agendamento não encontrado.');
+  if (appointmentId) appointment = (await tx.select().from(appointments).where(and(eq(appointments.tenantId, tenantId), eq(appointments.id, appointmentId)))).at(0);
+  if (appointmentId && !appointment) throw notFound('Agendamento não encontrado.');
+  if (appointment && !['planned', 'rescheduled'].includes(appointment.status)) throw conflict('Somente agendamentos planejados ou remarcados podem ser confirmados.');
+  const items: any[] = appointmentId
+    ? await tx.select().from(appointmentItems).where(and(eq(appointmentItems.tenantId, tenantId), eq(appointmentItems.appointmentId, appointmentId))).orderBy(asc(appointmentItems.id))
+    : input?.followupItemId ? [{ id: null, followupItemId: input.followupItemId, quantity: 1 }] : [];
+  const directPatientId = appointment?.patientId ?? input?.patientId;
+  if (!validUuid(directPatientId)) throw invalid('Paciente é obrigatório.');
+  if (selected) {
+    if (!selected.length || selected.some((id) => !validUuid(id)) || new Set(selected).size !== selected.length) throw notFound('Item de agendamento não encontrado.');
+    const ids = new Set(items.map((item) => item.id));
+    if (selected.some((id) => !ids.has(id))) throw notFound('Item de agendamento não encontrado.');
+  }
+  const chosen = items.filter((item: any) => !selected || selected.includes(item.id));
+  if (!chosen.length) throw invalid('Selecione ao menos um item.');
+  await lockItems(tx, tenantId, chosen.map((item: any) => item.followupItemId).filter((value: any): value is string => !!value));
+  if (selected && appointmentId) {
+    for (const item of items) if (!selected.includes(item.id)) {
+      await tx.update(appointmentItems).set({ confirmationStatus: 'deselected' }).where(and(eq(appointmentItems.tenantId, tenantId), eq(appointmentItems.id, item.id)));
+    }
+  }
+  let firstAttendance: any = null;
+  for (const item of chosen) {
+    const current = item.followupItemId ? (await tx.select({ item: followupItems, followup: followups }).from(followupItems).innerJoin(followups, and(eq(followups.tenantId, followupItems.tenantId), eq(followups.id, followupItems.followupId))).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.id, item.followupItemId), eq(followups.patientId, directPatientId)))).at(0) : null;
+    if (item.followupItemId && (!current || current.followup.status !== 'active')) throw notFound('Procedimento não pertence ao paciente deste atendimento.');
+    const repetitions = item.quantity ?? 1;
+    for (let occurrence = 0; occurrence < repetitions; occurrence++) {
+      if (current && current.item.sessionsPerformed + 1 > current.item.sessionsTotal) throw conflict(`${current.item.procedureName}: todas as sessões já foram realizadas.`);
+      const aid = crypto.randomUUID();
+      const [createdAttendance] = await tx.insert(attendances).values({ id: aid, tenantId, patientId: directPatientId, followupId: current?.item.followupId ?? null, followupItemId: current?.item.id ?? null, appointmentId, procedureId: current?.item.procedureId ?? item.procedureId, procedureName: current?.item.procedureName ?? item.procedureName, performedAt: input?.performedAt ? new Date(input.performedAt) : new Date(), durationMinutes: input?.durationMinutes ?? current?.item.durationMinutes ?? item.minutesEach, schemaSnapshot: current?.item.sessionSchema ?? {}, status: 'performed', ...protect(tenantId, 'attendances', aid, 'data', input?.data ?? null), ...protect(tenantId, 'attendances', aid, 'notes', input?.notes ?? null) }).returning();
+      firstAttendance ??= createdAttendance;
+      if (current) {
+        await tx.update(followupItems).set({ sessionsPerformed: sql`${followupItems.sessionsPerformed} + 1` }).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.id, current.item.id)));
+        await recomputeFollowup(tx, tenantId, current.item.followupId);
+      }
+    }
+    if (item.id) await tx.update(appointmentItems).set({ confirmationStatus: 'confirmed' }).where(and(eq(appointmentItems.tenantId, tenantId), eq(appointmentItems.id, item.id)));
+  }
+  if (appointment) await tx.update(appointments).set({ status: 'confirmed', updatedAt: new Date() }).where(and(eq(appointments.tenantId, tenantId), eq(appointments.id, appointment.id)));
+  if (returnAttendance && firstAttendance) return attendanceResponse(firstAttendance, tx);
+  return appointmentId ? readAppointment(tenantId, appointmentId, tx) : null;
+}
+
+export async function createAttendance(tenantId: string, input: any) {
+  if (!input?.appointmentId && !validUuid(input?.followupItemId)) throw notFound('Procedimento contratado não encontrado.');
+  return getDatabase().transaction((tx) => perform(tx, tenantId, input.appointmentId ?? null, undefined, input, true));
+}
+export async function confirmAppointment(tenantId: string, id: string, selected?: string[]) {
+  return getDatabase().transaction((tx) => perform(tx, tenantId, id, selected, {}));
+}
+export async function addAttendancePhoto(tenantId: string, attendanceId: string, input: any) {
+  if (!validUuid(attendanceId)) throw notFound('Atendimento não encontrado.');
+  if (!input || typeof input.objectKey !== 'string' || !/^uploads\/[\w-]+$/.test(input.objectKey) || !['before', 'during', 'after'].includes(input.phase)) throw invalid('Foto inválida.');
+  const attendance = (await getDatabase().select({ id: attendances.id }).from(attendances).where(and(eq(attendances.tenantId, tenantId), eq(attendances.id, attendanceId)))).at(0);
+  if (!attendance) throw notFound('Atendimento não encontrado.');
+  const id = crypto.randomUUID();
+  const [photo] = await getDatabase().insert(attendancePhotos).values({
+    id, tenantId, attendanceId, objectKey: input.objectKey, contentHash: input.contentHash ?? null, phase: input.phase,
+  }).returning();
+  return idShape(photo);
+}
+
+export async function removeAttendancePhoto(tenantId: string, attendanceId: string, photoId: string) {
+  if (!validUuid(attendanceId) || !validUuid(photoId)) throw notFound('Foto não encontrada.');
+  const photo = (await getDatabase().select().from(attendancePhotos).where(and(
+    eq(attendancePhotos.tenantId, tenantId), eq(attendancePhotos.attendanceId, attendanceId), eq(attendancePhotos.id, photoId), isNull(attendancePhotos.deletedAt),
+  ))).at(0);
+  if (!photo) throw notFound('Foto não encontrada.');
+  await getDatabase().update(attendancePhotos).set({ deletedAt: new Date() }).where(and(eq(attendancePhotos.tenantId, tenantId), eq(attendancePhotos.id, photoId)));
+  return { deleted: true, objectKey: photo.objectKey };
+}
+
+export async function cancelAttendance(tenantId: string, id: string, reason: string) {
+  if (!reason.trim()) throw invalid('Motivo do cancelamento é obrigatório.');
+  return getDatabase().transaction(async (tx) => {
+    await tx.execute(sql`select id from attendances where tenant_id = ${tenantId} and id = ${id} for update`);
+    const row = (await tx.select().from(attendances).where(and(eq(attendances.tenantId, tenantId), eq(attendances.id, id), eq(attendances.status, 'performed')))).at(0);
+    if (!row) throw notFound('Atendimento não encontrado.');
+    const changed = (await tx.update(attendances).set({ status: 'cancelled', cancellationReason: reason.trim(), updatedAt: new Date() }).where(and(eq(attendances.tenantId, tenantId), eq(attendances.id, id), eq(attendances.status, 'performed'))).returning()).at(0);
+    if (!changed) throw notFound('Atendimento já cancelado.');
+    if (row.followupItemId) {
+      await tx.execute(sql`select id from followup_items where tenant_id = ${tenantId} and id = ${row.followupItemId} for update`);
+      const performed = (await tx.select({ count: sql<number>`count(*)` }).from(attendances).where(and(eq(attendances.tenantId, tenantId), eq(attendances.followupItemId, row.followupItemId), eq(attendances.status, 'performed')))).at(0);
+      await tx.update(followupItems).set({ sessionsPerformed: Number(performed?.count ?? 0) }).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.id, row.followupItemId)));
+      if (row.followupId) await recomputeFollowup(tx, tenantId, row.followupId);
+    }
+    return attendanceResponse(changed, tx);
+  });
+}

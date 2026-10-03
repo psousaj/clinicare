@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { appointmentForm, followupForm, parseForm, paymentForm } from '@/lib/forms';
-import { useCreateAppointment, useCreateFollowup, useCreatePayment, useDeleteAppointment, useUpdateAppointment } from '@/lib/queries';
+import { useConfirmAppointment, useCreateAppointment, useCreateFollowup, useCreatePayment, useDeleteAppointment, useUpdateAppointment } from '@/lib/queries';
 import type { Appointment, Followup, Combo, Patient, Plan, Procedure } from '@/lib/schemas';
 import { currency, offerLabel } from '@/lib/format';
 
@@ -22,13 +22,15 @@ const localDate = (value: string) => { const date = new Date(value); return `${d
 const localTime = (value: string) => { const date = new Date(value); return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`; };
 
 export function AppointmentDialog({ open, selection, appointment, patientId, patients, followups, procedures, onClose }: { open: boolean; selection?: Selection | null; appointment?: Appointment | null; patientId?: string; patients: Patient[]; followups: Followup[]; procedures: Procedure[]; onClose: () => void }) {
-  const create = useCreateAppointment(), update = useUpdateAppointment(), remove = useDeleteAppointment();
+  const create = useCreateAppointment(), update = useUpdateAppointment(), remove = useDeleteAppointment(), confirm = useConfirmAppointment();
   const [date, setDate] = useState<string>(), [start, setStart] = useState<string>(), [end, setEnd] = useState<string>();
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [confirmDelete, setConfirmDelete] = useState(false);
   useEffect(() => {
     setConfirmDelete(false);
-    if (!appointment) { setDate(undefined); setStart(undefined); setEnd(undefined); return; }
+    if (!appointment) { setDate(undefined); setStart(undefined); setEnd(undefined); setSelectedItemIds([]); return; }
     setDate(localDate(appointment.startsAt)); setStart(localTime(appointment.startsAt)); setEnd(localTime(appointment.endsAt));
+    setSelectedItemIds(appointment.items.filter((item) => item.confirmationStatus !== 'deselected').map((item) => item.id));
   }, [appointment?.id]);
   const description = appointment
     ? `${new Date(appointment.startsAt).toLocaleString('pt-BR')} – ${new Date(appointment.endsAt).toLocaleTimeString('pt-BR')}`
@@ -75,7 +77,7 @@ export function AppointmentDialog({ open, selection, appointment, patientId, pat
             <Field label="Início"><TimePicker value={start} onChange={setStart} /></Field>
             <Field label="Fim"><TimePicker value={end} onChange={setEnd} /></Field>
           </div>
-          <div className="rounded-lg border border-border p-3"><div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Procedimentos agendados</div><ul className="m-0 grid gap-1 pl-5 text-sm">{appointment.items.map((item) => <li key={item.followupItemId ?? item.procedureId}>{item.procedureName}{item.quantity > 1 ? ` ×${item.quantity}` : ''}</li>)}</ul></div>
+          <div className="rounded-lg border border-border p-3"><div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Procedimentos agendados</div><ul className="m-0 grid gap-1 text-sm">{appointment.items.map((item) => <li key={item.id} className="flex items-center gap-2"><Checkbox checked={selectedItemIds.includes(item.id)} onCheckedChange={(checked) => setSelectedItemIds((current) => checked === true ? [...new Set([...current, item.id])] : current.filter((id) => id !== item.id))} disabled={item.confirmationStatus === 'confirmed'} aria-label={`Selecionar ${item.procedureName}`} /> <span>{item.procedureName}{item.quantity > 1 ? ` ×${item.quantity}` : ''}</span></li>)}</ul><Button type="button" className="mt-3" disabled={confirm.isPending || appointment.status !== 'planned' && appointment.status !== 'rescheduled'} onClick={() => confirm.mutate({ id: appointment.id, selectedItemIds })}>Confirmar todos</Button></div>
         </>
       ) : <AppointmentFields selection={selection} lockedPatientId={patientId} patients={patients} followups={followups} procedures={procedures} />}
     </FormDialog>

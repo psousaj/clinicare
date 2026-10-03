@@ -103,7 +103,10 @@ export const useCreateAppointment = () => useApiMutation({ mutationFn: (body: un
 export const useUpdateAppointment = () => useApiMutation({ mutationFn: ({ id, ...body }: { id: string; startsAt: string; endsAt: string }) => api(`/api/appointments/${id}`, { method: 'PATCH', body, schema: anySchema }), invalidate: [keys.appointments, keys.patients], success: 'Agendamento atualizado.' });
 export const useCreatePayment = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/payments', body), invalidate: [keys.followups, keys.patients], success: 'Pagamento registrado.' });
 export const useDeleteAppointment = () =>
-  useApiMutation({ mutationFn: (id: string) => api(`/api/appointments/${id}`, { method: 'DELETE', schema: anySchema }), invalidate: [keys.appointments, keys.patients], success: 'Agendamento excluído.' });
+  useApiMutation({ mutationFn: (id: string) => api(`/api/appointments/${id}`, { method: 'DELETE', schema: anySchema }), invalidate: [keys.appointments, keys.patients], success: 'Agendamento cancelado.' });
+export const useConfirmAppointment = () => useApiMutation({ mutationFn: ({ id, selectedItemIds }: { id: string; selectedItemIds?: string[] }) => post(`/api/appointments/${id}/confirm`, { selectedItemIds }), invalidate: everything, success: 'Atendimento confirmado.' });
+export const useNoShowAppointment = () => useApiMutation({ mutationFn: (id: string) => post(`/api/appointments/${id}/no-show`, {}), invalidate: [keys.appointments, keys.followups, keys.patients], success: 'Não comparecimento registrado.' });
+export const useCancelAttendance = () => useApiMutation({ mutationFn: ({ id, reason }: { id: string; reason: string }) => api(`/api/attendances/${id}/cancel`, { method: 'PATCH', body: { reason }, schema: anySchema }), invalidate: everything, success: 'Atendimento cancelado.' });
 export const useUpdateAttendance = (id: string) =>
   useApiMutation({ mutationFn: (body: { notes?: string | null; data?: Record<string, unknown>; durationMinutes?: number | null }) => api(`/api/attendances/${id}`, { method: 'PATCH', body, schema: anySchema }), invalidate: [keys.attendance(id), keys.patients], success: 'Acompanhamento salvo.' });
 export const useAddAttendancePhoto = (id: string) =>

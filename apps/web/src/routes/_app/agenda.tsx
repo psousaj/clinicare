@@ -5,12 +5,13 @@ import { AppointmentDialog } from '@/components/dialogs';
 import { CalendarView } from '@/components/CalendarView';
 import { QueryError } from '@/components/QueryState';
 import { statusLabel, statusTone } from '@/lib/format';
-import { appointmentsQuery, patientsQuery, followupsQuery, proceduresQuery } from '@/lib/queries';
+import { appointmentsQuery, patientsQuery, followupsQuery, proceduresQuery, useConfirmAppointment, useNoShowAppointment } from '@/lib/queries';
 
 export const Route = createFileRoute('/_app/agenda')({ component: Agenda });
 
 function Agenda() {
   const appointments = useQuery(appointmentsQuery), patients = useQuery(patientsQuery), followups = useQuery(followupsQuery), procedures = useQuery(proceduresQuery);
+  const confirmAppointment = useConfirmAppointment(), noShowAppointment = useNoShowAppointment();
   const [selection, setSelection] = useState<{ start: string; end: string } | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const patientName = (id: string) => patients.data?.find((patient) => patient.id === id)?.fullName ?? 'Paciente';
@@ -25,7 +26,7 @@ function Agenda() {
   const opened = appointments.data?.find((appointment) => appointment.id === openId) ?? null;
   return (
     <section className="panel">
-      <div className="panel-header"><div><div className="section-kicker">AGENDA DO PROFISSIONAL</div><h2>Semana de agendamentos</h2></div></div>
+      <div className="panel-header"><div><div className="section-kicker">AGENDA DO PROFISSIONAL</div><h2>Semana de agendamentos</h2><p className="m-0 text-sm text-muted-foreground">Itens vencidos ficam disponíveis para confirmação; todos começam selecionados.</p></div><div>{appointments.data?.filter((item) => item.status === 'planned' && new Date(item.endsAt) < new Date()).length ? <span className="rounded-full bg-amber-100 px-2 py-1 text-xs">Confirmações pendentes</span> : null}</div></div>
       <QueryError query={appointments} />
       <CalendarView
         events={events}

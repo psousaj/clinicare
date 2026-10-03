@@ -116,6 +116,8 @@ export const followupSchema = z.looseObject({
   payments: z.array(z.looseObject({ amountCents: z.number() })),
 });
 export const appointmentItemSchema = z.looseObject({
+  id: z.string(),
+  confirmationStatus: z.string().optional(),
   followupId: z.string().nullish(),
   followupItemId: z.string().nullish(),
   procedureId: z.string(),
@@ -129,6 +131,7 @@ export const appointmentSchema = z.looseObject({
   startsAt: z.string(),
   endsAt: z.string(),
   status: z.string(),
+  notes: z.string().nullish(),
   items: z.array(appointmentItemSchema).default([]),
 });
 export const attendancePhotoSchema = z.looseObject({

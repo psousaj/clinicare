@@ -8,7 +8,8 @@ import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAn
 import { buildRelationship } from './relationship';
 import { createFollowup, getFollowup, listFollowups, cancelFollowup, updateFollowupState } from './followups';
 import { listPendingSignatures, readSignatureToken, refreshSignatureToken, signWithToken } from './signatures';
-import { uploadUrl, uploadUrlForDocument, downloadUrl, deleteObject } from './storage';
+import { addAttendancePhoto, cancelAttendance, confirmAppointment, createAppointment, createAttendance, deleteAppointment, getAttendance, listAppointments, listAttendances, removeAttendancePhoto, updateAppointment, updateAttendance } from './scheduling';
+import { uploadUrl, uploadUrlForDocument, deleteObject } from './storage';
 
 const fail = (c: Context, message: string, status: 400 | 403 | 404 | 409 | 503 = 400) => c.json({ error: message }, status);
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
@@ -239,124 +240,30 @@ export const app = new Hono()
     return c.json(await Payment.create(body), 201);
   })
   .get('/api/appointments', async (c) => {
-    const from = c.req.query('from') ? new Date(c.req.query('from')!) : new Date(Date.now() - 7 * 86400000), to = c.req.query('to') ? new Date(c.req.query('to')!) : expiry(14);
-    return c.json(await Appointment.find({ startsAt: { $gte: from, $lt: to } }).populate('patientId', 'fullName').sort({ startsAt: 1 }).lean());
+    try { const tenantId = await catalogTenant(c.req); const from = c.req.query('from') ? new Date(c.req.query('from')!) : new Date(Date.now() - 7 * 86400000), to = c.req.query('to') ? new Date(c.req.query('to')!) : expiry(14); return c.json(await listAppointments(tenantId, from, to)); } catch (error) { return handleError(c, error); }
   })
   .post('/api/appointments', async (c) => {
-    const body = await c.req.json().catch(() => null), startsAt = new Date(body?.startsAt), endsAt = new Date(body?.endsAt);
-    if (!isRecord(body) || !isValidObjectId(body.patientId) || !Array.isArray(body.items) || !body.items.length || !(endsAt > startsAt)) return fail(c, 'Agendamento inválido.');
-    if (!await Patient.exists({ _id: body.patientId })) return fail(c, 'Paciente não encontrado.', 404);
-    const capacity = Math.round((endsAt.getTime() - startsAt.getTime()) / 60000);
-    const items: any[] = [], standalone: { procedure: any; index: number }[] = [], seen = new Set<string>(), followupIds = new Set<string>();
-    for (const entry of body.items) {
-      const quantity = entry?.quantity ?? 1;
-      if (!isRecord(entry) || !Number.isInteger(quantity) || quantity < 1) return fail(c, 'Agendamento inválido.');
-      const key = String(entry.followupItemId ?? entry.procedureId);
-      if (seen.has(key)) return fail(c, 'Procedimento repetido no agendamento; use a quantidade.');
-      seen.add(key);
-      if (isValidObjectId(entry.followupItemId)) {
-        const followup: any = await Followup.findOne({ 'items._id': entry.followupItemId, patientId: body.patientId });
-        if (!followup) return fail(c, 'Procedimento não pertence a um acompanhamento deste paciente.', 404);
-        const item = followup.items.id(entry.followupItemId);
-        const booked = (await Appointment.find({ 'items.followupItemId': item._id, status: { $in: liveStatuses }, endsAt: { $gt: new Date() } }).lean() as any[]).reduce((total, appointment) => total + appointment.items.filter((entry: any) => String(entry.followupItemId) === String(item._id)).reduce((sum: number, entry: any) => sum + entry.quantity, 0), 0);
-        const left = item.sessionsTotal - item.sessionsPerformed - booked;
-        if (quantity > left) return fail(c, `${item.procedureName}: restam ${Math.max(left, 0)} sessão(ões) sem agendamento neste acompanhamento.`, 409);
-        const procedure: any = item.durationMinutes ? null : await Procedure.findById(item.procedureId).lean();
-        followupIds.add(String(followup._id));
-        items.push({ followupId: followup._id, followupItemId: item._id, procedureId: item.procedureId, procedureName: item.procedureName, quantity, minutesEach: item.durationMinutes ?? procedure?.durationMinutes ?? 60 });
-      } else if (isValidObjectId(entry.procedureId)) {
-        const procedure: any = await Procedure.findById(entry.procedureId).lean();
-        if (!procedure || !procedure.active) return fail(c, 'Procedimento não encontrado.', 404);
-        if (procedure.standalone === false) return fail(c, `${procedure.name} só pode ser feito dentro de um combo ou plano.`, 409);
-        if (quantity !== 1) return fail(c, `${procedure.name}: procedimento avulso permite uma única sessão.`, 409);
-        standalone.push({ procedure, index: items.length });
-        items.push({ procedureId: procedure._id, procedureName: procedure.name, quantity, minutesEach: procedure.durationMinutes ?? 60 });
-      } else return fail(c, 'Agendamento inválido.');
-    }
-    const used = items.reduce((total, item) => total + item.quantity * item.minutesEach, 0);
-    if (used > capacity) return fail(c, `Os procedimentos somam ${used} min e o agendamento tem ${capacity} min.`, 409);
-    for (const { procedure, index } of standalone) {
-      const opened = await openStandalone(body.patientId, procedure);
-      if ('error' in opened) return fail(c, opened.error, opened.status);
-      items[index] = { ...items[index], followupId: opened.followup._id, followupItemId: opened.followup.items[0]._id };
-      followupIds.add(String(opened.followup._id));
-    }
-    const pending = await pendingForms([...followupIds]);
-    if (pending.length) return fail(c, `Anamnese pendente: ${pending.map((form: any) => form.anamnesisId?.title ?? 'Anamnese').join(', ')}. Conclua antes de agendar.`, 409);
-    return c.json(await Appointment.create({ patientId: body.patientId, items, startsAt, endsAt, status: 'planned', notes: body.notes ?? null }), 201);
+    try { return c.json(await createAppointment(await catalogTenant(c.req), await c.req.json().catch(() => null)), 201); } catch (error) { return handleError(c, error); }
   })
-  .patch('/api/appointments/:id', async (c) => {
-    const body = await c.req.json().catch(() => null);
-    if (!isValidObjectId(c.req.param('id')) || !isRecord(body)) return fail(c, 'Dados de agendamento inválidos.');
-    const existing: any = await Appointment.findById(c.req.param('id')).lean();
-    if (!existing) return fail(c, 'Agendamento não encontrado.', 404);
-    const updates: Record<string, unknown> = {};
-    if (body.startsAt !== undefined || body.endsAt !== undefined) {
-      const startsAt = new Date(body.startsAt ?? existing.startsAt), endsAt = new Date(body.endsAt ?? existing.endsAt);
-      if (!Number.isFinite(startsAt.getTime()) || !Number.isFinite(endsAt.getTime()) || endsAt <= startsAt) return fail(c, 'Informe uma data e horários válidos; o fim deve ser depois do início.');
-      updates.startsAt = startsAt; updates.endsAt = endsAt;
-    }
-    if (body.status !== undefined) {
-      if (!['planned', 'confirmed', 'rescheduled', 'cancelled', 'no_show'].includes(body.status)) return fail(c, 'Status de agendamento inválido.');
-      updates.status = body.status;
-    }
-    if (!Object.keys(updates).length) return fail(c, 'Não há alterações para salvar.');
-    const result = await Appointment.findByIdAndUpdate(c.req.param('id'), updates, { returnDocument: 'after', runValidators: true }).lean();
-    if (result && ['cancelled', 'no_show'].includes((result as any).status)) await dropUnusedStandalone(result);
-    return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404);
+  .post('/api/appointments/:id/confirm', async (c) => {
+    try { const body = await c.req.json().catch(() => ({})); return c.json(await confirmAppointment(await catalogTenant(c.req), c.req.param('id'), Array.isArray(body?.selectedItemIds) ? body.selectedItemIds : undefined)); } catch (error) { return handleError(c, error); }
   })
-  .delete('/api/appointments/:id', async (c) => {
-    const result = isValidObjectId(c.req.param('id')) ? await Appointment.findByIdAndDelete(c.req.param('id')).lean() : null;
-    if (result) await dropUnusedStandalone(result);
-    return result ? c.json({ deleted: true }) : fail(c, 'Agendamento não encontrado.', 404);
+  .post('/api/appointments/:id/no-show', async (c) => {
+    try { const result = await updateAppointment(await catalogTenant(c.req), c.req.param('id'), { status: 'no_show' }); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
   })
-  .post('/api/attendances', async (c) => {
-    const body = await c.req.json().catch(() => null);
-    if (!isRecord(body) || (!(isValidObjectId(body.followupId) && isValidObjectId(body.followupItemId)) && !isValidObjectId(body.procedureId))) return fail(c, 'Informe o procedimento do acompanhamento ou um procedimento avulso.');
-    if (body.durationMinutes != null && !validDuration(body.durationMinutes)) return fail(c, 'Duração inválida.');
-    const appointment: any = isValidObjectId(body.appointmentId) ? await Appointment.findById(body.appointmentId).lean() : null;
-    const fromAppointment = (procedureId: unknown) => appointment?.items?.find((entry: any) => String(entry.procedureId) === String(procedureId))?.minutesEach ?? null;
-    let followup: any;
-    if (isValidObjectId(body.followupId) && isValidObjectId(body.followupItemId)) {
-      followup = await Followup.findOne({ _id: body.followupId, 'items._id': body.followupItemId });
-      if (!followup) return fail(c, 'Procedimento contratado não encontrado.', 404);
-    } else {
-      if (!isValidObjectId(body.patientId) || !await Patient.exists({ _id: body.patientId })) return fail(c, 'Paciente não encontrado.', 404);
-      const procedure: any = await Procedure.findById(body.procedureId).lean();
-      if (!procedure || !procedure.active) return fail(c, 'Procedimento não encontrado.', 404);
-      if (procedure.standalone === false) return fail(c, `${procedure.name} só pode ser realizado dentro de um combo ou plano.`, 409);
-      const booked = appointment?.items?.find((entry: any) => String(entry.procedureId) === String(procedure._id) && entry.followupId);
-      const reserved: any = booked ? await Followup.findOne({ _id: booked.followupId, patientId: body.patientId, offerType: 'procedure' }) : null;
-      const opened = reserved ? { followup: reserved } : await openStandalone(body.patientId, procedure);
-      if ('error' in opened) return fail(c, opened.error, opened.status);
-      followup = opened.followup;
-      const pending = await pendingForms([followup._id]);
-      if (pending.length) return fail(c, `Anamnese pendente: ${pending.map((form: any) => form.anamnesisId?.title ?? 'Anamnese').join(', ')}. Conclua antes de registrar o atendimento.`, 409);
-    }
-    const item: any = followup.items.id(body.followupItemId ?? followup.items[0]._id);
-    if (item.sessionsPerformed >= item.sessionsTotal) return fail(c, 'Todas as sessões já foram realizadas.', 409);
-    const attendance = await Attendance.create({ patientId: followup.patientId, followupId: followup._id, followupItemId: item._id, procedureId: item.procedureId, appointmentId: body.appointmentId ?? null, procedureName: item.procedureName, performedAt: body.performedAt ?? new Date(), durationMinutes: body.durationMinutes ?? fromAppointment(item.procedureId) ?? item.durationMinutes ?? null, data: body.data ?? {}, schemaSnapshot: item.sessionSchema, notes: body.notes ?? null });
-    item.sessionsPerformed += 1;
-    try { await followup.save(); } catch (error) { await Attendance.deleteOne({ _id: attendance._id }); throw error; }
-    return c.json(attendance, 201);
+  .post('/api/appointments/:id/cancel', async (c) => {
+    try { const result = await updateAppointment(await catalogTenant(c.req), c.req.param('id'), { status: 'cancelled' }); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
   })
-  .get('/api/attendances/:id', async (c) => {
-    const attendance: any = isValidObjectId(c.req.param('id')) ? await Attendance.findById(c.req.param('id')).populate('patientId', 'fullName').lean() : null;
-    if (!attendance) return fail(c, 'Atendimento não encontrado.', 404);
-    const photos = await Promise.all((attendance.photos ?? []).map(async (photo: any) => ({ ...photo, url: await downloadUrl(photo.objectKey).catch(() => null) })));
-    return c.json({ ...attendance, photos });
+  .post('/api/appointments/:id/attendance', async (c) => {
+    try { return c.json(await createAttendance(await catalogTenant(c.req), { ...(await c.req.json().catch(() => ({}))), appointmentId: c.req.param('id') }), 201); } catch (error) { return handleError(c, error); }
   })
-  .patch('/api/attendances/:id', async (c) => {
-    const body = await c.req.json().catch(() => null);
-    if (!body || (body.notes !== undefined && body.notes !== null && typeof body.notes !== 'string') || (body.data !== undefined && (typeof body.data !== 'object' || body.data === null || Array.isArray(body.data))) || (body.durationMinutes != null && !validDuration(body.durationMinutes))) return fail(c, 'Dados do atendimento inválidos.');
-    const update: Record<string, unknown> = {};
-    if (body.notes !== undefined) update.notes = body.notes?.trim() || null;
-    if (body.data !== undefined) update.data = body.data;
-    if (body.durationMinutes !== undefined) update.durationMinutes = body.durationMinutes;
-    const result = isValidObjectId(c.req.param('id')) ? await Attendance.findByIdAndUpdate(c.req.param('id'), update, { returnDocument: 'after' }).lean() : null;
-    return result ? c.json(result) : fail(c, 'Atendimento não encontrado.', 404);
-  })
-  .get('/api/attendances', async (c) => c.json(await Attendance.find().populate('patientId', 'fullName').sort({ performedAt: -1 }).lean()))
+  .patch('/api/appointments/:id', async (c) => { try { const result = await updateAppointment(await catalogTenant(c.req), c.req.param('id'), await c.req.json().catch(() => ({}))); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
+  .delete('/api/appointments/:id', async (c) => { try { const result = await deleteAppointment(await catalogTenant(c.req), c.req.param('id')); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
+  .get('/api/attendances', async (c) => { try { return c.json(await listAttendances(await catalogTenant(c.req))); } catch (error) { return handleError(c, error); } })
+  .get('/api/attendances/:id', async (c) => { try { const result = await getAttendance(await catalogTenant(c.req), c.req.param('id')); return result ? c.json(result) : fail(c, 'Atendimento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
+  .post('/api/attendances', async (c) => { try { return c.json(await createAttendance(await catalogTenant(c.req), await c.req.json().catch(() => ({}))), 201); } catch (error) { return handleError(c, error); } })
+  .patch('/api/attendances/:id', async (c) => { try { const result = await updateAttendance(await catalogTenant(c.req), c.req.param('id'), await c.req.json().catch(() => ({}))); return result ? c.json(result) : fail(c, 'Atendimento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
+  .patch('/api/attendances/:id/cancel', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await cancelAttendance(await catalogTenant(c.req), c.req.param('id'), String(body.reason ?? ''))); } catch (error) { return handleError(c, error); } })
   .post('/api/uploads/presign', async (c) => {
     const body = await c.req.json().catch(() => null);
     if (!body || typeof body.contentType !== 'string' || !/^image\/(jpeg|png|webp)$/.test(body.contentType) || !Number.isInteger(body.size) || body.size < 1 || body.size > 10_000_000) return fail(c, 'Imagem inválida ou maior que 10 MB.');
@@ -365,18 +272,14 @@ export const app = new Hono()
     catch { return c.json({ error: 'R2 não configurado.' }, 503); }
   })
   .post('/api/attendances/:id/photos', async (c) => {
-    const body = await c.req.json().catch(() => null), attendance = await Attendance.findById(c.req.param('id'));
-    if (!attendance) return fail(c, 'Atendimento não encontrado.', 404);
-    if (!body || typeof body.objectKey !== 'string' || !/^uploads\/[\w-]+$/.test(body.objectKey) || !['before', 'during', 'after'].includes(body.phase)) return fail(c, 'Foto inválida.');
-    attendance.photos.push(body); await attendance.save(); return c.json(attendance.photos.at(-1), 201);
+    try { return c.json(await addAttendancePhoto(await catalogTenant(c.req), c.req.param('id'), await c.req.json().catch(() => null)), 201); } catch (error) { return handleError(c, error); }
   })
   .delete('/api/attendances/:id/photos/:photoId', async (c) => {
-    const attendance = await Attendance.findById(c.req.param('id'));
-    if (!attendance) return fail(c, 'Atendimento não encontrado.', 404);
-    const photo = attendance.photos.id(c.req.param('photoId'));
-    if (!photo) return fail(c, 'Foto não encontrada.', 404);
-    try { await deleteObject(photo.objectKey); } catch (error) { console.error(error); }
-    photo.deleteOne(); await attendance.save(); return c.json({ deleted: true });
+    try {
+      const result = await removeAttendancePhoto(await catalogTenant(c.req), c.req.param('id'), c.req.param('photoId'));
+      try { await deleteObject(result.objectKey); } catch (error) { console.error(error); }
+      return c.json({ deleted: true });
+    } catch (error) { return handleError(c, error); }
   })
   .post('/api/patient-anamneses', async (c) => {
     const body = await c.req.json().catch(() => null);

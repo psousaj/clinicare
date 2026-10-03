@@ -425,7 +425,7 @@ describe('Attendance page', () => {
 });
 
 describe('Agenda', () => {
-  const appointment = { _id: 'ap1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, items: [{ followupId: 'pl1', followupItemId: 'it1', procedureId: 'pr1', procedureName: 'Limpeza de pele', quantity: 2, minutesEach: 30 }], startsAt: '2026-09-29T14:00:00Z', endsAt: '2026-09-29T15:00:00Z', status: 'planned', notes: 'Trazer exames' };
+  const appointment = { _id: 'ap1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, items: [{ _id: 'ai1', followupId: 'pl1', followupItemId: 'it1', procedureId: 'pr1', procedureName: 'Limpeza de pele', quantity: 2, minutesEach: 30, confirmationStatus: 'pending' }], startsAt: '2026-09-29T14:00:00Z', endsAt: '2026-09-29T15:00:00Z', status: 'planned', notes: 'Trazer exames' };
   const followup = { _id: 'pl1', patientId: 'p1', offerName: 'Limpeza', priceCents: 1000, payments: [], items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3 }] };
 
   it('opens an appointment directly in the edit dialog and deletes it after confirmation', async () => {
@@ -466,6 +466,22 @@ describe('Agenda', () => {
     const dialog = await screen.findByRole('dialog');
     await user.click(within(dialog).getByRole('button', { name: /salvar alterações/i }));
     await waitFor(() => expect(calls.some((call) => call.method === 'PATCH' && call.url === '/api/appointments/ap1')).toBe(true));
+  });
+
+  it('sends the currently selected appointment items when confirming', async () => {
+    routes['GET /api/appointments'] = () => [appointment];
+    routes['GET /api/followups'] = () => [followup];
+    routes['POST /api/appointments/ap1/confirm'] = () => appointment;
+    const user = userEvent.setup();
+    renderAt('/agenda');
+    await user.click(await screen.findByTitle('Marina Alves · Agendado'));
+    const dialog = await screen.findByRole('dialog');
+    const checkbox = within(dialog).getByRole('checkbox', { name: /selecionar limpeza de pele/i });
+    expect(checkbox).toBeChecked();
+    await user.click(checkbox);
+    expect(checkbox).not.toBeChecked();
+    await user.click(within(dialog).getByRole('button', { name: /confirmar todos/i }));
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST' && call.url === '/api/appointments/ap1/confirm')?.body).toEqual({ selectedItemIds: [] }));
   });
 });
 

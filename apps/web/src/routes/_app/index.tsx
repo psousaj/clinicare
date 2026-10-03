@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { matchesPatient } from '@/components/PatientRow';
 import { QueryError } from '@/components/QueryState';
 import { dateTime, shortDate } from '@/lib/format';
-import { appointmentsQuery, patientsQuery, followupsQuery, proceduresQuery, attendancesQuery, signaturePendingQuery } from '@/lib/queries';
+import { appointmentsQuery, patientsQuery, followupsQuery, proceduresQuery, attendancesQuery, signaturePendingQuery, useConfirmAppointment, useNoShowAppointment } from '@/lib/queries';
 
 export const Route = createFileRoute('/_app/')({ component: Overview });
 
@@ -16,6 +16,7 @@ function SignatureGroup({ title, description, items }: { title: string; descript
 
 function Overview() {
   const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), appointments = useQuery(appointmentsQuery), followups = useQuery(followupsQuery), attendances = useQuery(attendancesQuery), signatures = useQuery(signaturePendingQuery);
+  const confirmAppointment = useConfirmAppointment(), noShowAppointment = useNoShowAppointment();
   const [query, setQuery] = useState('');
   const patientList = patients.data ?? [], appointmentList = appointments.data ?? [];
   // Sessões já vêm da mais recente para a mais antiga; cada paciente aparece uma vez, na sua última sessão.
@@ -59,7 +60,8 @@ function Overview() {
           {appointmentList.slice(0, 4).map((appointment) => (
             <div className="procedure-row" key={appointment.id}>
               <CalendarDays size={18} />
-              <span className="procedure-info"><strong>{patientList.find((patient) => patient.id === appointment.patientId)?.fullName ?? 'Paciente'}</strong><small>{dateTime(appointment.startsAt)}</small></span>
+              <span className="procedure-info"><strong>{patientList.find((patient) => patient.id === appointment.patientId)?.fullName ?? 'Paciente'}</strong><small>{dateTime(appointment.startsAt)} · {appointment.items.map((item) => item.procedureName).join(', ')}</small></span>
+              {new Date(appointment.endsAt) < new Date() && appointment.status === 'planned' && <span className="flex gap-1"><button className="text-button" onClick={() => confirmAppointment.mutate({ id: appointment.id })}>Confirmar</button><button className="text-button" onClick={() => noShowAppointment.mutate(appointment.id)}>Faltou</button></span>}
             </div>
           ))}
         </article>
