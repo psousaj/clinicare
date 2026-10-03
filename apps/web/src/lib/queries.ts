@@ -2,7 +2,7 @@ import { queryOptions, useMutation, useQueryClient, type QueryKey } from '@tanst
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { api } from './api';
-import { anamnesisSchema, anySchema, appointmentSchema, contractSchema, createdSchema, comboSchema, planSchema, patientHistorySchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicFormSchema, requestSchema, attendanceSchema } from './schemas';
+import { anamnesisSchema, anySchema, appointmentSchema, contractSchema, createdSchema, comboSchema, planSchema, patientHistorySchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicFormSchema, requestSchema, attendanceSchema, signaturePendingSchema } from './schemas';
 
 export const keys = {
   patients: ['patients'] as const,
@@ -18,6 +18,7 @@ export const keys = {
   relationship: (patientId: string) => ['patients', patientId, 'relationship'] as const,
   attendance: (id: string) => ['attendances', id] as const,
   publicForm: (token: string) => ['public-form', token] as const,
+  signaturePending: ['signature-pending'] as const,
 };
 
 const list = <S extends z.ZodType>(key: QueryKey, path: string, schema: S) =>
@@ -30,6 +31,7 @@ export const contractsQuery = list(keys.contracts, '/api/contracts', contractSch
 export const combosQuery = list(keys.combos, '/api/combos', comboSchema);
 export const plansQuery = list(keys.plans, '/api/plans', planSchema);
 export const followupsQuery = list(keys.followups, '/api/followups', followupSchema);
+export const signaturePendingQuery = list(keys.signaturePending, '/api/signature-pending', signaturePendingSchema);
 export const attendancesQuery = list(keys.attendances, '/api/attendances', attendanceSchema);
 export const appointmentsQuery = list(keys.appointments, '/api/appointments', appointmentSchema);
 export const attendanceQuery = (id: string) =>

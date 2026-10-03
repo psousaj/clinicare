@@ -2,47 +2,12 @@
   "version": "7",
   "dialect": "postgresql",
   "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1791004014003,
-      "tag": "0000_initial_tenants",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1791004014004,
-      "tag": "0001_patients",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1791004014005,
-      "tag": "0002_patient_pending_operations",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1791004014006,
-      "tag": "0003_catalog",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1791004014007,
-      "tag": "0004_followups",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1791004014008,
-      "tag": "0005_followup_protection",
-      "breakpoints": true
-    }
+    { "idx": 0, "version": "7", "when": 1791004014003, "tag": "0000_initial_tenants", "breakpoints": true },
+    { "idx": 1, "version": "7", "when": 1791004014004, "tag": "0001_patients", "breakpoints": true },
+    { "idx": 2, "version": "7", "when": 1791004014005, "tag": "0002_patient_pending_operations", "breakpoints": true },
+    { "idx": 3, "version": "7", "when": 1791004014006, "tag": "0003_catalog", "breakpoints": true },
+    { "idx": 4, "version": "7", "when": 1791004014007, "tag": "0004_followups", "breakpoints": true },
+    { "idx": 5, "version": "7", "when": 1791004014008, "tag": "0005_followup_protection", "breakpoints": true },
+    { "idx": 6, "version": "7", "when": 1791010851377, "tag": "0006_signatures", "breakpoints": true }
   ]
 }

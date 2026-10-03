@@ -99,6 +99,8 @@ export const followupAnamnesisSchema = z.looseObject({
   submittedAt: z.string().nullish(),
   validUntil: z.string().nullish(),
 });
+export const signaturePendingSchema = z.looseObject({ participantId: z.string(), role: z.string(), status: z.string(), followupId: z.string(), contractId: z.string(), title: z.string(), blocking: z.boolean(), patient: z.looseObject({ id: z.string(), fullName: z.string() }) });
+export const signatureSchema = z.looseObject({ participantId: z.string(), role: z.string(), status: z.string(), expiresAt: z.string(), contract: z.looseObject({ id: z.string(), followupId: z.string(), title: z.string(), version: z.number(), content: z.string().nullish() }) });
 export const followupSchema = z.looseObject({
   id: z.string(),
   patientId: refId,

@@ -1,0 +1,3377 @@
+{
+  "id": "b87e9adb-ed9c-42d6-a719-2a01978dd231",
+  "prevId": "535dacf8-a3cd-4596-8cd9-d68550a8c249",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.anamneses": {
+      "name": "anamneses",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "required_by_default": {
+          "name": "required_by_default",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "validity_months": {
+          "name": "validity_months",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 12
+        },
+        "current_version": {
+          "name": "current_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "anamneses_tenant_fk": {
+          "name": "anamneses_tenant_fk",
+          "tableFrom": "anamneses",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "anamneses_tenant_id_unique": {
+          "name": "anamneses_tenant_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "anamneses_title_not_empty": {
+          "name": "anamneses_title_not_empty",
+          "value": "length(trim(\"anamneses\".\"title\")) >= 2"
+        },
+        "anamneses_validity_positive": {
+          "name": "anamneses_validity_positive",
+          "value": "\"anamneses\".\"validity_months\" >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.anamnesis_procedures": {
+      "name": "anamnesis_procedures",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "anamnesis_id": {
+          "name": "anamnesis_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "procedure_id": {
+          "name": "procedure_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "required": {
+          "name": "required",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "anamnesis_procedures_tenant_anamnesis_fk": {
+          "name": "anamnesis_procedures_tenant_anamnesis_fk",
+          "tableFrom": "anamnesis_procedures",
+          "tableTo": "anamneses",
+          "columnsFrom": [
+            "tenant_id",
+            "anamnesis_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "anamnesis_procedures_tenant_procedure_fk": {
+          "name": "anamnesis_procedures_tenant_procedure_fk",
+          "tableFrom": "anamnesis_procedures",
+          "tableTo": "procedures",
+          "columnsFrom": [
+            "tenant_id",
+            "procedure_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "anamnesis_procedures_tenant_id_anamnesis_id_procedure_id_pk": {
+          "name": "anamnesis_procedures_tenant_id_anamnesis_id_procedure_id_pk",
+          "columns": [
+            "tenant_id",
+            "anamnesis_id",
+            "procedure_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.anamnesis_versions": {
+      "name": "anamnesis_versions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "anamnesis_id": {
+          "name": "anamnesis_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "schema": {
+          "name": "schema",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "origin": {
+          "name": "origin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'created'"
+        },
+        "restored_from_version": {
+          "name": "restored_from_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "anamnesis_versions_tenant_anamnesis_fk": {
+          "name": "anamnesis_versions_tenant_anamnesis_fk",
+          "tableFrom": "anamnesis_versions",
+          "tableTo": "anamneses",
+          "columnsFrom": [
+            "tenant_id",
+            "anamnesis_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "anamnesis_versions_tenant_parent_version_unique": {
+          "name": "anamnesis_versions_tenant_parent_version_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "anamnesis_id",
+            "version"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "anamnesis_versions_origin_valid": {
+          "name": "anamnesis_versions_origin_valid",
+          "value": "\"anamnesis_versions\".\"origin\" in ('created', 'edited', 'restored')"
+        },
+        "anamnesis_versions_restore_valid": {
+          "name": "anamnesis_versions_restore_valid",
+          "value": "\"anamnesis_versions\".\"origin\" <> 'restored' or \"anamnesis_versions\".\"restored_from_version\" is not null"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.applied_anamneses": {
+      "name": "applied_anamneses",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "followup_id": {
+          "name": "followup_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "anamnesis_id": {
+          "name": "anamnesis_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_snapshot": {
+          "name": "title_snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "schema_snapshot": {
+          "name": "schema_snapshot",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "required": {
+          "name": "required",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "submitted_at": {
+          "name": "submitted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valid_until": {
+          "name": "valid_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "applied_anamneses_tenant_patient_fk": {
+          "name": "applied_anamneses_tenant_patient_fk",
+          "tableFrom": "applied_anamneses",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "tenant_id",
+            "patient_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "applied_anamneses_tenant_followup_patient_fk": {
+          "name": "applied_anamneses_tenant_followup_patient_fk",
+          "tableFrom": "applied_anamneses",
+          "tableTo": "followups",
+          "columnsFrom": [
+            "tenant_id",
+            "followup_id",
+            "patient_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id",
+            "patient_id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "applied_anamneses_tenant_anamnesis_fk": {
+          "name": "applied_anamneses_tenant_anamnesis_fk",
+          "tableFrom": "applied_anamneses",
+          "tableTo": "anamneses",
+          "columnsFrom": [
+            "tenant_id",
+            "anamnesis_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "applied_anamneses_version_positive": {
+          "name": "applied_anamneses_version_positive",
+          "value": "\"applied_anamneses\".\"version\" >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.combo_items": {
+      "name": "combo_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "combo_id": {
+          "name": "combo_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "procedure_id": {
+          "name": "procedure_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sessions": {
+          "name": "sessions",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_override_cents": {
+          "name": "price_override_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "combo_items_tenant_combo_fk": {
+          "name": "combo_items_tenant_combo_fk",
+          "tableFrom": "combo_items",
+          "tableTo": "combos",
+          "columnsFrom": [
+            "tenant_id",
+            "combo_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "combo_items_tenant_procedure_fk": {
+          "name": "combo_items_tenant_procedure_fk",
+          "tableFrom": "combo_items",
+          "tableTo": "procedures",
+          "columnsFrom": [
+            "tenant_id",
+            "procedure_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "combo_items_tenant_combo_procedure_unique": {
+          "name": "combo_items_tenant_combo_procedure_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "combo_id",
+            "procedure_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "combo_items_sessions_positive": {
+          "name": "combo_items_sessions_positive",
+          "value": "\"combo_items\".\"sessions\" >= 1"
+        },
+        "combo_items_price_nonnegative": {
+          "name": "combo_items_price_nonnegative",
+          "value": "\"combo_items\".\"price_override_cents\" is null or \"combo_items\".\"price_override_cents\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.combos": {
+      "name": "combos",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "price_cents": {
+          "name": "price_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "promotional_price_cents": {
+          "name": "promotional_price_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valid_from": {
+          "name": "valid_from",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "valid_until": {
+          "name": "valid_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "require_new_anamnesis": {
+          "name": "require_new_anamnesis",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "combos_tenant_fk": {
+          "name": "combos_tenant_fk",
+          "tableFrom": "combos",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "combos_tenant_id_unique": {
+          "name": "combos_tenant_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "combos_name_not_empty": {
+          "name": "combos_name_not_empty",
+          "value": "length(trim(\"combos\".\"name\")) >= 2"
+        },
+        "combos_prices_valid": {
+          "name": "combos_prices_valid",
+          "value": "\"combos\".\"price_cents\" >= 0 and (\"combos\".\"promotional_price_cents\" is null or (\"combos\".\"promotional_price_cents\" >= 0 and \"combos\".\"promotional_price_cents\" <= \"combos\".\"price_cents\"))"
+        },
+        "combos_validity_order": {
+          "name": "combos_validity_order",
+          "value": "\"combos\".\"valid_until\" is null or \"combos\".\"valid_from\" is null or \"combos\".\"valid_until\" >= \"combos\".\"valid_from\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.contract_versions": {
+      "name": "contract_versions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contract_id": {
+          "name": "contract_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content": {
+          "name": "content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_object_key": {
+          "name": "source_object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "origin": {
+          "name": "origin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'created'"
+        },
+        "restored_from_version": {
+          "name": "restored_from_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "contract_versions_tenant_contract_fk": {
+          "name": "contract_versions_tenant_contract_fk",
+          "tableFrom": "contract_versions",
+          "tableTo": "contracts",
+          "columnsFrom": [
+            "tenant_id",
+            "contract_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "contract_versions_tenant_parent_version_unique": {
+          "name": "contract_versions_tenant_parent_version_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "contract_id",
+            "version"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "contract_versions_origin_valid": {
+          "name": "contract_versions_origin_valid",
+          "value": "\"contract_versions\".\"origin\" in ('created', 'edited', 'restored')"
+        },
+        "contract_versions_content_or_object": {
+          "name": "contract_versions_content_or_object",
+          "value": "\"contract_versions\".\"content\" is not null or \"contract_versions\".\"source_object_key\" is not null"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.contracts": {
+      "name": "contracts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "procedure_id": {
+          "name": "procedure_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "combo_id": {
+          "name": "combo_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "current_version": {
+          "name": "current_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "contracts_tenant_fk": {
+          "name": "contracts_tenant_fk",
+          "tableFrom": "contracts",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "contracts_tenant_procedure_fk": {
+          "name": "contracts_tenant_procedure_fk",
+          "tableFrom": "contracts",
+          "tableTo": "procedures",
+          "columnsFrom": [
+            "tenant_id",
+            "procedure_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "contracts_tenant_combo_fk": {
+          "name": "contracts_tenant_combo_fk",
+          "tableFrom": "contracts",
+          "tableTo": "combos",
+          "columnsFrom": [
+            "tenant_id",
+            "combo_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "contracts_tenant_id_unique": {
+          "name": "contracts_tenant_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "contracts_kind_valid": {
+          "name": "contracts_kind_valid",
+          "value": "\"contracts\".\"kind\" in ('standard', 'procedure', 'combo')"
+        },
+        "contracts_target_valid": {
+          "name": "contracts_target_valid",
+          "value": "(\"contracts\".\"kind\" = 'standard' and \"contracts\".\"procedure_id\" is null and \"contracts\".\"combo_id\" is null) or (\"contracts\".\"kind\" = 'procedure' and \"contracts\".\"procedure_id\" is not null and \"contracts\".\"combo_id\" is null) or (\"contracts\".\"kind\" = 'combo' and \"contracts\".\"combo_id\" is not null and \"contracts\".\"procedure_id\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.followup_contracts": {
+      "name": "followup_contracts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "followup_id": {
+          "name": "followup_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contract_id": {
+          "name": "contract_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contract_version": {
+          "name": "contract_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title_snapshot": {
+          "name": "title_snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_ciphertext": {
+          "name": "content_ciphertext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "content_nonce": {
+          "name": "content_nonce",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "content_key_version": {
+          "name": "content_key_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_object_key": {
+          "name": "source_object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "required": {
+          "name": "required",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "patient_signed_at": {
+          "name": "patient_signed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "professional_signed_at": {
+          "name": "professional_signed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "followup_contracts_tenant_followup_fk": {
+          "name": "followup_contracts_tenant_followup_fk",
+          "tableFrom": "followup_contracts",
+          "tableTo": "followups",
+          "columnsFrom": [
+            "tenant_id",
+            "followup_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "followup_contracts_tenant_contract_fk": {
+          "name": "followup_contracts_tenant_contract_fk",
+          "tableFrom": "followup_contracts",
+          "tableTo": "contracts",
+          "columnsFrom": [
+            "tenant_id",
+            "contract_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "followup_contracts_tenant_id_unique": {
+          "name": "followup_contracts_tenant_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "followup_contracts_version_positive": {
+          "name": "followup_contracts_version_positive",
+          "value": "\"followup_contracts\".\"contract_version\" >= 1"
+        },
+        "followup_contracts_status_valid": {
+          "name": "followup_contracts_status_valid",
+          "value": "\"followup_contracts\".\"status\" in ('pending', 'signed', 'cancelled')"
+        },
+        "followup_contracts_content_protected": {
+          "name": "followup_contracts_content_protected",
+          "value": "(\"followup_contracts\".\"content_ciphertext\" is null and \"followup_contracts\".\"content_nonce\" is null and \"followup_contracts\".\"content_key_version\" is null) or (\"followup_contracts\".\"content_ciphertext\" is not null and \"followup_contracts\".\"content_nonce\" is not null and \"followup_contracts\".\"content_key_version\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.followup_items": {
+      "name": "followup_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "followup_id": {
+          "name": "followup_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "procedure_id": {
+          "name": "procedure_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "procedure_name": {
+          "name": "procedure_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sessions_total": {
+          "name": "sessions_total",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sessions_performed": {
+          "name": "sessions_performed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "duration_minutes": {
+          "name": "duration_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_cents": {
+          "name": "price_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "session_schema": {
+          "name": "session_schema",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "followup_items_tenant_followup_fk": {
+          "name": "followup_items_tenant_followup_fk",
+          "tableFrom": "followup_items",
+          "tableTo": "followups",
+          "columnsFrom": [
+            "tenant_id",
+            "followup_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "followup_items_tenant_procedure_fk": {
+          "name": "followup_items_tenant_procedure_fk",
+          "tableFrom": "followup_items",
+          "tableTo": "procedures",
+          "columnsFrom": [
+            "tenant_id",
+            "procedure_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "followup_items_sessions_positive": {
+          "name": "followup_items_sessions_positive",
+          "value": "\"followup_items\".\"sessions_total\" >= 1"
+        },
+        "followup_items_performed_valid": {
+          "name": "followup_items_performed_valid",
+          "value": "\"followup_items\".\"sessions_performed\" between 0 and \"followup_items\".\"sessions_total\""
+        },
+        "followup_items_duration_positive": {
+          "name": "followup_items_duration_positive",
+          "value": "\"followup_items\".\"duration_minutes\" >= 1"
+        },
+        "followup_items_price_nonnegative": {
+          "name": "followup_items_price_nonnegative",
+          "value": "\"followup_items\".\"price_cents\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.followup_snapshots": {
+      "name": "followup_snapshots",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "followup_id": {
+          "name": "followup_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_version": {
+          "name": "source_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "followup_snapshots_tenant_followup_fk": {
+          "name": "followup_snapshots_tenant_followup_fk",
+          "tableFrom": "followup_snapshots",
+          "tableTo": "followups",
+          "columnsFrom": [
+            "tenant_id",
+            "followup_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "followup_snapshots_tenant_id_followup_id_kind_pk": {
+          "name": "followup_snapshots_tenant_id_followup_id_kind_pk",
+          "columns": [
+            "tenant_id",
+            "followup_id",
+            "kind"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "followup_snapshots_kind_valid": {
+          "name": "followup_snapshots_kind_valid",
+          "value": "\"followup_snapshots\".\"kind\" in ('combo', 'plan')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.followups": {
+      "name": "followups",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "offer_type": {
+          "name": "offer_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "offer_id": {
+          "name": "offer_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "combo_id": {
+          "name": "combo_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "plan_id": {
+          "name": "plan_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "plan_version_id": {
+          "name": "plan_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "offer_name_snapshot": {
+          "name": "offer_name_snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_cents": {
+          "name": "price_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "valid_until": {
+          "name": "valid_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancellation_reason": {
+          "name": "cancellation_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cancelled_at": {
+          "name": "cancelled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "followups_live_offer_unique": {
+          "name": "followups_live_offer_unique",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "offer_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "offer_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"followups\".\"status\" not in ('completed', 'cancelled')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "followups_patient_created_idx": {
+          "name": "followups_patient_created_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "followups_tenant_patient_fk": {
+          "name": "followups_tenant_patient_fk",
+          "tableFrom": "followups",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "tenant_id",
+            "patient_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "followups_tenant_combo_fk": {
+          "name": "followups_tenant_combo_fk",
+          "tableFrom": "followups",
+          "tableTo": "combos",
+          "columnsFrom": [
+            "tenant_id",
+            "combo_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "followups_tenant_plan_fk": {
+          "name": "followups_tenant_plan_fk",
+          "tableFrom": "followups",
+          "tableTo": "plans",
+          "columnsFrom": [
+            "tenant_id",
+            "plan_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "followups_tenant_plan_version_fk": {
+          "name": "followups_tenant_plan_version_fk",
+          "tableFrom": "followups",
+          "tableTo": "plan_versions",
+          "columnsFrom": [
+            "tenant_id",
+            "plan_id",
+            "plan_version_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "plan_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "followups_tenant_id_unique": {
+          "name": "followups_tenant_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        },
+        "followups_tenant_id_patient_unique": {
+          "name": "followups_tenant_id_patient_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id",
+            "patient_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "followups_offer_type_valid": {
+          "name": "followups_offer_type_valid",
+          "value": "\"followups\".\"offer_type\" in ('procedure', 'combo', 'plan')"
+        },
+        "followups_offer_target_valid": {
+          "name": "followups_offer_target_valid",
+          "value": "(\"followups\".\"offer_type\" = 'procedure' and \"followups\".\"combo_id\" is null and \"followups\".\"plan_id\" is null and \"followups\".\"plan_version_id\" is null) or (\"followups\".\"offer_type\" = 'combo' and \"followups\".\"combo_id\" = \"followups\".\"offer_id\" and \"followups\".\"plan_id\" is null and \"followups\".\"plan_version_id\" is null) or (\"followups\".\"offer_type\" = 'plan' and \"followups\".\"plan_id\" = \"followups\".\"offer_id\" and \"followups\".\"combo_id\" is null and \"followups\".\"plan_version_id\" is not null)"
+        },
+        "followups_status_valid": {
+          "name": "followups_status_valid",
+          "value": "\"followups\".\"status\" in ('idle', 'active', 'completed', 'cancelled')"
+        },
+        "followups_price_nonnegative": {
+          "name": "followups_price_nonnegative",
+          "value": "\"followups\".\"price_cents\" >= 0"
+        },
+        "followups_cancelled_state_valid": {
+          "name": "followups_cancelled_state_valid",
+          "value": "(\"followups\".\"status\" = 'cancelled' and \"followups\".\"cancelled_at\" is not null and \"followups\".\"completed_at\" is null and \"followups\".\"cancellation_reason\" is not null and length(trim(\"followups\".\"cancellation_reason\")) > 0) or (\"followups\".\"status\" <> 'cancelled' and \"followups\".\"cancelled_at\" is null and \"followups\".\"cancellation_reason\" is null)"
+        },
+        "followups_completed_state_valid": {
+          "name": "followups_completed_state_valid",
+          "value": "(\"followups\".\"status\" = 'completed' and \"followups\".\"completed_at\" is not null and \"followups\".\"cancelled_at\" is null and \"followups\".\"cancellation_reason\" is null) or (\"followups\".\"status\" <> 'completed' and \"followups\".\"completed_at\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.patient_pending_operations": {
+      "name": "patient_pending_operations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "patient_id": {
+          "name": "patient_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "resolved_at": {
+          "name": "resolved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "patient_pending_operations_patient_idx": {
+          "name": "patient_pending_operations_patient_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "patient_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "patient_pending_operations_tenant_id_tenants_id_fk": {
+          "name": "patient_pending_operations_tenant_id_tenants_id_fk",
+          "tableFrom": "patient_pending_operations",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "patient_pending_operations_tenant_patient_fk": {
+          "name": "patient_pending_operations_tenant_patient_fk",
+          "tableFrom": "patient_pending_operations",
+          "tableTo": "patients",
+          "columnsFrom": [
+            "tenant_id",
+            "patient_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "patient_pending_operations_kind_not_empty": {
+          "name": "patient_pending_operations_kind_not_empty",
+          "value": "length(trim(\"patient_pending_operations\".\"kind\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.patients": {
+      "name": "patients",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "full_name": {
+          "name": "full_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email_ciphertext": {
+          "name": "email_ciphertext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email_nonce": {
+          "name": "email_nonce",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email_search_hash": {
+          "name": "email_search_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email_search_key_version": {
+          "name": "email_search_key_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email_key_version": {
+          "name": "email_key_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone_ciphertext": {
+          "name": "phone_ciphertext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone_nonce": {
+          "name": "phone_nonce",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone_search_hash": {
+          "name": "phone_search_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone_search_key_version": {
+          "name": "phone_search_key_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone_key_version": {
+          "name": "phone_key_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cpf_ciphertext": {
+          "name": "cpf_ciphertext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cpf_nonce": {
+          "name": "cpf_nonce",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cpf_search_hash": {
+          "name": "cpf_search_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cpf_search_key_version": {
+          "name": "cpf_search_key_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cpf_key_version": {
+          "name": "cpf_key_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes_ciphertext": {
+          "name": "notes_ciphertext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes_nonce": {
+          "name": "notes_nonce",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes_key_version": {
+          "name": "notes_key_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "deleted_at": {
+          "name": "deleted_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "patients_tenant_full_name_trgm": {
+          "name": "patients_tenant_full_name_trgm",
+          "columns": [
+            {
+              "expression": "full_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "gin",
+          "with": {}
+        },
+        "patients_tenant_id_idx": {
+          "name": "patients_tenant_id_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "patients_active_email_unique": {
+          "name": "patients_active_email_unique",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "email_search_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"patients\".\"deleted_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "patients_active_phone_unique": {
+          "name": "patients_active_phone_unique",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "phone_search_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"patients\".\"deleted_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "patients_active_cpf_unique": {
+          "name": "patients_active_cpf_unique",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "cpf_search_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"patients\".\"deleted_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "patients_tenant_id_tenants_id_fk": {
+          "name": "patients_tenant_id_tenants_id_fk",
+          "tableFrom": "patients",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "patients_tenant_id_unique": {
+          "name": "patients_tenant_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "patients_full_name_not_empty": {
+          "name": "patients_full_name_not_empty",
+          "value": "length(trim(\"patients\".\"full_name\")) >= 2"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.payments": {
+      "name": "payments",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "followup_id": {
+          "name": "followup_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount_cents": {
+          "name": "amount_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "method": {
+          "name": "method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "installments": {
+          "name": "installments",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "received_at": {
+          "name": "received_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "notes_ciphertext": {
+          "name": "notes_ciphertext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes_nonce": {
+          "name": "notes_nonce",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes_key_version": {
+          "name": "notes_key_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "payments_tenant_followup_fk": {
+          "name": "payments_tenant_followup_fk",
+          "tableFrom": "payments",
+          "tableTo": "followups",
+          "columnsFrom": [
+            "tenant_id",
+            "followup_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "payments_tenant_id_unique": {
+          "name": "payments_tenant_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        },
+        "payments_idempotency_unique": {
+          "name": "payments_idempotency_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "followup_id",
+            "idempotency_key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "payments_amount_positive": {
+          "name": "payments_amount_positive",
+          "value": "\"payments\".\"amount_cents\" > 0"
+        },
+        "payments_installments_positive": {
+          "name": "payments_installments_positive",
+          "value": "\"payments\".\"installments\" >= 1"
+        },
+        "payments_method_valid": {
+          "name": "payments_method_valid",
+          "value": "\"payments\".\"method\" in ('cash', 'pix', 'credit_card')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.plan_version_contracts": {
+      "name": "plan_version_contracts",
+      "schema": "",
+      "columns": {
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plan_version_id": {
+          "name": "plan_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contract_id": {
+          "name": "contract_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contract_version": {
+          "name": "contract_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_snapshot": {
+          "name": "content_snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_object_key": {
+          "name": "source_object_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "plan_version_contracts_tenant_version_fk": {
+          "name": "plan_version_contracts_tenant_version_fk",
+          "tableFrom": "plan_version_contracts",
+          "tableTo": "plan_versions",
+          "columnsFrom": [
+            "tenant_id",
+            "plan_version_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "plan_version_contracts_tenant_contract_fk": {
+          "name": "plan_version_contracts_tenant_contract_fk",
+          "tableFrom": "plan_version_contracts",
+          "tableTo": "contracts",
+          "columnsFrom": [
+            "tenant_id",
+            "contract_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "plan_version_contracts_tenant_id_plan_version_id_contract_id_pk": {
+          "name": "plan_version_contracts_tenant_id_plan_version_id_contract_id_pk",
+          "columns": [
+            "tenant_id",
+            "plan_version_id",
+            "contract_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "plan_version_contracts_version_positive": {
+          "name": "plan_version_contracts_version_positive",
+          "value": "\"plan_version_contracts\".\"contract_version\" >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.plan_version_items": {
+      "name": "plan_version_items",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plan_version_id": {
+          "name": "plan_version_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "procedure_id": {
+          "name": "procedure_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sessions": {
+          "name": "sessions",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "procedure_name": {
+          "name": "procedure_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "duration_minutes": {
+          "name": "duration_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_cents": {
+          "name": "price_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "session_schema": {
+          "name": "session_schema",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "plan_version_items_tenant_version_fk": {
+          "name": "plan_version_items_tenant_version_fk",
+          "tableFrom": "plan_version_items",
+          "tableTo": "plan_versions",
+          "columnsFrom": [
+            "tenant_id",
+            "plan_version_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "plan_version_items_tenant_procedure_fk": {
+          "name": "plan_version_items_tenant_procedure_fk",
+          "tableFrom": "plan_version_items",
+          "tableTo": "procedures",
+          "columnsFrom": [
+            "tenant_id",
+            "procedure_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "plan_version_items_sessions_positive": {
+          "name": "plan_version_items_sessions_positive",
+          "value": "\"plan_version_items\".\"sessions\" >= 1"
+        },
+        "plan_version_items_duration_positive": {
+          "name": "plan_version_items_duration_positive",
+          "value": "\"plan_version_items\".\"duration_minutes\" >= 1"
+        },
+        "plan_version_items_price_nonnegative": {
+          "name": "plan_version_items_price_nonnegative",
+          "value": "\"plan_version_items\".\"price_cents\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.plan_versions": {
+      "name": "plan_versions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "plan_id": {
+          "name": "plan_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "price_cents": {
+          "name": "price_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "duration_days": {
+          "name": "duration_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "validity_days": {
+          "name": "validity_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "require_new_anamnesis": {
+          "name": "require_new_anamnesis",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "plan_versions_tenant_plan_fk": {
+          "name": "plan_versions_tenant_plan_fk",
+          "tableFrom": "plan_versions",
+          "tableTo": "plans",
+          "columnsFrom": [
+            "tenant_id",
+            "plan_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "plan_versions_tenant_id_unique": {
+          "name": "plan_versions_tenant_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        },
+        "plan_versions_tenant_plan_id_unique": {
+          "name": "plan_versions_tenant_plan_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "plan_id",
+            "id"
+          ]
+        },
+        "plan_versions_tenant_parent_version_unique": {
+          "name": "plan_versions_tenant_parent_version_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "plan_id",
+            "version"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "plan_versions_price_nonnegative": {
+          "name": "plan_versions_price_nonnegative",
+          "value": "\"plan_versions\".\"price_cents\" >= 0"
+        },
+        "plan_versions_duration_positive": {
+          "name": "plan_versions_duration_positive",
+          "value": "\"plan_versions\".\"duration_days\" is null or \"plan_versions\".\"duration_days\" >= 1"
+        },
+        "plan_versions_validity_positive": {
+          "name": "plan_versions_validity_positive",
+          "value": "\"plan_versions\".\"validity_days\" is null or \"plan_versions\".\"validity_days\" >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.plans": {
+      "name": "plans",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "current_version": {
+          "name": "current_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "plans_tenant_fk": {
+          "name": "plans_tenant_fk",
+          "tableFrom": "plans",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "plans_tenant_id_unique": {
+          "name": "plans_tenant_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "plans_name_not_empty": {
+          "name": "plans_name_not_empty",
+          "value": "length(trim(\"plans\".\"name\")) >= 2"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.procedure_versions": {
+      "name": "procedure_versions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "procedure_id": {
+          "name": "procedure_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "session_schema": {
+          "name": "session_schema",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "procedure_versions_lookup_idx": {
+          "name": "procedure_versions_lookup_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "procedure_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "procedure_versions_tenant_procedure_fk": {
+          "name": "procedure_versions_tenant_procedure_fk",
+          "tableFrom": "procedure_versions",
+          "tableTo": "procedures",
+          "columnsFrom": [
+            "tenant_id",
+            "procedure_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "procedure_versions_tenant_procedure_version_unique": {
+          "name": "procedure_versions_tenant_procedure_version_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "procedure_id",
+            "version"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.procedures": {
+      "name": "procedures",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "base_sessions": {
+          "name": "base_sessions",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duration_minutes": {
+          "name": "duration_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 60
+        },
+        "standalone": {
+          "name": "standalone",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "price_cents": {
+          "name": "price_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "session_schema": {
+          "name": "session_schema",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "require_new_anamnesis": {
+          "name": "require_new_anamnesis",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "current_version": {
+          "name": "current_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "procedures_tenant_active_idx": {
+          "name": "procedures_tenant_active_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "procedures_tenant_fk": {
+          "name": "procedures_tenant_fk",
+          "tableFrom": "procedures",
+          "tableTo": "tenants",
+          "columnsFrom": [
+            "tenant_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "procedures_tenant_id_unique": {
+          "name": "procedures_tenant_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "procedures_name_not_empty": {
+          "name": "procedures_name_not_empty",
+          "value": "length(trim(\"procedures\".\"name\")) >= 2"
+        },
+        "procedures_duration_positive": {
+          "name": "procedures_duration_positive",
+          "value": "\"procedures\".\"duration_minutes\" between 1 and 1440"
+        },
+        "procedures_price_nonnegative": {
+          "name": "procedures_price_nonnegative",
+          "value": "\"procedures\".\"price_cents\" >= 0"
+        },
+        "procedures_base_sessions_positive": {
+          "name": "procedures_base_sessions_positive",
+          "value": "\"procedures\".\"base_sessions\" is null or \"procedures\".\"base_sessions\" >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.signature_events": {
+      "name": "signature_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "participant_id": {
+          "name": "participant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision_id": {
+          "name": "revision_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "signature_events_participant_idx": {
+          "name": "signature_events_participant_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "participant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "occurred_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "signature_events_tenant_participant_fk": {
+          "name": "signature_events_tenant_participant_fk",
+          "tableFrom": "signature_events",
+          "tableTo": "signature_participants",
+          "columnsFrom": [
+            "tenant_id",
+            "participant_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "signature_events_tenant_revision_fk": {
+          "name": "signature_events_tenant_revision_fk",
+          "tableFrom": "signature_events",
+          "tableTo": "signature_revisions",
+          "columnsFrom": [
+            "tenant_id",
+            "revision_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.signature_participants": {
+      "name": "signature_participants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "process_id": {
+          "name": "process_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "signed_at": {
+          "name": "signed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "latest_revision": {
+          "name": "latest_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "signature_participants_tenant_process_fk": {
+          "name": "signature_participants_tenant_process_fk",
+          "tableFrom": "signature_participants",
+          "tableTo": "signature_processes",
+          "columnsFrom": [
+            "tenant_id",
+            "process_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "signature_participants_role_unique": {
+          "name": "signature_participants_role_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "process_id",
+            "role"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "signature_participants_role_valid": {
+          "name": "signature_participants_role_valid",
+          "value": "\"signature_participants\".\"role\" in ('patient', 'professional')"
+        },
+        "signature_participants_status_valid": {
+          "name": "signature_participants_status_valid",
+          "value": "\"signature_participants\".\"status\" in ('pending', 'signed', 'revoked')"
+        },
+        "signature_participants_state_valid": {
+          "name": "signature_participants_state_valid",
+          "value": "(\"signature_participants\".\"status\" = 'signed' and \"signature_participants\".\"signed_at\" is not null) or (\"signature_participants\".\"status\" <> 'signed' and \"signature_participants\".\"signed_at\" is null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.signature_processes": {
+      "name": "signature_processes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "followup_contract_id": {
+          "name": "followup_contract_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "signature_processes_tenant_contract_fk": {
+          "name": "signature_processes_tenant_contract_fk",
+          "tableFrom": "signature_processes",
+          "tableTo": "followup_contracts",
+          "columnsFrom": [
+            "tenant_id",
+            "followup_contract_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "signature_processes_tenant_contract_unique": {
+          "name": "signature_processes_tenant_contract_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "followup_contract_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "signature_processes_status_valid": {
+          "name": "signature_processes_status_valid",
+          "value": "\"signature_processes\".\"status\" in ('pending', 'completed', 'cancelled')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.signature_revisions": {
+      "name": "signature_revisions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "participant_id": {
+          "name": "participant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "evidence_ciphertext": {
+          "name": "evidence_ciphertext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "evidence_nonce": {
+          "name": "evidence_nonce",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "evidence_key_version": {
+          "name": "evidence_key_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "signature_revisions_tenant_participant_fk": {
+          "name": "signature_revisions_tenant_participant_fk",
+          "tableFrom": "signature_revisions",
+          "tableTo": "signature_participants",
+          "columnsFrom": [
+            "tenant_id",
+            "participant_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "signature_revisions_number_unique": {
+          "name": "signature_revisions_number_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "participant_id",
+            "revision"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "signature_revisions_positive": {
+          "name": "signature_revisions_positive",
+          "value": "\"signature_revisions\".\"revision\" >= 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.signature_tokens": {
+      "name": "signature_tokens",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "tenant_id": {
+          "name": "tenant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "participant_id": {
+          "name": "participant_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "signature_tokens_active_idx": {
+          "name": "signature_tokens_active_idx",
+          "columns": [
+            {
+              "expression": "tenant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "participant_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "signature_tokens_tenant_participant_fk": {
+          "name": "signature_tokens_tenant_participant_fk",
+          "tableFrom": "signature_tokens",
+          "tableTo": "signature_participants",
+          "columnsFrom": [
+            "tenant_id",
+            "participant_id"
+          ],
+          "columnsTo": [
+            "tenant_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "signature_tokens_hash_unique": {
+          "name": "signature_tokens_hash_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "tenant_id",
+            "token_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "signature_tokens_hash_not_empty": {
+          "name": "signature_tokens_hash_not_empty",
+          "value": "length(\"signature_tokens\".\"token_hash\") >= 64"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.tenants": {
+      "name": "tenants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "tenants_id_unique": {
+          "name": "tenants_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "tenants_name_not_empty": {
+          "name": "tenants_name_not_empty",
+          "value": "length(trim(\"tenants\".\"name\")) > 0"
+        }
+      },
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

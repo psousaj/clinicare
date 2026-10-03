@@ -7,9 +7,10 @@ import { DEFAULT_TENANT_ID, createPatient, deactivatePatient, getPatient, isUuid
 import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, associateAnamnesis, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan } from './catalog';
 import { buildRelationship } from './relationship';
 import { createFollowup, getFollowup, listFollowups, cancelFollowup, updateFollowupState } from './followups';
+import { listPendingSignatures, readSignatureToken, refreshSignatureToken, signWithToken } from './signatures';
 import { uploadUrl, uploadUrlForDocument, downloadUrl, deleteObject } from './storage';
 
-const fail = (c: Context, message: string, status: 400 | 404 | 409 | 503 = 400) => c.json({ error: message }, status);
+const fail = (c: Context, message: string, status: 400 | 403 | 404 | 409 | 503 = 400) => c.json({ error: message }, status);
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 const validEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const isRecord = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -18,7 +19,7 @@ const validDuration = (value: unknown) => Number.isInteger(value) && (value as n
 const expiry = (days: number) => new Date(Date.now() + days * 86400000);
 const handleError = (c: Context, error: unknown) => {
   const explicitStatus = error && typeof error === 'object' && 'status' in error ? (error as { status: number }).status : undefined;
-  if (explicitStatus && [400, 404, 409].includes(explicitStatus) && error instanceof Error) return c.json({ error: error.message }, explicitStatus as 400 | 404 | 409);
+  if (explicitStatus && [400, 403, 404, 409].includes(explicitStatus) && error instanceof Error) return c.json({ error: error.message }, explicitStatus as 400 | 403 | 404 | 409);
   const errorCode = error && typeof error === 'object' && 'code' in error ? (error as { code: string | number }).code : undefined;
   const causeCode = error instanceof Error && error.cause && typeof error.cause === 'object' && 'code' in error.cause ? (error.cause as { code: string | number }).code : undefined;
   if ([errorCode, causeCode].includes('23505') || [errorCode, causeCode].includes(11000)) return c.json({ error: 'Este registro já existe.' }, 409);
@@ -213,6 +214,10 @@ export const app = new Hono()
     const result = await getFollowup(tenantId, c.req.param('id'));
     return result ? c.json(result) : fail(c, 'Acompanhamento não encontrado.', 404);
   })
+  .get('/api/signature-pending', async (c) => { try { return c.json(await listPendingSignatures(await catalogTenant(c.req))); } catch (error) { return handleError(c, error); } })
+  .get('/public/signatures/:token', async (c) => { try { return c.json(await readSignatureToken(c.req.param('token'))); } catch (error) { return handleError(c, error); } })
+  .post('/public/signatures/:token/confirm', async (c) => { try { return c.json(await signWithToken(c.req.param('token'), (await c.req.json().catch(() => ({}))).evidence)); } catch (error) { return handleError(c, error); } })
+  .post('/api/signature-participants/:id/refresh', async (c) => { if (!isUuid(c.req.param('id'))) return fail(c, 'Participante inválido.'); try { return c.json(await refreshSignatureToken(await catalogTenant(c.req), c.req.param('id'))); } catch (error) { return handleError(c, error); } })
   .post('/api/followups/:id/cancel', async (c) => {
     const tenantId = await catalogTenant(c.req);
     if (!isUuid(c.req.param('id'))) return fail(c, 'Acompanhamento inválido.');

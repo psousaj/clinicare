@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
 import { app } from './app';
-import { closeDatabase, getDatabase, migrateDatabase, patients, procedures, combos, comboItems, followups, followupItems, followupSnapshots, followupContracts, signatureProcesses, appliedAnamneses, payments, tenants, plans, planVersions, planVersionItems, planVersionContracts, contracts, contractVersions, anamneses, anamnesisVersions, anamnesisProcedures } from '@clinicare/db';
+import { closeDatabase, getDatabase, migrateDatabase, patients, procedures, combos, comboItems, followups, followupItems, followupSnapshots, followupContracts, signatureProcesses, signatureParticipants, signatureRevisions, signatureEvents, signatureTokens, appliedAnamneses, payments, tenants, plans, planVersions, planVersionItems, planVersionContracts, contracts, contractVersions, anamneses, anamnesisVersions, anamnesisProcedures } from '@clinicare/db';
 
 const integration = process.env.DATABASE_URL ? describe : describe.skip;
 let tenantId: string;
@@ -22,7 +22,7 @@ integration('PostgreSQL followups', () => {
   });
   afterAll(async () => {
     const db = getDatabase();
-    for (const table of [payments, appliedAnamneses, signatureProcesses, followupContracts, followupSnapshots, followupItems, followups, planVersionContracts, planVersionItems, planVersions, plans, comboItems, combos, anamnesisProcedures, anamnesisVersions, anamneses, contractVersions, contracts, procedures, patients]) await db.delete(table).where(eq(table.tenantId, tenantId));
+    for (const table of [signatureEvents, signatureRevisions, signatureTokens, signatureParticipants, payments, appliedAnamneses, signatureProcesses, followupContracts, followupSnapshots, followupItems, followups, planVersionContracts, planVersionItems, planVersions, plans, comboItems, combos, anamnesisProcedures, anamnesisVersions, anamneses, contractVersions, contracts, procedures, patients]) await db.delete(table).where(eq((table as any).tenantId, tenantId));
     await db.delete(tenants).where(eq(tenants.id, tenantId));
     await db.delete(tenants).where(eq(tenants.id, otherTenantId));
     await closeDatabase();
@@ -86,7 +86,7 @@ integration('PostgreSQL followups', () => {
     await db.insert(planVersionItems).values({ tenantId, planVersionId: versionId, procedureId, sessions: 1, procedureName: 'Procedimento plano', durationMinutes: 30, priceCents: 100, sessionSchema: { type: 'object', properties: {} } });
     await db.insert(contracts).values({ id: contractId, tenantId, title: 'Contrato plano', kind: 'standard' });
     await db.insert(contractVersions).values({ id: contractVersionId, tenantId, contractId, version: 1, content: 'terms' });
-    await db.insert(planVersionContracts).values({ tenantId, planVersionId: versionId, contractId, contractVersion: 1, title: 'Contrato plano', contentSnapshot: 'terms' });
+    await db.insert(planVersionContracts).values({ tenantId, planVersionId: versionId, contractId, contractVersion: 1, title: 'Contrato plano' });
     const response = await post('/api/followups', { patientId, offerType: 'plan', offerId: planId });
     expect(response.status).toBe(201);
     const created = await response.json() as any;
@@ -95,6 +95,13 @@ integration('PostgreSQL followups', () => {
     const applied = await db.select().from(followupContracts).where(eq(followupContracts.followupId, created.id));
     expect(applied).toHaveLength(1);
     expect(await db.select().from(signatureProcesses).where(eq(signatureProcesses.followupContractId, applied[0]!.id))).toHaveLength(1);
+    const participants = await db.select().from(signatureParticipants).where(eq(signatureParticipants.tenantId, tenantId));
+    expect(participants).toHaveLength(2);
+    expect(created.signatureTokens).toBeDefined();
+    const patientToken = Object.values(created.signatureTokens)[0] as any;
+    expect(patientToken.patient.token).toMatch(/^[A-Za-z0-9_-]{40,}$/);
+    expect((await db.select().from(signatureTokens).where(eq(signatureTokens.participantId, participants.find((p) => p.role === 'patient')!.id)))[0]!.tokenHash).not.toBe(patientToken.patient.token);
+    expect((await db.execute(`select 1 from information_schema.columns where table_name = 'followup_contracts' and column_name = 'content_snapshot'`)).rows).toHaveLength(0);
     expect((await app.request(`/api/followups/${crypto.randomUUID()}`, { headers })).status).toBe(404);
   });
 

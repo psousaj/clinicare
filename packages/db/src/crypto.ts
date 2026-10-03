@@ -7,9 +7,11 @@ const TAG_BYTES = 16;
 
 type KeyKind = 'DATA_ENCRYPTION_KEY' | 'SEARCH_HMAC_KEY';
 
-function configuredKey(name: KeyKind, bytes: number): Buffer {
-  const raw = process.env[name];
-  if (!raw) throw new Error(`${name} is required to protect patient data.`);
+function configuredKey(name: KeyKind, bytes: number, version = 1): Buffer {
+  if (!Number.isInteger(version) || version < 1) throw new Error(`${name} key version is unsupported.`);
+  const keyName = name === 'DATA_ENCRYPTION_KEY' && version > 1 ? `${name}_${version}` : name;
+  const raw = process.env[keyName];
+  if (!raw) throw new Error(`${keyName} is required to protect patient data.`);
   let key: Buffer;
   key = Buffer.from(raw, 'base64');
   if (!key.length || !/^[A-Za-z0-9+/]+={0,2}$/.test(raw) || raw.replace(/=+$/, '').length % 4 === 1) {
@@ -22,11 +24,14 @@ function configuredKey(name: KeyKind, bytes: number): Buffer {
 export type EncryptedValue = { ciphertext: string; nonce: string; keyVersion: number };
 
 export function buildPatientAad(tenantId: string, recordId: string, column: string, keyVersion = ENCRYPTION_KEY_VERSION): Buffer {
-  return Buffer.from([tenantId, 'patients', recordId, column, String(keyVersion)].join(':'));
+  return buildProtectedAad(tenantId, 'patients', recordId, column, keyVersion);
+}
+export function buildProtectedAad(tenantId: string, table: string, recordId: string, column: string, keyVersion = ENCRYPTION_KEY_VERSION): Buffer {
+  return Buffer.from([tenantId, table, recordId, column, String(keyVersion)].join(':'));
 }
 
 export function encryptValue(value: string, aad: Buffer, keyVersion = ENCRYPTION_KEY_VERSION): EncryptedValue {
-  const key = configuredKey('DATA_ENCRYPTION_KEY', 32);
+  const key = configuredKey('DATA_ENCRYPTION_KEY', 32, keyVersion);
   const nonce = randomBytes(NONCE_BYTES);
   const cipher = createCipheriv('aes-256-gcm', key, nonce);
   cipher.setAAD(aad);
@@ -35,7 +40,7 @@ export function encryptValue(value: string, aad: Buffer, keyVersion = ENCRYPTION
 }
 
 export function decryptValue(value: EncryptedValue, aad: Buffer): string {
-  const key = configuredKey('DATA_ENCRYPTION_KEY', 32);
+  const key = configuredKey('DATA_ENCRYPTION_KEY', 32, value.keyVersion);
   const ciphertext = Buffer.from(value.ciphertext, 'base64');
   const nonce = Buffer.from(value.nonce, 'base64');
   if (ciphertext.length < TAG_BYTES || nonce.length !== NONCE_BYTES) throw new Error('Invalid encrypted value.');

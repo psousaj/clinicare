@@ -5,12 +5,17 @@ import { useState } from 'react';
 import { matchesPatient } from '@/components/PatientRow';
 import { QueryError } from '@/components/QueryState';
 import { dateTime, shortDate } from '@/lib/format';
-import { appointmentsQuery, patientsQuery, followupsQuery, proceduresQuery, attendancesQuery } from '@/lib/queries';
+import { appointmentsQuery, patientsQuery, followupsQuery, proceduresQuery, attendancesQuery, signaturePendingQuery } from '@/lib/queries';
 
 export const Route = createFileRoute('/_app/')({ component: Overview });
 
+function SignatureGroup({ title, description, items }: { title: string; description: string; items: Array<{ participantId: string; title: string; patient: { fullName: string } }> }) {
+  if (!items.length) return null;
+  return <section><h3 className="m-0 text-sm font-semibold">{title}</h3><p className="m-0 text-sm text-muted-foreground">{description}</p><ul className="m-0 mt-2 grid gap-2 pl-5">{items.map((item) => <li key={item.participantId}><strong>{item.title}</strong> · {item.patient.fullName}</li>)}</ul></section>;
+}
+
 function Overview() {
-  const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), appointments = useQuery(appointmentsQuery), followups = useQuery(followupsQuery), attendances = useQuery(attendancesQuery);
+  const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), appointments = useQuery(appointmentsQuery), followups = useQuery(followupsQuery), attendances = useQuery(attendancesQuery), signatures = useQuery(signaturePendingQuery);
   const [query, setQuery] = useState('');
   const patientList = patients.data ?? [], appointmentList = appointments.data ?? [];
   // Sessões já vêm da mais recente para a mais antiga; cada paciente aparece uma vez, na sua última sessão.
@@ -26,6 +31,7 @@ function Overview() {
   return (
     <>
       <QueryError query={patients} />
+      {signatures.data && signatures.data.length > 0 && <section className="panel mb-4"><div className="panel-header"><div><div className="section-kicker">ASSINATURAS PENDENTES</div><h2>Documentos que precisam de atenção</h2></div></div><div className="grid gap-4 text-sm"><SignatureGroup title="Bloqueiam a liberação" items={signatures.data.filter((item) => item.blocking)} description="O paciente precisa confirmar estes contratos antes de o plano ficar ativo." /><SignatureGroup title="Pendências administrativas" items={signatures.data.filter((item) => !item.blocking)} description="A assinatura profissional acompanha a documentação, mas não bloqueia a execução." /></div></section>}
       <section className="stats-grid">
         {stats.map(({ heading, icon: Icon, tone, value, suffix, foot }) => (
           <article className="stat-card" key={heading}>
