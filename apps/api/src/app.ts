@@ -2,8 +2,9 @@ import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { isValidObjectId } from 'mongoose';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { getDatabasePool, Appointment, Anamnesis, Contract, Combo, Patient, PatientAnamnesis, Payment, Followup, Plan, Procedure, Attendance } from '@clinicare/db';
+import { getDatabasePool, Anamnesis, Contract, Combo, Plan, Patient, PatientAnamnesis, Payment, Followup, Appointment, Attendance, Procedure } from '@clinicare/db';
 import { DEFAULT_TENANT_ID, createPatient, deactivatePatient, getPatient, isUuid, listPatients, patientActorFromRequest, updatePatient } from './patients';
+import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, associateAnamnesis, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan } from './catalog';
 import { buildRelationship } from './relationship';
 import { uploadUrl, uploadUrlForDocument, downloadUrl, deleteObject } from './storage';
 
@@ -18,8 +19,11 @@ const handleError = (c: Context, error: unknown) => {
   const errorCode = error && typeof error === 'object' && 'code' in error ? (error as { code: string | number }).code : undefined;
   const causeCode = error instanceof Error && error.cause && typeof error.cause === 'object' && 'code' in error.cause ? (error.cause as { code: string | number }).code : undefined;
   if ([errorCode, causeCode].includes('23505') || [errorCode, causeCode].includes(11000)) return c.json({ error: 'Este registro já existe.' }, 409);
+  if ([errorCode, causeCode].includes('23503') || [errorCode, causeCode].includes('23514') || [errorCode, causeCode].includes('22P02')) return c.json({ error: 'Dados inválidos ou referência não encontrada.' }, 400);
   if (error instanceof Error && error.name === 'ValidationError') return c.json({ error: error.message }, 400);
-  if (error instanceof Error && error.message === 'Tenant não encontrado.') return c.json({ error: error.message }, 404);
+  if (error instanceof Error && error.message === 'Tenant não encontrado.') return c.json({ error: error.message }, 400);
+  if (error instanceof Error && /^(Informe|Dados ou|Combo requer|Plano |Procedimento não|Contrato não|Versão não|Formulário inválido)/i.test(error.message)) return c.json({ error: error.message }, 400);
+  if (error instanceof Error && /conflito|versão desatualizada/i.test(error.message)) return c.json({ error: error.message }, 409);
   if (error instanceof Error && /^(DATA_ENCRYPTION_KEY|SEARCH_HMAC_KEY)/.test(error.message)) return c.json({ error: error.message }, 503);
   console.error(error);
   return c.json({ error: 'Ocorreu um erro inesperado.' }, 500);
@@ -173,165 +177,24 @@ export const app = new Hono()
     if (patient && 'conflict' in patient) return fail(c, patient.conflict, 409);
     return patient ? c.json(patient) : fail(c, 'Paciente não encontrado.', 404);
   })
-  .get('/api/procedures', async (c) => c.json(await Procedure.find().sort({ createdAt: -1 }).lean()))
-  .post('/api/procedures', async (c) => {
-    const body = await c.req.json().catch(() => null);
-    if (!body || typeof body.name !== 'string' || body.name.trim().length < 2 || !Number.isInteger(body.durationMinutes) || body.durationMinutes < 1 || (body.baseSessions != null && (!Number.isInteger(body.baseSessions) || body.baseSessions < 1)) || !Number.isSafeInteger(body.priceCents ?? 0) || (body.priceCents ?? 0) < 0 || !validSchema(body.sessionSchema ?? { type: 'object', properties: {} })) return fail(c, 'Dados ou formulário de procedimento inválidos.');
-    const { standalone: _legacyStandalone, ...data } = body;
-    const baseSessions = body.baseSessions ?? null;
-    return c.json(await Procedure.create({ ...data, baseSessions, standalone: baseSessions == null || baseSessions < 2, sessionSchema: body.sessionSchema ?? { type: 'object', properties: {} }, versions: [{ version: 1, sessionSchema: body.sessionSchema ?? { type: 'object', properties: {} } }] }), 201);
-  })
-  .put('/api/procedures/:id', async (c) => {
-    if (!isValidObjectId(c.req.param('id'))) return fail(c, 'Procedimento não encontrado.', 404);
-    const procedure = await Procedure.findById(c.req.param('id'));
-    if (!procedure) return fail(c, 'Procedimento não encontrado.', 404);
-    const body = await c.req.json().catch(() => null);
-    if (!isRecord(body)) return fail(c, 'Dados de procedimento inválidos.');
-    const has = (key: string) => body[key] !== undefined;
-    if ((has('name') && (typeof body.name !== 'string' || body.name.trim().length < 2)) || (has('baseSessions') && body.baseSessions != null && (!Number.isInteger(body.baseSessions) || body.baseSessions < 1)) || (has('durationMinutes') && (!Number.isInteger(body.durationMinutes) || body.durationMinutes < 1))
-      || (has('priceCents') && (!Number.isSafeInteger(body.priceCents) || body.priceCents < 0)) || (has('active') && typeof body.active !== 'boolean') || (has('requireNewAnamnesis') && typeof body.requireNewAnamnesis !== 'boolean') || (has('sessionSchema') && !validSchema(body.sessionSchema))) return fail(c, 'Dados de procedimento inválidos.');
-    if (has('sessionSchema') && JSON.stringify(body.sessionSchema) !== JSON.stringify(procedure.sessionSchema)) {
-      const versions = procedure.versions.map((version: any) => version.toObject());
-      versions.push({ version: (versions.at(-1)?.version ?? 0) + 1, sessionSchema: body.sessionSchema, createdAt: new Date() });
-      procedure.set('versions', versions);
-      procedure.markModified('versions');
-      procedure.set('sessionSchema', body.sessionSchema);
-      procedure.markModified('sessionSchema');
-    }
-    for (const key of ['name', 'description', 'baseSessions', 'durationMinutes', 'priceCents', 'active', 'requireNewAnamnesis']) if (has(key)) procedure.set(key, body[key]);
-    if (has('baseSessions')) procedure.set('standalone', body.baseSessions == null || body.baseSessions < 2);
-    await procedure.save(); return c.json(procedure.toObject());
-  })
-  .get('/api/anamneses', async (c) => c.json(await Anamnesis.find().sort({ createdAt: -1 }).lean()))
-  .post('/api/anamneses', async (c) => {
-    const body = await c.req.json().catch(() => null);
-    if (!body || typeof body.title !== 'string' || body.title.trim().length < 2 || !validSchema(body.schema)) return fail(c, 'Informe o nome e ao menos um campo válido.');
-    return c.json(await Anamnesis.create({ title: body.title, versions: [{ version: 1, schema: body.schema }], procedureIds: body.procedureIds ?? [], requiredByDefault: body.requiredByDefault !== false, validityMonths: Number.isInteger(body.validityMonths) && body.validityMonths > 0 ? body.validityMonths : 12 }), 201);
-  })
-  .patch('/api/anamneses/:id', async (c) => {
-    const body = await c.req.json().catch(() => null);
-    if (!isValidObjectId(c.req.param('id'))) return fail(c, 'Formulário de anamnese não encontrado.', 404);
-    if (typeof body?.title !== 'string' || body.title.trim().length < 2) return fail(c, 'Informe o nome do formulário.');
-    if (body.validityMonths !== undefined && (!Number.isInteger(body.validityMonths) || body.validityMonths < 1)) return fail(c, 'Validade deve ser um número inteiro de meses.');
-    const anamnesis = await Anamnesis.findByIdAndUpdate(c.req.param('id'), { title: body.title.trim(), ...(body.validityMonths !== undefined && { validityMonths: body.validityMonths }) }, { new: true, runValidators: true }).lean();
-    return anamnesis ? c.json(anamnesis) : fail(c, 'Formulário de anamnese não encontrado.', 404);
-  })
-  .post('/api/anamneses/:id/versions', async (c) => {
-    const anamnesis = isValidObjectId(c.req.param('id')) ? await Anamnesis.findById(c.req.param('id')) : null;
-    if (!anamnesis) return fail(c, 'Formulário de anamnese não encontrado.', 404);
-    const body = await c.req.json().catch(() => null);
-    const restoring = Number.isInteger(body?.restoreVersion);
-    const source = restoring ? anamnesis.versions.find((version: any) => version.version === body.restoreVersion) : null;
-    if (restoring && !source) return fail(c, 'Versão não encontrada.', 404);
-    const schema = source?.schema ?? body?.schema;
-    if (!validSchema(schema)) return fail(c, 'Formulário inválido.');
-    anamnesis.versions.push({ version: (anamnesis.versions.at(-1)?.version ?? 0) + 1, schema, origin: source ? 'restored' : 'edited', restoredFromVersion: source?.version ?? null, createdAt: new Date() }); await anamnesis.save();
-    return c.json(anamnesis.versions.at(-1), 201);
-  })
-  .put('/api/anamneses/:id/associations', async (c) => {
-    const anamnesis = await Anamnesis.findById(c.req.param('id'));
-    const body = await c.req.json().catch(() => null);
-    if (!anamnesis) return fail(c, 'Anamnese não encontrada.', 404);
-    if (!Array.isArray(body?.procedures)) return fail(c, 'Associações inválidas.');
-    for (const item of body.procedures) if (!await Procedure.exists({ _id: item.procedureId })) return fail(c, 'Procedimento não encontrado.', 404);
-    anamnesis.procedureIds = body.procedures.map((item: any) => item.procedureId);
-    anamnesis.requiredByDefault = body.procedures.some((item: any) => item.required); await anamnesis.save();
-    return c.json(anamnesis.toObject());
-  })
-  .get('/api/combos', async (c) => {
-    const combos = await Combo.find().populate({ path: 'items.procedureId', select: '+baseSessions' }).sort({ createdAt: -1 }).lean() as any[];
-    return c.json(combos.map((combo) => ({ ...combo, items: combo.items.map((item: any) => {
-      const procedure = item.procedureId && typeof item.procedureId === 'object' ? { ...item.procedureId } : item.procedureId;
-      const sessions = item.sessions ?? item.sessionsOverride ?? legacySessions(procedure);
-      if (procedure && typeof procedure === 'object') delete procedure.baseSessions;
-      return { ...item, procedureId: procedure, sessions };
-    }) })));
-  })
-  .post('/api/combos', async (c) => {
-    const body = await c.req.json().catch(() => null);
-    if (!body || typeof body.name !== 'string' || !Number.isSafeInteger(body.priceCents) || !Array.isArray(body.items) || !body.items.length || body.items.some((item: any) => !isRecord(item) || !isValidObjectId(item.procedureId) || !Number.isInteger(item.sessions) || item.sessions < 1)) return fail(c, 'Combo requer nome, preço e procedimentos com número de sessões válido.');
-    if (body.promotionalPriceCents != null && (!Number.isSafeInteger(body.promotionalPriceCents) || body.promotionalPriceCents < 0 || !body.validUntil)) return fail(c, 'Combo promocional exige preço promocional e validade.');
-    for (const item of body.items) if (!await Procedure.exists({ _id: item.procedureId })) return fail(c, 'Procedimento não encontrado.', 404);
-    const priceError = await comboPriceError(body.items, body.priceCents, body.promotionalPriceCents ?? null);
-    if (priceError) return fail(c, priceError);
-    return c.json(await Combo.create(body), 201);
-  })
-  .put('/api/combos/:id', async (c) => {
-    const combo = isValidObjectId(c.req.param('id')) ? await Combo.findById(c.req.param('id')) : null;
-    if (!combo) return fail(c, 'Combo não encontrado.', 404);
-    const body = await c.req.json().catch(() => null);
-    if (!isRecord(body)) return fail(c, 'Dados do combo inválidos.');
-    const has = (key: string) => body[key] !== undefined;
-    if ((has('name') && (typeof body.name !== 'string' || body.name.trim().length < 2)) || (has('priceCents') && (!Number.isSafeInteger(body.priceCents) || body.priceCents < 0)) || (has('active') && typeof body.active !== 'boolean') || (has('requireNewAnamnesis') && typeof body.requireNewAnamnesis !== 'boolean')
-      || (has('items') && (!Array.isArray(body.items) || !body.items.length || body.items.some((item: any) => !isRecord(item) || !isValidObjectId(item.procedureId) || !Number.isInteger(item.sessions) || item.sessions < 1)))) return fail(c, 'Dados do combo inválidos.');
-    const promotional = has('promotionalPriceCents') ? body.promotionalPriceCents : combo.promotionalPriceCents, until = has('validUntil') ? body.validUntil : combo.validUntil;
-    if (promotional != null && (!Number.isSafeInteger(promotional) || promotional < 0 || !until)) return fail(c, 'Combo promocional exige preço promocional e validade.');
-    if (has('items')) for (const item of body.items) if (!await Procedure.exists({ _id: item.procedureId })) return fail(c, 'Procedimento não encontrado.', 404);
-    if (has('items') || has('priceCents') || has('promotionalPriceCents')) {
-      const priceError = await comboPriceError(has('items') ? body.items : combo.items, has('priceCents') ? body.priceCents : combo.priceCents, promotional ?? null);
-      if (priceError) return fail(c, priceError);
-    }
-    for (const key of ['name', 'description', 'priceCents', 'promotionalPriceCents', 'validFrom', 'validUntil', 'active', 'requireNewAnamnesis', 'items']) if (has(key)) combo.set(key, body[key]);
-    await combo.save(); return c.json(combo.toObject());
-  })
-  .get('/api/contracts', async (c) => c.json(await Contract.find().sort({ createdAt: -1 }).lean()))
-  .post('/api/contracts/upload-url', async (c) => {
-    const body = await c.req.json().catch(() => null);
-    if (typeof body?.fileName !== 'string' || !body.fileName.toLowerCase().endsWith('.docx') || !Number.isInteger(body.size) || body.size < 1 || body.size > 15_000_000) return fail(c, 'Arquivo DOCX inválido ou maior que 15 MB.');
-    const key = `documents/${randomUUID()}.docx`;
-    try { return c.json({ uploadUrl: await uploadUrlForDocument(key), objectKey: key, expiresInSeconds: 300 }); }
-    catch { return fail(c, 'R2 não configurado.', 503); }
-  })
-  .post('/api/contracts', async (c) => {
-    const body = await c.req.json().catch(() => null);
-    if (!isRecord(body) || typeof body.title !== 'string' || body.title.trim().length < 2 || !['standard', 'procedure', 'combo'].includes(body.kind)) return fail(c, 'Informe o nome e a aplicação do contrato.');
-    if (typeof body.content !== 'string' || !body.content.trim()) return fail(c, 'Informe o conteúdo do contrato.');
-    const target = await contractTarget(body);
-    if ('error' in target) return fail(c, target.error, target.status);
-    return c.json(await Contract.create({ title: body.title.trim(), kind: body.kind, ...target, versions: [{ version: 1, content: body.content, origin: 'created', createdAt: new Date() }] }), 201);
-  })
-  .patch('/api/contracts/:id', async (c) => {
-    const contract = isValidObjectId(c.req.param('id')) ? await Contract.findById(c.req.param('id')) : null;
-    if (!contract) return fail(c, 'Contrato não encontrado.', 404);
-    const body = await c.req.json().catch(() => null);
-    if (!isRecord(body) || (body.title !== undefined && (typeof body.title !== 'string' || body.title.trim().length < 2)) || (body.active !== undefined && typeof body.active !== 'boolean') || (body.kind !== undefined && !['standard', 'procedure', 'combo'].includes(body.kind))) return fail(c, 'Dados do contrato inválidos.');
-    const target = await contractTarget({ kind: body.kind ?? contract.kind, procedureId: body.procedureId ?? (body.kind ? undefined : contract.procedureId), comboId: body.comboId ?? (body.kind ? undefined : contract.comboId) });
-    if ('error' in target) return fail(c, target.error, target.status);
-    if (body.title !== undefined) contract.title = body.title.trim();
-    if (body.active !== undefined) contract.active = body.active;
-    contract.kind = body.kind ?? contract.kind; contract.set(target);
-    await contract.save(); return c.json(contract.toObject());
-  })
-  .post('/api/contracts/:id/versions', async (c) => {
-    const contract = isValidObjectId(c.req.param('id')) ? await Contract.findById(c.req.param('id')) : null;
-    if (!contract) return fail(c, 'Contrato não encontrado.', 404);
-    const body = await c.req.json().catch(() => null), restoring = Number.isInteger(body?.restoreVersion);
-    const source: any = restoring ? contract.versions.find((v: any) => v.version === body.restoreVersion) : null;
-    if (restoring && !source) return fail(c, 'Versão não encontrada.', 404);
-    const content = source ? source.content : body?.content;
-    if (typeof content !== 'string' || !content.trim()) return fail(c, 'Conteúdo do contrato inválido.');
-    contract.versions.push({ version: (contract.versions.at(-1)?.version ?? 0) + 1, content, sourceObjectKey: source?.sourceObjectKey ?? null, origin: source ? 'restored' : 'edited', restoredFromVersion: source?.version ?? null, createdAt: new Date() });
-    await contract.save();
-    return c.json(contract.versions.at(-1), 201);
-  })
-  .get('/api/plans', async (c) => c.json(await Plan.find().sort({ createdAt: -1 }).lean()))
-  .post('/api/plans', async (c) => {
-    const body = await c.req.json().catch(() => null);
-    if (!body || typeof body.name !== 'string' || body.name.trim().length < 2 || !Number.isSafeInteger(body.priceCents) || body.priceCents < 0 || !Array.isArray(body.items) || !body.items.length) return fail(c, 'Plano requer nome, preço e ao menos um procedimento ou combo.');
-    for (const field of ['durationDays', 'validityDays']) if (body[field] != null && (!Number.isInteger(body[field]) || body[field] < 1)) return fail(c, 'Duração e validade devem ser dias inteiros.');
-    for (const item of body.items) {
-      if (item?.offerType === 'procedure' && (!Number.isInteger(item.sessions) || item.sessions < 1)) return fail(c, 'Informe ao menos uma sessão para cada procedimento direto do plano.');
-      const model = item?.offerType === 'combo' ? Combo : item?.offerType === 'procedure' ? Procedure : null;
-      if (!model || !isValidObjectId(item.offerId) || !await model.exists({ _id: item.offerId })) return fail(c, 'Procedimento ou combo do plano não encontrado.', 404);
-      if (item.offerType === 'procedure') {
-        const procedure = await Procedure.findById(item.offerId).lean();
-        if (procedure && item.sessions < minimumSessions(procedure)) return fail(c, 'A quantidade de sessões do plano não pode ser menor que a base do procedimento.');
-      }
-    }
-    const contractIds = body.contractIds ?? [];
-    if (!Array.isArray(contractIds) || (contractIds.length && await Contract.countDocuments({ _id: { $in: contractIds } }) !== contractIds.length)) return fail(c, 'Contrato não encontrado.', 404);
-    return c.json(await Plan.create({ name: body.name, description: body.description, priceCents: body.priceCents, durationDays: body.durationDays, validityDays: body.validityDays, items: body.items.map((item: any) => ({ offerType: item.offerType, offerId: item.offerId, ...(item.offerType === 'procedure' && { sessions: item.sessions }) })), contractIds, requireNewAnamnesis: body.requireNewAnamnesis === true }), 201);
-  })
+  .get('/api/procedures', async (c) => c.json(await listProcedures(await catalogTenant(c.req))))
+  .post('/api/procedures', async (c) => { const body = await c.req.json().catch(() => null); if (!body || typeof body.name !== 'string' || body.name.trim().length < 2 || !Number.isInteger(body.durationMinutes) || body.durationMinutes < 1 || !Number.isSafeInteger(body.priceCents ?? 0) || body.priceCents < 0) return fail(c, 'Dados ou formulário de procedimento inválidos.'); return c.json(await createProcedure(await catalogTenant(c.req), body), 201); })
+  .put('/api/procedures/:id', async (c) => { const body = await c.req.json().catch(() => null); if (!isRecord(body) || !isUuid(c.req.param('id'))) return fail(c, 'Dados de procedimento inválidos.'); const result = await updateProcedure(await catalogTenant(c.req), c.req.param('id'), body); return result ? c.json(result) : fail(c, 'Procedimento não encontrado.', 404); })
+  .get('/api/anamneses', async (c) => c.json(await listAnamneses(await catalogTenant(c.req))))
+  .post('/api/anamneses', async (c) => c.json(await createAnamnesis(await catalogTenant(c.req), await c.req.json()), 201))
+  .patch('/api/anamneses/:id', async (c) => { const result = await updateAnamnesis(await catalogTenant(c.req), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Formulário de anamnese não encontrado.', 404); })
+  .post('/api/anamneses/:id/versions', async (c) => { const result = await addAnamnesisVersion(await catalogTenant(c.req), c.req.param('id'), await c.req.json()); return result ? c.json(result, 201) : fail(c, 'Formulário de anamnese não encontrado.', 404); })
+  .put('/api/anamneses/:id/associations', async (c) => { const body = await c.req.json(); const result = await associateAnamnesis(await catalogTenant(c.req), c.req.param('id'), body?.procedures ?? []); return result ? c.json(result) : fail(c, 'Anamnese não encontrada.', 404); })
+  .get('/api/combos', async (c) => c.json(await listCombos(await catalogTenant(c.req))))
+  .post('/api/combos', async (c) => c.json(await saveCombo(await catalogTenant(c.req), null, await c.req.json()), 201))
+  .put('/api/combos/:id', async (c) => { const result = await saveCombo(await catalogTenant(c.req), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Combo não encontrado.', 404); })
+  .get('/api/contracts', async (c) => c.json(await listContracts(await catalogTenant(c.req))))
+  .post('/api/contracts', async (c) => c.json(await saveContract(await catalogTenant(c.req), null, await c.req.json()), 201))
+  .patch('/api/contracts/:id', async (c) => { const result = await saveContract(await catalogTenant(c.req), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Contrato não encontrado.', 404); })
+  .post('/api/contracts/:id/versions', async (c) => { const result = await addContractVersion(await catalogTenant(c.req), c.req.param('id'), await c.req.json()); return result ? c.json(result, 201) : fail(c, 'Contrato não encontrado.', 404); })
+  .get('/api/plans', async (c) => c.json(await listPlans(await catalogTenant(c.req))))
+  .post('/api/plans', async (c) => c.json(await savePlan(await catalogTenant(c.req), null, await c.req.json()), 201))
+  .put('/api/plans/:id', async (c) => { const result = await savePlan(await catalogTenant(c.req), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Plano não encontrado.', 404); })
   .post('/api/followups', async (c) => {
     const body = await c.req.json().catch(() => null);
     if (!body || !isValidObjectId(body.patientId) || !['combo', 'plan'].includes(body.offerType) || !isValidObjectId(body.offerId)) return fail(c, 'Paciente e um combo ou plano são obrigatórios; procedimento avulso é criado ao agendar ou registrar o atendimento.');

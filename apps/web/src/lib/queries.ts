@@ -94,6 +94,7 @@ export const useUpdateCombo = () =>
 export const useCreateCombo = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/combos', body), invalidate: [keys.combos], success: 'Combo cadastrado.' });
 export const useCreateFollowup = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/followups', body), invalidate: everything, success: 'Acompanhamento iniciado.' });
 export const useCreatePlan = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/plans', body), invalidate: [keys.plans], success: 'Plano cadastrado.' });
+export const useUpdatePlan = () => useApiMutation({ mutationFn: ({ id, ...body }: { id: string; active?: boolean; expectedVersion?: number } & Record<string, unknown>) => api(`/api/plans/${id}`, { method: 'PUT', body, schema: anySchema }), invalidate: [keys.plans], success: 'Plano atualizado.' });
 export const useAnswerAnamnesis = () =>
   useApiMutation({ mutationFn: ({ id, answers }: { id: string; answers: Record<string, unknown> }) => post(`/api/patient-anamneses/${id}/answers`, { answers }), invalidate: [keys.followups, keys.patients], success: 'Anamnese registrada.' });
 export const useCreateAppointment = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/appointments', body), invalidate: [keys.appointments, keys.patients], success: 'Agendamento criado.' });

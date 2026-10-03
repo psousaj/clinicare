@@ -73,9 +73,10 @@ export const planSchema = z.looseObject({
   name: z.string(),
   description: z.string().nullish(),
   priceCents: z.number(),
+  active: z.boolean().optional(),
   durationDays: z.number().nullish(),
   validityDays: z.number().nullish(),
-  items: z.array(z.looseObject({ offerType: z.enum(['procedure', 'combo']), offerId: z.string(), sessions: z.number().nullish() })),
+  items: z.array(z.looseObject({ offerType: z.literal('procedure'), offerId: z.string(), sessions: z.number().int().min(1) })),
   contractIds: z.array(refId).default([]),
   requireNewAnamnesis: z.boolean().optional(),
 });
