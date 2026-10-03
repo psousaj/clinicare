@@ -112,10 +112,12 @@ export const useUpdateAttendance = (id: string) =>
 export const useAddAttendancePhoto = (id: string) =>
   useApiMutation({
     mutationFn: async ({ file, phase, notes }: { file: File; phase: 'before' | 'during' | 'after'; notes: string }) => {
-      const presign = await post('/api/uploads/presign', { contentType: file.type, size: file.size }, z.looseObject({ uploadUrl: z.string(), objectKey: z.string() }));
+      const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+      const contentHash = `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+      const presign = await post('/api/uploads/presign', { attendanceId: id, contentType: file.type, size: file.size, contentHash }, z.looseObject({ uploadUrl: z.string(), objectKey: z.string(), uploadToken: z.string() }));
       const upload = await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'content-type': file.type }, body: file });
       if (!upload.ok) throw new Error('Não foi possível enviar a imagem.');
-      return post(`/api/attendances/${id}/photos`, { objectKey: presign.objectKey, phase, notes: notes.trim() || null });
+      return post(`/api/attendances/${id}/photos`, { objectKey: presign.objectKey, uploadToken: presign.uploadToken, contentHash, phase, notes: notes.trim() || null });
     },
     invalidate: [keys.attendance(id), keys.patients],
     success: 'Foto anexada à sessão.',

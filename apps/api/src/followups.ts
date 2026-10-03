@@ -91,7 +91,7 @@ export async function createFollowup(tenantId: string, patientId: string, offerT
     }
     if (options.failAfter === 'items') throw new Error('Falha simulada na materialização do acompanhamento.');
     const forms = await offerForms(tenantId, offer, tx);
-    if (forms.length) await tx.insert(appliedAnamneses).values(forms.map(({ form, version }: any) => ({ tenantId, patientId, followupId, anamnesisId: form.id, version: version.version, titleSnapshot: form.title, schemaSnapshot: version.schema, required: true })));
+    if (forms.length) await tx.insert(appliedAnamneses).values(forms.map(({ form, version }: any) => ({ tenantId, patientId, followupId, anamnesisId: form.id, version: version.version, titleSnapshot: form.title, schemaSnapshot: version.schema, validityMonths: form.validityMonths ?? 12, required: true })));
     if (options.failAfter === 'anamneses') throw new Error('Falha simulada nas dependências do acompanhamento.');
     const result = await getFollowup(tenantId, followupId, tx);
     return result ? { ...result, signatureTokens: initialTokens } : result;

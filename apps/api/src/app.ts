@@ -1,7 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { isValidObjectId } from 'mongoose';
-import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { getDatabasePool, Anamnesis, Contract, Combo, Plan, Patient, PatientAnamnesis, Payment, Followup, Appointment, Attendance, Procedure } from '@clinicare/db';
 import { DEFAULT_TENANT_ID, createPatient, deactivatePatient, getPatient, isUuid, listPatients, patientActorFromRequest, updatePatient } from './patients';
 import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, associateAnamnesis, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan } from './catalog';
@@ -10,12 +10,12 @@ import { getRelationalRelationship } from './relational-relationship';
 import { getRelationalHistory } from './relational-history';
 import { createFollowup, getFollowup, listFollowups, cancelFollowup, updateFollowupState } from './followups';
 import { listPendingSignatures, readSignatureToken, refreshSignatureToken, signWithToken } from './signatures';
-import { addAttendancePhoto, cancelAttendance, confirmAppointment, createAppointment, createAttendance, deleteAppointment, getAttendance, listAppointments, listAttendances, removeAttendancePhoto, updateAppointment, updateAttendance } from './scheduling';
+import { addAttendancePhoto, cancelAttendance, confirmAppointment, createAppointment, createAttendance, deleteAppointment, getAttendance, listAppointments, listAttendances, presignAttendancePhoto, removeAttendancePhoto, updateAppointment, updateAttendance } from './scheduling';
 import { createPayment, deletePayment, listPayments } from './payments';
-import { uploadUrl, uploadUrlForDocument, deleteObject } from './storage';
+import { deleteObject } from './storage';
+import { addAnamnesisNote, answerAppliedAnamnesis, createAnamnesisRequest, createAppliedAnamnesis, deleteAppliedDocument, getAppliedDocument, listAnamnesisNotes, listAppliedDocuments, presignAppliedDocument, readAppliedAnamnesis, readPublicAnamnesis, refreshAnamnesisRequest, saveAnamnesisDraft, submitPublicAnamnesis } from './clinical';
 
 const fail = (c: Context, message: string, status: 400 | 403 | 404 | 409 | 503 = 400) => c.json({ error: message }, status);
-const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 const validEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const isRecord = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);
 const validSchema = (value: unknown) => isRecord(value) && value.type === 'object' && isRecord(value.properties);
@@ -33,6 +33,7 @@ const handleError = (c: Context, error: unknown) => {
   if (error instanceof Error && /^(Informe|Dados ou|Combo requer|Combo não|Plano |Procedimento não|Contrato não|Versão não|Formulário inválido|Motivo do cancelamento|O acompanhamento)/i.test(error.message)) return c.json({ error: error.message }, 400);
   if (error instanceof Error && /conflito|versão desatualizada/i.test(error.message)) return c.json({ error: error.message }, 409);
   if (error instanceof Error && /^(DATA_ENCRYPTION_KEY|SEARCH_HMAC_KEY)/.test(error.message)) return c.json({ error: error.message }, 503);
+  if (error instanceof Error && /R2 is not configured/i.test(error.message)) return c.json({ error: 'R2 não configurado.' }, 503);
   console.error(error);
   return c.json({ error: 'Ocorreu um erro inesperado.' }, 500);
 };
@@ -141,8 +142,6 @@ async function contractTarget(input: any): Promise<{ procedureId: unknown; combo
   }
   return { procedureId: null, comboId: null };
 }
-const monthsFromNow = (months: number) => { const date = new Date(); date.setMonth(date.getMonth() + months); return date; };
-const buildResponse = async (anamnesisId: unknown, answers: Record<string, unknown>) => ({ answers, submittedAt: new Date(), validUntil: monthsFromNow(((await Anamnesis.findById(anamnesisId).lean()) as any)?.validityMonths ?? 12) });
 
 const appointmentStatusLabel: Record<string, string> = { planned: 'agendado', confirmed: 'confirmado', rescheduled: 'remarcado', cancelled: 'cancelado', no_show: 'faltou' };
 export const app = new Hono()
@@ -289,10 +288,9 @@ export const app = new Hono()
   .patch('/api/attendances/:id/cancel', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await cancelAttendance(await catalogTenant(c.req), c.req.param('id'), String(body.reason ?? ''))); } catch (error) { return handleError(c, error); } })
   .post('/api/uploads/presign', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || typeof body.contentType !== 'string' || !/^image\/(jpeg|png|webp)$/.test(body.contentType) || !Number.isInteger(body.size) || body.size < 1 || body.size > 10_000_000) return fail(c, 'Imagem inválida ou maior que 10 MB.');
-    const key = `uploads/${randomUUID()}`;
-    try { return c.json({ uploadUrl: await uploadUrl(key, body.contentType), objectKey: key, expiresInSeconds: 300 }); }
-    catch { return c.json({ error: 'R2 não configurado.' }, 503); }
+    if (!body || typeof body.contentType !== 'string' || !/^image\/(jpeg|png|webp)$/.test(body.contentType) || !Number.isInteger(body.size) || body.size < 1 || body.size > 10_000_000 || !isUuid(body.attendanceId)) return fail(c, 'Imagem ou atendimento inválido.');
+    try { const result = await presignAttendancePhoto(await catalogTenant(c.req), body.attendanceId, body.contentType, typeof body.contentHash === 'string' ? body.contentHash : null); return c.json(result); }
+    catch (error) { return handleError(c, error); }
   })
   .post('/api/attendances/:id/photos', async (c) => {
     try { return c.json(await addAttendancePhoto(await catalogTenant(c.req), c.req.param('id'), await c.req.json().catch(() => null)), 201); } catch (error) { return handleError(c, error); }
@@ -304,60 +302,20 @@ export const app = new Hono()
       return c.json({ deleted: true });
     } catch (error) { return handleError(c, error); }
   })
-  .post('/api/patient-anamneses', async (c) => {
-    const body = await c.req.json().catch(() => null);
-    if (!body || !isValidObjectId(body.patientId) || !isValidObjectId(body.anamnesisId)) return fail(c, 'Paciente e anamnese são obrigatórios.');
-    const [patient, anamnesis] = await Promise.all([Patient.exists({ _id: body.patientId }), Anamnesis.findById(body.anamnesisId)]);
-    if (!patient || !anamnesis) return fail(c, 'Paciente ou anamnese não encontrados.', 404);
-    const current: any = anamnesis.versions.at(-1);
-    return c.json(await PatientAnamnesis.create({ patientId: body.patientId, anamnesisId: body.anamnesisId, followupId: body.followupId ?? null, version: current.version, schemaSnapshot: current.schema, required: body.required ?? anamnesis.requiredByDefault }), 201);
-  })
-  .post('/api/anamnesis-requests', async (c) => {
-    const body = await c.req.json().catch(() => null), applied = await PatientAnamnesis.findById(body?.patientAnamnesisId);
-    if (!applied) return fail(c, 'Anamnese aplicada não encontrada.', 404);
-    const token = randomBytes(32).toString('base64url');
-    applied.request = { tokenHash: hashToken(token), expiresAt: expiry(7), draft: {} }; await applied.save();
-    return c.json({ id: applied.id, url: `/public/anamnesis/${token}`, expiresAt: applied.request.expiresAt }, 201);
-  })
-  .put('/api/anamnesis-requests/:id/refresh', async (c) => {
-    const applied = await PatientAnamnesis.findById(c.req.param('id'));
-    if (!applied?.request) return fail(c, 'Solicitação não encontrada.', 404);
-    const token = randomBytes(32).toString('base64url'); applied.request.tokenHash = hashToken(token); applied.request.expiresAt = expiry(7); applied.request.submittedAt = undefined; applied.request.draft = {}; await applied.save();
-    return c.json({ id: applied.id, url: `/public/anamnesis/${token}`, expiresAt: applied.request.expiresAt });
-  })
-  .get('/public/anamnesis/:token', async (c) => {
-    const applied = await PatientAnamnesis.findOne({ 'request.tokenHash': hashToken(c.req.param('token')), 'request.expiresAt': { $gt: new Date() }, 'request.submittedAt': null }).populate('anamnesisId', 'title').lean() as any;
-    return applied ? c.json({ title: applied.anamnesisId.title, schema: applied.schemaSnapshot, draft: applied.request?.draft ?? {} }) : fail(c, 'Link inválido, expirado ou já enviado.', 404);
-  })
-  .put('/public/anamnesis/:token/draft', async (c) => {
-    const body = await c.req.json().catch(() => null);
-    if (!isRecord(body?.draft)) return fail(c, 'Rascunho inválido.');
-    const result = await PatientAnamnesis.updateOne({ 'request.tokenHash': hashToken(c.req.param('token')), 'request.expiresAt': { $gt: new Date() }, 'request.submittedAt': null }, { $set: { 'request.draft': body.draft } });
-    return result.modifiedCount ? c.json({ saved: true }) : fail(c, 'Link inválido ou expirado.', 404);
-  })
-  .post('/public/anamnesis/:token/submit', async (c) => {
-    const body = await c.req.json().catch(() => null);
-    if (!isRecord(body?.answers)) return fail(c, 'Respostas inválidas.');
-    const open = { 'request.tokenHash': hashToken(c.req.param('token')), 'request.expiresAt': { $gt: new Date() }, 'request.submittedAt': null };
-    const found = await PatientAnamnesis.findOne(open).lean() as any;
-    if (!found) return fail(c, 'Link inválido, expirado ou já enviado.', 409);
-    const applied = await PatientAnamnesis.findOneAndUpdate({ _id: found._id, ...open }, { $set: { response: await buildResponse(found.anamnesisId, body.answers), 'request.submittedAt': new Date() } }, { new: true });
-    return applied ? c.json({ submitted: true, validUntil: applied.response?.validUntil }, 201) : fail(c, 'Link inválido, expirado ou já enviado.', 409);
-  })
-  .post('/api/patient-anamneses/:id/answers', async (c) => {
-    const body = await c.req.json().catch(() => null);
-    if (!isRecord(body?.answers)) return fail(c, 'Respostas inválidas.');
-    const applied = isValidObjectId(c.req.param('id')) ? await PatientAnamnesis.findOne({ _id: c.req.param('id'), 'response.submittedAt': null }).lean() as any : null;
-    if (!applied) return fail(c, 'Anamnese não encontrada ou já respondida.', 404);
-    await PatientAnamnesis.updateOne({ _id: applied._id }, { $set: { response: await buildResponse(applied.anamnesisId, body.answers) } });
-    return c.json({ submitted: true }, 201);
-  })
-  .post('/api/anamnesis-responses/:id/notes', async (c) => {
-    const body = await c.req.json().catch(() => null), applied = await PatientAnamnesis.findOne({ 'response._id': c.req.param('id') });
-    if (!applied) return fail(c, 'Resposta não encontrada.', 404);
-    if (typeof body?.content !== 'string' || !body.content.trim()) return fail(c, 'Observação obrigatória.');
-    applied.notes.push({ content: body.content.trim(), createdAt: new Date() }); await applied.save(); return c.json(applied.notes.at(-1), 201);
-  })
+  .post('/api/patient-anamneses', async (c) => { try { const tenantId = await catalogTenant(c.req); const body = await c.req.json(); if (!isUuid(body?.patientId) || !isUuid(body?.anamnesisId) || !isUuid(body?.followupId)) return fail(c, 'Paciente, acompanhamento e anamnese são obrigatórios.'); return c.json(await createAppliedAnamnesis(tenantId, body), 201); } catch (error) { return handleError(c, error); } })
+  .post('/api/anamnesis-requests', async (c) => { try { const body = await c.req.json(); if (!isUuid(body?.patientAnamnesisId)) return fail(c, 'Anamnese aplicada inválida.'); return c.json(await createAnamnesisRequest(await catalogTenant(c.req), body.patientAnamnesisId), 201); } catch (error) { return handleError(c, error); } })
+  .put('/api/anamnesis-requests/:id/refresh', async (c) => { try { return c.json(await refreshAnamnesisRequest(await catalogTenant(c.req), c.req.param('id'))); } catch (error) { return handleError(c, error); } })
+  .get('/public/anamnesis/:token', async (c) => { const result = await readPublicAnamnesis(c.req.param('token')); return result ? c.json(result) : fail(c, 'Link inválido, expirado ou já enviado.', 404); })
+  .put('/public/anamnesis/:token/draft', async (c) => { const body = await c.req.json().catch(() => null); if (!isRecord(body?.draft)) return fail(c, 'Rascunho inválido.'); return await saveAnamnesisDraft(c.req.param('token'), body.draft) ? c.json({ saved: true }) : fail(c, 'Link inválido ou expirado.', 404); })
+  .post('/public/anamnesis/:token/submit', async (c) => { const body = await c.req.json().catch(() => null); if (!isRecord(body?.answers)) return fail(c, 'Respostas inválidas.'); const result = await submitPublicAnamnesis(c.req.param('token'), body.answers); return result ? c.json(result, 201) : fail(c, 'Link inválido, expirado ou já enviado.', 409); })
+  .get('/api/patient-anamneses/:id', async (c) => { const result = await readAppliedAnamnesis(await catalogTenant(c.req), c.req.param('id')); return result ? c.json(result) : fail(c, 'Anamnese não encontrada.', 404); })
+  .post('/api/patient-anamneses/:id/answers', async (c) => { const body = await c.req.json().catch(() => null); if (!isRecord(body?.answers)) return fail(c, 'Respostas inválidas.'); const result = await answerAppliedAnamnesis(await catalogTenant(c.req), c.req.param('id'), body.answers); return result ? c.json({ submitted: true }, 201) : fail(c, 'Anamnese não encontrada ou já respondida.', 404); })
+  .post('/api/anamnesis-responses/:id/notes', async (c) => { const body = await c.req.json().catch(() => null); const result = await addAnamnesisNote(await catalogTenant(c.req), c.req.param('id'), body?.content ?? ''); return result ? c.json(result, 201) : fail(c, 'Resposta não encontrada ou ainda não enviada.', 404); })
+  .get('/api/anamnesis-responses/:id/notes', async (c) => { const result = await listAnamnesisNotes(await catalogTenant(c.req), c.req.param('id')); return result ? c.json(result) : fail(c, 'Resposta não encontrada ou ainda não enviada.', 404); })
+  .post('/api/followup-contracts/:id/documents/presign', async (c) => { try { const body = await c.req.json().catch(() => ({})); if (typeof body.contentType !== 'string' || !/^[^\s/]+\/[^\s]+$/.test(body.contentType)) return fail(c, 'Metadados do documento inválidos.'); return c.json(await presignAppliedDocument(await catalogTenant(c.req), c.req.param('id'), body.contentType, typeof body.contentHash === 'string' ? body.contentHash : null), 201); } catch (error) { return handleError(c, error); } })
+  .get('/api/followup-contracts/:id/documents', async (c) => { const result = await listAppliedDocuments(await catalogTenant(c.req), c.req.param('id')); return result ? c.json(result) : fail(c, 'Contrato aplicado não encontrado.', 404); })
+  .get('/api/applied-documents/:id', async (c) => { const result = await getAppliedDocument(await catalogTenant(c.req), c.req.param('id')); return result ? c.json(result) : fail(c, 'Documento não encontrado.', 404); })
+  .delete('/api/applied-documents/:id', async (c) => { try { const result = await deleteAppliedDocument(await catalogTenant(c.req), c.req.param('id')); if (!result) return fail(c, 'Documento não encontrado.', 404); await deleteObject(result.objectKey).catch((error) => console.error(error)); return c.json({ deleted: true }); } catch (error) { return handleError(c, error); } })
   .get('/api/patients/:id/relationship', async (c) => {
     let tenantId: string;
     try { tenantId = await catalogTenant(c.req); } catch (error) { return handleError(c, error); }

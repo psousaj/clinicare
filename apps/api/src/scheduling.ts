@@ -1,8 +1,10 @@
 import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 import {
   buildProtectedAad, decryptValue, encryptValue, getDatabase,
   followupItems, followups, patients, procedures, appointments, appointmentItems, attendances, attendancePhotos,
 } from '@clinicare/db';
+import { downloadUrl, uploadUrl } from './storage';
 
 const invalid = (message: string) => Object.assign(new Error(message), { status: 400 });
 const notFound = (message: string) => Object.assign(new Error(message), { status: 404 });
@@ -10,7 +12,10 @@ const conflict = (message: string) => Object.assign(new Error(message), { status
 const activeAppointmentStatuses = ['planned', 'confirmed', 'rescheduled'] as const;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const idShape = (row: any) => ({ ...row, _id: row.id });
+const photoShape = (tenantId: string, row: any) => ({ id: row.id, _id: row.id, attendanceId: row.attendanceId, contentHash: row.contentHash, phase: row.phase, notes: unprotect(row, tenantId, 'attendance_photos', row.id, 'notes'), createdAt: row.createdAt });
 const validUuid = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
+const uploadSecret = () => process.env.DATA_ENCRYPTION_KEY ?? 'clinicare-upload-token';
+const photoUploadToken = (tenantId: string, attendanceId: string, key: string, contentHash = '') => createHmac('sha256', uploadSecret()).update(`${tenantId}:${attendanceId}:${key}:${contentHash}`).digest('base64url');
 
 const protect = (tenantId: string, table: string, id: string, column: string, value: unknown) => {
   if (value == null || (typeof value === 'string' && !value.trim())) return { [`${column}Ciphertext`]: null, [`${column}Nonce`]: null, [`${column}KeyVersion`]: null };
@@ -30,13 +35,16 @@ function unprotect(row: any, tenantId: string, table: string, id: string, column
 }
 
 function appointmentResponse(row: any, items: any[]) {
-  return { ...idShape(row), notes: unprotect(row, row.tenantId, 'appointments', row.id, 'notes'), items: items.map(idShape) };
+  return { id: row.id, _id: row.id, tenantId: row.tenantId, patientId: row.patientId, startsAt: row.startsAt, endsAt: row.endsAt, status: row.status, deletedAt: row.deletedAt, createdAt: row.createdAt, updatedAt: row.updatedAt, notes: unprotect(row, row.tenantId, 'appointments', row.id, 'notes'), items: items.map(idShape) };
+}
+function attendanceShape(row: any) {
+  return { id: row.id, _id: row.id, tenantId: row.tenantId, patientId: row.patientId, followupId: row.followupId, followupItemId: row.followupItemId, appointmentId: row.appointmentId, procedureId: row.procedureId, procedureName: row.procedureName, performedAt: row.performedAt, durationMinutes: row.durationMinutes, schemaSnapshot: row.schemaSnapshot, status: row.status, cancellationReason: row.cancellationReason, createdAt: row.createdAt, updatedAt: row.updatedAt };
 }
 async function attendanceResponse(row: any, executor = getDatabase()) {
   const photos = await executor.select().from(attendancePhotos)
     .where(and(eq(attendancePhotos.tenantId, row.tenantId), eq(attendancePhotos.attendanceId, row.id), isNull(attendancePhotos.deletedAt)))
     .orderBy(asc(attendancePhotos.createdAt));
-  return { ...idShape(row), data: unprotect(row, row.tenantId, 'attendances', row.id, 'data'), notes: unprotect(row, row.tenantId, 'attendances', row.id, 'notes'), photos: photos.map(idShape) };
+  return { ...attendanceShape(row), data: unprotect(row, row.tenantId, 'attendances', row.id, 'data'), notes: unprotect(row, row.tenantId, 'attendances', row.id, 'notes'), photos: await Promise.all(photos.map(async (photo: any) => ({ ...photoShape(row.tenantId, photo), url: await downloadUrl(photo.objectKey) }))) };
 }
 
 async function readAppointment(tenantId: string, id: string, executor: any) {
@@ -249,16 +257,25 @@ export async function createAttendance(tenantId: string, input: any) {
 export async function confirmAppointment(tenantId: string, id: string, selected?: string[]) {
   return getDatabase().transaction((tx) => perform(tx, tenantId, id, selected, {}));
 }
-export async function addAttendancePhoto(tenantId: string, attendanceId: string, input: any) {
-  if (!validUuid(attendanceId)) throw notFound('Atendimento não encontrado.');
-  if (!input || typeof input.objectKey !== 'string' || !/^uploads\/[\w-]+$/.test(input.objectKey) || !['before', 'during', 'after'].includes(input.phase)) throw invalid('Foto inválida.');
+export async function presignAttendancePhoto(tenantId: string, attendanceId: string, contentType: string, contentHash: string | null) {
+  if (!validUuid(attendanceId) || !/^image\/(jpeg|png|webp)$/.test(contentType)) throw invalid('Imagem inválida.');
   const attendance = (await getDatabase().select({ id: attendances.id }).from(attendances).where(and(eq(attendances.tenantId, tenantId), eq(attendances.id, attendanceId)))).at(0);
   if (!attendance) throw notFound('Atendimento não encontrado.');
-  const id = crypto.randomUUID();
-  const [photo] = await getDatabase().insert(attendancePhotos).values({
-    id, tenantId, attendanceId, objectKey: input.objectKey, contentHash: input.contentHash ?? null, phase: input.phase,
-  }).returning();
-  return idShape(photo);
+  const key = randomUUID(), signedUploadUrl = await uploadUrl(key, contentType);
+  return { uploadUrl: signedUploadUrl, objectKey: key, uploadToken: photoUploadToken(tenantId, attendanceId, key, contentHash ?? ''), expiresInSeconds: 300 };
+}
+
+export async function addAttendancePhoto(tenantId: string, attendanceId: string, input: any) {
+  if (!validUuid(attendanceId)) throw notFound('Atendimento não encontrado.');
+  if (!input || typeof input.objectKey !== 'string' || !/^[\w-]{20,}$/.test(input.objectKey) || typeof input.uploadToken !== 'string' || !['before', 'during', 'after'].includes(input.phase)) throw invalid('Foto inválida.');
+  const expected = photoUploadToken(tenantId, attendanceId, input.objectKey, typeof input.contentHash === 'string' ? input.contentHash : '');
+  const provided = Buffer.from(input.uploadToken), wanted = Buffer.from(expected);
+  if (provided.length !== wanted.length || !timingSafeEqual(provided, wanted)) throw notFound('Upload de foto não autorizado.');
+  const attendance = (await getDatabase().select({ id: attendances.id }).from(attendances).where(and(eq(attendances.tenantId, tenantId), eq(attendances.id, attendanceId)))).at(0);
+  if (!attendance) throw notFound('Atendimento não encontrado.');
+  const id = randomUUID();
+  const [photo] = await getDatabase().insert(attendancePhotos).values({ id, tenantId, attendanceId, objectKey: input.objectKey, contentHash: input.contentHash ?? null, phase: input.phase, ...protect(tenantId, 'attendance_photos', id, 'notes', input.notes ?? null) }).returning();
+  return photoShape(tenantId, photo);
 }
 
 export async function removeAttendancePhoto(tenantId: string, attendanceId: string, photoId: string) {

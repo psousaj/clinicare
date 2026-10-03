@@ -1,0 +1,41 @@
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
+import { and, eq, sql } from 'drizzle-orm';
+import { app } from './app';
+import { appliedAnamneses, appliedDocuments, appliedAnamnesisNotes, anamneses, anamnesisVersions, closeDatabase, combos, comboItems, contracts, contractVersions, followupContracts, followupItems, followupSnapshots, followups, getDatabase, migrateDatabase, patients, procedures, tenants } from '@clinicare/db';
+
+const integration = process.env.DATABASE_URL ? describe : describe.skip;
+const tenantId = crypto.randomUUID(), otherTenantId = crypto.randomUUID();
+const headers = (tenant: string) => ({ 'content-type': 'application/json', 'x-tenant-id': tenant });
+const request = (tenant: string, path: string, init: RequestInit = {}) => app.request(path, { ...init, headers: { ...headers(tenant), ...(init.headers ?? {}) } });
+const post = (tenant: string, path: string, body: unknown) => request(tenant, path, { method: 'POST', body: JSON.stringify(body) });
+
+integration('clinical relational workflows', () => {
+  beforeAll(async () => { await migrateDatabase(); await getDatabase().insert(tenants).values([{ id: tenantId, name: 'Clinical test' }, { id: otherTenantId, name: 'Clinical other' }]); });
+  afterAll(async () => { const db = getDatabase(); await db.delete(appliedDocuments).where(eq(appliedDocuments.tenantId, tenantId)); await db.execute(sql`alter table applied_anamnesis_notes disable trigger applied_anamnesis_notes_append_only`); await db.execute(sql`delete from applied_anamnesis_notes where tenant_id = ${tenantId}`); await db.execute(sql`alter table applied_anamnesis_notes enable trigger applied_anamnesis_notes_append_only`); await db.delete(appliedAnamneses).where(eq(appliedAnamneses.tenantId, tenantId)); await db.delete(followupContracts).where(eq(followupContracts.tenantId, tenantId)); await db.delete(contractVersions).where(eq(contractVersions.tenantId, tenantId)); await db.delete(contracts).where(eq(contracts.tenantId, tenantId)); await db.delete(followupSnapshots).where(eq(followupSnapshots.tenantId, tenantId)); await db.delete(followupItems).where(eq(followupItems.tenantId, tenantId)); await db.delete(followups).where(eq(followups.tenantId, tenantId)); await db.delete(anamnesisVersions).where(eq(anamnesisVersions.tenantId, tenantId)); await db.delete(anamneses).where(eq(anamneses.tenantId, tenantId)); await db.delete(comboItems).where(eq(comboItems.tenantId, tenantId)); await db.delete(combos).where(eq(combos.tenantId, tenantId)); await db.delete(procedures).where(eq(procedures.tenantId, tenantId)); await db.delete(patients).where(eq(patients.tenantId, tenantId)); await db.delete(tenants).where(eq(tenants.id, tenantId)); await db.delete(tenants).where(eq(tenants.id, otherTenantId)); await closeDatabase(); });
+
+  async function fixture() {
+    const db = getDatabase(), patientId = crypto.randomUUID(), procedureId = crypto.randomUUID(), comboId = crypto.randomUUID(), anamnesisId = crypto.randomUUID(), versionId = crypto.randomUUID();
+    await db.insert(patients).values({ id: patientId, tenantId, fullName: 'Paciente clínico' });
+    await db.insert(procedures).values({ id: procedureId, tenantId, name: 'Procedimento clínico', durationMinutes: 30, priceCents: 100, sessionSchema: { type: 'object', properties: {} } });
+    await db.insert(combos).values({ id: comboId, tenantId, name: 'Combo clínico', priceCents: 100 }); await db.insert(comboItems).values({ tenantId, comboId, procedureId, sessions: 1 });
+    await db.insert(anamneses).values({ id: anamnesisId, tenantId, title: 'Título original', validityMonths: 3 }); await db.insert(anamnesisVersions).values({ id: versionId, tenantId, anamnesisId, version: 1, schema: { type: 'object', properties: {} } });
+    const followup = await (await post(tenantId, '/api/followups', { patientId, offerType: 'combo', offerId: comboId })).json() as any;
+    const contractId = crypto.randomUUID();
+    await db.insert(contracts).values({ id: contractId, tenantId, title: 'Contrato clínico', kind: 'standard' });
+    await db.insert(contractVersions).values({ tenantId, contractId, version: 1, content: 'Contrato', sourceObjectKey: null });
+    await db.insert(followupContracts).values({ tenantId, followupId: followup.id, contractId, contractVersion: 1, titleSnapshot: 'Contrato clínico', required: true });
+    const applied = await (await post(tenantId, '/api/patient-anamneses', { patientId, anamnesisId, followupId: followup.id })).json() as any;
+    return { patientId, followupId: followup.id, appliedId: applied.id };
+  }
+  it('encrypts answers, clears draft, snapshots validity, and only accepts one concurrent submission', async () => {
+    const f = await fixture(); const link = await (await post(tenantId, '/api/anamnesis-requests', { patientAnamnesisId: f.appliedId })).json() as any; const token = link.url.split('/').at(-1);
+    expect((await request(tenantId, `/public/anamnesis/${token}/draft`, { method: 'PUT', body: JSON.stringify({ draft: { a: 1 } }) })).status).toBe(200);
+    const responses = await Promise.all([post(tenantId, `/public/anamnesis/${token}/submit`, { answers: { a: 2 } }), post(tenantId, `/public/anamnesis/${token}/submit`, { answers: { a: 3 } })]);
+    expect(responses.filter((response) => response.status === 201)).toHaveLength(1); expect(responses.filter((response) => response.status === 409)).toHaveLength(1);
+    const row = (await getDatabase().select().from(appliedAnamneses).where(eq(appliedAnamneses.id, f.appliedId)))[0]!; expect(row.answersCiphertext).toBeTruthy(); expect(row.draftCiphertext).toBeNull(); expect(row.validityMonths).toBe(3); expect(row.validUntil!.getMonth()).toBe((row.submittedAt!.getMonth() + 3) % 12);
+    expect((await request(tenantId, `/api/patient-anamneses/${f.appliedId}`)).json()).resolves.toMatchObject({ answers: { a: expect.any(Number) }, title: 'Título original' });
+    expect((await post(tenantId, `/api/anamnesis-responses/${f.appliedId}/notes`, { content: 'nota' })).status).toBe(201);
+  });
+  it('isolates clinical records and rejects notes before answer', async () => { const f = await fixture(); expect((await request(otherTenantId, `/api/patient-anamneses/${f.appliedId}`)).status).toBe(404); expect((await post(tenantId, `/api/anamnesis-responses/${f.appliedId}/notes`, { content: 'prematura' })).status).toBe(404); });
+  it('creates applied document metadata without exposing or accepting object keys', async () => { const f = await fixture(); const contract = (await getDatabase().select().from(followupContracts).where(eq(followupContracts.followupId, f.followupId)))[0]!; const response = await post(tenantId, `/api/followup-contracts/${contract.id}/documents/presign`, { contentType: 'application/pdf', contentHash: 'sha256:test' }); expect([201, 503]).toContain(response.status); if (response.status === 201) { const body = await response.json() as any; expect(body.objectKey).toBeUndefined(); expect(body.contentHash).toBe('sha256:test'); expect((await request(otherTenantId, `/api/applied-documents/${body.id}`)).status).toBe(404); } });
+});
