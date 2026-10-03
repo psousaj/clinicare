@@ -6,9 +6,12 @@ import { getDatabasePool, Anamnesis, Contract, Combo, Plan, Patient, PatientAnam
 import { DEFAULT_TENANT_ID, createPatient, deactivatePatient, getPatient, isUuid, listPatients, patientActorFromRequest, updatePatient } from './patients';
 import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, associateAnamnesis, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan } from './catalog';
 import { buildRelationship } from './relationship';
+import { getRelationalRelationship } from './relational-relationship';
+import { getRelationalHistory } from './relational-history';
 import { createFollowup, getFollowup, listFollowups, cancelFollowup, updateFollowupState } from './followups';
 import { listPendingSignatures, readSignatureToken, refreshSignatureToken, signWithToken } from './signatures';
 import { addAttendancePhoto, cancelAttendance, confirmAppointment, createAppointment, createAttendance, deleteAppointment, getAttendance, listAppointments, listAttendances, removeAttendancePhoto, updateAppointment, updateAttendance } from './scheduling';
+import { createPayment, deletePayment, listPayments } from './payments';
 import { uploadUrl, uploadUrlForDocument, deleteObject } from './storage';
 
 const fail = (c: Context, message: string, status: 400 | 403 | 404 | 409 | 503 = 400) => c.json({ error: message }, status);
@@ -235,9 +238,29 @@ export const app = new Hono()
   })
   .post('/api/payments', async (c) => {
     const body = await c.req.json().catch(() => null);
-    if (!body || !isValidObjectId(body.followupId) || !Number.isSafeInteger(body.amountCents) || body.amountCents <= 0 || !['cash', 'pix', 'credit_card'].includes(body.method)) return fail(c, 'Pagamento inválido.');
+    if (!isRecord(body) || !Number.isSafeInteger(body.amountCents) || body.amountCents <= 0 || !['cash', 'pix', 'credit_card'].includes(body.method)) return fail(c, 'Pagamento inválido.');
+    if (isUuid(body.followupId)) {
+      try {
+        const tenantId = await catalogTenant(c.req);
+        return c.json(await createPayment(tenantId, { followupId: body.followupId, amountCents: body.amountCents, method: body.method, installments: body.installments, notes: body.notes, receivedAt: body.receivedAt, idempotencyKey: body.idempotencyKey ?? c.req.header('idempotency-key') }), 201);
+      } catch (error) { return handleError(c, error); }
+    }
+    if (!isValidObjectId(body.followupId)) return fail(c, 'Pagamento inválido.');
     if (!await Followup.exists({ _id: body.followupId })) return fail(c, 'Acompanhamento não encontrado.', 404);
     return c.json(await Payment.create(body), 201);
+  })
+  .delete('/api/payments/:id', async (c) => {
+    try {
+      const result = await deletePayment(await catalogTenant(c.req), c.req.param('id'), String((await c.req.json().catch(() => ({}))).reason ?? ''));
+      return result ? c.json(result) : fail(c, 'Pagamento não encontrado.', 404);
+    } catch (error) { return handleError(c, error); }
+  })
+  .get('/api/followups/:id/payments', async (c) => {
+    try {
+      const tenantId = await catalogTenant(c.req);
+      if (!isUuid(c.req.param('id'))) return fail(c, 'Acompanhamento inválido.');
+      return c.json(await listPayments(tenantId, c.req.param('id')));
+    } catch (error) { return handleError(c, error); }
   })
   .get('/api/appointments', async (c) => {
     try { const tenantId = await catalogTenant(c.req); const from = c.req.query('from') ? new Date(c.req.query('from')!) : new Date(Date.now() - 7 * 86400000), to = c.req.query('to') ? new Date(c.req.query('to')!) : expiry(14); return c.json(await listAppointments(tenantId, from, to)); } catch (error) { return handleError(c, error); }
@@ -336,6 +359,14 @@ export const app = new Hono()
     applied.notes.push({ content: body.content.trim(), createdAt: new Date() }); await applied.save(); return c.json(applied.notes.at(-1), 201);
   })
   .get('/api/patients/:id/relationship', async (c) => {
+    let tenantId: string;
+    try { tenantId = await catalogTenant(c.req); } catch (error) { return handleError(c, error); }
+    if (isUuid(c.req.param('id'))) {
+      try {
+        const report = await getRelationalRelationship(tenantId, c.req.param('id'));
+        return report ? c.json(report) : fail(c, 'Paciente não encontrado.', 404);
+      } catch (error) { return handleError(c, error); }
+    }
     if (!isValidObjectId(c.req.param('id'))) return fail(c, 'Paciente não encontrado.', 404);
     const patient = await Patient.findById(c.req.param('id')).lean(); if (!patient) return fail(c, 'Paciente não encontrado.', 404);
     const [followups, attendances, appointments] = await Promise.all([Followup.find({ patientId: patient._id }).lean(), Attendance.find({ patientId: patient._id }).sort({ performedAt: 1 }).lean(), Appointment.find({ patientId: patient._id }).lean()]);
@@ -343,6 +374,14 @@ export const app = new Hono()
     return c.json(buildRelationship(followups, attendances, payments, appointments));
   })
   .get('/api/patients/:id/history', async (c) => {
+    let tenantId: string;
+    try { tenantId = await catalogTenant(c.req); } catch (error) { return handleError(c, error); }
+    if (isUuid(c.req.param('id'))) {
+      try {
+        const history = await getRelationalHistory(tenantId, c.req.param('id'));
+        return history ? c.json(history) : fail(c, 'Paciente não encontrado.', 404);
+      } catch (error) { return handleError(c, error); }
+    }
     if (!isValidObjectId(c.req.param('id'))) return fail(c, 'Paciente não encontrado.', 404);
     const patient = await Patient.findById(c.req.param('id')).lean(); if (!patient) return fail(c, 'Paciente não encontrado.', 404);
     const [followups, appointments, attendances, forms] = await Promise.all([Followup.find({ patientId: patient._id }).lean(), Appointment.find({ patientId: patient._id }).lean(), Attendance.find({ patientId: patient._id }).lean(), PatientAnamnesis.find({ patientId: patient._id }).populate('anamnesisId', 'title').lean()]);

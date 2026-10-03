@@ -1,5 +1,6 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { paymentResponse } from './payments';
 import {
   anamneses, anamnesisProcedures, anamnesisVersions, appliedAnamneses, combos, comboItems,
   contracts, contractVersions, followupContracts, followupItems, followupSnapshots, followups,
@@ -111,7 +112,7 @@ export async function getFollowup(tenantId: string, followupId: string, executor
   const responseItems = items.map((item: any) => ({ ...idShape(item), procedureId: item.procedureId, sessionsTotal: item.sessionsTotal, sessionsPerformed: item.sessionsPerformed }));
   const responseAnamneses = anamnesesRows.map((form: any) => ({ id: form.id, title: form.titleSnapshot, required: form.required, schemaSnapshot: form.schemaSnapshot, answered: !!form.submittedAt, submittedAt: form.submittedAt, validUntil: form.validUntil }));
   const responseContracts = contractsRows.map((contract: any) => { const process = processRows.find((p: any) => p.followupContractId === contract.id); const people = participantRows.filter((p: any) => p.processId === process?.id); const patient = people.find((p: any) => p.role === 'patient'); const professional = people.find((p: any) => p.role === 'professional'); return { id: contract.id, _id: contract.id, followupId: contract.followupId, contractId: contract.contractId, title: contract.titleSnapshot, version: contract.contractVersion, sourceObjectKey: contract.sourceObjectKey, required: contract.required, status: contract.status, signedAt: contract.patientSignedAt, patientSigned: patient?.status === 'signed', professionalSigned: professional?.status === 'signed', professionalPending: professional?.status !== 'signed' }; });
-  return { ...idShape(row), offerName: row.offerNameSnapshot, items: responseItems, contracts: responseContracts, anamneses: responseAnamneses, payments: paymentRows, blocked: row.status === 'idle' || responseAnamneses.some((form: any) => form.required && !form.answered) };
+  return { ...idShape(row), offerName: row.offerNameSnapshot, items: responseItems, contracts: responseContracts, anamneses: responseAnamneses, payments: paymentRows.filter((payment: any) => !payment.deletedAt).map(paymentResponse), blocked: row.status === 'idle' || responseAnamneses.some((form: any) => form.required && !form.answered) };
 }
 
 export async function listFollowups(tenantId: string) {
