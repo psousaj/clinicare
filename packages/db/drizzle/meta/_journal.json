@@ -8,6 +8,20 @@
       "when": 1791004014003,
       "tag": "0000_initial_tenants",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791004014004,
+      "tag": "0001_patients",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791004014005,
+      "tag": "0002_patient_pending_operations",
+      "breakpoints": true
     }
   ]
 }

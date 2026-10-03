@@ -3,6 +3,7 @@ import { cors } from 'hono/cors';
 import { isValidObjectId } from 'mongoose';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { getDatabasePool, Appointment, Anamnesis, Contract, Combo, Patient, PatientAnamnesis, Payment, Followup, Plan, Procedure, Attendance } from '@clinicare/db';
+import { DEFAULT_TENANT_ID, createPatient, deactivatePatient, getPatient, isUuid, listPatients, patientActorFromRequest, updatePatient } from './patients';
 import { buildRelationship } from './relationship';
 import { uploadUrl, uploadUrlForDocument, downloadUrl, deleteObject } from './storage';
 
@@ -14,8 +15,12 @@ const validSchema = (value: unknown) => isRecord(value) && value.type === 'objec
 const validDuration = (value: unknown) => Number.isInteger(value) && (value as number) > 0 && (value as number) <= 1440;
 const expiry = (days: number) => new Date(Date.now() + days * 86400000);
 const handleError = (c: Context, error: unknown) => {
-  if (error && typeof error === 'object' && 'code' in error && (error as { code: number }).code === 11000) return c.json({ error: 'Este registro já existe.' }, 409);
+  const errorCode = error && typeof error === 'object' && 'code' in error ? (error as { code: string | number }).code : undefined;
+  const causeCode = error instanceof Error && error.cause && typeof error.cause === 'object' && 'code' in error.cause ? (error.cause as { code: string | number }).code : undefined;
+  if ([errorCode, causeCode].includes('23505') || [errorCode, causeCode].includes(11000)) return c.json({ error: 'Este registro já existe.' }, 409);
   if (error instanceof Error && error.name === 'ValidationError') return c.json({ error: error.message }, 400);
+  if (error instanceof Error && error.message === 'Tenant não encontrado.') return c.json({ error: error.message }, 404);
+  if (error instanceof Error && /^(DATA_ENCRYPTION_KEY|SEARCH_HMAC_KEY)/.test(error.message)) return c.json({ error: error.message }, 503);
   console.error(error);
   return c.json({ error: 'Ocorreu um erro inesperado.' }, 500);
 };
@@ -136,27 +141,36 @@ export const app = new Hono()
     catch { return c.json({ status: 'unavailable', service: 'clinicare-api', database: 'disconnected' }, 503); }
   })
   .get('/api/patients', async (c) => {
-    const query = c.req.query('query');
-    const filter = query ? { $or: [{ fullName: { $regex: query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' } }, { phone: { $regex: query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') } }] } : {};
-    return c.json(await Patient.find(filter).sort({ createdAt: -1 }).lean());
+    const tenantId = c.req.header('x-tenant-id') ?? DEFAULT_TENANT_ID;
+    if (!isUuid(tenantId)) return fail(c, 'Tenant inválido.');
+    return c.json(await listPatients(tenantId, c.req.query('query') ?? c.req.query('q'), patientActorFromRequest(c.req)));
   })
   .get('/api/patients/:id', async (c) => {
-    if (!isValidObjectId(c.req.param('id'))) return fail(c, 'Paciente não encontrado.', 404);
-    const patient = await Patient.findById(c.req.param('id')).lean();
+    const tenantId = c.req.header('x-tenant-id') ?? DEFAULT_TENANT_ID;
+    if (!isUuid(tenantId)) return fail(c, 'Tenant inválido.');
+    const patient = await getPatient(tenantId, c.req.param('id'), patientActorFromRequest(c.req));
     return patient ? c.json(patient) : fail(c, 'Paciente não encontrado.', 404);
   })
   .post('/api/patients', async (c) => {
+    const tenantId = c.req.header('x-tenant-id') ?? DEFAULT_TENANT_ID;
+    if (!isUuid(tenantId)) return fail(c, 'Tenant inválido.');
     const body = await c.req.json().catch(() => null);
-    if (!body || typeof body.fullName !== 'string' || body.fullName.trim().length < 2) return fail(c, 'Nome completo é obrigatório.');
-    if (body.phone != null && typeof body.phone !== 'string') return fail(c, 'Telefone inválido.');
-    if (body.email != null && (typeof body.email !== 'string' || !validEmail(body.email))) return fail(c, 'E-mail inválido.');
-    return c.json(await Patient.create({ fullName: body.fullName, phone: body.phone, email: body.email, notes: body.notes }), 201);
+    if (!body) return fail(c, 'Dados do paciente inválidos.');
+    return c.json(await createPatient(tenantId, body, patientActorFromRequest(c.req)), 201);
   })
   .put('/api/patients/:id', async (c) => {
-    if (!isValidObjectId(c.req.param('id'))) return fail(c, 'Paciente não encontrado.', 404);
+    const tenantId = c.req.header('x-tenant-id') ?? DEFAULT_TENANT_ID;
+    if (!isUuid(tenantId)) return fail(c, 'Tenant inválido.');
     const body = await c.req.json().catch(() => null);
-    if (!body || typeof body.fullName !== 'string' || body.fullName.trim().length < 2 || (body.email != null && (typeof body.email !== 'string' || !validEmail(body.email)))) return fail(c, 'Dados do paciente inválidos.');
-    const patient = await Patient.findByIdAndUpdate(c.req.param('id'), { fullName: body.fullName, phone: body.phone, email: body.email, notes: body.notes }, { returnDocument: 'after', runValidators: true }).lean();
+    if (!body) return fail(c, 'Dados do paciente inválidos.');
+    const patient = await updatePatient(tenantId, c.req.param('id'), body, patientActorFromRequest(c.req));
+    return patient ? c.json(patient) : fail(c, 'Paciente não encontrado.', 404);
+  })
+  .delete('/api/patients/:id', async (c) => {
+    const tenantId = c.req.header('x-tenant-id') ?? DEFAULT_TENANT_ID;
+    if (!isUuid(tenantId)) return fail(c, 'Tenant inválido.');
+    const patient = await deactivatePatient(tenantId, c.req.param('id'), patientActorFromRequest(c.req));
+    if (patient && 'conflict' in patient) return fail(c, patient.conflict, 409);
     return patient ? c.json(patient) : fail(c, 'Paciente não encontrado.', 404);
   })
   .get('/api/procedures', async (c) => c.json(await Procedure.find().sort({ createdAt: -1 }).lean()))

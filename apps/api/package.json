@@ -7,6 +7,7 @@
     "dev:debug": "bun --inspect=localhost:6499/clinicare --hot src/index.ts",
     "build": "bun build src/index.ts --target=bun --outdir=dist",
     "typecheck": "tsc --noEmit",
+    "test:integration": "DATA_ENCRYPTION_KEY=AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE= SEARCH_HMAC_KEY=AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI= DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL to run PostgreSQL integration tests} bun test src/patients.integration.test.ts src/health.integration.test.ts",
     "test": "bun test"
   },
   "dependencies": {
@@ -15,6 +16,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1142.0",
     "@hono/node-server": "latest",
     "hono": "latest",
+    "drizzle-orm": "latest",
     "mongoose": "latest"
   },
   "devDependencies": {

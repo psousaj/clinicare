@@ -23,7 +23,7 @@ A gestão de pacientes, documentos e agenda relacionados aos procedimentos esté
 _Avoid_: escopo completo, prontuário generalista
 
 **Tenant**:
-Limite de isolamento dos dados de uma clínica. No MVP, uma implantação atende um único tenant; todos os pacientes, profissionais, procedimentos e documentos pertencem a ele. O sistema terá um tenant inicial mesmo antes de oferecer operações para múltiplos tenants.
+Limite de isolamento dos dados de uma clínica. No MVP, uma implantação atende um único tenant; todos os pacientes, profissionais, procedimentos e documentos pertencem a ele. O sistema terá um tenant inicial mesmo antes de oferecer operações para múltiplos tenants. Enquanto não há autenticação, a API usa deterministamente `00000000-0000-0000-0000-000000000001` quando `x-tenant-id` não é enviado; o seed PostgreSQL deve criar esse tenant. O cabeçalho só é aceito quando contém UUID válido.
 
 **Isolamento do tenant**:
 Regra de que uma operação, busca ou vínculo só pode acessar dados pertencentes ao mesmo tenant. O isolamento vale para entidades principais e seus dados dependentes; um registro de um tenant nunca pode ser associado a um registro de outro.

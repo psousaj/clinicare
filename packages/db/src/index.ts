@@ -57,6 +57,8 @@ export async function closeDatabase() {
 }
 
 export * from './relational-schema';
+export * from './crypto';
+export * from './normalization';
 export { migrateDatabase } from './migrate';
 // Legacy domain schema re-exported while aggregates move incrementally.
 export * from './schema';

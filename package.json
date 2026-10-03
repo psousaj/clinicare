@@ -17,6 +17,7 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "test:api": "turbo run test --filter=@clinicare/api",
+    "test:api:integration": "turbo run test:integration --filter=@clinicare/api",
     "test:web": "turbo run test --filter=@clinicare/web",
     "db:generate": "turbo run db:generate --filter=@clinicare/db",
     "db:migrate": "turbo run db:migrate --filter=@clinicare/db",
