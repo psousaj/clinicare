@@ -29,6 +29,20 @@
       "when": 1791004014006,
       "tag": "0003_catalog",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791004014007,
+      "tag": "0004_followups",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791004014008,
+      "tag": "0005_followup_protection",
+      "breakpoints": true
     }
   ]
 }

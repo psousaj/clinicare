@@ -65,7 +65,7 @@ export const plans = pgTable('plans', {
 
 export const planVersions = pgTable('plan_versions', {
   id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull(), planId: uuid('plan_id').notNull(), version: integer('version').notNull(), priceCents: integer('price_cents').notNull(), durationDays: integer('duration_days'), validityDays: integer('validity_days'), requireNewAnamnesis: boolean('require_new_anamnesis').notNull().default(false), createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-}, (t) => [foreignKey({ columns: [t.tenantId, t.planId], foreignColumns: [plans.tenantId, plans.id], name: 'plan_versions_tenant_plan_fk' }), unique('plan_versions_tenant_id_unique').on(t.tenantId, t.id), unique('plan_versions_tenant_parent_version_unique').on(t.tenantId, t.planId, t.version), check('plan_versions_price_nonnegative', sql`${t.priceCents} >= 0`), check('plan_versions_duration_positive', sql`${t.durationDays} is null or ${t.durationDays} >= 1`), check('plan_versions_validity_positive', sql`${t.validityDays} is null or ${t.validityDays} >= 1`)]);
+}, (t) => [foreignKey({ columns: [t.tenantId, t.planId], foreignColumns: [plans.tenantId, plans.id], name: 'plan_versions_tenant_plan_fk' }), unique('plan_versions_tenant_id_unique').on(t.tenantId, t.id), unique('plan_versions_tenant_plan_id_unique').on(t.tenantId, t.planId, t.id), unique('plan_versions_tenant_parent_version_unique').on(t.tenantId, t.planId, t.version), check('plan_versions_price_nonnegative', sql`${t.priceCents} >= 0`), check('plan_versions_duration_positive', sql`${t.durationDays} is null or ${t.durationDays} >= 1`), check('plan_versions_validity_positive', sql`${t.validityDays} is null or ${t.validityDays} >= 1`)]);
 
 export const planVersionItems = pgTable('plan_version_items', {
   id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull(), planVersionId: uuid('plan_version_id').notNull(), procedureId: uuid('procedure_id').notNull(), sessions: integer('sessions').notNull(), procedureName: text('procedure_name').notNull(), durationMinutes: integer('duration_minutes').notNull(), priceCents: integer('price_cents').notNull(), sessionSchema: jsonb('session_schema').notNull(),
@@ -83,4 +83,65 @@ export type RelationalProcedureVersion = typeof procedureVersions.$inferSelect;
 export type RelationalAnamnesis = typeof anamneses.$inferSelect; export type RelationalAnamnesisVersion = typeof anamnesisVersions.$inferSelect;
 export type RelationalCombo = typeof combos.$inferSelect; export type RelationalComboItem = typeof comboItems.$inferSelect;
 export type RelationalContract = typeof contracts.$inferSelect; export type RelationalContractVersion = typeof contractVersions.$inferSelect;
+export const followups = pgTable('followups', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull(),
+  patientId: uuid('patient_id').notNull(),
+  offerType: text('offer_type').notNull(),
+  offerId: uuid('offer_id').notNull(),
+  comboId: uuid('combo_id'),
+  planId: uuid('plan_id'),
+  planVersionId: uuid('plan_version_id'),
+  status: text('status').notNull().default('active'),
+  offerNameSnapshot: text('offer_name_snapshot').notNull(),
+  priceCents: integer('price_cents').notNull(),
+  validUntil: timestamp('valid_until', { withTimezone: true, mode: 'date' }),
+  cancellationReason: text('cancellation_reason'),
+  completedAt: timestamp('completed_at', { withTimezone: true, mode: 'date' }),
+  cancelledAt: timestamp('cancelled_at', { withTimezone: true, mode: 'date' }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.patientId], foreignColumns: [patients.tenantId, patients.id], name: 'followups_tenant_patient_fk' }),
+  foreignKey({ columns: [t.tenantId, t.comboId], foreignColumns: [combos.tenantId, combos.id], name: 'followups_tenant_combo_fk' }),
+  foreignKey({ columns: [t.tenantId, t.planId], foreignColumns: [plans.tenantId, plans.id], name: 'followups_tenant_plan_fk' }),
+  foreignKey({ columns: [t.tenantId, t.planId, t.planVersionId], foreignColumns: [planVersions.tenantId, planVersions.planId, planVersions.id], name: 'followups_tenant_plan_version_fk' }),
+  unique('followups_tenant_id_unique').on(t.tenantId, t.id),
+  unique('followups_tenant_id_patient_unique').on(t.tenantId, t.id, t.patientId),
+  uniqueIndex('followups_live_offer_unique').on(t.tenantId, t.patientId, t.offerType, t.offerId).where(sql`${t.status} not in ('completed', 'cancelled')`),
+  index('followups_patient_created_idx').on(t.tenantId, t.patientId, t.createdAt),
+  check('followups_offer_type_valid', sql`${t.offerType} in ('procedure', 'combo', 'plan')`),
+  check('followups_offer_target_valid', sql`(${t.offerType} = 'procedure' and ${t.comboId} is null and ${t.planId} is null and ${t.planVersionId} is null) or (${t.offerType} = 'combo' and ${t.comboId} = ${t.offerId} and ${t.planId} is null and ${t.planVersionId} is null) or (${t.offerType} = 'plan' and ${t.planId} = ${t.offerId} and ${t.comboId} is null and ${t.planVersionId} is not null)`),
+  check('followups_status_valid', sql`${t.status} in ('idle', 'active', 'completed', 'cancelled')`),
+  check('followups_price_nonnegative', sql`${t.priceCents} >= 0`),
+  check('followups_cancelled_state_valid', sql`(${t.status} = 'cancelled' and ${t.cancelledAt} is not null and ${t.completedAt} is null and ${t.cancellationReason} is not null and length(trim(${t.cancellationReason})) > 0) or (${t.status} <> 'cancelled' and ${t.cancelledAt} is null and ${t.cancellationReason} is null)`),
+  check('followups_completed_state_valid', sql`(${t.status} = 'completed' and ${t.completedAt} is not null and ${t.cancelledAt} is null and ${t.cancellationReason} is null) or (${t.status} <> 'completed' and ${t.completedAt} is null)`),
+]);
+
+export const followupItems = pgTable('followup_items', {
+  id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull(), followupId: uuid('followup_id').notNull(), procedureId: uuid('procedure_id').notNull(), procedureName: text('procedure_name').notNull(), sessionsTotal: integer('sessions_total').notNull(), sessionsPerformed: integer('sessions_performed').notNull().default(0), durationMinutes: integer('duration_minutes').notNull(), priceCents: integer('price_cents').notNull(), sessionSchema: jsonb('session_schema').notNull(), createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [foreignKey({ columns: [t.tenantId, t.followupId], foreignColumns: [followups.tenantId, followups.id], name: 'followup_items_tenant_followup_fk' }), foreignKey({ columns: [t.tenantId, t.procedureId], foreignColumns: [procedures.tenantId, procedures.id], name: 'followup_items_tenant_procedure_fk' }), check('followup_items_sessions_positive', sql`${t.sessionsTotal} >= 1`), check('followup_items_performed_valid', sql`${t.sessionsPerformed} between 0 and ${t.sessionsTotal}`), check('followup_items_duration_positive', sql`${t.durationMinutes} >= 1`), check('followup_items_price_nonnegative', sql`${t.priceCents} >= 0`)]);
+
+// Immutable source snapshots are separate from mutable operational counters.
+export const followupSnapshots = pgTable('followup_snapshots', {
+  id: uuid('id').defaultRandom(), tenantId: uuid('tenant_id').notNull(), followupId: uuid('followup_id').notNull(), kind: text('kind').notNull(), sourceVersion: integer('source_version'), payload: jsonb('payload').notNull(), createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [foreignKey({ columns: [t.tenantId, t.followupId], foreignColumns: [followups.tenantId, followups.id], name: 'followup_snapshots_tenant_followup_fk' }), primaryKey({ columns: [t.tenantId, t.followupId, t.kind] }), check('followup_snapshots_kind_valid', sql`${t.kind} in ('combo', 'plan')`)]);
+
+export const followupContracts = pgTable('followup_contracts', {
+  id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull(), followupId: uuid('followup_id').notNull(), contractId: uuid('contract_id').notNull(), contractVersion: integer('contract_version').notNull(), titleSnapshot: text('title_snapshot').notNull(), contentSnapshot: text('content_snapshot'), sourceObjectKey: text('source_object_key'), patientSignedAt: timestamp('patient_signed_at', { withTimezone: true, mode: 'date' }), professionalSignedAt: timestamp('professional_signed_at', { withTimezone: true, mode: 'date' }), status: text('status').notNull().default('pending'), createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [foreignKey({ columns: [t.tenantId, t.followupId], foreignColumns: [followups.tenantId, followups.id], name: 'followup_contracts_tenant_followup_fk' }), foreignKey({ columns: [t.tenantId, t.contractId], foreignColumns: [contracts.tenantId, contracts.id], name: 'followup_contracts_tenant_contract_fk' }), unique('followup_contracts_tenant_id_unique').on(t.tenantId, t.id), check('followup_contracts_version_positive', sql`${t.contractVersion} >= 1`), check('followup_contracts_status_valid', sql`${t.status} in ('pending', 'signed', 'cancelled')`)]);
+
+export const signatureProcesses = pgTable('signature_processes', {
+  id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull(), followupContractId: uuid('followup_contract_id').notNull(), status: text('status').notNull().default('pending'), createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(), updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [foreignKey({ columns: [t.tenantId, t.followupContractId], foreignColumns: [followupContracts.tenantId, followupContracts.id], name: 'signature_processes_tenant_contract_fk' }), unique('signature_processes_tenant_contract_unique').on(t.tenantId, t.followupContractId), check('signature_processes_status_valid', sql`${t.status} in ('pending', 'completed', 'cancelled')`)]);
+
+export const appliedAnamneses = pgTable('applied_anamneses', {
+  id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull(), patientId: uuid('patient_id').notNull(), followupId: uuid('followup_id').notNull(), anamnesisId: uuid('anamnesis_id').notNull(), version: integer('version').notNull(), titleSnapshot: text('title_snapshot').notNull(), schemaSnapshot: jsonb('schema_snapshot').notNull(), required: boolean('required').notNull().default(true), submittedAt: timestamp('submitted_at', { withTimezone: true, mode: 'date' }), validUntil: timestamp('valid_until', { withTimezone: true, mode: 'date' }), createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [foreignKey({ columns: [t.tenantId, t.patientId], foreignColumns: [patients.tenantId, patients.id], name: 'applied_anamneses_tenant_patient_fk' }), foreignKey({ columns: [t.tenantId, t.followupId, t.patientId], foreignColumns: [followups.tenantId, followups.id, followups.patientId], name: 'applied_anamneses_tenant_followup_patient_fk' }), foreignKey({ columns: [t.tenantId, t.anamnesisId], foreignColumns: [anamneses.tenantId, anamneses.id], name: 'applied_anamneses_tenant_anamnesis_fk' }), check('applied_anamneses_version_positive', sql`${t.version} >= 1`)]);
+
+export const payments = pgTable('payments', {
+  id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull(), followupId: uuid('followup_id').notNull(), amountCents: integer('amount_cents').notNull(), method: text('method').notNull(), installments: integer('installments').notNull().default(1), receivedAt: timestamp('received_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(), notesCiphertext: text('notes_ciphertext'), notesNonce: text('notes_nonce'), notesKeyVersion: integer('notes_key_version'), idempotencyKey: text('idempotency_key'), createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [foreignKey({ columns: [t.tenantId, t.followupId], foreignColumns: [followups.tenantId, followups.id], name: 'payments_tenant_followup_fk' }), unique('payments_tenant_id_unique').on(t.tenantId, t.id), unique('payments_idempotency_unique').on(t.tenantId, t.followupId, t.idempotencyKey), check('payments_amount_positive', sql`${t.amountCents} > 0`), check('payments_installments_positive', sql`${t.installments} >= 1`), check('payments_method_valid', sql`${t.method} in ('cash', 'pix', 'credit_card')`)]);
+
+export type RelationalFollowup = typeof followups.$inferSelect; export type RelationalFollowupItem = typeof followupItems.$inferSelect;
 export type RelationalPlan = typeof plans.$inferSelect; export type RelationalPlanVersion = typeof planVersions.$inferSelect;

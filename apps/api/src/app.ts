@@ -6,6 +6,7 @@ import { getDatabasePool, Anamnesis, Contract, Combo, Plan, Patient, PatientAnam
 import { DEFAULT_TENANT_ID, createPatient, deactivatePatient, getPatient, isUuid, listPatients, patientActorFromRequest, updatePatient } from './patients';
 import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, associateAnamnesis, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan } from './catalog';
 import { buildRelationship } from './relationship';
+import { createFollowup, getFollowup, listFollowups, cancelFollowup, updateFollowupState } from './followups';
 import { uploadUrl, uploadUrlForDocument, downloadUrl, deleteObject } from './storage';
 
 const fail = (c: Context, message: string, status: 400 | 404 | 409 | 503 = 400) => c.json({ error: message }, status);
@@ -16,13 +17,15 @@ const validSchema = (value: unknown) => isRecord(value) && value.type === 'objec
 const validDuration = (value: unknown) => Number.isInteger(value) && (value as number) > 0 && (value as number) <= 1440;
 const expiry = (days: number) => new Date(Date.now() + days * 86400000);
 const handleError = (c: Context, error: unknown) => {
+  const explicitStatus = error && typeof error === 'object' && 'status' in error ? (error as { status: number }).status : undefined;
+  if (explicitStatus && [400, 404, 409].includes(explicitStatus) && error instanceof Error) return c.json({ error: error.message }, explicitStatus as 400 | 404 | 409);
   const errorCode = error && typeof error === 'object' && 'code' in error ? (error as { code: string | number }).code : undefined;
   const causeCode = error instanceof Error && error.cause && typeof error.cause === 'object' && 'code' in error.cause ? (error.cause as { code: string | number }).code : undefined;
   if ([errorCode, causeCode].includes('23505') || [errorCode, causeCode].includes(11000)) return c.json({ error: 'Este registro já existe.' }, 409);
   if ([errorCode, causeCode].includes('23503') || [errorCode, causeCode].includes('23514') || [errorCode, causeCode].includes('22P02')) return c.json({ error: 'Dados inválidos ou referência não encontrada.' }, 400);
   if (error instanceof Error && error.name === 'ValidationError') return c.json({ error: error.message }, 400);
   if (error instanceof Error && error.message === 'Tenant não encontrado.') return c.json({ error: error.message }, 400);
-  if (error instanceof Error && /^(Informe|Dados ou|Combo requer|Plano |Procedimento não|Contrato não|Versão não|Formulário inválido)/i.test(error.message)) return c.json({ error: error.message }, 400);
+  if (error instanceof Error && /^(Informe|Dados ou|Combo requer|Combo não|Plano |Procedimento não|Contrato não|Versão não|Formulário inválido|Motivo do cancelamento|O acompanhamento)/i.test(error.message)) return c.json({ error: error.message }, 400);
   if (error instanceof Error && /conflito|versão desatualizada/i.test(error.message)) return c.json({ error: error.message }, 409);
   if (error instanceof Error && /^(DATA_ENCRYPTION_KEY|SEARCH_HMAC_KEY)/.test(error.message)) return c.json({ error: error.message }, 503);
   console.error(error);
@@ -196,20 +199,33 @@ export const app = new Hono()
   .post('/api/plans', async (c) => c.json(await savePlan(await catalogTenant(c.req), null, await c.req.json()), 201))
   .put('/api/plans/:id', async (c) => { const result = await savePlan(await catalogTenant(c.req), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Plano não encontrado.', 404); })
   .post('/api/followups', async (c) => {
+    const tenantId = await catalogTenant(c.req);
     const body = await c.req.json().catch(() => null);
-    if (!body || !isValidObjectId(body.patientId) || !['combo', 'plan'].includes(body.offerType) || !isValidObjectId(body.offerId)) return fail(c, 'Paciente e um combo ou plano são obrigatórios; procedimento avulso é criado ao agendar ou registrar o atendimento.');
-    if (!await Patient.exists({ _id: body.patientId })) return fail(c, 'Paciente não encontrado.', 404);
-    const started = await startFollowup(body.patientId, body.offerType, body.offerId);
-    return 'error' in started ? fail(c, started.error, started.status) : c.json(started.followup, 201);
+    if (!body || !isUuid(body.patientId) || !['combo', 'plan'].includes(body.offerType) || !isUuid(body.offerId)) return fail(c, 'Paciente e um combo ou plano são obrigatórios; procedimento avulso é criado ao agendar ou registrar o atendimento.');
+    try { return c.json(await createFollowup(tenantId, body.patientId, body.offerType, body.offerId), 201); } catch (error) { return handleError(c, error); }
   })
   .get('/api/followups', async (c) => {
-    const followups = await Followup.find().populate('patientId', 'fullName').sort({ createdAt: -1 }).lean();
-    const ids = followups.map((followup: any) => followup._id);
-    const [payments, forms] = await Promise.all([Payment.find({ followupId: { $in: ids } }).lean(), PatientAnamnesis.find({ followupId: { $in: ids } }).populate('anamnesisId', 'title validityMonths').lean()]);
-    return c.json(followups.map((followup: any) => {
-      const anamneses = forms.filter((form: any) => String(form.followupId) === String(followup._id)).map((form: any) => ({ id: form._id, title: form.anamnesisId?.title ?? 'Anamnese', required: form.required, schemaSnapshot: form.schemaSnapshot, answered: !!form.response?.submittedAt, answers: form.response?.answers ?? null, submittedAt: form.response?.submittedAt ?? null, validUntil: form.response?.validUntil ?? null }));
-      return { ...followup, payments: payments.filter((payment: any) => String(payment.followupId) === String(followup._id)), anamneses, blocked: anamneses.some((form: any) => form.required && !form.answered) };
-    }));
+    return c.json(await listFollowups(await catalogTenant(c.req)));
+  })
+  .get('/api/followups/:id', async (c) => {
+    const tenantId = await catalogTenant(c.req);
+    if (!isUuid(c.req.param('id'))) return fail(c, 'Acompanhamento inválido.');
+    const result = await getFollowup(tenantId, c.req.param('id'));
+    return result ? c.json(result) : fail(c, 'Acompanhamento não encontrado.', 404);
+  })
+  .post('/api/followups/:id/cancel', async (c) => {
+    const tenantId = await catalogTenant(c.req);
+    if (!isUuid(c.req.param('id'))) return fail(c, 'Acompanhamento inválido.');
+    const body = await c.req.json().catch(() => null);
+    if (!isRecord(body) || typeof body.reason !== 'string' || !body.reason.trim()) return fail(c, 'Motivo do cancelamento é obrigatório.');
+    try { const result = await cancelFollowup(tenantId, c.req.param('id'), body.reason); return result ? c.json(result) : fail(c, 'Acompanhamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
+  })
+  .patch('/api/followups/:id/state', async (c) => {
+    const tenantId = await catalogTenant(c.req);
+    if (!isUuid(c.req.param('id'))) return fail(c, 'Acompanhamento inválido.');
+    const body = await c.req.json().catch(() => null);
+    if (!isRecord(body) || !['completed', 'cancelled'].includes(body.status)) return fail(c, 'Estado de acompanhamento inválido.');
+    try { const result = await updateFollowupState(tenantId, c.req.param('id'), body.status, body.reason); return result ? c.json(result) : fail(c, 'Acompanhamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
   })
   .post('/api/payments', async (c) => {
     const body = await c.req.json().catch(() => null);

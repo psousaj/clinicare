@@ -43,6 +43,13 @@ integration('catalog API with PostgreSQL', () => {
     expect((await request(a!, `/api/anamneses/${anamnesis.id}/versions`, 'POST', { schema, expectedVersion: 1 })).status).toBe(409);
   });
 
+  it('rejects invalid combo validity ranges before creation', async () => {
+    const [a] = tenantIds;
+    const procedure = await (await request(a!, '/api/procedures', 'POST', { name: 'Validity procedure', durationMinutes: 30, priceCents: 100, sessionSchema: schema })).json() as any;
+    const response = await request(a!, '/api/combos', 'POST', { name: 'Invalid validity combo', priceCents: 100, validFrom: '2026-02-01T00:00:00.000Z', validUntil: '2026-01-01T00:00:00.000Z', items: [{ procedureId: procedure.id, sessions: 1 }] });
+    expect(response.status).toBe(400);
+  });
+
   it('keeps versions immutable, supports restore, isolates tenants, and rejects invalid tenant', async () => {
     const [a, b] = tenantIds;
     const p = await (await request(a!, '/api/procedures', 'POST', { name: 'Immutable procedure', durationMinutes: 30, priceCents: 100, sessionSchema: schema })).json() as any;
