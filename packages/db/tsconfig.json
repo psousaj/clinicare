@@ -1,4 +1,5 @@
 {
   "extends": "../../tsconfig.json",
-  "include": ["src/schema.ts", "src/index.ts"]
+  "include": ["src/index.ts", "src/schema.ts", "src/relational-schema.ts", "src/migrate.ts", "src/seed.ts"],
+  "exclude": ["src/**/*.test.ts"]
 }

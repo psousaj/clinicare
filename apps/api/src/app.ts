@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { isValidObjectId } from 'mongoose';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { Appointment, Anamnesis, Contract, Combo, Patient, PatientAnamnesis, Payment, Followup, Plan, Procedure, Attendance } from '@clinicare/db';
+import { getDatabasePool, Appointment, Anamnesis, Contract, Combo, Patient, PatientAnamnesis, Payment, Followup, Plan, Procedure, Attendance } from '@clinicare/db';
 import { buildRelationship } from './relationship';
 import { uploadUrl, uploadUrlForDocument, downloadUrl, deleteObject } from './storage';
 
@@ -132,7 +132,7 @@ export const app = new Hono()
   .use('/api/*', cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'] }))
   .onError((error, c) => handleError(c, error))
   .get('/api/health', async (c) => {
-    try { await Patient.db?.db?.admin().ping(); return c.json({ status: 'ok', service: 'clinicare-api', database: 'connected' }); }
+    try { await getDatabasePool().query('select 1'); return c.json({ status: 'ok', service: 'clinicare-api', database: 'connected' }); }
     catch { return c.json({ status: 'unavailable', service: 'clinicare-api', database: 'disconnected' }, 503); }
   })
   .get('/api/patients', async (c) => {

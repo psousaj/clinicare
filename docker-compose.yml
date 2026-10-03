@@ -6,6 +6,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3000
+      DATABASE_URL: postgresql://clinicare:clinicare@postgres:5432/clinicare
       MONGODB_URI: mongodb://mongo:27017/clinicare
       CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
@@ -14,6 +15,8 @@ services:
     ports:
       - "3000:3000"
     depends_on:
+      postgres:
+        condition: service_healthy
       mongo:
         condition: service_healthy
     healthcheck:
@@ -21,6 +24,23 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: clinicare
+      POSTGRES_USER: clinicare
+      POSTGRES_PASSWORD: clinicare
+    ports:
+      - "5432:5432"
+    volumes:
+      - clinicare-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U clinicare -d clinicare"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+  # Transitional legacy store: existing API routes still use Mongoose until their domain tickets migrate.
   mongo:
     image: mongo:8
     restart: unless-stopped
@@ -34,4 +54,5 @@ services:
       timeout: 5s
       retries: 15
 volumes:
+  clinicare-postgres:
   clinicare-mongo:
