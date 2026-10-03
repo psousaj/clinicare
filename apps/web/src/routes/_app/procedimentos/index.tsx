@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { Layers, Pencil, Percent, Plus, Search, Sparkles, Tags } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { QueryError } from '@/components/QueryState';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -35,6 +36,14 @@ const td = 'px-3 py-3.5 align-middle';
 
 function Catalog() {
   const { aba, q = '', status } = Route.useSearch();
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 767px)');
+    const update = () => setIsMobile(media.matches);
+    update();
+    media.addEventListener?.('change', update);
+    return () => media.removeEventListener?.('change', update);
+  }, []);
   const navigate = useNavigate({ from: Route.fullPath });
   const procedures = useQuery(proceduresQuery), combos = useQuery(combosQuery), anamneses = useQuery(anamnesesQuery);
   const updateProcedure = useUpdateProcedure(), updateCombo = useUpdateCombo();
@@ -98,7 +107,7 @@ function Catalog() {
         <QueryError query={aba === 'procedimentos' ? procedures : combos} />
         {aba === 'procedimentos' ? (
           <div className="overflow-x-auto">
-            <table className="hidden w-full border-collapse text-sm md:table">
+            {!isMobile && <table className="w-full border-collapse text-sm">
               <thead><tr className="border-b border-border"><th className={th}>Procedimento</th><th className={th}>Tipo</th><th className={th}>Duração</th><th className={th}>Anamneses</th><th className={cn(th, 'text-right')}>Preço</th><th className={th}>Situação</th><th className={th}><span className="sr-only">Ações</span></th></tr></thead>
               <tbody>
                 {shownProcedures.map((procedure) => (
@@ -119,8 +128,8 @@ function Catalog() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-            <ul className="grid gap-3 md:hidden">
+            </table>}
+            {isMobile && <ul className="grid gap-3">
               {shownProcedures.map((procedure) => (
                 <li key={procedure.id} className={cn('grid gap-3 rounded-xl border border-border bg-card p-4', procedure.active === false && 'opacity-70')}>
                   <div className="flex items-start justify-between gap-3">
@@ -142,14 +151,14 @@ function Catalog() {
                   </div>
                 </li>
               ))}
-            </ul>
+            </ul>}
             {procedures.isSuccess && shownProcedures.length === 0 && (
               <p className="py-8 text-center text-sm text-muted-foreground">{procedureList.length === 0 ? 'Nenhum procedimento cadastrado ainda.' : 'Nenhum procedimento encontrado com esses filtros.'}</p>
             )}
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="hidden w-full border-collapse text-sm md:table">
+            {!isMobile && <table className="w-full border-collapse text-sm">
               <thead><tr className="border-b border-border"><th className={th}>Combo</th><th className={th}>Procedimentos</th><th className={th}>Validade</th><th className={cn(th, 'text-right')}>Preço</th><th className={th}>Situação</th><th className={th}><span className="sr-only">Ações</span></th></tr></thead>
               <tbody>
                 {shownCombos.map((combo) => {
@@ -178,8 +187,8 @@ function Catalog() {
                   );
                 })}
               </tbody>
-            </table>
-            <ul className="grid gap-3 md:hidden">
+            </table>}
+            {isMobile && <ul className="grid gap-3">
               {shownCombos.map((combo) => {
                 const state = comboStatus(combo);
                 return (
@@ -207,7 +216,7 @@ function Catalog() {
                   </li>
                 );
               })}
-            </ul>
+            </ul>}
             {combos.isSuccess && shownCombos.length === 0 && (
               <p className="py-8 text-center text-sm text-muted-foreground">{comboList.length === 0 ? 'Nenhum combo cadastrado ainda.' : 'Nenhum combo encontrado com esses filtros.'}</p>
             )}

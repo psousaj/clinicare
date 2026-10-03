@@ -6,7 +6,7 @@ import {
   followupContracts, followupItems, followupSnapshots, followups, getDatabase, migrateDatabase, patients, procedures, tenants,
 } from '@clinicare/db';
 
-const integration = process.env.DATABASE_URL ? describe : describe.skip;
+import { assertSafeIntegrationDatabase, integration } from './integration-support';
 const tenantId = crypto.randomUUID();
 const headers = { 'content-type': 'application/json', 'x-tenant-id': tenantId };
 const request = (path: string, init: RequestInit = {}) => app.request(path, { ...init, headers: { ...headers, ...(init.headers ?? {}) } });
@@ -15,6 +15,7 @@ const patch = (path: string, body: unknown) => request(path, { method: 'PATCH', 
 
 integration('PostgreSQL scheduling and attendance', () => {
   beforeAll(async () => {
+    assertSafeIntegrationDatabase();
     await migrateDatabase();
     await getDatabase().insert(tenants).values({ id: tenantId, name: `Scheduling ${tenantId}` });
   });

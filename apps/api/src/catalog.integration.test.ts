@@ -2,9 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { inArray } from 'drizzle-orm';
 import { app } from './app';
 import { closeDatabase, getDatabase, migrateDatabase, tenants, procedures, procedureVersions, anamneses, anamnesisVersions, anamnesisProcedures, combos, comboItems, contracts, contractVersions, plans, planVersions, planVersionItems, planVersionContracts } from '@clinicare/db';
+import { assertSafeIntegrationDatabase, integration } from './integration-support';
 
-const integration = process.env.DATABASE_URL ? describe : describe.skip;
-const localHosts = ['localhost', '127.0.0.1', '::1', 'postgres'];
 const tenantIds = [crypto.randomUUID(), crypto.randomUUID()];
 const headers = (tenantId: string) => ({ 'content-type': 'application/json', 'x-tenant-id': tenantId });
 const request = (tenantId: string, path: string, method = 'GET', body?: unknown) => app.request(path, { method, headers: headers(tenantId), ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
@@ -12,8 +11,7 @@ const schema = { type: 'object', properties: { pain: { type: 'string' } } };
 
 integration('catalog API with PostgreSQL', () => {
   beforeAll(async () => {
-    const url = new URL(process.env.DATABASE_URL!);
-    if (!localHosts.includes(url.hostname)) throw new Error('Catalog integration tests require local PostgreSQL DATABASE_URL.');
+    assertSafeIntegrationDatabase();
     await migrateDatabase();
     await getDatabase().insert(tenants).values(tenantIds.map((id) => ({ id, name: `Catalog test ${id}` })));
   });

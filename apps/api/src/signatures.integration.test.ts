@@ -7,7 +7,7 @@ import {
   signatureParticipants, signatureProcesses, signatureRevisions, signatureTokens, tenants,
 } from '@clinicare/db';
 
-const integration = process.env.DATABASE_URL ? describe : describe.skip;
+import { assertSafeIntegrationDatabase, integration } from './integration-support';
 const request = (path: string, init: RequestInit = {}) => app.request(path, init);
 const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 
@@ -22,6 +22,7 @@ integration('PostgreSQL signatures API', () => {
   let professionalParticipantId: string;
 
   beforeAll(async () => {
+    assertSafeIntegrationDatabase();
     await migrateDatabase();
     const db = getDatabase();
     await db.insert(tenants).values([

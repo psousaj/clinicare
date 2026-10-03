@@ -12,9 +12,13 @@ const conflict = (message: string) => Object.assign(new Error(message), { status
 const activeAppointmentStatuses = ['planned', 'confirmed', 'rescheduled'] as const;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const idShape = (row: any) => ({ ...row, _id: row.id });
-const photoShape = (tenantId: string, row: any) => ({ id: row.id, _id: row.id, attendanceId: row.attendanceId, contentHash: row.contentHash, phase: row.phase, notes: unprotect(row, tenantId, 'attendance_photos', row.id, 'notes'), createdAt: row.createdAt });
+const photoShape = (tenantId: string, row: any) => ({ id: row.id, _id: row.id, attendanceId: row.attendanceId, objectKey: row.objectKey, contentHash: row.contentHash, phase: row.phase, notes: unprotect(row, tenantId, 'attendance_photos', row.id, 'notes'), createdAt: row.createdAt });
 const validUuid = (value: unknown): value is string => typeof value === 'string' && UUID.test(value);
-const uploadSecret = () => process.env.DATA_ENCRYPTION_KEY ?? 'clinicare-upload-token';
+const uploadSecret = () => {
+  const secret = process.env.UPLOAD_SIGNING_KEY;
+  if (!secret) throw new Error('UPLOAD_SIGNING_KEY is required for photo uploads.');
+  return secret;
+};
 const photoUploadToken = (tenantId: string, attendanceId: string, key: string, contentHash = '') => createHmac('sha256', uploadSecret()).update(`${tenantId}:${attendanceId}:${key}:${contentHash}`).digest('base64url');
 
 const protect = (tenantId: string, table: string, id: string, column: string, value: unknown) => {

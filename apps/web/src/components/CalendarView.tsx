@@ -1,5 +1,6 @@
 import type { DateSelectArg, EventClickArg, EventContentArg, EventInput } from '@fullcalendar/core';
 import ptBrLocale from '@fullcalendar/core/locales/pt-br';
+import { useCallback, type MouseEvent } from 'react';
 import type { DateClickArg } from '@fullcalendar/interaction';
 import interactionPlugin from '@fullcalendar/interaction';
 import FullCalendar from '@fullcalendar/react';
@@ -20,9 +21,21 @@ function renderEvent({ event, timeText }: EventContentArg) {
   );
 }
 
-export function CalendarView({ events, onSelect, onDateClick, onOpen }: { events: CalendarEntry[]; onSelect: (selection: DateSelectArg) => void; onDateClick: (click: DateClickArg) => void; onOpen: (event: EventClickArg) => void }) {
+export function CalendarView({ events, onSelect, onDateClick, onSlotClick, onOpen }: { events: CalendarEntry[]; onSelect: (selection: DateSelectArg) => void; onDateClick: (click: DateClickArg) => void; onSlotClick: (date: Date) => void; onOpen: (event: EventClickArg) => void }) {
+  const handleFallbackSlotClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLElement;
+    const lane = target.closest<HTMLElement>('.fc-timegrid-slot-lane[data-time]');
+    if (!lane) return;
+    const column = target.closest<HTMLElement>('.fc-timegrid-col[data-date]');
+    const date = column?.dataset.date;
+    const time = lane.dataset.time;
+    if (!date || !time) return;
+    const slot = new Date(`${date}T${time}`);
+    if (!Number.isNaN(slot.getTime())) onSlotClick(slot);
+  }, [onSlotClick]);
+
   return (
-    <div className="calendar-wrap">
+    <div className="calendar-wrap" onClick={handleFallbackSlotClick}>
       <FullCalendar
         plugins={[timeGridPlugin, interactionPlugin]}
         initialView="timeGridWeek"

@@ -31,6 +31,7 @@ function Finance() {
         <FinanceSummary label="Em aberto" amount={String(openEntries)} detail="Acompanhamentos com saldo" tone="text-foreground" />
       </div>}
       {followups.isSuccess && entries.length === 0 && <p className="text-sm text-muted-foreground">Nenhum acompanhamento iniciado. Inicie um acompanhamento pela ficha do paciente para acompanhar pagamentos e saldos.</p>}
+      {followups.isPending && <p className="text-sm text-muted-foreground">Carregando acompanhamentos…</p>}
       <div className="grid gap-3">
         {entries.map((followup) => {
           const paid = received(followup), due = balance(followup), settled = due === 0;

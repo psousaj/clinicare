@@ -1,13 +1,11 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
-import mongoose from 'mongoose';
 import * as relationalSchema from './relational-schema';
 
 export type Database = NodePgDatabase<typeof relationalSchema>;
 
 let pool: Pool | null = null;
 let database: Database | null = null;
-let mongoConnection: Promise<typeof mongoose> | null = null;
 
 export function getDatabaseUrl() {
   const url = process.env.DATABASE_URL;
@@ -35,18 +33,7 @@ export async function connectPostgresDatabase() {
   return getDatabase();
 }
 
-/** Legacy MongoDB connection used by routes not yet migrated to PostgreSQL. */
-export function connectDatabase(
-  uri = process.env.MONGODB_URI,
-) {
-  if (!uri) throw new Error('MONGODB_URI is required.');
-  mongoConnection ??= mongoose.connect(uri);
-  return mongoConnection;
-}
-
 export async function disconnectDatabase() {
-  mongoConnection = null;
-  await mongoose.disconnect();
   await closeDatabase();
 }
 
@@ -60,5 +47,4 @@ export * from './relational-schema';
 export * from './crypto';
 export * from './normalization';
 export { migrateDatabase } from './migrate';
-// Legacy domain schema re-exported while aggregates move incrementally.
-export * from './schema';
+export { seedDatabase } from './seed';

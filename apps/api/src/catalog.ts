@@ -6,7 +6,6 @@ import {
 
 const tenantUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const defaultTenant = '00000000-0000-0000-0000-000000000001';
-const isPgConfigured = () => !!process.env.DATABASE_URL;
 
 export async function catalogTenant(request: { header(name: string): string | undefined }) {
   const tenantId = request.header('x-tenant-id') ?? defaultTenant;
@@ -16,9 +15,6 @@ export async function catalogTenant(request: { header(name: string): string | un
   return tenantId;
 }
 
-// Catalog records are UUID-native. Legacy Mongo operational routes still use
-// ObjectIds and must not be given catalog IDs until those aggregates migrate.
-export const catalogCompatibility = 'UUID catalog IDs are intentionally not accepted by legacy Mongo operational routes.';
 
 const id = (row: { id: string }) => ({ ...row, _id: row.id });
 const schemaOk = (value: unknown) => !!value && typeof value === 'object' && !Array.isArray(value) && (value as any).type === 'object' && !!(value as any).properties && typeof (value as any).properties === 'object';

@@ -6,13 +6,14 @@ export class ApiError extends Error {
   }
 }
 
-// A API devolve documentos Mongo com `_id` (e refs populadas); expomos também `id`.
 function withIds(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(withIds);
   if (value && typeof value === 'object' && !(value instanceof Date)) {
     const entries = Object.entries(value).map(([key, item]) => [key, withIds(item)] as const);
     const record = Object.fromEntries(entries);
     if (typeof record._id === 'string' && record.id === undefined) record.id = record._id;
+    if (record.id === undefined && typeof record._id === 'object' && record._id && 'id' in record._id) record.id = record._id.id;
+    if (record.id === undefined && typeof record._id === 'object' && record._id && '$oid' in record._id) record.id = record._id.$oid;
     return record;
   }
   return value;

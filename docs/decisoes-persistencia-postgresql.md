@@ -1,13 +1,13 @@
 # Decisão e plano: PostgreSQL + Drizzle + JSONB
 
 Data: 2026-10-03  
-Status: decisão confirmada; implementação ainda não autorizada.
+Status: decisão confirmada e implementada no corte PostgreSQL.
 
 ## 1. Conclusão
 
-O Clinicare deve ser tratado como produto clínico-financeiro confiável. A persistência escolhida é **PostgreSQL + Drizzle + JSONB**, substituindo MongoDB + Mongoose.
+O Clinicare deve ser tratado como produto clínico-financeiro confiável. A persistência escolhida é **PostgreSQL + Drizzle + JSONB**, substituindo a persistência documental anterior.
 
-MongoDB poderia continuar sendo usado, mas exigiria replica set, transações multi-documento, retries, write concern, versionamento otimista, integridade referencial integralmente aplicada pela aplicação e testes concorrentes. PostgreSQL reduz esse risco com FKs, constraints, unicidade, locks e transações nativas, sem perder dados documentais: schemas e snapshots continuam em `jsonb`, e conteúdo clínico dinâmico será protegido por coluna.
+A alternativa documental poderia continuar sendo usada, mas exigiria replica set, transações multi-documento, retries, write concern, versionamento otimista, integridade referencial integralmente aplicada pela aplicação e testes concorrentes. PostgreSQL reduz esse risco com FKs, constraints, unicidade, locks e transações nativas, sem perder dados documentais: schemas e snapshots continuam em `jsonb`, e conteúdo clínico dinâmico será protegido por coluna.
 
 Critérios que poderiam reabrir a decisão: mudança para um domínio predominantemente documental, remoção das exigências de integridade multi-entidade, ou evidência operacional de que a carga documental supera materialmente a necessidade de consistência relacional.
 
@@ -195,7 +195,7 @@ Todas as tabelas de negócio têm `tenant_id`, timestamps e política de soft de
 9. Preservar R2 e adaptar metadados para PostgreSQL.
 10. Atualizar API mantendo contratos HTTP onde não houver decisão explícita; ajustar frontend para assinatura pendente e confirmação do dia.
 11. Rodar migrations em base vazia, seed, Compose completo e smoke test.
-12. Só depois remover Mongoose, MongoDB Memory Server, `MONGODB_URI`, serviços Mongo e código morto. Não manter dual-write como estado final.
+12. Remover a persistência documental anterior, mantendo PostgreSQL real com migrations, `DATABASE_URL`, serviço PostgreSQL e código morto fora do corte. Não manter dual-write como estado final.
 
 ## 9. Estimativa revisada e riscos
 

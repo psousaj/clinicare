@@ -1,8 +1,10 @@
 import { serveStatic } from 'hono/bun';
-import { connectDatabase } from '@clinicare/db';
+import { connectPostgresDatabase, migrateDatabase, seedDatabase } from '@clinicare/db';
 import { app } from './app';
 
-await connectDatabase();
+await migrateDatabase();
+await seedDatabase();
+await connectPostgresDatabase();
 app.use('/*', serveStatic({ root: './apps/web/dist' }));
 // Fallback da SPA para rotas do TanStack Router (ex.: /pacientes, /formulario/:token).
 app.get('*', (c, next) => (c.req.path.startsWith('/api/') || c.req.path.startsWith('/public/') ? next() : serveStatic({ path: './apps/web/dist/index.html' })(c, next)));

@@ -76,7 +76,7 @@ export const planSchema = z.looseObject({
   active: z.boolean().optional(),
   durationDays: z.number().nullish(),
   validityDays: z.number().nullish(),
-  items: z.array(z.looseObject({ offerType: z.literal('procedure'), offerId: z.string(), sessions: z.number().int().min(1) })),
+  items: z.array(z.looseObject({ offerType: z.literal('procedure'), offerId: z.string(), sessions: z.number().int().min(1).default(1) })),
   contractIds: z.array(refId).default([]),
   requireNewAnamnesis: z.boolean().optional(),
 });

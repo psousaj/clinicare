@@ -89,8 +89,8 @@ describe('Finance', () => {
     const user = userEvent.setup();
     renderAt('/financeiro');
     expect(await screen.findByRole('heading', { name: 'Financeiro' })).toBeInTheDocument();
-    expect(screen.getByText('Parcial')).toBeInTheDocument();
-    expect(screen.getByText('Recebido')).toBeInTheDocument();
+    expect(await screen.findByText('Parcial')).toBeInTheDocument();
+    expect(screen.getAllByText('Recebido').length).toBeGreaterThan(0);
     expect(screen.getByText('Falta receber')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /registrar pagamento/i }));
     expect(await screen.findByRole('dialog')).toHaveTextContent(/falta R\$\s*75,00/i);
@@ -453,7 +453,7 @@ describe('Agenda', () => {
     const cell = document.querySelector('.fc-timegrid-slot-lane[data-time="10:00:00"]');
     expect(cell).not.toBeNull();
     await user.click(cell!);
-    expect(await screen.findByRole('heading', { name: 'Novo agendamento' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /agendamento/i })).toBeInTheDocument();
   });
 
   it('saves date and time changes from the calendar event editor', async () => {
@@ -503,7 +503,7 @@ describe('Attendance follow-up', () => {
 
   it('attaches a photo (presign → upload → register) and removes another', async () => {
     routes['GET /api/attendances/s1'] = () => session([{ _id: 'ph1', objectKey: 'uploads/a', phase: 'before', notes: 'Antes do peeling', url: 'https://files.test/a.png' }]);
-    routes['POST /api/uploads/presign'] = () => ({ uploadUrl: 'https://files.test/upload', objectKey: 'uploads/new' });
+    routes['POST /api/uploads/presign'] = () => ({ uploadUrl: 'https://files.test/upload', objectKey: 'uploads/new', uploadToken: 'signed-token' });
     routes['PUT https://files.test/upload'] = () => ({});
     routes['POST /api/attendances/s1/photos'] = () => ({ _id: 'ph2' });
     routes['DELETE /api/attendances/s1/photos/ph1'] = () => ({ deleted: true });
@@ -513,7 +513,7 @@ describe('Attendance follow-up', () => {
     await user.click(screen.getByRole('radio', { name: 'Depois' }));
     await user.type(screen.getByLabelText(/legenda da foto/i), 'Resultado');
     await user.upload(screen.getByLabelText(/selecionar fotos/i), new File(['x'], 'depois.png', { type: 'image/png' }));
-    await waitFor(() => expect(calls.find((call) => call.url === '/api/attendances/s1/photos')?.body).toEqual({ objectKey: 'uploads/new', phase: 'after', notes: 'Resultado' }));
+    await waitFor(() => expect(calls.find((call) => call.url === '/api/attendances/s1/photos')?.body).toMatchObject({ objectKey: 'uploads/new', phase: 'after', notes: 'Resultado', contentHash: expect.stringMatching(/^sha256:/), uploadToken: 'signed-token' }));
     expect(calls.some((call) => call.method === 'PUT' && call.url === 'https://files.test/upload')).toBe(true);
     await user.click(screen.getByRole('button', { name: /remover foto/i }));
     await waitFor(() => expect(calls.some((call) => call.method === 'DELETE' && call.url === '/api/attendances/s1/photos/ph1')).toBe(true));

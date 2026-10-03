@@ -2,7 +2,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { eq } from 'drizzle-orm';
 import { closeDatabase, getDatabase, getDatabasePool } from './index';
 import { migrateDatabase } from './migrate';
-import { tenants } from './relational-schema';
+import { seedDatabase } from './seed';
+import { tenantDefaults, tenants } from './relational-schema';
 
 const integration = process.env.DATABASE_URL ? describe : describe.skip;
 
@@ -42,5 +43,12 @@ integration('PostgreSQL persistence seam', () => {
   it('rejects blank tenant names at the database boundary', async () => {
     const id = crypto.randomUUID();
     await expect(getDatabasePool().query('insert into tenants (id, name) values ($1, $2)', [id, '   '])).rejects.toThrow();
+  });
+
+  it('seeds the default tenant idempotently', async () => {
+    await seedDatabase();
+    await seedDatabase();
+    const rows = await getDatabase().select().from(tenants).where(eq(tenants.id, tenantDefaults.id));
+    expect(rows).toHaveLength(1);
   });
 });

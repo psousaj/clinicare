@@ -1,6 +1,6 @@
 # Especificação: migração para PostgreSQL + Drizzle + JSONB
 
-**Status:** especificação confirmada e publicada para execução posterior  
+**Status:** execução concluída no corte PostgreSQL
 **Data:** 2026-10-03  
 **Decisão relacionada:** ADR 0003 — Persistência PostgreSQL + Drizzle + JSONB
 

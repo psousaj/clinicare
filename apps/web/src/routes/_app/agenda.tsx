@@ -32,6 +32,7 @@ function Agenda() {
         events={events}
         onSelect={(range) => { setOpenId(null); setSelection({ start: range.startStr, end: range.endStr }); }}
         onDateClick={(click) => { const end = new Date(click.date.getTime() + 60 * 60000); setOpenId(null); setSelection({ start: click.date.toISOString(), end: end.toISOString() }); }}
+        onSlotClick={(date) => { const end = new Date(date.getTime() + 60 * 60000); setOpenId(null); setSelection({ start: date.toISOString(), end: end.toISOString() }); }}
         onOpen={(event) => setOpenId(event.event.id)}
       />
       <AppointmentDialog open={!!selection || !!opened} selection={selection} appointment={opened} patients={patients.data ?? []} followups={followups.data ?? []} procedures={procedures.data ?? []} onClose={() => { setSelection(null); setOpenId(null); }} />

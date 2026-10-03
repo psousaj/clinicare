@@ -3,14 +3,15 @@ import { and, eq, sql } from 'drizzle-orm';
 import { app } from './app';
 import { appliedAnamneses, appliedDocuments, appliedAnamnesisNotes, anamneses, anamnesisVersions, closeDatabase, combos, comboItems, contracts, contractVersions, followupContracts, followupItems, followupSnapshots, followups, getDatabase, migrateDatabase, patients, procedures, tenants } from '@clinicare/db';
 
-const integration = process.env.DATABASE_URL ? describe : describe.skip;
+import { assertSafeIntegrationDatabase, integration } from './integration-support';
 const tenantId = crypto.randomUUID(), otherTenantId = crypto.randomUUID();
 const headers = (tenant: string) => ({ 'content-type': 'application/json', 'x-tenant-id': tenant });
 const request = (tenant: string, path: string, init: RequestInit = {}) => app.request(path, { ...init, headers: { ...headers(tenant), ...(init.headers ?? {}) } });
 const post = (tenant: string, path: string, body: unknown) => request(tenant, path, { method: 'POST', body: JSON.stringify(body) });
 
 integration('clinical relational workflows', () => {
-  beforeAll(async () => { await migrateDatabase(); await getDatabase().insert(tenants).values([{ id: tenantId, name: 'Clinical test' }, { id: otherTenantId, name: 'Clinical other' }]); });
+  beforeAll(async () => {
+    assertSafeIntegrationDatabase(); await migrateDatabase(); await getDatabase().insert(tenants).values([{ id: tenantId, name: 'Clinical test' }, { id: otherTenantId, name: 'Clinical other' }]); });
   afterAll(async () => { const db = getDatabase(); await db.delete(appliedDocuments).where(eq(appliedDocuments.tenantId, tenantId)); await db.execute(sql`alter table applied_anamnesis_notes disable trigger applied_anamnesis_notes_append_only`); await db.execute(sql`delete from applied_anamnesis_notes where tenant_id = ${tenantId}`); await db.execute(sql`alter table applied_anamnesis_notes enable trigger applied_anamnesis_notes_append_only`); await db.delete(appliedAnamneses).where(eq(appliedAnamneses.tenantId, tenantId)); await db.delete(followupContracts).where(eq(followupContracts.tenantId, tenantId)); await db.delete(contractVersions).where(eq(contractVersions.tenantId, tenantId)); await db.delete(contracts).where(eq(contracts.tenantId, tenantId)); await db.delete(followupSnapshots).where(eq(followupSnapshots.tenantId, tenantId)); await db.delete(followupItems).where(eq(followupItems.tenantId, tenantId)); await db.delete(followups).where(eq(followups.tenantId, tenantId)); await db.delete(anamnesisVersions).where(eq(anamnesisVersions.tenantId, tenantId)); await db.delete(anamneses).where(eq(anamneses.tenantId, tenantId)); await db.delete(comboItems).where(eq(comboItems.tenantId, tenantId)); await db.delete(combos).where(eq(combos.tenantId, tenantId)); await db.delete(procedures).where(eq(procedures.tenantId, tenantId)); await db.delete(patients).where(eq(patients.tenantId, tenantId)); await db.delete(tenants).where(eq(tenants.id, tenantId)); await db.delete(tenants).where(eq(tenants.id, otherTenantId)); await closeDatabase(); });
 
   async function fixture() {

@@ -13,11 +13,11 @@ RUN bun run build:api
 
 FROM oven/bun:1.2 AS runtime
 WORKDIR /app
-ENV NODE_ENV=production PORT=3000
+ENV NODE_ENV=production PORT=3000 MIGRATIONS_FOLDER=/app/apps/api/drizzle
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY --from=build /app/apps/api/dist ./apps/api/dist
+COPY --from=build /app/packages/db/drizzle ./apps/api/drizzle
 COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules
 COPY --from=build /app/packages/db ./packages/db
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/package.json ./package.json

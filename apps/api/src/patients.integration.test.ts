@@ -10,16 +10,9 @@ import {
   tenants,
 } from '@clinicare/db';
 import { app } from './app';
+import { assertSafeIntegrationDatabase, integration } from './integration-support';
 
-const integration = process.env.DATABASE_URL ? describe : describe.skip;
 const actorId = '00000000-0000-4000-8000-000000000099';
-
-function assertSafeIntegrationDatabase() {
-  const url = new URL(process.env.DATABASE_URL!);
-  if (!['localhost', '127.0.0.1', '::1', 'postgres'].includes(url.hostname)) {
-    throw new Error('Patient integration tests require a local PostgreSQL DATABASE_URL.');
-  }
-}
 
 integration('patient API with PostgreSQL', () => {
   const tenantIds = [crypto.randomUUID(), crypto.randomUUID()];

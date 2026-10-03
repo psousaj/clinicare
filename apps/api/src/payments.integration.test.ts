@@ -3,7 +3,7 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { app } from './app';
 import { appliedAnamneses, anamneses, closeDatabase, comboItems, combos, followupItems, followupSnapshots, followups, getDatabase, patients, payments, procedures, tenants, migrateDatabase } from '@clinicare/db';
 
-const integration = process.env.DATABASE_URL ? describe : describe.skip;
+import { assertSafeIntegrationDatabase, integration } from './integration-support';
 
 integration('PostgreSQL payments', () => {
   const tenantId = crypto.randomUUID();
@@ -12,6 +12,7 @@ integration('PostgreSQL payments', () => {
   const db = () => getDatabase();
 
   beforeAll(async () => {
+    assertSafeIntegrationDatabase();
     await migrateDatabase();
     await db().insert(tenants).values({ id: tenantId, name: `Payments ${tenantId}` });
   });

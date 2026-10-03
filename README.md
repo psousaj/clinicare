@@ -1,6 +1,6 @@
 # Clínicare
 
-Protótipo de gestão para clínicas pequenas de estética. **Use somente dados fictícios:** o painel ainda não possui autenticação. A troca para MongoDB descarta a antiga base local PostgreSQL; não há migração de registros fictícios.
+Protótipo de gestão para clínicas pequenas de estética. **Use somente dados fictícios:** o painel ainda não possui autenticação. A persistência é PostgreSQL; a base pode ser recriada por migrations e seed idempotentes, sem migração dos registros prototípicos antigos.
 
 ## Stack
 
@@ -9,7 +9,7 @@ Protótipo de gestão para clínicas pequenas de estética. **Use somente dados 
 - Tailwind CSS v4 + shadcn/ui (`apps/web/src/components/ui`); o `styles.css` legado convive com o Tailwind (sem preflight)
 - Bun
 - Hono API (serve UI e API no mesmo container)
-- MongoDB + Mongoose
+- PostgreSQL + Drizzle + JSONB
 - Cloudflare R2 para binários de fotos/documentos (opcional)
 
 ## Rodar localmente via Docker (caminho recomendado)
@@ -17,12 +17,14 @@ Protótipo de gestão para clínicas pequenas de estética. **Use somente dados 
 Requer Docker Desktop com Compose.
 
 ```bash
+# preencha DATABASE_URL, DATA_ENCRYPTION_KEY, SEARCH_HMAC_KEY e UPLOAD_SIGNING_KEY em .env;
 # configure R2 somente se precisar de upload de fotos/documentos
 cp .env.example .env
+# gere as três chaves locais antes de subir (openssl rand -base64 32)
 docker compose up --build
 ```
 
-No PowerShell, use `Copy-Item .env.example .env`. App: http://localhost:3000. Healthcheck: http://localhost:3000/api/health. MongoDB local é persistido no volume `clinicare-mongo`.
+No PowerShell, use `Copy-Item .env.example .env`. App: http://localhost:3000. Healthcheck: http://localhost:3000/api/health. PostgreSQL local é persistido no volume `clinicare-postgres`.
 
 Para apagar completamente a base fictícia e reconstruir:
 
@@ -46,11 +48,10 @@ bun run dev
 
 | Serviço | URL | Uso |
 | --- | --- | --- |
-| MongoDB | `mongodb://localhost:27017` | banco (`MONGODB_URI`) |
-| mongo-express | http://localhost:8082 | studio visual do Mongo |
+| PostgreSQL | `postgresql://clinicare:clinicare@localhost:5432/clinicare` | banco (`DATABASE_URL`) |
 | ministack | http://localhost:4566 | emulador AWS/S3 local (bucket `clinicare-dev`, credenciais `test`/`test`) |
 
-Portas do host configuráveis com `MONGO_PORT`, `MONGO_EXPRESS_PORT` e `MINISTACK_PORT`. O `docker-compose.yml` (produção) também usa a 27017; não suba os dois ao mesmo tempo.
+Portas do host configuráveis com `POSTGRES_PORT` e `MINISTACK_PORT`. O `docker-compose.yml` (produção) também usa a 5432; não suba os dois ao mesmo tempo.
 
 Web (Vite): http://localhost:5173 (o `routeTree.gen.ts` é gerado pelo plugin do router e deve ser versionado; novos componentes shadcn: `bunx shadcn@latest add <nome>` em `apps/web`); API: http://localhost:3000/api/health.
 
@@ -60,7 +61,7 @@ Monorepo com [Bun workspaces](https://bun.sh/docs/install/workspaces) + [Turbore
 
 - `apps/web` – `@clinicare/web` (React + Vite + TanStack Router/Query)
 - `apps/api` – `@clinicare/api` (Hono), depende de `@clinicare/db`
-- `packages/db` – `@clinicare/db` (schemas Mongoose)
+- `packages/db` – `@clinicare/db` (schema relacional Drizzle e migrations PostgreSQL)
 
 Os scripts da raiz (`dev`, `build`, `typecheck`, `test`) rodam via `turbo run`, com cache e ordem por dependência. Para um único pacote: `bunx turbo run build --filter=@clinicare/api`.
 
@@ -73,4 +74,4 @@ bun run test:web
 bun run build
 ```
 
-Os testes da API usam MongoDB Memory Server e não precisam de Docker. `bun run build` gera artefatos; `docker compose build app` valida a imagem multi-stage de produção.
+Os testes unitários são locais; a suíte de integração da API usa PostgreSQL real com `DATABASE_URL`, migrations aplicadas e tenants isolados. `bun run test:smoke` executa o smoke test dos fluxos críticos (paciente, catálogo, acompanhamento, assinatura, agenda, atendimento, pagamento e histórico) contra PostgreSQL. `bun run build` gera artefatos; `docker compose build app` valida a imagem multi-stage de produção.

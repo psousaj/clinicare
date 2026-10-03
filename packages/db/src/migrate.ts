@@ -2,7 +2,8 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { closeDatabase, getDatabase } from './index';
 
 export async function migrateDatabase() {
-  await migrate(getDatabase(), { migrationsFolder: new URL('../drizzle', import.meta.url).pathname });
+  const migrationsFolder = process.env.MIGRATIONS_FOLDER ?? new URL('../drizzle', import.meta.url).pathname;
+  await migrate(getDatabase(), { migrationsFolder });
 }
 
 if (import.meta.main) {

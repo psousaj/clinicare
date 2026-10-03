@@ -17,6 +17,6 @@ export async function getRelationalRelationship(tenantId: string, patientId: str
     followupIds.length ? db.select().from(payments).where(and(eq(payments.tenantId, tenantId), inArray(payments.followupId, followupIds), isNull(payments.deletedAt))) : [],
   ]);
   const itemRows = followupIds.length ? await db.select().from(followupItems).where(and(eq(followupItems.tenantId, tenantId), inArray(followupItems.followupId, followupIds))) : [];
-  const mongoLikeFollowups = followupRows.map((row) => ({ ...response(row), offerName: row.offerNameSnapshot, items: itemRows.filter((item) => item.followupId === row.id).map(response) }));
-  return buildRelationship(mongoLikeFollowups, attendanceRows.map(response), paymentRows.map(paymentResponse), appointmentRows.map(response));
+  const followupViews = followupRows.map((row) => ({ ...response(row), offerName: row.offerNameSnapshot, items: itemRows.filter((item) => item.followupId === row.id).map(response) }));
+  return buildRelationship(followupViews, attendanceRows.map(response), paymentRows.map(paymentResponse), appointmentRows.map(response));
 }

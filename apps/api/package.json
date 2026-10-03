@@ -7,8 +7,8 @@
     "dev:debug": "bun --inspect=localhost:6499/clinicare --hot src/index.ts",
     "build": "bun build src/index.ts --target=bun --outdir=dist",
     "typecheck": "tsc --noEmit",
-    "test:integration": "DATA_ENCRYPTION_KEY=AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE= SEARCH_HMAC_KEY=AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI= DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL to run PostgreSQL integration tests} bun test src/patients.integration.test.ts src/catalog.integration.test.ts src/health.integration.test.ts src/followups.integration.test.ts src/signatures.integration.test.ts src/scheduling.integration.test.ts src/payments.integration.test.ts src/clinical.integration.test.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "test:integration": "DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY:-AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=} SEARCH_HMAC_KEY=${SEARCH_HMAC_KEY:-AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI=} UPLOAD_SIGNING_KEY=${UPLOAD_SIGNING_KEY:-AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw=} DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL to run PostgreSQL integration tests} bun test --max-concurrency=1 src/patients.integration.test.ts src/catalog.integration.test.ts src/health.integration.test.ts src/followups.integration.test.ts src/signatures.integration.test.ts src/scheduling.integration.test.ts src/payments.integration.test.ts src/clinical.integration.test.ts"
   },
   "dependencies": {
     "@clinicare/db": "workspace:*",
@@ -16,12 +16,10 @@
     "@aws-sdk/s3-request-presigner": "^3.1142.0",
     "@hono/node-server": "latest",
     "hono": "latest",
-    "drizzle-orm": "latest",
-    "mongoose": "latest"
+    "drizzle-orm": "latest"
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "mongodb-memory-server": "latest",
     "typescript": "latest"
   }
 }

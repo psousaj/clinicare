@@ -3,7 +3,7 @@ import { and, eq } from 'drizzle-orm';
 import { app } from './app';
 import { closeDatabase, getDatabase, migrateDatabase, patients, procedures, combos, comboItems, followups, followupItems, followupSnapshots, followupContracts, signatureProcesses, signatureParticipants, signatureRevisions, signatureEvents, signatureTokens, appliedAnamneses, payments, tenants, plans, planVersions, planVersionItems, planVersionContracts, contracts, contractVersions, anamneses, anamnesisVersions, anamnesisProcedures } from '@clinicare/db';
 
-const integration = process.env.DATABASE_URL ? describe : describe.skip;
+import { assertSafeIntegrationDatabase, integration } from './integration-support';
 let tenantId: string;
 let headers: Record<string, string>;
 const post = (path: string, body: unknown) => app.request(path, { method: 'POST', headers, body: JSON.stringify(body) });
@@ -11,6 +11,7 @@ const post = (path: string, body: unknown) => app.request(path, { method: 'POST'
 integration('PostgreSQL followups', () => {
   let otherTenantId: string;
   beforeAll(async () => {
+    assertSafeIntegrationDatabase();
     await migrateDatabase();
     tenantId = crypto.randomUUID();
     otherTenantId = crypto.randomUUID();
