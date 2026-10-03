@@ -1,6 +1,6 @@
 # ADR 0001: Stack da aplicação
 
-- **Status:** Substituído pela decisão de MongoDB/Mongoose
+- **Status:** Substituído por ADR 0003 — Persistência PostgreSQL + Drizzle + JSONB
 - **Data:** 2026-09-28
 
 ## Contexto

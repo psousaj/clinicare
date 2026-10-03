@@ -22,9 +22,16 @@ _Avoid_: serviço, tratamento (quando se tratar de uma intervenção específica
 A gestão de pacientes, documentos e agenda relacionados aos procedimentos estéticos. Fisioterapia e dermatologia devem ser reconhecidas como áreas da clínica, mas seus fluxos específicos não são prioridade inicial.
 _Avoid_: escopo completo, prontuário generalista
 
-**Instalação**:
-Uma implantação do sistema atende uma única clínica no MVP; todos os pacientes, profissionais, procedimentos e documentos pertencem a essa clínica.
-_Avoid_: tenant, conta (quando significar a clínica)
+**Tenant**:
+Limite de isolamento dos dados de uma clínica. No MVP, uma implantação atende um único tenant; todos os pacientes, profissionais, procedimentos e documentos pertencem a ele. O sistema terá um tenant inicial mesmo antes de oferecer operações para múltiplos tenants.
+
+**Isolamento do tenant**:
+Regra de que uma operação, busca ou vínculo só pode acessar dados pertencentes ao mesmo tenant. O isolamento vale para entidades principais e seus dados dependentes; um registro de um tenant nunca pode ser associado a um registro de outro.
+_Avoid_: instalação, conta (quando significar a clínica)
+
+**Índice de busca sensível**:
+HMAC-SHA-256 calculado sobre o `tenant_id`, o nome da tabela, o nome do campo, a versão da normalização e o valor normalizado. Permite busca exata sem armazenar o valor em texto aberto. Não é o valor criptografado nem substitui a confirmação de igualdade após a descriptografia.
+_Avoid_: hash simples, criptografia determinística
 
 **Administrador**:
 Usuário com acesso completo ao sistema no MVP, normalmente o próprio profissional responsável pela clínica pequena. O administrador configura a operação, realiza procedimentos e usa a agenda única da clínica.
@@ -37,20 +44,79 @@ _Avoid_: níveis de usuário (como termo oficial)
 ## Jornada do paciente
 
 **Paciente**:
-Pessoa que realiza ou pretende realizar procedimentos na clínica e cujos dados, documentos, sessões e histórico são acompanhados pelo profissional.
+Pessoa que realiza ou pretende realizar procedimentos no tenant e cujos dados, documentos e histórico são acompanhados pelo profissional. Dados de contato, identificação, clínicos e demais informações de risco ficam protegidos na persistência e só são revelados depois de autorização; o nome permanece pesquisável em texto aberto para sustentar a busca principal do produto.
 _Avoid_: cliente (como termo principal do domínio)
+
+**Dado pessoal protegido**:
+Informação pessoal, clínica ou de identificação que, por risco ou finalidade, deve permanecer cifrada na persistência e só pode ser revelada depois de autorização. Inclui telefone, e-mail, identificadores civis, notas pessoais, respostas de anamnese, dados e observações de atendimentos e evidências identificáveis de assinatura. O nome do paciente é uma exceção deliberada: continua sendo dado pessoal sob a LGPD, mas permanece em texto aberto para permitir busca textual eficiente. A busca usa filtro obrigatório por `tenant_id` e índice textual apropriado no PostgreSQL; não há coluna duplicada de nome normalizado nesta fase. `patients.notes` é uma coluna inteira cifrada e não pesquisável.
+_Avoid_: dado sensível em texto aberto
+
+**Dado pessoal não sensível**:
+Informação relacionada a uma pessoa identificada ou identificável que não pertence, por si só, à categoria de dado pessoal sensível da LGPD. A classificação não elimina a obrigação de proteção, minimização e controle de acesso. O nome do paciente pertence a esta categoria no escopo atual e pode permanecer em texto aberto por decisão de produto.
+
+**Busca exata protegida**:
+Busca por igualdade em um dado pessoal protegido, sem revelar o valor durante a consulta ao banco. No escopo atual, aplica-se a e-mail, telefone e CPF opcional, com normalização própria e índice HMAC separado. A aplicação confirma a igualdade após descriptografar o resultado autorizado antes de devolvê-lo. Valores não nulos de cada campo — e-mail, telefone e CPF — são únicos dentro do tenant, sem exigir que os três campos tenham o mesmo valor ou que todos sejam preenchidos. A etapa atual não oferece busca textual indexada em conteúdo cifrado.
+_Avoid_: busca por texto cifrado
+
+**Coluna protegida**:
+Coluna que armazena um único valor sensível cifrado pela aplicação com AES-256-GCM. Cada valor possui seu próprio nonce aleatório e metadados mínimos de versão da chave necessários para descriptografia; a aplicação cifra e decifra a coluna inteira, sem tentar cifrar campos arbitrários dentro de um JSON. O contexto autenticado da cifra vincula o valor ao `tenant_id`, tabela, registro, coluna e versão da chave. Índices HMAC pesquisáveis, quando necessários, ficam em colunas separadas.
+_Avoid_: envelope criptográfico complexo, JSON parcialmente cifrado
+
+**Normalização de busca**:
+Transformação determinística aplicada de forma igual ao guardar e consultar um dado pesquisável. E-mail usa `trim` e lowercase; telefone usa somente dígitos, sem adicionar ou remover código de país automaticamente; CPF usa somente dígitos e é opcional. CPF informado deve ter exatamente 11 dígitos, sem validação dos dígitos verificadores nesta fase. Valores vazios tornam-se `NULL`. Novas regras precisam ser versionadas para preservar a consistência histórica.
+_Avoid_: normalização implícita
+
+**Chave de proteção de dados**:
+Segredo usado pela aplicação para cifrar e decifrar colunas protegidas com AES-256-GCM. A chave não pertence ao banco nem ao repositório; é fornecida por variável de ambiente segura e identificada por uma versão persistida nos dados. A chave de dados é distinta da chave usada nos índices HMAC.
+_Avoid_: chave armazenada no banco, chave compartilhada com HMAC
+
+**Chave de busca protegida**:
+Segredo fornecido por variável de ambiente segura e usado exclusivamente para calcular índices HMAC de busca exata. É diferente da chave de proteção de dados, não é persistido e possui versão própria para permitir rotação e reindexação futura.
+_Avoid_: chave de cifragem, SHA simples
+
+**Log operacional protegido**:
+Registro técnico que pode conter request, tenant, ator, operação, entidade, ID técnico, resultado, duração e classe de erro, mas nunca valores pessoais, clínicos, termos de busca, plaintext protegido, ciphertext, nonce, índices HMAC completos ou chaves. Auditoria de negócio preserva eventos nas tabelas próprias sem copiar conteúdo sensível para logs.
 
 **Procedimento**:
 Oferta individual de uma intervenção estética, com duração e preço por sessão e um mínimo opcional de sessões. Sem mínimo acima de uma sessão, pode ser realizado avulso; com mínimo de duas ou mais, só pode ser incluído em combo ou plano. O mínimo também é a quantidade inicial sugerida para o item de combo ou plano, que pode ser aumentada mas não reduzida abaixo dele. Um atendimento avulso corresponde a uma sessão, é cobrado e segue as regras de anamnese e validade; ao ser agendado ou registrado, gera internamente um registro de cobrança próprio, exibido como "Atendimento avulso" e não como acompanhamento.
 _Avoid_: sessão, combo
 
 **Acompanhamento**:
-Registro iniciado pelo profissional na ficha do paciente ("Novo acompanhamento") a partir de um combo ou de um plano (procedimento avulso tem apenas o registro interno de cobrança, sem ser um acompanhamento). Congela as condições comerciais (itens, sessões, preço, validade), deriva os contratos e as anamneses exigidos e reúne atendimentos e pagamentos. Um paciente pode ter vários acompanhamentos, inclusive da mesma oferta.
+Registro iniciado pelo profissional na ficha do paciente ("Novo acompanhamento") a partir de um combo ou de um plano (procedimento avulso tem apenas o registro interno de cobrança, sem ser um acompanhamento). Ao ser iniciado, congela a versão da oferta, as condições comerciais (itens, sessões, preço e validade), os schemas e, quando a oferta for um plano, seus contratos aplicáveis. Um acompanhamento de combo entra ativo; um acompanhamento de plano começa ocioso e fica ativo após a assinatura dos contratos obrigatórios pelo paciente. Enquanto houver um acompanhamento não encerrado da mesma oferta para o paciente, não é permitido iniciar outro; a identidade da oferta é o plano ou combo, independentemente da versão do plano. Depois que o anterior for finalizado, uma nova contratação da mesma oferta é permitida usando a versão corrente. Pode ser cancelado explicitamente e reúne atendimentos e pagamentos enquanto ativo. Um paciente pode ter vários acompanhamentos da mesma oferta ao longo do tempo.
 _Avoid_: tratamento, plano aplicado, contratação, pedido, atendimento (nome antigo)
 
+**Acompanhamento encerrado**:
+Acompanhamento que não possui mais execução pendente e não bloqueia uma nova contratação da mesma oferta. Acompanhamento ocioso, pendente de assinatura ou ativo ainda não é encerrado. O encerramento ocorre automaticamente quando todas as sessões são consumidas ou por cancelamento explícito, preservando o histórico. Saldo financeiro pendente não impede o encerramento operacional; um acompanhamento encerrado não aceita novos agendamentos ou atendimentos, mas ainda pode receber pagamentos pendentes até atingir o preço contratado.
+
+**Acompanhamento ocioso**:
+Acompanhamento já iniciado para um paciente, com snapshots próprios da versão da oferta, mas ainda não liberado para agendamento ou execução porque os contratos obrigatórios do plano não foram assinados. Sua criação materializa de uma vez as dependências necessárias, incluindo itens, contratos e anamneses aplicados. Mudanças posteriores no plano de catálogo não alteram esse acompanhamento. Pode receber pagamentos, mas não agendamentos ou atendimentos, enquanto estiver ocioso. Pode ser cancelado explicitamente, preservando seus snapshots e dependências históricas.
+_Avoid_: rascunho descartável, plano atual
+
+**Cancelamento de acompanhamento**:
+Encerramento explícito de um acompanhamento, com motivo registrado. Bloqueia novas operações e cancela agendamentos futuros vinculados, liberando reservas, mas preserva atendimentos realizados, pagamentos, contratos, anamneses e demais históricos. Um acompanhamento cancelado não volta à operação silenciosamente; uma nova contratação cria outro acompanhamento.
+
+**Catálogo**:
+Conjunto de procedimentos, combos, planos, formulários de anamnese e documentos modelo que podem ser oferecidos ou aplicados pela clínica. Alterar ou retirar um item do catálogo não altera acompanhamentos nem atendimentos já existentes.
+_Avoid_: histórico do paciente
+
+**Desativação de catálogo**:
+Retirada de um procedimento, combo, plano, formulário ou documento modelo da disponibilidade para novas aplicações, preservando o próprio registro e tudo que já foi aplicado a pacientes. No MVP, exclusões solicitadas pelo sistema têm esse significado, e não o apagamento do histórico. A desativação não invalida nem cancela acompanhamentos ociosos já iniciados com snapshots próprios.
+_Avoid_: cancelamento de acompanhamento, exclusão de histórico
+
+**Paciente desativado**:
+Paciente que deixa de aparecer nas operações correntes sem ter seu histórico clínico, comercial, financeiro ou de agenda apagado. Só pode ser desativado quando não possui acompanhamento não encerrado, contrato pendente de assinatura ou agendamento pendente. Seus dados de identificação e histórico são preservados, mas e-mail, telefone e CPF podem ser reutilizados por um novo cadastro ativo no mesmo tenant. O histórico do paciente desativado não deve aparecer como paciente operacional sem uma busca histórica explícita. A desativação não apaga dados dependentes nem os transfere para um novo cadastro; reativar o paciente antigo é uma ação explícita.
+_Avoid_: paciente excluído, anonimização automática
+
+**Retenção histórica**:
+No MVP, não há exclusão ou anonimização automática de dados clínicos, financeiros, contratuais, de atendimentos ou respostas. Uma futura eliminação deve ser uma operação explícita, auditada e compatível com as obrigações legais e de continuidade do cuidado.
+
 **Plano**:
-Oferta de catálogo, distinta do combo, que agrupa procedimentos e/ou combos e contratos. Cada procedimento incluído diretamente no plano tem sua própria quantidade de sessões, que respeita o mínimo do procedimento; um combo incluído mantém as quantidades definidas nos seus itens. O plano também pode ter duração e validade próprias. Plano vencido apenas exibe o selo "Vencido" e não bloqueia nada.
-_Avoid_: combo, acompanhamento
+Oferta de catálogo, distinta do combo, que agrupa procedimentos e contratos. No escopo atual, somente procedimentos podem ser incluídos diretamente em um plano; combos em planos ficam adiados. No MVP, é a única oferta que possui contratos para assinatura. Cada procedimento incluído tem sua própria quantidade de sessões, que respeita o mínimo do procedimento. O plano também pode ter duração e validade próprias. Alterações relevantes criam uma nova versão imutável; desativar o plano impede novas aplicações, mas preserva suas versões. Plano vencido apenas exibe o selo "Vencido" e não bloqueia nada.
+_Avoid_: combo dentro de plano, acompanhamento
+
+**Versão do plano**:
+Estado imutável da composição comercial de um plano em determinado momento, composto somente por procedimentos neste escopo. Inclui o snapshot comercial expandido de cada procedimento, suas quantidades, preço total, validade, contratos aplicáveis e os schemas e dados necessários para interpretar a oferta sem consultar configurações mutáveis. Mudanças que alteram a oferta apresentada criam a próxima versão; ativar ou desativar a disponibilidade do plano não cria versão. Um acompanhamento captura uma versão do plano ao ser iniciado e não passa a refletir versões posteriores.
+_Avoid_: plano atual, edição retroativa
 
 **Atendimento**:
 Realização de um procedimento, registrada pelo profissional, pertencente a um acompanhamento (combo ou plano) ou avulsa (com registro de cobrança próprio de uma sessão), e opcionalmente relacionada a um agendamento. Cada procedimento realizado gera seu próprio atendimento, mesmo quando vários fazem parte do mesmo agendamento. Não existe atendimento parcialmente realizado. No código o registro se chama `Attendance` (`/api/attendances`).
@@ -68,7 +134,7 @@ Página do paciente com indicadores e gráficos: atendimentos realizados × cont
 _Avoid_: CRM, fidelidade
 
 **Atendimento realizado**:
-Atendimento registrado pelo profissional como efetivamente concluído, consumindo uma unidade das sessões do procedimento no acompanhamento.
+Atendimento registrado pelo profissional como efetivamente concluído, consumindo uma unidade das sessões do procedimento no acompanhamento. Pode ser cancelado explicitamente com motivo, preservando seu histórico e devolvendo a sessão ao saldo operacional dentro de uma transação.
 _Avoid_: sessão consumida (como status)
 
 **Detalhes do atendimento**:
@@ -78,6 +144,10 @@ _Avoid_: prontuário, galeria
 **Consumo de sessão**:
 Acontece somente quando o profissional registra o procedimento como realizado. Agendamentos, cancelamentos e não comparecimentos não consomem sessões automaticamente; o não comparecimento não gera um atendimento.
 _Avoid_: baixa automática, sessão utilizada
+
+**Reserva de sessão**:
+Quantidade de sessões de um item de acompanhamento comprometida por agendamentos ativos. A reserva reduz a quantidade disponível para novos agendamentos, mas não constitui consumo; somente o atendimento realizado consome uma sessão. Cancelar ou marcar como não compareceu libera a reserva.
+_Avoid_: sessão consumida, atendimento realizado
 
 **Campos configuráveis do procedimento**:
 Conjunto de dados adicionais definido no cadastro de um procedimento para ser preenchido pelo profissional em cada sessão, além dos campos básicos comuns a todas as sessões.
@@ -120,7 +190,11 @@ Cópia gerada de um documento modelo para um paciente ou plano específico, pres
 _Avoid_: documento dinâmico, template preenchido
 
 **Agendamento**:
-Compromisso planejado no calendário semanal (grade de 1 hora), com início e fim escolhidos pelo profissional, que define a duração da sessão. Vale para qualquer coisa: procedimentos avulsos e/ou atendimentos de acompanhamentos (combo ou plano) do paciente. Cada item indica o procedimento e quantas vezes será realizado (mais de uma sessão do mesmo procedimento é permitido); a soma dos minutos dos itens não pode ultrapassar a duração do agendamento, e a duração de cada item de acompanhamento é a congelada na contratação. Sessões já reservadas em outros agendamentos futuros não podem ser reservadas de novo. Pode ser remarcado, cancelado ou registrado como não comparecimento sem se confundir com o atendimento realizado. Com acompanhamento ativo, o profissional marca o máximo de itens que couberem no tempo.
+Compromisso planejado no calendário semanal (grade de 1 hora), com início e fim escolhidos pelo profissional, que define a duração da sessão. Vale para qualquer coisa: procedimentos avulsos e/ou atendimentos de acompanhamentos (combo ou plano) do paciente. Cada item indica o procedimento e quantas vezes será realizado (mais de uma sessão do mesmo procedimento é permitido); a soma dos minutos dos itens não pode ultrapassar a duração do agendamento, e a duração de cada item de acompanhamento é a congelada na contratação. Sessões já reservadas em outros agendamentos futuros não podem ser reservadas de novo. Pode ser remarcado, cancelado ou registrado como não comparecimento sem se confundir com o atendimento realizado. Com acompanhamento ativo, o profissional marca o máximo de itens que couberem no tempo. Agendamentos sem atendimento confirmado podem ser cancelados ou ocultados, liberando suas reservas; agendamentos com atendimento confirmado permanecem preservados e não podem ser apagados.
+
+**Confirmação de atendimento agendado**:
+Ação do profissional que registra se um agendamento ocorrido resultou em atendimentos realizados, não comparecimento ou cancelamento. A confirmação de realização cria um atendimento por procedimento e consome as sessões correspondentes; os demais resultados não consomem sessões. Agendamentos encerrados pelo horário podem aparecer em uma fila de confirmação na tela principal. Quando há vários procedimentos, todos os itens começam selecionados e a ação principal é confirmar todos; o profissional pode desmarcar itens individualmente antes de confirmar.
+_Avoid_: consumo automático pelo agendamento, presença presumida
 _Avoid_: consulta (quando significar o compromisso planejado)
 
 **Duração do procedimento**:
@@ -144,7 +218,7 @@ Estado operacional de um agendamento, como planejado, confirmado, remarcado, can
 _Avoid_: status da sessão
 
 **Combo**:
-Conjunto comercial pré-configurado de procedimentos que são vendidos juntos. Cada item define a quantidade de sessões incluída, sugerida inicialmente pelo mínimo do procedimento e nunca inferior a ele. Pode ser padrão (sem prazo) ou promocional. O valor integral é a soma de (preço do procedimento × sessões) de cada item; o preço do combo começa nele e só pode ser aumentado, e o preço promocional pode ser reduzido mas nunca passar do preço do combo. Também pode ter vigência e preço próprios.
+Conjunto comercial pré-configurado de procedimentos que são vendidos juntos. Cada item define a quantidade de sessões incluída, sugerida inicialmente pelo mínimo do procedimento e nunca inferior a ele. Pode ser padrão (sem prazo) ou promocional. O valor integral é a soma de (preço do procedimento × sessões) de cada item; o preço do combo começa nele e só pode ser aumentado, e o preço promocional pode ser reduzido mas nunca passar do preço do combo. Também pode ter vigência e preço próprios. Combos não compõem planos neste escopo. Alterações posteriores são protegidas em acompanhamentos por um snapshot da oferta aplicada; não há versionamento formal do catálogo de combos nesta etapa.
 _Avoid_: pacote, tratamento (quando significar a oferta comercial)
 
 **Item de combo**:
@@ -184,8 +258,15 @@ Conjunto comercial registrado para um paciente, incluindo preço total contratad
 _Avoid_: tratamento, condições da sessão
 
 **Registro de pagamento**:
-Lançamento manual feito pelo profissional para registrar um valor recebido pela clínica, vinculado a um acompanhamento e com forma de pagamento e situação informadas. No MVP, pagamentos são registrados, não processados pelo sistema.
+Lançamento manual feito pelo profissional para registrar um valor recebido pela clínica, vinculado a um acompanhamento e com forma de pagamento e situação informadas. No MVP, pagamentos são registrados, não processados pelo sistema, e a soma dos pagamentos de um acompanhamento não pode ultrapassar seu preço contratado. Cada intenção de registro deve ser identificável para que uma repetição da mesma requisição não crie um segundo lançamento.
 _Avoid_: cobrança, gateway
+
+**Idempotência de operação financeira**:
+Garantia de que repetir uma requisição do mesmo registro de pagamento, identificada por uma chave de idempotência, devolve o resultado já criado sem duplicar o efeito financeiro. Uma nova intenção usa uma nova chave e passa novamente pelas regras de limite e consistência.
+_Avoid_: retry que duplica pagamento
+
+**Lançamento financeiro imutável**:
+Registro de pagamento cujo conteúdo confirmado não é editado. O lançamento pode ser apagado pela operação permitida do sistema, seguindo a política de soft delete e preservando o registro original e o motivo da exclusão para auditoria; lançamentos apagados deixam de compor o saldo operacional. Estorno ou ajuste explícito continua sendo a alternativa quando for necessário corrigir o efeito financeiro sem remover o lançamento da operação.
 
 **Forma de pagamento**:
 Modalidade registrada para um pagamento, incluindo cartão de crédito à vista ou parcelado. O registro não implica processamento ou confirmação por integração externa.
@@ -204,7 +285,7 @@ Integração futura com serviço externo para processar cobranças e receber con
 _Avoid_: registro manual de pagamento
 
 **Contrato exigido**:
-Contrato do acompanhamento (o padrão, mais os vinculados ao procedimento, combo ou plano). No MVP é apenas listado como "assinatura pendente"; quando houver assinatura, deverá bloquear o agendamento.
+Contrato de um plano, incluindo o contrato padrão e os documentos específicos aplicáveis aos procedimentos incluídos. No MVP, somente planos possuem contratos, e um plano sem ao menos um contrato aplicável é inválido. Contratos específicos de combo ficam adiados enquanto combos não puderem compor planos. A contratação pode existir enquanto a assinatura estiver pendente, mas o agendamento e a execução ficam bloqueados até que os contratos obrigatórios estejam assinados.
 _Avoid_: contratação
 
 **Anamnese pendente**:
@@ -257,8 +338,24 @@ Estado imutável de um contrato em um momento específico. Versões podem ser co
 _Avoid_: revisão, cópia (quando se referir à sequência oficial do contrato)
 
 **Contrato aplicado**:
-Vínculo de uma versão específica de contrato ao plano de um paciente, preservando exatamente o documento apresentado naquele momento.
+Vínculo de uma versão específica de contrato ao plano de um paciente, preservando exatamente o documento apresentado naquele momento. A existência do vínculo não significa que o contrato esteja assinado; a assinatura é um estado posterior e necessário para liberar o agendamento e a execução.
 _Avoid_: contrato atual (quando o foco for o documento vinculado ao paciente)
+
+**Plano assinado**:
+Plano cujos contratos aplicados obrigatórios foram todos confirmados pelo paciente, que é o único participante obrigatório para liberar a operação no escopo atual. A assinatura do representante da clínica pode permanecer pendente sem bloquear o agendamento ou a execução. O plano assinado é o marco que libera esses fluxos; alterações posteriores no catálogo não o modificam.
+_Avoid_: plano apenas criado, contrato aplicado não assinado
+
+**Participante da assinatura**:
+Pessoa autorizada a confirmar um contrato aplicado. O paciente é participante obrigatório para liberar o plano; o representante da clínica é participante esperado, mas sua assinatura pode permanecer pendente no escopo atual.
+_Avoid_: assinante obrigatório (quando se referir ao representante da clínica)
+
+**Pendência de assinatura**:
+Assinatura esperada de um participante que ainda não confirmou o contrato aplicado. A pendência do representante da clínica é administrativa e deve poder ser consultada separadamente, sem impedir a execução de um plano já assinado pelo paciente.
+_Avoid_: contrato não aplicado
+
+**Processo de assinatura**:
+Fluxo de leitura e confirmação de um contrato aplicado específico. Cada contrato aplicado possui seu próprio processo, participantes, estado, tentativas e evidências. Um plano só é considerado assinado quando o paciente conclui todos os processos obrigatórios dos contratos aplicados; processos de contratos diferentes não compartilham estado.
+_Avoid_: envelope único do plano
 
 **Contrato ativo**:
 Contrato corrente disponível para novas aplicações. Alterações ou restaurações geram uma nova versão sem modificar contratos aplicados anteriormente.
@@ -300,6 +397,18 @@ _Avoid_: prontuário (termo amplo demais para o escopo inicial)
 Item que exige atenção ou conclusão no acompanhamento do paciente, como anamnese não respondida, contrato ainda não disponibilizado, pagamento pendente ou sessão contratada ainda não realizada. O profissional pode consultar pendências no contexto do paciente.
 _Avoid_: notificação (não implica aviso automático ao profissional)
 
+## Dados e ciclo de protótipo
+
+**Dados de protótipo**:
+Registros usados apenas para testes e demonstrações, sem obrigação de preservação. Os dados atuais do MongoDB pertencem a esta categoria e podem ser descartados; o PostgreSQL começará com uma base nova e seed reproduzível quando a migração for autorizada.
+_Avoid_: dado de produção, dado a migrar
+
+## Objetivo do produto
+
+**Produto clínico-financeiro confiável**:
+Sistema cujo primeiro critério de sucesso é preservar corretamente o histórico clínico, comercial, financeiro e de agenda, mesmo diante de falhas e operações simultâneas. O aprendizado de uma tecnologia de persistência não justifica aceitar inconsistências nesses registros.
+_Avoid_: laboratório de aprendizado como objetivo principal
+
 ## Princípios do MVP
 
 **Ação profissional**:
@@ -311,12 +420,12 @@ Aviso ao profissional sobre respostas de anamneses ou assinaturas concluídas. F
 _Avoid_: alerta (como termo do domínio)
 
 **Assinatura digital**:
-Fluxo futuro para o paciente assinar contratos eletronicamente e produzir um documento assinado associado ao acompanhamento. Está fora do MVP; no MVP o profissional pode criar ou importar documentos, gerar o documento aplicado e disponibilizá-lo para leitura, mas não há assinatura pelo sistema.
-_Avoid_: aceite eletrônico, assinatura simples
+Ato pelo qual cada participante obrigatório confirma um contrato aplicado, usando assinatura desenhada na plataforma ou assinatura externa pelo GOV.BR, conforme o fluxo autorizado. O contrato só fica concluído quando todos os participantes obrigatórios confirmam.
+_Avoid_: aceite eletrônico genérico, assinatura simples
 
 **Documento assinado**:
-Versão futura do documento aplicado que registra o acompanhamento após a assinatura do paciente. A existência e o armazenamento desse documento fazem parte da direção do produto, mas sua geração e validação ficam fora do MVP.
-_Avoid_: contrato aplicado (o documento aplicado ainda não está assinado)
+Revisão preservada do documento aplicado depois de uma confirmação de assinatura. Cada participante pode gerar uma nova revisão sem apagar as anteriores; o documento final só existe quando todos os participantes obrigatórios concluíram.
+_Avoid_: contrato aplicado não assinado
 
 **JSON Schema Form**:
 Abordagem futura de construção e renderização visual dos formulários baseada em JSON Schema. Ferramentas como builders visuais podem ser integradas para permitir que o profissional monte o formulário vendo uma prévia ao lado.
@@ -327,7 +436,7 @@ Documento DOCX carregado como modelo de contrato e processado futuramente com Do
 _Avoid_: PDF modelo, contrato HTML
 
 **Armazenamento de arquivos**:
-Fotos e documentos são armazenados no Cloudflare R2 por meio da API compatível com S3; metadados e referências aos pacientes, sessões e contratos ficam no MongoDB.
+Fotos e documentos são armazenados no Cloudflare R2 por meio da API compatível com S3; metadados e referências aos pacientes, sessões e contratos ficam no PostgreSQL. Os objetos usam chaves aleatórias e opacas, permanecem privados e são entregues somente por autorização do backend e URLs temporárias. Nesta fase, a aplicação não cifra adicionalmente os binários antes do upload; protege acesso, metadados e hashes no código e no banco.
 _Avoid_: armazenamento no banco (para o conteúdo binário)
 
 **Agregado**:
@@ -335,5 +444,5 @@ Conjunto de dados com identidade e ciclo de vida próprios, armazenado em uma co
 _Avoid_: coleção (quando significar o conceito de domínio)
 
 **Snapshot aplicado**:
-Cópia imutável e autocontida das condições de formulário, preço, composição ou documento no momento em que uma oferta é aplicada ao paciente.
+Cópia imutável e autocontida das condições de formulário, preço, composição ou documento no momento em que uma oferta é aplicada ao paciente. Respostas, rascunhos e notas clínicas ficam protegidos separadamente; o `schema_snapshot` preserva apenas a estrutura necessária para interpretar o conteúdo histórico.
 _Avoid_: referência dinâmica à configuração atual
