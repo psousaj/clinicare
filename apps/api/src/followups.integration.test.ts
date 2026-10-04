@@ -3,8 +3,10 @@ import { and, eq } from 'drizzle-orm';
 import { app } from './app';
 import { closeDatabase, getDatabase, migrateDatabase, patients, procedures, combos, comboItems, followups, followupItems, followupSnapshots, followupContracts, signatureProcesses, signatureParticipants, signatureRevisions, signatureEvents, signatureTokens, appliedAnamneses, payments, tenants, plans, planVersions, planVersionItems, planVersionContracts, contracts, contractVersions, anamneses, anamnesisVersions, anamnesisProcedures } from '@clinicare/db';
 
-import { assertSafeIntegrationDatabase, integration } from './integration-support';
+import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
 let tenantId: string;
+let clinic: IntegrationClinic;
+let otherClinic: IntegrationClinic;
 let headers: Record<string, string>;
 const post = (path: string, body: unknown) => app.request(path, { method: 'POST', headers, body: JSON.stringify(body) });
 
@@ -15,17 +17,14 @@ integration('PostgreSQL followups', () => {
     await migrateDatabase();
     tenantId = crypto.randomUUID();
     otherTenantId = crypto.randomUUID();
-    headers = { 'content-type': 'application/json', 'x-tenant-id': tenantId };
-    await getDatabase().insert(tenants).values([
-      { id: tenantId, name: `Followup Test ${tenantId}` },
-      { id: otherTenantId, name: `Followup Other ${otherTenantId}` },
-    ]);
+    clinic = await provisionIntegrationClinic(app, 'followups-a', tenantId);
+    otherClinic = await provisionIntegrationClinic(app, 'followups-b', otherTenantId);
+    headers = clinic.headers();
   });
   afterAll(async () => {
     const db = getDatabase();
     for (const table of [signatureEvents, signatureRevisions, signatureTokens, signatureParticipants, payments, appliedAnamneses, signatureProcesses, followupContracts, followupSnapshots, followupItems, followups, planVersionContracts, planVersionItems, planVersions, plans, comboItems, combos, anamnesisProcedures, anamnesisVersions, anamneses, contractVersions, contracts, procedures, patients]) await db.delete(table).where(eq((table as any).tenantId, tenantId));
-    await db.delete(tenants).where(eq(tenants.id, tenantId));
-    await db.delete(tenants).where(eq(tenants.id, otherTenantId));
+    await cleanupIntegrationClinics([tenantId, otherTenantId]);
     await closeDatabase();
   });
 

@@ -55,6 +55,7 @@ CREATE INDEX IF NOT EXISTS "verification_expires_at_idx" ON "verification" ("exp
 
 ALTER TABLE "tenants" ADD COLUMN IF NOT EXISTS "active" boolean NOT NULL DEFAULT true;
 UPDATE "tenants" SET "active" = true WHERE "active" IS NULL;
+ALTER TABLE "user" DROP CONSTRAINT IF EXISTS "user_tenant_id_unique";
 ALTER TABLE "user" ADD CONSTRAINT "user_tenant_id_unique" UNIQUE ("tenant_id");
 UPDATE "user" SET "initial_password_choice" = 'pending' WHERE "initial_password_choice" IS NULL;
 ALTER TABLE "user" ALTER COLUMN "initial_password_choice" SET DEFAULT 'pending';

@@ -3,22 +3,23 @@ import { and, eq, isNull } from 'drizzle-orm';
 import { app } from './app';
 import { appliedAnamneses, anamneses, closeDatabase, comboItems, combos, followupItems, followupSnapshots, followups, getDatabase, patients, payments, procedures, tenants, migrateDatabase } from '@clinicare/db';
 
-import { assertSafeIntegrationDatabase, integration } from './integration-support';
+import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
 
 integration('PostgreSQL payments', () => {
   const tenantId = crypto.randomUUID();
-  const headers = { 'content-type': 'application/json', 'x-tenant-id': tenantId };
-  const post = (path: string, body: unknown, extra: Record<string, string> = {}) => app.request(path, { method: 'POST', headers: { ...headers, ...extra }, body: JSON.stringify(body) });
+  let clinic: IntegrationClinic;
+  const headers = { 'content-type': 'application/json' };
+  const post = (path: string, body: unknown, extra: Record<string, string> = {}) => app.request(path, { method: 'POST', headers: { ...clinic.headers(extra), ...extra }, body: JSON.stringify(body) });
   const db = () => getDatabase();
 
   beforeAll(async () => {
     assertSafeIntegrationDatabase();
     await migrateDatabase();
-    await db().insert(tenants).values({ id: tenantId, name: `Payments ${tenantId}` });
+    clinic = await provisionIntegrationClinic(app, 'payments', tenantId);
   });
   afterAll(async () => {
     for (const table of [payments, appliedAnamneses, followupSnapshots, followupItems, comboItems, followups, combos, procedures, patients, anamneses]) await db().delete(table).where(eq((table as any).tenantId, tenantId));
-    await db().delete(tenants).where(eq(tenants.id, tenantId));
+    await cleanupIntegrationClinics([tenantId]);
     await closeDatabase();
   });
 

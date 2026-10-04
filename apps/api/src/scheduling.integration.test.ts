@@ -6,10 +6,11 @@ import {
   followupContracts, followupItems, followupSnapshots, followups, getDatabase, migrateDatabase, patients, procedures, tenants,
 } from '@clinicare/db';
 
-import { assertSafeIntegrationDatabase, integration } from './integration-support';
+import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
 const tenantId = crypto.randomUUID();
-const headers = { 'content-type': 'application/json', 'x-tenant-id': tenantId };
-const request = (path: string, init: RequestInit = {}) => app.request(path, { ...init, headers: { ...headers, ...(init.headers ?? {}) } });
+let clinic: IntegrationClinic;
+const headers = { 'content-type': 'application/json' };
+const request = (path: string, init: RequestInit = {}) => app.request(path, { ...init, headers: { ...clinic.headers(), ...(init.headers ?? {}) } });
 const post = (path: string, body: unknown) => request(path, { method: 'POST', body: JSON.stringify(body) });
 const patch = (path: string, body: unknown) => request(path, { method: 'PATCH', body: JSON.stringify(body) });
 
@@ -17,7 +18,7 @@ integration('PostgreSQL scheduling and attendance', () => {
   beforeAll(async () => {
     assertSafeIntegrationDatabase();
     await migrateDatabase();
-    await getDatabase().insert(tenants).values({ id: tenantId, name: `Scheduling ${tenantId}` });
+    clinic = await provisionIntegrationClinic(app, 'scheduling', tenantId);
   });
 
   afterAll(async () => {
@@ -34,7 +35,7 @@ integration('PostgreSQL scheduling and attendance', () => {
     await db.delete(combos).where(eq(combos.tenantId, tenantId));
     await db.delete(procedures).where(eq(procedures.tenantId, tenantId));
     await db.delete(patients).where(eq(patients.tenantId, tenantId));
-    await db.delete(tenants).where(eq(tenants.id, tenantId));
+    await cleanupIntegrationClinics([tenantId]);
     await closeDatabase();
   });
 

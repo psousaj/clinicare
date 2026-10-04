@@ -7373,7 +7373,7 @@
       "node_kind": "heading",
       "norm_label": "10. selo da plataforma e gestao de chaves",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L262"
+      "source_location": "L258"
     },
     {
       "id": "docs_assinaturas_assinaturaas_completo_11_pacote_export\u00e1vel_e_verifica\u00e7\u00e3o_independente",
@@ -7385,7 +7385,7 @@
       "node_kind": "heading",
       "norm_label": "11. pacote exportavel e verificacao independente",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L274"
+      "source_location": "L270"
     },
     {
       "id": "docs_assinaturas_assinaturaas_completo_12_recupera\u00e7\u00e3o_revoga\u00e7\u00e3o_e_tempo",
@@ -7397,7 +7397,7 @@
       "node_kind": "heading",
       "norm_label": "12. recuperacao, revogacao e tempo",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L294"
+      "source_location": "L290"
     },
     {
       "id": "docs_assinaturas_assinaturaas_completo_13_limites_de_confian\u00e7a",
@@ -7409,7 +7409,7 @@
       "node_kind": "heading",
       "norm_label": "13. limites de confianca",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L304"
+      "source_location": "L300"
     },
     {
       "id": "docs_assinaturas_assinaturaas_completo_14_crit\u00e9rios_de_aceita\u00e7\u00e3o",
@@ -7421,7 +7421,7 @@
       "node_kind": "heading",
       "norm_label": "14. criterios de aceitacao",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L314"
+      "source_location": "L310"
     },
     {
       "id": "docs_assinaturas_assinaturaas_completo_1_objetivo_e_decis\u00f5es_de_produto",
@@ -7481,17 +7481,17 @@
       "node_kind": "heading",
       "norm_label": "4.1. assinatura opcional pelo gov.br, incluida desde o mvp",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L112"
+      "source_location": "L108"
     },
     {
-      "id": "docs_assinaturas_assinaturaas_completo_4_contrato_aplicado_documento_pdf_e_revis\u00f5es",
-      "label": "4. Contrato aplicado, documento PDF e revis\u00f5es",
+      "id": "docs_assinaturas_assinaturaas_completo_4_documento_original_e_revis\u00f5es",
+      "label": "4. Documento original e revis\u00f5es",
       "_origin": "ast",
       "community": 12,
       "community_name": "Assinatura eletr\u00f4nica pr\u00f3pria \u2014 especifica\u00e7\u00e3o completa",
       "file_type": "document",
       "node_kind": "heading",
-      "norm_label": "4. contrato aplicado, documento pdf e revisoes",
+      "norm_label": "4. documento original e revisoes",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
       "source_location": "L84"
     },
@@ -7505,7 +7505,7 @@
       "node_kind": "heading",
       "norm_label": "5. captura e posicionamento da assinatura",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L169"
+      "source_location": "L165"
     },
     {
       "id": "docs_assinaturas_assinaturaas_completo_6_manifesto_de_consentimento",
@@ -7517,7 +7517,7 @@
       "node_kind": "heading",
       "norm_label": "6. manifesto de consentimento",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L181"
+      "source_location": "L177"
     },
     {
       "id": "docs_assinaturas_assinaturaas_completo_7_autoriza\u00e7\u00e3o_vinculada_ao_documento",
@@ -7529,7 +7529,7 @@
       "node_kind": "heading",
       "norm_label": "7. autorizacao vinculada ao documento",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L206"
+      "source_location": "L202"
     },
     {
       "id": "docs_assinaturas_assinaturaas_completo_8_confirma\u00e7\u00e3o_e_consist\u00eancia_da_opera\u00e7\u00e3o",
@@ -7541,7 +7541,7 @@
       "node_kind": "heading",
       "norm_label": "8. confirmacao e consistencia da operacao",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L224"
+      "source_location": "L220"
     },
     {
       "id": "docs_assinaturas_assinaturaas_completo_9_auditoria_e_preserva\u00e7\u00e3o",
@@ -7553,7 +7553,7 @@
       "node_kind": "heading",
       "norm_label": "9. auditoria e preservacao",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L243"
+      "source_location": "L239"
     },
     {
       "id": "docs_assinaturas_assinaturaas_completo_assinatura_eletr\u00f4nica_pr\u00f3pria_especifica\u00e7\u00e3o_completa",
@@ -7577,7 +7577,7 @@
       "node_kind": "heading",
       "norm_label": "continuidade da coleta apos uma assinatura gov.br",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L155"
+      "source_location": "L151"
     },
     {
       "id": "docs_assinaturas_assinaturaas_completo_fluxo_externo",
@@ -7589,7 +7589,7 @@
       "node_kind": "heading",
       "norm_label": "fluxo externo",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L122"
+      "source_location": "L118"
     },
     {
       "id": "docs_assinaturas_assinaturaas_completo_possibilidade_e_alcance",
@@ -7601,7 +7601,7 @@
       "node_kind": "heading",
       "norm_label": "possibilidade e alcance",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L114"
+      "source_location": "L110"
     },
     {
       "id": "docs_assinaturas_assinaturaas_completo_refer\u00eancias",
@@ -7613,7 +7613,7 @@
       "node_kind": "heading",
       "norm_label": "referencias",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L338"
+      "source_location": "L334"
     },
     {
       "id": "docs_assinaturas_assinaturaas_completo_valida\u00e7\u00e3o_obrigat\u00f3ria_da_importa\u00e7\u00e3o",
@@ -7625,7 +7625,7 @@
       "node_kind": "heading",
       "norm_label": "validacao obrigatoria da importacao",
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L136"
+      "source_location": "L132"
     },
     {
       "id": "docs_assinaturas_assinaturas_mvp",
@@ -7649,7 +7649,7 @@
       "node_kind": "heading",
       "norm_label": "10. historico, armazenamento e download",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L229"
+      "source_location": "L225"
     },
     {
       "id": "docs_assinaturas_assinaturas_mvp_11_estrutura_preparada_para_evolu\u00e7\u00e3o",
@@ -7661,7 +7661,7 @@
       "node_kind": "heading",
       "norm_label": "11. estrutura preparada para evolucao",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L241"
+      "source_location": "L237"
     },
     {
       "id": "docs_assinaturas_assinaturas_mvp_12_o_que_fica_fora_deste_mvp",
@@ -7673,7 +7673,7 @@
       "node_kind": "heading",
       "norm_label": "12. o que fica fora deste mvp",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L262"
+      "source_location": "L257"
     },
     {
       "id": "docs_assinaturas_assinaturas_mvp_13_crit\u00e9rios_para_considerar_o_mvp_pronto",
@@ -7685,7 +7685,7 @@
       "node_kind": "heading",
       "norm_label": "13. criterios para considerar o mvp pronto",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L278"
+      "source_location": "L273"
     },
     {
       "id": "docs_assinaturas_assinaturas_mvp_14_limite_da_evolu\u00e7\u00e3o_futura",
@@ -7697,7 +7697,7 @@
       "node_kind": "heading",
       "norm_label": "14. limite da evolucao futura",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L304"
+      "source_location": "L299"
     },
     {
       "id": "docs_assinaturas_assinaturas_mvp_1_objetivo",
@@ -7757,17 +7757,17 @@
       "node_kind": "heading",
       "norm_label": "4.1. assinatura opcional pelo gov.br, incluida desde o mvp",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L87"
+      "source_location": "L83"
     },
     {
-      "id": "docs_assinaturas_assinaturas_mvp_4_contrato_aplicado_documento_pdf_e_controle_de_revis\u00f5es",
-      "label": "4. Contrato aplicado, documento PDF e controle de revis\u00f5es",
+      "id": "docs_assinaturas_assinaturas_mvp_4_arquivo_original_e_controle_de_revis\u00f5es",
+      "label": "4. Arquivo original e controle de revis\u00f5es",
       "_origin": "ast",
       "community": 13,
       "community_name": "Assinatura eletr\u00f4nica pr\u00f3pria \u2014 MVP",
       "file_type": "document",
       "node_kind": "heading",
-      "norm_label": "4. contrato aplicado, documento pdf e controle de revisoes",
+      "norm_label": "4. arquivo original e controle de revisoes",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
       "source_location": "L63"
     },
@@ -7781,7 +7781,7 @@
       "node_kind": "heading",
       "norm_label": "5. area de desenho",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L144"
+      "source_location": "L140"
     },
     {
       "id": "docs_assinaturas_assinaturas_mvp_6_posicionamento_no_pdf",
@@ -7793,7 +7793,7 @@
       "node_kind": "heading",
       "norm_label": "6. posicionamento no pdf",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L160"
+      "source_location": "L156"
     },
     {
       "id": "docs_assinaturas_assinaturas_mvp_7_pr\u00e9via_e_confirma\u00e7\u00e3o",
@@ -7805,7 +7805,7 @@
       "node_kind": "heading",
       "norm_label": "7. previa e confirmacao",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L176"
+      "source_location": "L172"
     },
     {
       "id": "docs_assinaturas_assinaturas_mvp_8_registro_m\u00ednimo_de_cada_assinatura",
@@ -7817,7 +7817,7 @@
       "node_kind": "heading",
       "norm_label": "8. registro minimo de cada assinatura",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L192"
+      "source_location": "L188"
     },
     {
       "id": "docs_assinaturas_assinaturas_mvp_9_estados_e_conclus\u00e3o",
@@ -7829,7 +7829,7 @@
       "node_kind": "heading",
       "norm_label": "9. estados e conclusao",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L217"
+      "source_location": "L213"
     },
     {
       "id": "docs_assinaturas_assinaturas_mvp_assinatura_eletr\u00f4nica_pr\u00f3pria_mvp",
@@ -7853,7 +7853,7 @@
       "node_kind": "heading",
       "norm_label": "continuidade da coleta apos uma assinatura gov.br",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L130"
+      "source_location": "L126"
     },
     {
       "id": "docs_assinaturas_assinaturas_mvp_fluxo_externo",
@@ -7865,7 +7865,7 @@
       "node_kind": "heading",
       "norm_label": "fluxo externo",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L97"
+      "source_location": "L93"
     },
     {
       "id": "docs_assinaturas_assinaturas_mvp_possibilidade_e_alcance",
@@ -7877,7 +7877,7 @@
       "node_kind": "heading",
       "norm_label": "possibilidade e alcance",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L89"
+      "source_location": "L85"
     },
     {
       "id": "docs_assinaturas_assinaturas_mvp_refer\u00eancias_de_contexto",
@@ -7889,7 +7889,7 @@
       "node_kind": "heading",
       "norm_label": "referencias de contexto",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L312"
+      "source_location": "L307"
     },
     {
       "id": "docs_assinaturas_assinaturas_mvp_valida\u00e7\u00e3o_obrigat\u00f3ria_da_importa\u00e7\u00e3o",
@@ -7901,7 +7901,7 @@
       "node_kind": "heading",
       "norm_label": "validacao obrigatoria da importacao",
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L111"
+      "source_location": "L107"
     },
     {
       "id": "apps_web_package",
@@ -10936,7 +10936,7 @@
       "node_kind": "heading",
       "norm_label": "dados e ciclo de prototipo",
       "source_file": "CONTEXT.md",
-      "source_location": "L445"
+      "source_location": "L441"
     },
     {
       "id": "context_documentos_e_coleta",
@@ -10972,7 +10972,7 @@
       "node_kind": "heading",
       "norm_label": "objetivo do produto",
       "source_file": "CONTEXT.md",
-      "source_location": "L451"
+      "source_location": "L447"
     },
     {
       "id": "context_organiza\u00e7\u00e3o_da_cl\u00ednica",
@@ -10996,7 +10996,7 @@
       "node_kind": "heading",
       "norm_label": "principios do mvp",
       "source_file": "CONTEXT.md",
-      "source_location": "L457"
+      "source_location": "L453"
     },
     {
       "id": "apps_api_src_patients",
@@ -14441,18 +14441,6 @@
       "type": "external"
     },
     {
-      "id": "packages_db_src_index_authaccounts",
-      "label": "packages_db_src_index_authaccounts",
-      "_origin": "semantic",
-      "community": 34,
-      "community_name": "db/src/index.ts",
-      "external": true,
-      "file_type": "concept",
-      "norm_label": "packages_db_src_index_authaccounts",
-      "source_file": "",
-      "type": "external"
-    },
-    {
       "id": "packages_db_src_index_tenants",
       "label": "packages_db_src_index_tenants",
       "_origin": "semantic",
@@ -14813,18 +14801,6 @@
       "type": "external"
     },
     {
-      "id": "packages_db_src_index_authusers",
-      "label": "packages_db_src_index_authusers",
-      "_origin": "semantic",
-      "community": 53,
-      "community_name": "app.ts",
-      "external": true,
-      "file_type": "concept",
-      "norm_label": "packages_db_src_index_authusers",
-      "source_file": "",
-      "type": "external"
-    },
-    {
       "id": "packages_db_src_index_buildprotectedaad",
       "label": "packages_db_src_index_buildprotectedaad",
       "_origin": "semantic",
@@ -15053,9 +15029,30 @@
       "type": "external"
     },
     {
+      "id": "packages_db_src_index_authaccounts",
+      "label": "packages_db_src_index_authaccounts",
+      "community": 34,
+      "community_name": "db/src/index.ts",
+      "external": true,
+      "file_type": "concept",
+      "norm_label": "packages_db_src_index_authaccounts",
+      "source_file": "",
+      "type": "external"
+    },
+    {
+      "id": "packages_db_src_index_authusers",
+      "label": "packages_db_src_index_authusers",
+      "community": 53,
+      "community_name": "app.ts",
+      "external": true,
+      "file_type": "concept",
+      "norm_label": "packages_db_src_index_authusers",
+      "source_file": "",
+      "type": "external"
+    },
+    {
       "id": "packages_db_src_index_authschema",
       "label": "packages_db_src_index_authschema",
-      "_origin": "semantic",
       "community": 9,
       "community_name": "admin-commands.ts",
       "external": true,
@@ -15067,7 +15064,6 @@
     {
       "id": "packages_db_src_index_authsessions",
       "label": "packages_db_src_index_authsessions",
-      "_origin": "semantic",
       "community": 9,
       "community_name": "admin-commands.ts",
       "external": true,
@@ -54211,7 +54207,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "CONTEXT.md",
-      "source_location": "L445",
+      "source_location": "L441",
       "weight": 1.0
     },
     {
@@ -54222,7 +54218,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "CONTEXT.md",
-      "source_location": "L451",
+      "source_location": "L447",
       "weight": 1.0
     },
     {
@@ -54233,7 +54229,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "CONTEXT.md",
-      "source_location": "L457",
+      "source_location": "L453",
       "weight": 1.0
     },
     {
@@ -54530,7 +54526,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L114",
+      "source_location": "L110",
       "weight": 1.0
     },
     {
@@ -54541,7 +54537,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L122",
+      "source_location": "L118",
       "weight": 1.0
     },
     {
@@ -54552,7 +54548,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L136",
+      "source_location": "L132",
       "weight": 1.0
     },
     {
@@ -54563,7 +54559,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L155",
+      "source_location": "L151",
       "weight": 1.0
     },
     {
@@ -54574,7 +54570,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L112",
+      "source_location": "L108",
       "weight": 1.0
     },
     {
@@ -54585,7 +54581,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L169",
+      "source_location": "L165",
       "weight": 1.0
     },
     {
@@ -54596,7 +54592,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L181",
+      "source_location": "L177",
       "weight": 1.0
     },
     {
@@ -54607,7 +54603,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L206",
+      "source_location": "L202",
       "weight": 1.0
     },
     {
@@ -54618,7 +54614,18 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L224",
+      "source_location": "L220",
+      "weight": 1.0
+    },
+    {
+      "source": "docs_assinaturas_assinaturaas_completo_assinatura_eletr\u00f4nica_pr\u00f3pria_especifica\u00e7\u00e3o_completa",
+      "target": "docs_assinaturas_assinaturaas_completo_9_auditoria_e_preserva\u00e7\u00e3o",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "docs/assinaturas/assinaturaas-completo.md",
+      "source_location": "L239",
       "weight": 1.0
     },
     {
@@ -54634,24 +54641,13 @@
     },
     {
       "source": "docs_assinaturas_assinaturaas_completo_assinatura_eletr\u00f4nica_pr\u00f3pria_especifica\u00e7\u00e3o_completa",
-      "target": "docs_assinaturas_assinaturaas_completo_9_auditoria_e_preserva\u00e7\u00e3o",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L243",
-      "weight": 1.0
-    },
-    {
-      "source": "docs_assinaturas_assinaturaas_completo_assinatura_eletr\u00f4nica_pr\u00f3pria_especifica\u00e7\u00e3o_completa",
       "target": "docs_assinaturas_assinaturaas_completo_10_selo_da_plataforma_e_gest\u00e3o_de_chaves",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L262",
+      "source_location": "L258",
       "weight": 1.0
     },
     {
@@ -54662,7 +54658,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L274",
+      "source_location": "L270",
       "weight": 1.0
     },
     {
@@ -54673,7 +54669,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L294",
+      "source_location": "L290",
       "weight": 1.0
     },
     {
@@ -54684,7 +54680,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L304",
+      "source_location": "L300",
       "weight": 1.0
     },
     {
@@ -54695,7 +54691,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L314",
+      "source_location": "L310",
       "weight": 1.0
     },
     {
@@ -54706,7 +54702,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturaas-completo.md",
-      "source_location": "L338",
+      "source_location": "L334",
       "weight": 1.0
     },
     {
@@ -54744,7 +54740,7 @@
     },
     {
       "source": "docs_assinaturas_assinaturaas_completo_assinatura_eletr\u00f4nica_pr\u00f3pria_especifica\u00e7\u00e3o_completa",
-      "target": "docs_assinaturas_assinaturaas_completo_4_contrato_aplicado_documento_pdf_e_revis\u00f5es",
+      "target": "docs_assinaturas_assinaturaas_completo_4_documento_original_e_revis\u00f5es",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -54772,7 +54768,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L111",
+      "source_location": "L107",
       "weight": 1.0
     },
     {
@@ -54783,7 +54779,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L130",
+      "source_location": "L126",
       "weight": 1.0
     },
     {
@@ -54794,7 +54790,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L89",
+      "source_location": "L85",
       "weight": 1.0
     },
     {
@@ -54805,7 +54801,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L97",
+      "source_location": "L93",
       "weight": 1.0
     },
     {
@@ -54816,7 +54812,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L144",
+      "source_location": "L140",
       "weight": 1.0
     },
     {
@@ -54838,7 +54834,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L160",
+      "source_location": "L156",
       "weight": 1.0
     },
     {
@@ -54849,7 +54845,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L176",
+      "source_location": "L172",
       "weight": 1.0
     },
     {
@@ -54860,7 +54856,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L192",
+      "source_location": "L188",
       "weight": 1.0
     },
     {
@@ -54871,7 +54867,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L217",
+      "source_location": "L213",
       "weight": 1.0
     },
     {
@@ -54882,7 +54878,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L229",
+      "source_location": "L225",
       "weight": 1.0
     },
     {
@@ -54893,7 +54889,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L241",
+      "source_location": "L237",
       "weight": 1.0
     },
     {
@@ -54904,7 +54900,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L262",
+      "source_location": "L257",
       "weight": 1.0
     },
     {
@@ -54915,7 +54911,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L278",
+      "source_location": "L273",
       "weight": 1.0
     },
     {
@@ -54937,7 +54933,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L304",
+      "source_location": "L299",
       "weight": 1.0
     },
     {
@@ -54948,7 +54944,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L312",
+      "source_location": "L307",
       "weight": 1.0
     },
     {
@@ -54964,7 +54960,7 @@
     },
     {
       "source": "docs_assinaturas_assinaturas_mvp_assinatura_eletr\u00f4nica_pr\u00f3pria_mvp",
-      "target": "docs_assinaturas_assinaturas_mvp_4_contrato_aplicado_documento_pdf_e_controle_de_revis\u00f5es",
+      "target": "docs_assinaturas_assinaturas_mvp_4_arquivo_original_e_controle_de_revis\u00f5es",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -54992,7 +54988,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "docs/assinaturas/assinaturas-mvp.md",
-      "source_location": "L87",
+      "source_location": "L83",
       "weight": 1.0
     },
     {

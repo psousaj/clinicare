@@ -7,9 +7,10 @@ import {
   signatureParticipants, signatureProcesses, signatureRevisions, signatureTokens, tenants,
 } from '@clinicare/db';
 
-import { assertSafeIntegrationDatabase, integration } from './integration-support';
-const request = (path: string, init: RequestInit = {}) => app.request(path, init);
-const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, integrationHeaders, provisionIntegrationClinic } from './integration-support';
+let sessionHeaders: Record<string, string>;
+const request = (path: string, init: RequestInit = {}) => app.request(path, { ...init, headers: { ...sessionHeaders, ...(init.headers ?? {}) } });
+const json = (body: unknown): RequestInit => ({ method: 'POST', headers: { ...sessionHeaders }, body: JSON.stringify(body) });
 
 integration('PostgreSQL signatures API', () => {
   const tenantId = crypto.randomUUID();
@@ -25,10 +26,9 @@ integration('PostgreSQL signatures API', () => {
     assertSafeIntegrationDatabase();
     await migrateDatabase();
     const db = getDatabase();
-    await db.insert(tenants).values([
-      { id: tenantId, name: `Signature test ${tenantId}` },
-      { id: otherTenantId, name: `Signature other ${otherTenantId}` },
-    ]);
+    await provisionIntegrationClinic(app, 'signatures', tenantId);
+    await provisionIntegrationClinic(app, 'signatures-other', otherTenantId);
+    sessionHeaders = integrationHeaders(tenantId);
 
     patientId = crypto.randomUUID();
     const procedureId = crypto.randomUUID();
@@ -47,7 +47,7 @@ integration('PostgreSQL signatures API', () => {
       await db.insert(planVersionContracts).values({ tenantId, planVersionId: versionId, contractId: row.id, contractVersion: 1, title: `Contrato obrigatório ${index + 1}` });
     }
 
-    const response = await request('/api/followups', { ...json({ patientId, offerType: 'plan', offerId: planId }), headers: { 'content-type': 'application/json', 'x-tenant-id': tenantId } });
+    const response = await request('/api/followups', { ...json({ patientId, offerType: 'plan', offerId: planId }), headers: sessionHeaders });
     expect(response.status).toBe(201);
     const created = await response.json() as any;
     followupId = created.id;
@@ -68,7 +68,7 @@ integration('PostgreSQL signatures API', () => {
     for (const table of [signatureEvents, signatureRevisions, signatureTokens, signatureParticipants, signatureProcesses, followupContracts, appliedAnamneses, followupItems, followupSnapshots, planVersionContracts, planVersionItems, followups, planVersions, plans, contractVersions, contracts, procedures, patients]) {
       await db.delete(table).where(eq((table as any).tenantId, tenantId));
     }
-    await db.delete(tenants).where(inArray(tenants.id, [tenantId, otherTenantId]));
+    await cleanupIntegrationClinics([tenantId, otherTenantId]);
     await closeDatabase();
   });
 
@@ -91,7 +91,7 @@ integration('PostgreSQL signatures API', () => {
   });
 
   it('refreshes atomically and invalidates the old token', async () => {
-    const refresh = await request(`/api/signature-participants/${patientParticipantIds[0]}/refresh`, { ...json({}), headers: { 'content-type': 'application/json', 'x-tenant-id': tenantId } });
+    const refresh = await request(`/api/signature-participants/${patientParticipantIds[0]}/refresh`, { ...json({}), headers: sessionHeaders });
     expect(refresh.status).toBe(200);
     const refreshed = await refresh.json() as any;
     expect(refreshed.token).not.toBe(patientTokens[0]);
@@ -136,8 +136,8 @@ integration('PostgreSQL signatures API', () => {
     const token = (await db.select().from(signatureTokens).where(and(eq(signatureTokens.tenantId, tenantId), eq(signatureTokens.participantId, professionalParticipantId))))[0]!;
     await db.update(signatureTokens).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(signatureTokens.id, token.id));
     expect((await request(`/public/signatures/${professionalToken}`)).status).toBe(404);
-    expect((await request('/api/signature-pending', { headers: { 'x-tenant-id': otherTenantId } })).status).toBe(200);
-    expect(await (await request('/api/signature-pending', { headers: { 'x-tenant-id': otherTenantId } })).json()).toEqual([]);
-    expect((await request(`/api/followups/${followupId}`, { headers: { 'x-tenant-id': otherTenantId } })).status).toBe(404);
+    expect((await request('/api/signature-pending', { headers: { ...integrationHeaders(otherTenantId) } })).status).toBe(200);
+    expect(await (await request('/api/signature-pending', { headers: { ...integrationHeaders(otherTenantId) } })).json()).toEqual([]);
+    expect((await request(`/api/followups/${followupId}`, { headers: integrationHeaders(otherTenantId) })).status).toBe(404);
   });
 });

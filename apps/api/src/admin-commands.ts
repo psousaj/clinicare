@@ -3,6 +3,7 @@ import { closeDatabase, getDatabase, tenants, authUsers, authSessions } from '@c
 import { getAuth } from './auth';
 
 export type ProvisionClinicInput = {
+  tenantId?: string;
   clinicName: string;
   administratorName: string;
   email: string;
@@ -57,7 +58,7 @@ async function createBetterAuthClinicAdministrator(input: { tenantId: string; ad
 export async function provisionClinic(input: ProvisionClinicInput) {
   const values = validateProvisionInput(input);
   const database = getDatabase();
-  const [tenant] = await database.insert(tenants).values({ name: values.clinicName, active: true }).returning();
+  const [tenant] = await database.insert(tenants).values({ id: input.tenantId, name: values.clinicName, active: true }).returning();
 
   try {
     const user = await createBetterAuthClinicAdministrator({

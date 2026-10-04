@@ -4,11 +4,8 @@ import { authSchema, getDatabase } from '@clinicare/db';
 
 export const SESSION_DURATION_SECONDS = 24 * 60 * 60;
 
-let authInstance: ReturnType<typeof betterAuth> | undefined;
-
 export function getAuth() {
-  if (authInstance) return authInstance;
-  const instance = betterAuth({
+  return betterAuth({
   appName: 'Clínicare',
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
   basePath: '/api/auth',
@@ -41,8 +38,6 @@ export function getAuth() {
       useSecureCookies: process.env.NODE_ENV === 'production',
     },
   });
-  authInstance = instance as unknown as ReturnType<typeof betterAuth>;
-  return authInstance;
 }
 
 export type AuthInstance = ReturnType<typeof getAuth>;

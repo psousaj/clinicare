@@ -2,23 +2,24 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { inArray } from 'drizzle-orm';
 import { app } from './app';
 import { closeDatabase, getDatabase, migrateDatabase, tenants, procedures, procedureVersions, anamneses, anamnesisVersions, anamnesisProcedures, combos, comboItems, contracts, contractVersions, plans, planVersions, planVersionItems, planVersionContracts } from '@clinicare/db';
-import { assertSafeIntegrationDatabase, integration } from './integration-support';
+import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
 
 const tenantIds = [crypto.randomUUID(), crypto.randomUUID()];
-const headers = (tenantId: string) => ({ 'content-type': 'application/json', 'x-tenant-id': tenantId });
-const request = (tenantId: string, path: string, method = 'GET', body?: unknown) => app.request(path, { method, headers: headers(tenantId), ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+let clinics: IntegrationClinic[];
+const headers = (clinic: IntegrationClinic) => clinic.headers();
+const request = (tenantId: string, path: string, method = 'GET', body?: unknown) => app.request(path, { method, headers: headers(clinics.find((clinic) => clinic.tenantId === tenantId)!), ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 const schema = { type: 'object', properties: { pain: { type: 'string' } } };
 
 integration('catalog API with PostgreSQL', () => {
   beforeAll(async () => {
     assertSafeIntegrationDatabase();
     await migrateDatabase();
-    await getDatabase().insert(tenants).values(tenantIds.map((id) => ({ id, name: `Catalog test ${id}` })));
+    clinics = [await provisionIntegrationClinic(app, 'catalog-a', tenantIds[0]!), await provisionIntegrationClinic(app, 'catalog-b', tenantIds[1]!)];
   });
   afterAll(async () => {
     const db = getDatabase();
     for (const table of [planVersionItems, planVersionContracts, planVersions, plans, contractVersions, contracts, comboItems, combos, anamnesisProcedures, anamnesisVersions, anamneses, procedureVersions, procedures]) await db.delete(table).where(inArray((table as any).tenantId, tenantIds));
-    await db.delete(tenants).where(inArray(tenants.id, tenantIds));
+    await cleanupIntegrationClinics(tenantIds);
     await closeDatabase();
   });
 

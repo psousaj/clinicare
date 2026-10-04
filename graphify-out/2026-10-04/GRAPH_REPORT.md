@@ -1,7 +1,7 @@
 # Graph Report - clinicare  (2026-10-04)
 
 ## Corpus Check
-- 158 files · ~93,850 words
+- 158 files · ~93,519 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 13 file(s) not represented in the graph (top: (none) 4, .example 3, .css 3)
 

@@ -588,9 +588,9 @@
     "semantic_hash": ""
   },
   "CONTEXT.md": {
-    "mtime": 1791147935.7731292,
-    "seen": 1791148022.6761925,
-    "ast_hash": "96ca21e4741a7888e292332ed7279f64",
+    "mtime": 1791146597.325129,
+    "seen": 1791146792.6115603,
+    "ast_hash": "e1601db129d75a6f97684e88108b33a2",
     "semantic_hash": ""
   },
   "README.md": {
@@ -630,15 +630,15 @@
     "semantic_hash": ""
   },
   "docs/assinaturas/assinaturaas-completo.md": {
-    "mtime": 1791148013.901129,
-    "seen": 1791148022.6763997,
-    "ast_hash": "685ae1e32b1de1b4ed22af4399aa0707",
+    "mtime": 1791146771.3771272,
+    "seen": 1791146792.6117306,
+    "ast_hash": "4211d9df2a2bbf4a14cca9d96976d602",
     "semantic_hash": ""
   },
   "docs/assinaturas/assinaturas-mvp.md": {
-    "mtime": 1791147965.5251293,
-    "seen": 1791148022.6764011,
-    "ast_hash": "0870a66042302c8d369cb8563955f4b6",
+    "mtime": 1791146747.4371266,
+    "seen": 1791146792.6117322,
+    "ast_hash": "781d1ab5da07e6bd15925e05c66d369d",
     "semantic_hash": ""
   },
   "docs/specs/clinicas-pequenas-mvp.md": {
