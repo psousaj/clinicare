@@ -1,7 +1,7 @@
 import { and, desc, eq, sql } from 'drizzle-orm';
 import {
   buildProtectedAad, decryptValue, encryptValue, getDatabase, followupContracts, followups, patients,
-  signatureEvents, signatureParticipants, signatureProcesses, signatureRevisions, signatureTokens,
+  signatureEvents, signatureParticipants, signatureProcesses, signatureRevisions, signatureTokens, tenants,
 } from '@clinicare/db';
 import { createHash, randomBytes } from 'node:crypto';
 
@@ -47,6 +47,8 @@ async function tokenParticipant(executor: any, token: string, includeRevoked = f
  */
 async function lockedTokenContext(tx: any, rawToken: string, allowConsumed = false) {
   const candidate = await tokenParticipant(tx, rawToken, true);
+  const [tenant] = await tx.select({ active: tenants.active }).from(tenants).where(eq(tenants.id, candidate.participant.tenantId));
+  if (!tenant?.active) throw invalid('Link inválido, expirado ou revogado.', 404);
   const tenantId = candidate.participant.tenantId;
   const processBefore = (await tx.select().from(signatureProcesses).where(and(eq(signatureProcesses.tenantId, tenantId), eq(signatureProcesses.id, candidate.participant.processId))))[0];
   const contractBefore = processBefore && (await tx.select().from(followupContracts).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.id, processBefore.followupContractId))))[0];

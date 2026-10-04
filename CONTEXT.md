@@ -23,22 +23,22 @@ A gestão de pacientes, documentos e agenda relacionados aos procedimentos esté
 _Avoid_: escopo completo, prontuário generalista
 
 **Tenant**:
-Limite de isolamento dos dados de uma clínica. No MVP, uma implantação atende um único tenant; todos os pacientes, profissionais, procedimentos e documentos pertencem a ele. O sistema terá um tenant inicial mesmo antes de oferecer operações para múltiplos tenants. Enquanto não há autenticação, a API usa deterministamente `00000000-0000-0000-0000-000000000001` quando `x-tenant-id` não é enviado; o seed PostgreSQL deve criar esse tenant. O cabeçalho só é aceito quando contém UUID válido.
+Limite de isolamento dos dados de uma clínica cliente do SaaS. Cada clínica é um tenant próprio; todos os pacientes, profissionais, procedimentos e documentos pertencem a exatamente um tenant. O SaaS pode ter vários tenants, e o administrador da plataforma provisiona cada novo tenant junto com sua conta administrativa. O tenant inicial determinístico usado antes da autenticação existe apenas para compatibilidade do protótipo e deve deixar de ser a forma normal de identificar a clínica quando o acesso autenticado estiver ativo.
 
 **Isolamento do tenant**:
-Regra de que uma operação, busca ou vínculo só pode acessar dados pertencentes ao mesmo tenant. O isolamento vale para entidades principais e seus dados dependentes; um registro de um tenant nunca pode ser associado a um registro de outro.
-_Avoid_: instalação, conta (quando significar a clínica)
+Regra de que uma operação, busca ou vínculo só pode acessar dados pertencentes ao mesmo tenant. O isolamento vale para entidades principais e seus dados dependentes; um registro de um tenant nunca pode ser associado a um registro de outro. O administrador da clínica só pode operar o tenant vinculado à sua conta; o administrador da plataforma pode provisionar tenants e administrar suas credenciais, mas não recebe acesso operacional automático aos dados clínicos de cada tenant nem pode entrar como um administrador da clínica.
+_Avoid_: instalação, conta (quando significar a clínica), implantação (quando significar o limite de dados)
 
 **Índice de busca sensível**:
 HMAC-SHA-256 calculado sobre o `tenant_id`, o nome da tabela, o nome do campo, a versão da normalização e o valor normalizado. Permite busca exata sem armazenar o valor em texto aberto. Não é o valor criptografado nem substitui a confirmação de igualdade após a descriptografia.
 _Avoid_: hash simples, criptografia determinística
 
 **Administrador**:
-Usuário com acesso completo ao sistema no MVP, normalmente o próprio profissional responsável pela clínica pequena. O administrador configura a operação, realiza procedimentos e usa a agenda única da clínica.
-_Avoid_: usuário compartilhado, dono (quando se referir ao acesso ao sistema)
+Pessoa responsável pela clínica que possui a única conta administrativa daquela clínica no MVP. O administrador é o dono e operador da clínica, tem acesso completo ao sistema, configura a operação, realiza procedimentos e usa a agenda única. O MVP não oferece funcionários nem múltiplas contas por clínica.
+_Avoid_: usuário compartilhado, dono (quando se referir apenas à permissão sem mencionar a pessoa responsável pela clínica)
 
 **Perfis de acesso**:
-A distinção entre administrador, recepção e profissional, incluindo roles, permissões e RBAC, fica fora do MVP e será adicionada posteriormente.
+A distinção entre administrador, recepção e profissional, incluindo múltiplas contas, roles, permissões e RBAC, fica fora do MVP e será adicionada posteriormente.
 _Avoid_: níveis de usuário (como termo oficial)
 
 ## Jornada do paciente
@@ -385,9 +385,42 @@ _Avoid_: resposta (quando ainda não foi submetida)
 Experiência futura autenticada na qual o paciente poderá consultar seus dados, procedimentos, contratos e pagamentos. Está fora do MVP.
 _Avoid_: link do paciente (o portal pressupõe login e acesso recorrente)
 
+**Administrador da clínica**:
+Identidade única do responsável por uma clínica cliente no MVP. Cada administrador da clínica pertence a uma única clínica e cada clínica possui uma única conta administrativa. A conta representa o dono e operador da clínica, não um funcionário ou perfil de acesso separado. Ela é criada pelo administrador da plataforma durante o provisionamento do tenant; não há cadastro público. O nome do administrador pertence à conta, enquanto o nome da clínica pertence ao tenant; esses dados não são o mesmo conceito nem precisam ser duplicados.
+_Avoid_: usuário compartilhado, conta da clínica (quando significar a identidade da pessoa)
+
+**Administrador da plataforma**:
+Dono e operador do SaaS, responsável por provisionar novos tenants e suas contas de administrador da clínica. No MVP, não possui conta autenticada nem painel próprio no produto; realiza o provisionamento e as operações excepcionais por seed, configuração segura ou operação administrativa direta no banco. Não é um administrador de clínica, não pertence a nenhum tenant e não recebe acesso operacional automático aos dados clínicos dos tenants.
+_Avoid_: administrador, administrador da clínica (quando o contexto for a operação do SaaS)
+
+**Provisionamento de tenant**:
+Operação administrativa pela qual o administrador da plataforma cria uma clínica cliente, seu tenant exclusivo e a conta inicial do administrador da clínica, definindo pelo menos os dados da clínica, nome do responsável, e-mail e senha inicial. No MVP, ocorre por comando/script administrativo baseado no Better Auth, seed, configuração segura ou operação administrativa direta, não por cadastro público nem por painel autenticado da plataforma, e não fica disponível ao administrador da clínica.
+
+**Redefinição administrativa de senha**:
+Operação excepcional para substituir a senha do administrador de uma clínica quando ele perde o acesso. A senha anterior nunca é exibida, a nova senha é definida por um comando/script administrativo seguro baseado no Better Auth e não há envio automático de e-mail no MVP. A operação invalida todas as sessões administrativas da conta afetada, mas não afeta dados clínicos nem sessões de procedimentos. A operação não concede acesso aos dados clínicos do tenant.
+
+**Operação administrativa de conta**:
+Comando/script fora do painel usado pelo administrador da plataforma para provisionar tenant e conta, redefinir a senha do administrador da clínica ou alterar o e-mail da conta. Deve usar as operações oficiais do Better Auth, respeitar unicidade global do e-mail, armazenar somente o hash da senha e preservar o vínculo entre conta e tenant. Não representa uma tela ou login adicional do produto.
+
+**Tenant ativo**:
+Clínica que pode ser acessada pelo seu administrador e operar os fluxos correntes do sistema. Todo tenant é criado ativo no provisionamento.
+
+**Tenant desativado**:
+Clínica temporariamente bloqueada pelo administrador da plataforma. O administrador da clínica não consegue acessar ou iniciar operações no painel enquanto o tenant estiver desativado, mas todos os dados e históricos são preservados. A desativação invalida somente as sessões administrativas de autenticação e bloqueia os links públicos do paciente; não cancela, remove nem invalida agendamentos, atendimentos, execuções de procedimentos ou demais históricos clínicos e operacionais. O tenant pode ser reativado posteriormente; desativar não apaga a clínica nem seus dados. Ao reativar, links de paciente que ainda estiverem dentro da validade podem voltar a funcionar. No MVP, tenants e contas não são excluídos; o ciclo de vida disponível é somente desativar e reativar.
+
+**Sessão administrativa**:
+Sessão autenticada do administrador mantida no banco de dados pelo Better Auth, e não apenas em um token stateless. Cada sessão dura 24 horas; ao expirar, o administrador precisa autenticar-se novamente. O sistema permite sessões em mais de um dispositivo, e logout encerra somente a sessão atual. Troca de senha, redefinição administrativa de senha e desativação do tenant invalidam todas as sessões administrativas aplicáveis imediatamente. A sessão não concede acesso a outro tenant e seu estado deve ser verificado nas requisições protegidas.
+_Avoid_: sessão de procedimento (quando se referir à autenticação)
+
 **Autenticação**:
-Login do paciente e login do profissional administrador são ideias futuras e ficam fora do MVP. O MVP utiliza o acesso administrativo necessário para salvar e operar os dados sem definir ainda um fluxo de autenticação.
+Processo pelo qual o administrador da clínica acessa sua conta usando e-mail e senha. O MVP oferece sessões autenticadas persistidas, logout e alteração da própria senha enquanto o administrador está autenticado. No primeiro login, o administrador da clínica recebe uma sugestão para alterar a senha inicial, mas pode recusá-la e acessar o painel normalmente; essa escolha fica registrada. Não oferece recuperação de senha, verificação de e-mail, segundo fator, cadastro público de clientes ou múltiplos perfis. Se o administrador da clínica perder a senha, solicita uma redefinição administrativa. O paciente continua acessando apenas links seguros e temporários enviados pelo administrador. Não existe autenticação ou painel do administrador da plataforma no MVP; o SaaS provisiona e corrige contas por operações administrativas fora do produto.
 _Avoid_: acesso público (os links do paciente continuam protegidos)
+
+**Senha inicial**:
+Senha definida pelo administrador da plataforma ao provisionar um tenant e entregue ao administrador da clínica por canal externo ao sistema. Pode continuar válida caso o administrador recuse a sugestão de troca no primeiro login; o sistema registra a escolha, sem tratar a troca como obrigatória.
+
+**E-mail de autenticação**:
+E-mail usado para identificar a conta do administrador da clínica no Better Auth. É único globalmente entre as contas autenticadas; o mesmo e-mail não pode estar vinculado a duas contas simultaneamente. O administrador da clínica pode alterar o próprio e-mail enquanto estiver autenticado, sujeito à unicidade global. Como não há verificação de e-mail no MVP, o novo endereço passa a valer imediatamente. O administrador da plataforma também pode alterar esse e-mail por operação administrativa de conta, fora do produto.
 
 **Histórico do paciente**:
 Linha do tempo das contratações, anamneses e respostas, contratos, agendamentos, sessões, fotos, pagamentos e observações registrados para aquele paciente. O profissional pode consultar o histórico e conferir itens pendentes por paciente.

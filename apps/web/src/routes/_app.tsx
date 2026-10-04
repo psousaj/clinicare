@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet, useRouterState } from '@tanstack/react-router';
+import { createFileRoute, Link, Outlet, redirect, useRouterState } from '@tanstack/react-router';
 import { Activity, CalendarDays, ChevronDown, ChevronRight, CircleHelp, ClipboardList, FileText, Layers, LayoutDashboard, Plus, Settings2, Sparkles, UsersRound, WalletCards, X } from 'lucide-react';
 import { useState } from 'react';
 import { QuickActions } from '@/components/QuickActions';
@@ -17,7 +17,13 @@ const navigation = [
 ] as const;
 const mobileNavigation = [navigation[0], navigation[1], navigation[2], navigation[7]] as const;
 
-export const Route = createFileRoute('/_app')({ component: AppLayout });
+export const Route = createFileRoute('/_app')({
+  beforeLoad: async () => {
+    const response = await fetch('/api/auth/get-session', { credentials: 'include' });
+    if (!response.ok || !(await response.json()).user) throw redirect({ to: '/login' });
+  },
+  component: AppLayout,
+});
 
 function NavigationPanelContent({ onNavigate, mobile = false }: { onNavigate: () => void; mobile?: boolean }) {
   return (

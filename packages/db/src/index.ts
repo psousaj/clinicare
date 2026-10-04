@@ -1,8 +1,9 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as relationalSchema from './relational-schema';
+import * as authSchema from './auth-schema';
 
-export type Database = NodePgDatabase<typeof relationalSchema>;
+export type Database = NodePgDatabase<typeof relationalSchema & typeof authSchema>;
 
 let pool: Pool | null = null;
 let database: Database | null = null;
@@ -16,7 +17,7 @@ export function getDatabaseUrl() {
 export function getDatabase(): Database {
   if (database) return database;
   const currentPool = pool ?? (pool = new Pool({ connectionString: getDatabaseUrl() }));
-  database = drizzle(currentPool, { schema: relationalSchema });
+  database = drizzle(currentPool, { schema: { ...relationalSchema, ...authSchema } });
   return database;
 }
 
@@ -44,6 +45,7 @@ export async function closeDatabase() {
 }
 
 export * from './relational-schema';
+export * from './auth-schema';
 export * from './crypto';
 export * from './normalization';
 export { migrateDatabase } from './migrate';

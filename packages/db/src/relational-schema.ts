@@ -4,6 +4,7 @@ import { boolean, check, date, index, integer, jsonb, pgTable, primaryKey, text,
 export const tenants = pgTable('tenants', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
+  active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (t) => [check('tenants_name_not_empty', sql`length(trim(${t.name})) > 0`), unique('tenants_id_unique').on(t.id)]);

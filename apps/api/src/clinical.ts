@@ -2,7 +2,7 @@ import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import {
   anamneses, anamnesisVersions, appliedAnamneses, appliedAnamnesisNotes, appliedDocuments,
-  followupContracts, followups, getDatabase, patients,
+  followupContracts, followups, getDatabase, patients, tenants,
   buildProtectedAad, decryptValue, encryptValue,
 } from '@clinicare/db';
 import { downloadUrl, uploadUrl } from './storage';
@@ -44,8 +44,8 @@ export async function createAppliedAnamnesis(tenantId: string, input: any) {
 }
 
 async function byToken(tx: any, token: string, includeClosed = false) {
-  const rows = await tx.select().from(appliedAnamneses).where(and(eq(appliedAnamneses.requestTokenHash, hashToken(token)), includeClosed ? sql`true` : and(sql`${appliedAnamneses.requestExpiresAt} > now()`, isNull(appliedAnamneses.submittedAt))));
-  return rows[0];
+  const rows = await tx.select({ applied: appliedAnamneses, active: tenants.active }).from(appliedAnamneses).innerJoin(tenants, eq(tenants.id, appliedAnamneses.tenantId)).where(and(eq(appliedAnamneses.requestTokenHash, hashToken(token)), eq(tenants.active, true), includeClosed ? sql`true` : and(sql`${appliedAnamneses.requestExpiresAt} > now()`, isNull(appliedAnamneses.submittedAt))));
+  return rows[0]?.applied;
 }
 const publicShape = (row: any) => ({ title: row.titleSnapshot, schema: row.schemaSnapshot, draft: unprotect(row.tenantId, 'applied_anamneses', row.id, 'draft', row) });
 const clearDraft = { draftCiphertext: null, draftNonce: null, draftKeyVersion: null };

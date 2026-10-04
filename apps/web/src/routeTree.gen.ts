@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAgendaRouteImport } from './routes/_app/agenda'
 import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
@@ -38,6 +39,11 @@ import { Route as AppPacientesPatientIdNovoAtendimentoItemIdRouteImport } from '
 
 const AppRoute = AppRouteImport.update({
   id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -180,6 +186,7 @@ const AppPacientesPatientIdNovoAtendimentoItemIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/login': typeof LoginRoute
   '/agenda': typeof AppAgendaRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/formulario/$token': typeof FormularioTokenRoute
@@ -206,6 +213,7 @@ export interface FileRoutesByFullPath {
   '/pacientes/$patientId/novo-atendimento/$itemId': typeof AppPacientesPatientIdNovoAtendimentoItemIdRoute
 }
 export interface FileRoutesByTo {
+  '/login': typeof LoginRoute
   '/agenda': typeof AppAgendaRoute
   '/financeiro': typeof AppFinanceiroRoute
   '/formulario/$token': typeof FormularioTokenRoute
@@ -235,6 +243,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
+  '/login': typeof LoginRoute
   '/_app/agenda': typeof AppAgendaRoute
   '/_app/financeiro': typeof AppFinanceiroRoute
   '/formulario/$token': typeof FormularioTokenRoute
@@ -265,6 +274,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/login'
     | '/agenda'
     | '/financeiro'
     | '/formulario/$token'
@@ -291,6 +301,7 @@ export interface FileRouteTypes {
     | '/pacientes/$patientId/novo-atendimento/$itemId'
   fileRoutesByTo: FileRoutesByTo
   to:
+    | '/login'
     | '/agenda'
     | '/financeiro'
     | '/formulario/$token'
@@ -319,6 +330,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/_app'
+    | '/login'
     | '/_app/agenda'
     | '/_app/financeiro'
     | '/formulario/$token'
@@ -348,6 +360,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
+  LoginRoute: typeof LoginRoute
   FormularioTokenRoute: typeof FormularioTokenRoute
 }
 
@@ -358,6 +371,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/': {
@@ -602,6 +622,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
+  LoginRoute: LoginRoute,
   FormularioTokenRoute: FormularioTokenRoute,
 }
 export const routeTree = rootRouteImport

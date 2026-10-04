@@ -11,6 +11,7 @@
     { "idx": 6, "version": "7", "when": 1791010851377, "tag": "0006_signatures", "breakpoints": true },
     { "idx": 7, "version": "7", "when": 1791010851378, "tag": "0007_scheduling_attendance", "breakpoints": true },
     { "idx": 8, "version": "7", "when": 1791010851379, "tag": "0008_payments", "breakpoints": true },
-    { "idx": 9, "version": "7", "when": 1791010851380, "tag": "0009_clinical_documents", "breakpoints": true }
+    { "idx": 9, "version": "7", "when": 1791010851380, "tag": "0009_clinical_documents", "breakpoints": true },
+    { "idx": 10, "version": "7", "when": 1791010851381, "tag": "0010_auth_and_tenant_lifecycle", "breakpoints": true }
   ]
 }

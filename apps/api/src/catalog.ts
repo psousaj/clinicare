@@ -5,10 +5,8 @@ import {
 } from '@clinicare/db';
 
 const tenantUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const defaultTenant = '00000000-0000-0000-0000-000000000001';
-
-export async function catalogTenant(request: { header(name: string): string | undefined }) {
-  const tenantId = request.header('x-tenant-id') ?? defaultTenant;
+export async function catalogTenant(request: { header(name: string): string | undefined }, authenticatedTenantId?: string) {
+  const tenantId = authenticatedTenantId ?? request.header('x-tenant-id') ?? '';
   if (!tenantUuid.test(tenantId)) throw new Error('Tenant inválido.');
   const result = await getDatabase().execute(sql`select 1 from tenants where id = ${tenantId}`);
   if (!result.rows.length) throw new Error('Tenant não encontrado.');
