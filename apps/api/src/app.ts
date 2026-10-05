@@ -1,4 +1,5 @@
 import { Hono, type Context } from 'hono';
+import { createHash } from 'node:crypto';
 import { cors } from 'hono/cors';
 import { getDatabasePool } from '@clinicare/db';
 import { createPatient, deactivatePatient, getPatient, isUuid, listPatients, patientActorFromRequest, updatePatient } from './patients';
@@ -6,7 +7,7 @@ import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAn
 import { getRelationalRelationship } from './relational-relationship';
 import { getRelationalHistory } from './relational-history';
 import { createFollowup, getFollowup, listFollowups, cancelFollowup, updateFollowupState } from './followups';
-import { listPendingSignatures, readSignaturePdf, readSignaturePdfForParticipant, readSignatureToken, refreshSignatureToken, signAsClinicRepresentative, signWithToken, verifySignaturePhone } from './signatures';
+import { listPendingSignatures, previewSignature, readSignaturePdf, readSignaturePdfForParticipant, readSignatureToken, refreshSignatureToken, signAsClinicRepresentative, signWithToken, verifySignaturePhone } from './signatures';
 import { addAttendancePhoto, cancelAttendance, confirmAppointment, createAppointment, createAttendance, deleteAppointment, getAttendance, listAppointments, listAttendances, presignAttendancePhoto, removeAttendancePhoto, updateAppointment, updateAttendance } from './scheduling';
 import { createPayment, deletePayment, listPayments } from './payments';
 import { deleteObject } from './storage';
@@ -132,6 +133,7 @@ export const app = new Hono()
   .get('/public/signatures/:token', async (c) => { try { return c.json(await readSignatureToken(c.req.param('token')!)); } catch (error) { return handleError(c, error); } })
   .post('/public/signatures/:token/verify-phone', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await verifySignaturePhone(c.req.param('token')!, body.phoneLast4)); } catch (error) { return handleError(c, error); } })
   .get('/public/signatures/:token/pdf', async (c) => { try { const bytes = await readSignaturePdf(c.req.param('token')!); return new Response(bytes.buffer as ArrayBuffer, { headers: { 'content-type': 'application/pdf', 'cache-control': 'private, no-store' } }); } catch (error) { return handleError(c, error); } })
+  .post('/public/signatures/:token/preview', async (c) => { try { const body = await c.req.json().catch(() => ({})); const bytes = await previewSignature(c.req.param('token')!, body); return new Response(bytes.buffer as ArrayBuffer, { headers: { 'content-type': 'application/pdf', 'cache-control': 'private, no-store', etag: createHash('sha256').update(bytes).digest('hex') } }); } catch (error) { return handleError(c, error); } })
   .post('/public/signatures/:token/confirm', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await signWithToken(c.req.param('token')!, body.evidence, undefined, { ip: c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('cf-connecting-ip') ?? undefined })); } catch (error) { return handleError(c, error); } })
   .get('/api/signature-participants/:id/pdf', requireClinicSession, async (c) => { try { const bytes = await readSignaturePdfForParticipant(c.req.param('id')!, clinicSession(c)); return new Response(bytes.buffer as ArrayBuffer, { headers: { 'content-type': 'application/pdf', 'cache-control': 'private, no-store' } }); } catch (error) { return handleError(c, error); } })
   .post('/api/signature-participants/:id/confirm', requireClinicSession, async (c) => { try { const body = await c.req.json().catch(() => ({})); const actor = clinicSession(c); return c.json(await signAsClinicRepresentative(c.req.param('id')!, body.evidence, actor, { ip: c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('cf-connecting-ip') ?? undefined })); } catch (error) { return handleError(c, error); } })

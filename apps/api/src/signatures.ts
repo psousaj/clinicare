@@ -6,7 +6,7 @@ import {
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createIncrementalSignaturePdf, validatePlacement, type PdfPlacement } from './pdf-mutation';
 import { normalizeEvidence } from './signature-evidence';
-import { downloadObjectBytes, uploadObjectBytes } from './storage';
+import { deleteObject, downloadObjectBytes, uploadObjectBytes } from './storage';
 
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 const hashBytes = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
@@ -170,8 +170,10 @@ function operationInput(input: unknown) {
   if (typeof value.signaturePng !== 'string' || !value.signaturePng.startsWith('data:image/png;base64,')) throw invalid('Imagem de assinatura PNG inválida.');
   if (typeof value.idempotencyKey !== 'string' || value.idempotencyKey.trim().length < 8 || value.idempotencyKey.length > 200) throw invalid('Chave de idempotência inválida.');
   const acceptanceText = typeof value.acceptanceText === 'string' ? value.acceptanceText.trim() : '';
-  if (!value.confirmed || !acceptanceText) throw invalid('A confirmação explícita e o texto de aceite são obrigatórios.');
-  return { ...value, baseRevisionId: value.baseRevisionId, documentId: value.documentId, signaturePng: value.signaturePng, idempotencyKey: value.idempotencyKey, placement: value.placement, fingerprint: fingerprintValue(value.fingerprint), acceptanceText };
+  const previewOnly = value.previewOnly === true;
+  if ((!previewOnly && value.confirmed !== true) || (!previewOnly && !acceptanceText)) throw invalid('A confirmação explícita e o texto de aceite são obrigatórios.');
+  const previewHash = typeof value.previewHash === 'string' && /^[0-9a-f]{64}$/i.test(value.previewHash) ? value.previewHash.toLowerCase() : null;
+  return { ...value, baseRevisionId: value.baseRevisionId, documentId: value.documentId, signaturePng: value.signaturePng, idempotencyKey: value.idempotencyKey, placement: value.placement, fingerprint: fingerprintValue(value.fingerprint), acceptanceText, previewOnly, previewHash };
 }
 
 function decodePng(dataUrl: string) {
@@ -187,21 +189,36 @@ function decodePng(dataUrl: string) {
   return bytes;
 }
 
+export async function previewSignature(token: string, input: unknown) {
+  const prepared = operationInput({ ...(input as Record<string, unknown>), previewOnly: true });
+  const png = decodePng(prepared.signaturePng);
+  const document = await getDatabase().transaction(async (tx) => {
+    const found = await lockedTokenContext(tx, token);
+    if (found.participant.role !== 'patient' || !found.token.phoneVerifiedAt) throw invalid('Os quatro últimos dígitos do telefone devem ser confirmados antes da prévia.', 403);
+    const current = await currentDocument(tx, found.participant.tenantId, found.contract.id);
+    if (current.document.id !== prepared.documentId || current.revision.id !== prepared.baseRevisionId) throw invalid('STALE_DOCUMENT_REVISION', 409);
+    return { key: current.revision.objectKey, hash: current.revision.contentHash, size: current.revision.contentSize };
+  });
+  const candidate = await createIncrementalSignaturePdf(await readDocumentBytes(document), png, prepared.placement);
+  return candidate.bytes;
+}
+
 export async function signWithToken(token: string, input: unknown, actor?: ClinicSignatureActor, reqContext?: { ip?: string }) {
   const prepared = operationInput(input);
+  if (prepared.previewOnly) throw invalid('A prévia não pode ser confirmada diretamente.', 400);
+  if (!token.startsWith('participant:') && !prepared.previewHash) throw invalid('A prévia do PDF deve ser gerada antes da confirmação.', 409);
   const png = decodePng(prepared.signaturePng);
   const normalizedEv = normalizeEvidence(prepared.fingerprint);
   const db = getDatabase();
-  const found = await db.transaction(async (tx) => {
+  const preparedContext = await db.transaction(async (tx) => {
     const context = await lockedTokenContext(tx, token, true);
     const signatureImageHash = hashBytes(png);
     const requestHash = hashJson({ method: 'local_handwritten', documentId: prepared.documentId, baseRevisionId: prepared.baseRevisionId, signatureImageHash, placement: prepared.placement, acceptanceText: prepared.acceptanceText });
     const existing = (await tx.select().from(signatureOperations).where(and(eq(signatureOperations.tenantId, context.participant.tenantId), eq(signatureOperations.participantId, context.participant.id), eq(signatureOperations.idempotencyKey, prepared.idempotencyKey))))[0];
     if (existing) {
       if (existing.requestHash !== requestHash) throw invalid('IDEMPOTENCY_KEY_REUSED', 409);
-      return { operation: existing, context };
+      return { operation: existing, context, signatureImageHash, requestHash };
     }
-    if (context.participant.status === 'signed') return { alreadySigned: true as const, participant: context.participant };
     if (context.participant.role !== 'patient') {
       if (!actor || actor.tenantId !== context.participant.tenantId) throw invalid('A assinatura do representante deve usar a sessão autenticada da clínica.', 403);
     } else if (!context.token.phoneVerifiedAt) throw invalid('Os quatro últimos dígitos do telefone devem ser confirmados antes da assinatura.', 403);
@@ -211,16 +228,46 @@ export async function signWithToken(token: string, input: unknown, actor?: Clini
       error.code = 'STALE_DOCUMENT_REVISION'; error.currentRevisionId = document.revision.id; error.currentVersion = document.revision.version;
       throw error;
     }
+    if (context.participant.status === 'signed') return { alreadySigned: true as const, participant: context.participant };
+    return { context, document, signatureImageHash, requestHash };
+  });
+  if ('alreadySigned' in preparedContext) return signatureResult(db, preparedContext.participant.tenantId, preparedContext.participant.processId);
+  let found: { operation: any; context: any; document?: any };
+  if ('operation' in preparedContext) {
+    found = { operation: preparedContext.operation, context: preparedContext.context };
+  } else {
+    const { context, document, signatureImageHash, requestHash } = preparedContext;
     const baseBytes = await downloadObjectBytes(document.revision.objectKey);
     const candidate = await createIncrementalSignaturePdf(baseBytes, png, prepared.placement);
+    if (!token.startsWith('participant:') && prepared.previewHash !== candidate.hash) throw invalid('A prévia do PDF não corresponde à confirmação.', 409);
     const candidateKey = randomUUID();
     await uploadObjectBytes(candidateKey, candidate.bytes);
-    const operationRows = await tx.insert(signatureOperations).values({ tenantId: context.participant.tenantId, participantId: context.participant.id, documentId: document.document.id, baseRevisionId: document.revision.id, candidateObjectKey: candidateKey, candidateHash: candidate.hash, candidateSize: candidate.size, placement: candidate.placement, idempotencyKey: prepared.idempotencyKey, requestHash, signatureImageHash, acceptanceText: prepared.acceptanceText, identitySnapshot: context.participant.role === 'professional' && actor ? { role: 'professional', userId: actor.userId, name: actor.user.name, email: actor.user.email, tenantId: actor.tenantId } : context.participant.identitySnapshot, fingerprint: prepared.fingerprint, fingerprintCollectorVersion: normalizedEv.collectorVersion, fingerprintNormalizationVersion: normalizedEv.normalizationVersion, fingerprintDigest: normalizedEv.digest, observedIp: reqContext?.ip ?? null, evidenceReceivedAt: new Date(), status: 'prepared' }).returning() as any[];
-    const operation = operationRows[0];
-    if (!operation) throw invalid('Não foi possível registrar a tentativa de assinatura.', 503);
-    return { operation, context, document, candidate };
-  });
-  if ('alreadySigned' in found) return signatureResult(db, found.participant.tenantId, found.participant.processId);
+    const storedCandidate = await downloadObjectBytes(candidateKey).catch(async (error) => {
+      await deleteObject(candidateKey).catch(() => undefined);
+      throw error;
+    });
+    if (storedCandidate.byteLength !== candidate.size || hashBytes(storedCandidate) !== candidate.hash) {
+      await deleteObject(candidateKey).catch(() => undefined);
+      throw invalid('O candidato de assinatura não pôde ser verificado no storage.', 503);
+    }
+    let operation;
+    try {
+      operation = await db.transaction(async (tx) => {
+        const rows = await tx.insert(signatureOperations).values({ tenantId: context.participant.tenantId, participantId: context.participant.id, documentId: document.document.id, baseRevisionId: document.revision.id, candidateObjectKey: candidateKey, candidateHash: candidate.hash, candidateSize: candidate.size, placement: candidate.placement, idempotencyKey: prepared.idempotencyKey, requestHash, signatureImageHash, acceptanceText: prepared.acceptanceText, identitySnapshot: context.participant.role === 'professional' && actor ? { role: 'professional', userId: actor.userId, name: actor.user.name, email: actor.user.email, tenantId: actor.tenantId } : context.participant.identitySnapshot, fingerprint: prepared.fingerprint, fingerprintCollectorVersion: normalizedEv.collectorVersion, fingerprintNormalizationVersion: normalizedEv.normalizationVersion, fingerprintDigest: normalizedEv.digest, observedIp: reqContext?.ip ?? null, evidenceReceivedAt: new Date(), status: 'prepared' }).onConflictDoNothing({ target: [signatureOperations.tenantId, signatureOperations.participantId, signatureOperations.idempotencyKey] }).returning() as any[];
+        return rows[0] ?? (await tx.select().from(signatureOperations).where(and(eq(signatureOperations.tenantId, context.participant.tenantId), eq(signatureOperations.participantId, context.participant.id), eq(signatureOperations.idempotencyKey, prepared.idempotencyKey))))[0];
+      });
+    } catch (error) {
+      await deleteObject(candidateKey).catch(() => undefined);
+      throw error;
+    }
+    if (!operation) {
+      await deleteObject(candidateKey).catch(() => undefined);
+      throw invalid('Não foi possível registrar a tentativa de assinatura.', 503);
+    }
+    if (operation.candidateObjectKey !== candidateKey) await deleteObject(candidateKey).catch(() => undefined);
+    if (operation.requestHash !== requestHash) throw invalid('IDEMPOTENCY_KEY_REUSED', 409);
+    found = { operation, context, document };
+  }
   if (!('operation' in found) || !found.operation) throw invalid('Operação de assinatura inválida.');
   if (found.operation.status === 'confirmed') return signatureResult(db, found.context.participant.tenantId, found.context.participant.processId);
   if (found.operation.status === 'stale') {
@@ -232,17 +279,17 @@ export async function signWithToken(token: string, input: unknown, actor?: Clini
   }
   const operation = found.operation;
   const promoted = await db.transaction(async (tx) => {
+    const latestContext = await lockedTokenContext(tx, token, true);
     await tx.execute(sql`select id from applied_documents where tenant_id = ${found.context.participant.tenantId} and id = (select id from applied_documents where tenant_id = ${found.context.participant.tenantId} and followup_contract_id = ${found.context.contract.id}) for update`);
     const document = await currentDocument(tx, found.context.participant.tenantId, found.context.contract.id);
-    const latestContext = await lockedTokenContext(tx, token, true);
-    if (latestContext.participant.status !== 'pending' || latestContext.process.status !== 'pending' || terminalFollowup(latestContext.followup.status)) {
-      await tx.update(signatureOperations).set({ status: 'rejected', staleReason: 'SIGNATURE_PROCESS_NOT_ACTIVE' }).where(and(eq(signatureOperations.id, operation.id), eq(signatureOperations.status, 'prepared')));
-      throw invalid('O processo de assinatura não está mais disponível.', 409);
-    }
     if (document.revision.id !== operation.baseRevisionId) {
       await tx.update(signatureOperations).set({ status: 'stale', staleReason: 'STALE_DOCUMENT_REVISION' }).where(and(eq(signatureOperations.id, operation.id), eq(signatureOperations.status, 'prepared')));
       await tx.insert(signatureEvents).values({ tenantId: found.context.participant.tenantId, participantId: found.context.participant.id, type: 'stale', metadata: { operationId: operation.id, reason: 'STALE_DOCUMENT_REVISION', currentRevisionId: document.revision.id, currentVersion: document.revision.version } });
       return { stale: true as const, currentRevisionId: document.revision.id, currentVersion: document.revision.version };
+    }
+    if (latestContext.participant.status !== 'pending' || latestContext.process.status !== 'pending' || terminalFollowup(latestContext.followup.status)) {
+      await tx.update(signatureOperations).set({ status: 'rejected', staleReason: 'SIGNATURE_PROCESS_NOT_ACTIVE' }).where(and(eq(signatureOperations.id, operation.id), eq(signatureOperations.status, 'prepared')));
+      throw invalid('O processo de assinatura não está mais disponível.', 409);
     }
     const candidateRevisionId = randomUUID();
     const revisionRows = await tx.insert(appliedDocumentRevisions).values({ id: candidateRevisionId, tenantId: found.context.participant.tenantId, documentId: document.document.id, version: document.revision.version + 1, parentRevisionId: document.revision.id, objectKey: operation.candidateObjectKey, contentHash: operation.candidateHash, contentSize: operation.candidateSize, origin: 'local_handwritten' }).returning() as any[];
@@ -258,7 +305,7 @@ export async function signWithToken(token: string, input: unknown, actor?: Clini
     await tx.insert(signatureEvents).values({ tenantId: found.context.participant.tenantId, participantId: found.context.participant.id, revisionId: signatureRevision.id, type: 'signed', metadata: { operationId: operation.id, documentRevisionId: revision.id, method: 'local_handwritten' } });
     const signedAt = new Date();
     await tx.update(signatureParticipants).set({ status: 'signed', signedAt, latestRevision: signatureRevision.revision, updatedAt: signedAt, identitySnapshot: found.context.participant.identitySnapshot }).where(and(eq(signatureParticipants.tenantId, found.context.participant.tenantId), eq(signatureParticipants.id, found.context.participant.id), eq(signatureParticipants.status, 'pending')));
-    await tx.update(signatureTokens).set({ revokedAt: signedAt }).where(and(eq(signatureTokens.tenantId, found.context.participant.tenantId), eq(signatureTokens.id, found.context.token.id)));
+    if (found.context.token) await tx.update(signatureTokens).set({ revokedAt: signedAt }).where(and(eq(signatureTokens.tenantId, found.context.participant.tenantId), eq(signatureTokens.id, found.context.token.id)));
     await tx.update(signatureOperations).set({ status: 'confirmed', confirmedAt: signedAt }).where(and(eq(signatureOperations.tenantId, found.context.participant.tenantId), eq(signatureOperations.id, operation.id), eq(signatureOperations.status, 'prepared')));
     return { result: await signatureResult(tx, found.context.participant.tenantId, found.context.participant.processId) };
   });
@@ -269,7 +316,6 @@ export async function signWithToken(token: string, input: unknown, actor?: Clini
   }
   return promoted.result;
 }
-
 async function signatureResult(tx: any, tenantId: string, processId: string) {
   const process = (await tx.select().from(signatureProcesses).where(and(eq(signatureProcesses.tenantId, tenantId), eq(signatureProcesses.id, processId))))[0];
   const participants = await tx.select().from(signatureParticipants).where(and(eq(signatureParticipants.tenantId, tenantId), eq(signatureParticipants.processId, processId)));
