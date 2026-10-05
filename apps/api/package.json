@@ -11,15 +11,15 @@
     "test:integration": "DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY:-AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=} SEARCH_HMAC_KEY=${SEARCH_HMAC_KEY:-AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI=} UPLOAD_SIGNING_KEY=${UPLOAD_SIGNING_KEY:-AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAw=} BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-clinicare-integration-secret-change-me} DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL to run PostgreSQL integration tests} bun test --max-concurrency=1 src/patients.integration.test.ts src/catalog.integration.test.ts src/health.integration.test.ts src/followups.integration.test.ts src/signatures.integration.test.ts src/scheduling.integration.test.ts src/payments.integration.test.ts src/clinical.integration.test.ts"
   },
   "dependencies": {
-    "@clinicare/db": "workspace:*",
     "@aws-sdk/client-s3": "^3.1142.0",
-    "@better-auth/drizzle-adapter": "^1.7.7",
-    "better-auth": "^1.7.7",
     "@aws-sdk/s3-request-presigner": "^3.1142.0",
+    "@better-auth/drizzle-adapter": "^1.7.7",
+    "@clinicare/db": "workspace:*",
     "@hono/node-server": "latest",
+    "@libpdf/core": "^0.5.1",
+    "better-auth": "^1.7.7",
     "drizzle-orm": "latest",
-    "hono": "latest",
-    "drizzle-orm": "latest"
+    "hono": "latest"
   },
   "devDependencies": {
     "@types/bun": "latest",

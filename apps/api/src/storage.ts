@@ -58,6 +58,19 @@ export const deleteObject = async (key: string) => {
   if (!storage || !bucket) throw new Error('R2 is not configured.');
   await storage.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
 };
+
+export const downloadObjectBytes = async (key: string) => {
+  if (!storage || !bucket) throw new Error('R2 is not configured.');
+  const response = await storage.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+  if (!response.Body) throw new Error('Objeto não encontrado.');
+  return response.Body.transformToByteArray();
+};
+
+export const uploadObjectBytes = async (key: string, bytes: Uint8Array, contentType = 'application/pdf') => {
+  if (!storage || !bucket) throw new Error('R2 is not configured.');
+  await storage.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: bytes, ContentType: contentType }));
+};
+
 export const uploadUrlForDocument = async (key: string) => {
   if (!storage || !bucket) throw new Error('R2 is not configured.');
   return getSignedUrl(storage, new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), { expiresIn: 300 });

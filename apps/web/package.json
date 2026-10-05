@@ -9,6 +9,7 @@
     "test": "vitest run --config vite.config.ts"
   },
   "dependencies": {
+    "@fingerprintjs/fingerprintjs": "^5.2.0",
     "@fullcalendar/core": "6.1.21",
     "@fullcalendar/interaction": "^6.1.21",
     "@fullcalendar/react": "6.1.21",
@@ -24,11 +25,14 @@
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",
     "lucide-react": "latest",
+    "pdfjs-dist": "^6.4.299",
     "radix-ui": "^1.6.7",
     "react": "latest",
     "react-day-picker": "^10.0.1",
     "react-dom": "latest",
+    "react-rnd": "^10.5.3",
     "recharts": "^3.10.1",
+    "signature_pad": "^5.1.4",
     "sonner": "^2.0.8",
     "tailwind-merge": "^3.7.0",
     "tailwindcss": "^4.3.3",

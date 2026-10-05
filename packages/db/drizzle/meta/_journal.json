@@ -2,22 +2,138 @@
   "version": "7",
   "dialect": "postgresql",
   "entries": [
-    { "idx": 0, "version": "7", "when": 1791004014003, "tag": "0000_initial_tenants", "breakpoints": true },
-    { "idx": 1, "version": "7", "when": 1791004014004, "tag": "0001_patients", "breakpoints": true },
-    { "idx": 2, "version": "7", "when": 1791004014005, "tag": "0002_patient_pending_operations", "breakpoints": true },
-    { "idx": 3, "version": "7", "when": 1791004014006, "tag": "0003_catalog", "breakpoints": true },
-    { "idx": 4, "version": "7", "when": 1791004014007, "tag": "0004_followups", "breakpoints": true },
-    { "idx": 5, "version": "7", "when": 1791004014008, "tag": "0005_followup_protection", "breakpoints": true },
-    { "idx": 6, "version": "7", "when": 1791010851377, "tag": "0006_signatures", "breakpoints": true },
-    { "idx": 7, "version": "7", "when": 1791010851378, "tag": "0007_scheduling_attendance", "breakpoints": true },
-    { "idx": 8, "version": "7", "when": 1791010851379, "tag": "0008_payments", "breakpoints": true },
-    { "idx": 9, "version": "7", "when": 1791010851380, "tag": "0009_clinical_documents", "breakpoints": true },
-    { "idx": 10, "version": "7", "when": 1791010851381, "tag": "0010_auth_and_tenant_lifecycle", "breakpoints": true },
-    { "idx": 11, "version": "7", "when": 1791010851382, "tag": "0011_applied_pdf_documents", "breakpoints": true },
-    { "idx": 12, "version": "7", "when": 1791010851383, "tag": "0012_applied_document_revision_chain", "breakpoints": true },
-    { "idx": 13, "version": "7", "when": 1791010851384, "tag": "0013_applied_document_legacy_unique_index", "breakpoints": true },
-    { "idx": 14, "version": "7", "when": 1791010851385, "tag": "0014_document_cleanup_jobs", "breakpoints": true },
-    { "idx": 15, "version": "7", "when": 1791010851386, "tag": "0015_document_cleanup_reserved", "breakpoints": true },
-    { "idx": 16, "version": "7", "when": 1791010851387, "tag": "0016_document_cleanup_leases", "breakpoints": true }
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791004014003,
+      "tag": "0000_initial_tenants",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791004014004,
+      "tag": "0001_patients",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791004014005,
+      "tag": "0002_patient_pending_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791004014006,
+      "tag": "0003_catalog",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791004014007,
+      "tag": "0004_followups",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791004014008,
+      "tag": "0005_followup_protection",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791010851377,
+      "tag": "0006_signatures",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791010851378,
+      "tag": "0007_scheduling_attendance",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791010851379,
+      "tag": "0008_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791010851380,
+      "tag": "0009_clinical_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791010851381,
+      "tag": "0010_auth_and_tenant_lifecycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791010851382,
+      "tag": "0011_applied_pdf_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791010851383,
+      "tag": "0012_applied_document_revision_chain",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791010851384,
+      "tag": "0013_applied_document_legacy_unique_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791010851385,
+      "tag": "0014_document_cleanup_jobs",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791010851386,
+      "tag": "0015_document_cleanup_reserved",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791010851387,
+      "tag": "0016_document_cleanup_leases",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791010851388,
+      "tag": "0017_local_signature_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791010851389,
+      "tag": "0018_signature_evidence_external",
+      "breakpoints": true
+    }
   ]
 }

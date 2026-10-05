@@ -6,7 +6,7 @@ import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAn
 import { getRelationalRelationship } from './relational-relationship';
 import { getRelationalHistory } from './relational-history';
 import { createFollowup, getFollowup, listFollowups, cancelFollowup, updateFollowupState } from './followups';
-import { listPendingSignatures, readSignatureToken, refreshSignatureToken, signWithToken } from './signatures';
+import { listPendingSignatures, readSignaturePdf, readSignaturePdfForParticipant, readSignatureToken, refreshSignatureToken, signAsClinicRepresentative, signWithToken, verifySignaturePhone } from './signatures';
 import { addAttendancePhoto, cancelAttendance, confirmAppointment, createAppointment, createAttendance, deleteAppointment, getAttendance, listAppointments, listAttendances, presignAttendancePhoto, removeAttendancePhoto, updateAppointment, updateAttendance } from './scheduling';
 import { createPayment, deletePayment, listPayments } from './payments';
 import { deleteObject } from './storage';
@@ -14,12 +14,15 @@ import { addAnamnesisNote, answerAppliedAnamnesis, createAnamnesisRequest, creat
 import { authHandler, clinicSession, requireClinicSession } from './auth-routes';
 import { updateInitialPasswordChoice } from './account-routes';
 
-const fail = (c: Context, message: string, status: 400 | 403 | 404 | 409 | 503 = 400) => c.json({ error: message }, status);
+const fail = (c: Context, message: string, status: 400 | 401 | 403 | 404 | 409 | 429 | 503 = 400) => c.json({ error: message }, status);
 const isRecord = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);
 const expiry = (days: number) => new Date(Date.now() + days * 86400000);
 const handleError = (c: Context, error: unknown) => {
   const explicitStatus = error && typeof error === 'object' && 'status' in error ? (error as { status: number }).status : undefined;
-  if (explicitStatus && [400, 403, 404, 409, 503].includes(explicitStatus) && error instanceof Error) return c.json({ error: error.message }, explicitStatus as 400 | 403 | 404 | 409 | 503);
+  if (explicitStatus && [400, 401, 403, 404, 409, 429, 503].includes(explicitStatus) && error instanceof Error) {
+    const details = error as Error & { code?: string; currentRevisionId?: string; currentVersion?: number };
+    return c.json({ error: error.message, ...(details.code ? { code: details.code } : {}), ...(details.currentRevisionId ? { currentRevisionId: details.currentRevisionId } : {}), ...(details.currentVersion !== undefined ? { currentVersion: details.currentVersion } : {}) }, explicitStatus as 400 | 401 | 403 | 404 | 409 | 429 | 503);
+  }
   const errorCode = error && typeof error === 'object' && 'code' in error ? (error as { code: string | number }).code : undefined;
   const causeCode = error instanceof Error && error.cause && typeof error.cause === 'object' && 'code' in error.cause ? (error.cause as { code: string | number }).code : undefined;
   if ([errorCode, causeCode].includes('23505')) return c.json({ error: 'Este registro já existe.' }, 409);
@@ -126,8 +129,12 @@ export const app = new Hono()
     return result ? c.json(result) : fail(c, 'Acompanhamento não encontrado.', 404);
   })
   .get('/api/signature-pending', async (c) => { try { return c.json(await listPendingSignatures(await catalogTenant(c.req, authTenant(c)))); } catch (error) { return handleError(c, error); } })
-  .get('/public/signatures/:token', async (c) => { try { return c.json(await readSignatureToken(c.req.param('token'))); } catch (error) { return handleError(c, error); } })
-  .post('/public/signatures/:token/confirm', async (c) => { try { return c.json(await signWithToken(c.req.param('token'), (await c.req.json().catch(() => ({}))).evidence)); } catch (error) { return handleError(c, error); } })
+  .get('/public/signatures/:token', async (c) => { try { return c.json(await readSignatureToken(c.req.param('token')!)); } catch (error) { return handleError(c, error); } })
+  .post('/public/signatures/:token/verify-phone', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await verifySignaturePhone(c.req.param('token')!, body.phoneLast4)); } catch (error) { return handleError(c, error); } })
+  .get('/public/signatures/:token/pdf', async (c) => { try { const bytes = await readSignaturePdf(c.req.param('token')!); return new Response(bytes.buffer as ArrayBuffer, { headers: { 'content-type': 'application/pdf', 'cache-control': 'private, no-store' } }); } catch (error) { return handleError(c, error); } })
+  .post('/public/signatures/:token/confirm', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await signWithToken(c.req.param('token')!, body.evidence, undefined, { ip: c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('cf-connecting-ip') ?? undefined })); } catch (error) { return handleError(c, error); } })
+  .get('/api/signature-participants/:id/pdf', requireClinicSession, async (c) => { try { const bytes = await readSignaturePdfForParticipant(c.req.param('id')!, clinicSession(c)); return new Response(bytes.buffer as ArrayBuffer, { headers: { 'content-type': 'application/pdf', 'cache-control': 'private, no-store' } }); } catch (error) { return handleError(c, error); } })
+  .post('/api/signature-participants/:id/confirm', requireClinicSession, async (c) => { try { const body = await c.req.json().catch(() => ({})); const actor = clinicSession(c); return c.json(await signAsClinicRepresentative(c.req.param('id')!, body.evidence, actor, { ip: c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('cf-connecting-ip') ?? undefined })); } catch (error) { return handleError(c, error); } })
   .post('/api/signature-participants/:id/refresh', async (c) => { if (!isUuid(c.req.param('id'))) return fail(c, 'Participante inválido.'); try { return c.json(await refreshSignatureToken(await catalogTenant(c.req, authTenant(c)), c.req.param('id'))); } catch (error) { return handleError(c, error); } })
   .post('/api/followups/:id/cancel', async (c) => {
     const tenantId = await catalogTenant(c.req, authTenant(c));

@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppAgendaRouteImport } from './routes/_app/agenda'
 import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
+import { Route as AssinaturaTokenRouteImport } from './routes/assinatura.$token'
 import { Route as FormularioTokenRouteImport } from './routes/formulario.$token'
 import { Route as AppContratosIndexRouteImport } from './routes/_app/contratos/index'
 import { Route as AppContratosContractIdRouteImport } from './routes/_app/contratos/$contractId'
@@ -60,6 +61,11 @@ const AppFinanceiroRoute = AppFinanceiroRouteImport.update({
   id: '/financeiro',
   path: '/financeiro',
   getParentRoute: () => AppRoute,
+} as any)
+const AssinaturaTokenRoute = AssinaturaTokenRouteImport.update({
+  id: '/assinatura/$token',
+  path: '/assinatura/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const FormularioTokenRoute = FormularioTokenRouteImport.update({
   id: '/formulario/$token',
@@ -189,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/agenda': typeof AppAgendaRoute
   '/financeiro': typeof AppFinanceiroRoute
+  '/assinatura/$token': typeof AssinaturaTokenRoute
   '/formulario/$token': typeof FormularioTokenRoute
   '/contratos/$contractId': typeof AppContratosContractIdRoute
   '/contratos/novo': typeof AppContratosNovoRoute
@@ -216,6 +223,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/agenda': typeof AppAgendaRoute
   '/financeiro': typeof AppFinanceiroRoute
+  '/assinatura/$token': typeof AssinaturaTokenRoute
   '/formulario/$token': typeof FormularioTokenRoute
   '/': typeof AppIndexRoute
   '/contratos/$contractId': typeof AppContratosContractIdRoute
@@ -246,6 +254,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_app/agenda': typeof AppAgendaRoute
   '/_app/financeiro': typeof AppFinanceiroRoute
+  '/assinatura/$token': typeof AssinaturaTokenRoute
   '/formulario/$token': typeof FormularioTokenRoute
   '/_app/': typeof AppIndexRoute
   '/_app/contratos/$contractId': typeof AppContratosContractIdRoute
@@ -277,6 +286,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/agenda'
     | '/financeiro'
+    | '/assinatura/$token'
     | '/formulario/$token'
     | '/contratos/$contractId'
     | '/contratos/novo'
@@ -304,6 +314,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/agenda'
     | '/financeiro'
+    | '/assinatura/$token'
     | '/formulario/$token'
     | '/'
     | '/contratos/$contractId'
@@ -333,6 +344,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/_app/agenda'
     | '/_app/financeiro'
+    | '/assinatura/$token'
     | '/formulario/$token'
     | '/_app/'
     | '/_app/contratos/$contractId'
@@ -361,6 +373,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
+  AssinaturaTokenRoute: typeof AssinaturaTokenRoute
   FormularioTokenRoute: typeof FormularioTokenRoute
 }
 
@@ -400,6 +413,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/financeiro'
       preLoaderRoute: typeof AppFinanceiroRouteImport
       parentRoute: typeof AppRoute
+    }
+    '/assinatura/$token': {
+      id: '/assinatura/$token'
+      path: '/assinatura/$token'
+      fullPath: '/assinatura/$token'
+      preLoaderRoute: typeof AssinaturaTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/formulario/$token': {
       id: '/formulario/$token'
@@ -623,6 +643,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
+  AssinaturaTokenRoute: AssinaturaTokenRoute,
   FormularioTokenRoute: FormularioTokenRoute,
 }
 export const routeTree = rootRouteImport

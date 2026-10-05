@@ -6,7 +6,7 @@ import {
   contracts, contractVersions, followupContracts, followupItems, followupSnapshots, followups,
   getDatabase, patients, plans, planVersionContracts, planVersionItems, planVersions, procedures,
   payments, signatureProcesses, signatureParticipants, signatureTokens,
-  buildProtectedAad, encryptValue,
+  buildPatientAad, buildProtectedAad, decryptValue, encryptValue, normalizePhone,
 } from '@clinicare/db';
 
 const idShape = (row: { id: string }) => ({ ...row, _id: row.id });
@@ -76,9 +76,15 @@ async function offerForms(tenantId: string, offer: Offer, executor: any) {
 export async function createFollowup(tenantId: string, patientId: string, offerType: 'combo' | 'plan', offerId: string, options: { failAfter?: string } = {}) {
   const db = getDatabase();
   return db.transaction(async (tx) => {
-    const patient = (await tx.select({ id: patients.id }).from(patients).where(and(eq(patients.tenantId, tenantId), eq(patients.id, patientId))))[0];
+    const patient = (await tx.select().from(patients).where(and(eq(patients.tenantId, tenantId), eq(patients.id, patientId))))[0];
     if (!patient) throw notFound('Paciente não encontrado.');
     const offer = await resolveOffer(tenantId, offerType, offerId, tx);
+    let patientPhone: string | null = null;
+    if (offer.contracts.length) {
+      if (!patient.phoneCiphertext || !patient.phoneNonce || !patient.phoneKeyVersion) throw invalid('Paciente precisa ter telefone cadastrado para assinar o contrato.');
+      patientPhone = normalizePhone(decryptValue({ ciphertext: patient.phoneCiphertext, nonce: patient.phoneNonce, keyVersion: patient.phoneKeyVersion }, buildPatientAad(tenantId, patient.id, 'phone', patient.phoneKeyVersion)));
+      if (!patientPhone) throw invalid('Paciente precisa ter telefone cadastrado para assinar o contrato.');
+    }
     const followupId = randomUUID();
     const status = offerType === 'plan' ? 'idle' : 'active';
     const [created] = await tx.insert(followups).values({ id: followupId, tenantId, patientId, offerType, offerId, comboId: offerType === 'combo' ? offerId : null, planId: offerType === 'plan' ? offerId : null, planVersionId: offer.planVersionId, status, offerNameSnapshot: offer.name, priceCents: offer.priceCents, validUntil: offer.validUntil }).returning();
@@ -89,7 +95,10 @@ export async function createFollowup(tenantId: string, patientId: string, offerT
     if (offer.contracts.length) {
       const appliedContracts = await tx.insert(followupContracts).values(offer.contracts.map((contract) => { const id = randomUUID(); const protectedContent = protect(tenantId, id, 'content', contract.content); return { id, tenantId, followupId, contractId: contract.contractId, contractVersion: contract.contractVersion, titleSnapshot: contract.title, ...protectedContent, sourceObjectKey: contract.sourceObjectKey, renderedPdfObjectKey: contract.renderedPdfObjectKey, renderedPdfHash: contract.renderedPdfHash, renderedPdfSize: contract.renderedPdfSize, renderedPdfContentType: contract.renderedPdfContentType }; }) as any).returning();
       const processes = await tx.insert(signatureProcesses).values(appliedContracts.map((contract: any) => ({ tenantId, followupContractId: contract.id }))).returning();
-      const participants = await tx.insert(signatureParticipants).values(processes.flatMap((process: any) => [{ tenantId, processId: process.id, role: 'patient' }, { tenantId, processId: process.id, role: 'professional' }])).returning();
+      const participants = await tx.insert(signatureParticipants).values(processes.flatMap((process: any) => [
+        { id: randomUUID(), tenantId, processId: process.id, role: 'patient', identitySnapshot: { role: 'patient', patientId: patient.id, fullName: patient.fullName, phoneLast4Hash: hashToken(patientPhone!.slice(-4)) } },
+        { id: randomUUID(), tenantId, processId: process.id, role: 'professional', identitySnapshot: { role: 'professional', assignment: 'clinic_representative' } },
+      ])).returning();
       initialTokens = await issueInitialTokens(tx, tenantId, participants);
     }
     if (options.failAfter === 'items') throw new Error('Falha simulada na materialização do acompanhamento.');
