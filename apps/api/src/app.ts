@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { getDatabasePool } from '@clinicare/db';
 import { createPatient, deactivatePatient, getPatient, isUuid, listPatients, patientActorFromRequest, updatePatient } from './patients';
-import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, associateAnamnesis, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan } from './catalog';
+import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, associateAnamnesis, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan, presignContractVersionPdf, finalizeContractVersionPdf } from './catalog';
 import { getRelationalRelationship } from './relational-relationship';
 import { getRelationalHistory } from './relational-history';
 import { createFollowup, getFollowup, listFollowups, cancelFollowup, updateFollowupState } from './followups';
@@ -10,7 +10,7 @@ import { listPendingSignatures, readSignatureToken, refreshSignatureToken, signW
 import { addAttendancePhoto, cancelAttendance, confirmAppointment, createAppointment, createAttendance, deleteAppointment, getAttendance, listAppointments, listAttendances, presignAttendancePhoto, removeAttendancePhoto, updateAppointment, updateAttendance } from './scheduling';
 import { createPayment, deletePayment, listPayments } from './payments';
 import { deleteObject } from './storage';
-import { addAnamnesisNote, answerAppliedAnamnesis, createAnamnesisRequest, createAppliedAnamnesis, deleteAppliedDocument, getAppliedDocument, listAnamnesisNotes, listAppliedDocuments, presignAppliedDocument, readAppliedAnamnesis, readPublicAnamnesis, refreshAnamnesisRequest, saveAnamnesisDraft, submitPublicAnamnesis } from './clinical';
+import { addAnamnesisNote, answerAppliedAnamnesis, createAnamnesisRequest, createAppliedAnamnesis, deleteAppliedDocument, getAppliedDocument, listAnamnesisNotes, listAppliedDocuments, materializeAppliedDocumentResult, presignAppliedDocument, readAppliedAnamnesis, readPublicAnamnesis, refreshAnamnesisRequest, retryDocumentCleanupJobs, saveAnamnesisDraft, submitPublicAnamnesis } from './clinical';
 import { authHandler, clinicSession, requireClinicSession } from './auth-routes';
 import { updateInitialPasswordChoice } from './account-routes';
 
@@ -19,13 +19,13 @@ const isRecord = (value: unknown): value is Record<string, any> => !!value && ty
 const expiry = (days: number) => new Date(Date.now() + days * 86400000);
 const handleError = (c: Context, error: unknown) => {
   const explicitStatus = error && typeof error === 'object' && 'status' in error ? (error as { status: number }).status : undefined;
-  if (explicitStatus && [400, 403, 404, 409].includes(explicitStatus) && error instanceof Error) return c.json({ error: error.message }, explicitStatus as 400 | 403 | 404 | 409);
+  if (explicitStatus && [400, 403, 404, 409, 503].includes(explicitStatus) && error instanceof Error) return c.json({ error: error.message }, explicitStatus as 400 | 403 | 404 | 409 | 503);
   const errorCode = error && typeof error === 'object' && 'code' in error ? (error as { code: string | number }).code : undefined;
   const causeCode = error instanceof Error && error.cause && typeof error.cause === 'object' && 'code' in error.cause ? (error.cause as { code: string | number }).code : undefined;
   if ([errorCode, causeCode].includes('23505')) return c.json({ error: 'Este registro já existe.' }, 409);
   if ([errorCode, causeCode].includes('23503') || [errorCode, causeCode].includes('23514') || [errorCode, causeCode].includes('22P02')) return c.json({ error: 'Dados inválidos ou referência não encontrada.' }, 400);
   if (error instanceof Error && error.message === 'Tenant não encontrado.') return c.json({ error: error.message }, 400);
-  if (error instanceof Error && /^(Informe|Dados ou|Combo requer|Combo não|Plano |Procedimento não|Contrato não|Versão não|Formulário inválido|Motivo do cancelamento|O acompanhamento)/i.test(error.message)) return c.json({ error: error.message }, 400);
+  if (error instanceof Error && /^(Informe|Dados ou|Combo requer|Combo não|Plano |Procedimento não|Contrato não|Versão não|Formulário inválido|Motivo do cancelamento|O acompanhamento|O PDF|Intenção de upload|Contrato aplicado)/i.test(error.message)) return c.json({ error: error.message }, 400);
   if (error instanceof Error && /conflito|versão desatualizada/i.test(error.message)) return c.json({ error: error.message }, 409);
   if (error instanceof Error && /^(DATA_ENCRYPTION_KEY|SEARCH_HMAC_KEY|UPLOAD_SIGNING_KEY)/.test(error.message)) return c.json({ error: error.message }, 503);
   if (error instanceof Error && /R2 is not configured/i.test(error.message)) return c.json({ error: 'R2 não configurado.' }, 503);
@@ -105,6 +105,8 @@ export const app = new Hono()
   .post('/api/contracts', async (c) => c.json(await saveContract(await catalogTenant(c.req, authTenant(c)), null, await c.req.json()), 201))
   .patch('/api/contracts/:id', async (c) => { const result = await saveContract(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Contrato não encontrado.', 404); })
   .post('/api/contracts/:id/versions', async (c) => { const result = await addContractVersion(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result, 201) : fail(c, 'Contrato não encontrado.', 404); })
+  .post('/api/contracts/:id/versions/rendered-pdf/presign', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await presignContractVersionPdf(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), body.contentType, body.contentHash, body.size), 201); } catch (error) { return handleError(c, error); } })
+  .post('/api/contracts/:id/versions/rendered-pdf', async (c) => { try { return c.json(await finalizeContractVersionPdf(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json().catch(() => ({}))), 201); } catch (error) { return handleError(c, error); } })
   .get('/api/plans', async (c) => c.json(await listPlans(await catalogTenant(c.req, authTenant(c)))))
   .post('/api/plans', async (c) => c.json(await savePlan(await catalogTenant(c.req, authTenant(c)), null, await c.req.json()), 201))
   .put('/api/plans/:id', async (c) => { const result = await savePlan(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Plano não encontrado.', 404); })
@@ -213,10 +215,12 @@ export const app = new Hono()
   .post('/api/patient-anamneses/:id/answers', async (c) => { const body = await c.req.json().catch(() => null); if (!isRecord(body?.answers)) return fail(c, 'Respostas inválidas.'); const result = await answerAppliedAnamnesis(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), body.answers); return result ? c.json({ submitted: true }, 201) : fail(c, 'Anamnese não encontrada ou já respondida.', 404); })
   .post('/api/anamnesis-responses/:id/notes', async (c) => { const body = await c.req.json().catch(() => null); const result = await addAnamnesisNote(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), body?.content ?? ''); return result ? c.json(result, 201) : fail(c, 'Resposta não encontrada ou ainda não enviada.', 404); })
   .get('/api/anamnesis-responses/:id/notes', async (c) => { const result = await listAnamnesisNotes(await catalogTenant(c.req, authTenant(c)), c.req.param('id')); return result ? c.json(result) : fail(c, 'Resposta não encontrada ou ainda não enviada.', 404); })
-  .post('/api/followup-contracts/:id/documents/presign', async (c) => { try { const body = await c.req.json().catch(() => ({})); if (typeof body.contentType !== 'string' || !/^[^\s/]+\/[^\s]+$/.test(body.contentType)) return fail(c, 'Metadados do documento inválidos.'); return c.json(await presignAppliedDocument(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), body.contentType, typeof body.contentHash === 'string' ? body.contentHash : null), 201); } catch (error) { return handleError(c, error); } })
-  .get('/api/followup-contracts/:id/documents', async (c) => { const result = await listAppliedDocuments(await catalogTenant(c.req, authTenant(c)), c.req.param('id')); return result ? c.json(result) : fail(c, 'Contrato aplicado não encontrado.', 404); })
+  .post('/api/followup-contracts/:id/documents/presign', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await presignAppliedDocument(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), body.contentType, body.contentHash, body.size)); } catch (error) { return handleError(c, error); } })
+  .post('/api/followup-contracts/:id/documents', async (c) => { try { const body = await c.req.json().catch(() => ({})); const result = await materializeAppliedDocumentResult(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), body); return c.json(result.document, result.existing ? 200 : 201); } catch (error) { return handleError(c, error); } })
+   .get('/api/followup-contracts/:id/documents', async (c) => { const result = await listAppliedDocuments(await catalogTenant(c.req, authTenant(c)), c.req.param('id')); return result ? c.json(result) : fail(c, 'Contrato aplicado não encontrado.', 404); })
   .get('/api/applied-documents/:id', async (c) => { const result = await getAppliedDocument(await catalogTenant(c.req, authTenant(c)), c.req.param('id')); return result ? c.json(result) : fail(c, 'Documento não encontrado.', 404); })
-  .delete('/api/applied-documents/:id', async (c) => { try { const result = await deleteAppliedDocument(await catalogTenant(c.req, authTenant(c)), c.req.param('id')); if (!result) return fail(c, 'Documento não encontrado.', 404); await deleteObject(result.objectKey).catch((error) => console.error(error)); return c.json({ deleted: true }); } catch (error) { return handleError(c, error); } })
+  .delete('/api/applied-documents/:id', async (c) => { try { const result = await deleteAppliedDocument(await catalogTenant(c.req, authTenant(c)), c.req.param('id')); if (!result) return fail(c, 'Documento não encontrado.', 404); return c.json(result, result.cleanup.status === 'failed' ? 503 : 200); } catch (error) { return handleError(c, error); } })
+  .post('/api/applied-documents/cleanup', async (c) => { try { return c.json(await retryDocumentCleanupJobs(await catalogTenant(c.req, authTenant(c)))); } catch (error) { return handleError(c, error); } })
   .get('/api/patients/:id/relationship', async (c) => {
     try {
       if (!isUuid(c.req.param('id'))) return fail(c, 'Paciente não encontrado.', 404);

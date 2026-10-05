@@ -1,33 +1,33 @@
 # Graph Report - clinicare  (2026-10-04)
 
 ## Corpus Check
-- 158 files · ~93,519 words
+- 165 files · ~105,990 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 13 file(s) not represented in the graph (top: (none) 4, .example 3, .css 3)
 
 ## Summary
-- 1296 nodes · 3661 edges · 70 communities (51 shown, 19 thin omitted)
-- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 41 edges (avg confidence: 0.85)
+- 1356 nodes · 3781 edges · 81 communities (60 shown, 21 thin omitted)
+- Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 40 edges (avg confidence: 0.85)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `528b9129`
+- Built from commit: `790d50f5`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- dialogs.tsx
-- @tanstack/react-router
 - Button
-- SchemaEditor.tsx
-- procedimentos/index.tsx
+- catalog.integration.test.ts
+- cn
+- schemaUi.tsx
 - queries.ts
+- schemas.ts
 - catalog.ts
 - routeTree.gen.ts
 - scripts
 - admin-commands.ts
 - dependencies
-- followups.integration.test.ts
+- followups.ts
 - Assinatura eletrônica própria — especificação completa
 - Assinatura eletrônica própria — MVP
 - web/package.json
@@ -38,15 +38,15 @@
 - FileRoutesByPath
 - App.test.tsx
 - compilerOptions
-- payments.ts
-- ContractFormPage.tsx
-- _app.tsx
-- $anamnesisId.tsx
+- app.ts
+- formulario.$token.tsx
+- Implementation Decisions
+- AppointmentDetails.tsx
 - devDependencies
-- Route
+- @tanstack/react-router
 - CalendarView.tsx
 - compilerOptions
-- relacionamento.tsx
+- payments.ts
 - api/tsconfig.json
 - Clínicare
 - db/src/index.ts
@@ -54,28 +54,39 @@
 - Clínica de cuidados estéticos
 - patients.ts
 - scripts
-- scheduling.integration.test.ts
-- storage.ts
+- VersionsDialog.tsx
+- procedimentos/index.tsx
 - db/tsconfig.json
 - Agent skills
 - scheduling.ts
 - getDatabase
-- clinical.integration.test.ts
+- ComboForm.tsx
 - relational-schema.ts
-- relationship.ts
+- scheduling.integration.test.ts
 - Decisão e plano: PostgreSQL + Drizzle + JSONB
 - $patientId/index.tsx
 - Especificação: migração para PostgreSQL + Drizzle + JSONB
-- app.ts
-- followups.ts
+- api/package.json
+- SchemaEditor.tsx
+- dialogs.tsx
+- Route
+- _app.tsx
+- dependencies
+- scripts
+- auth-routes.ts
 - Issue tracker: GitHub
 - Domain Docs
 - Persistência PostgreSQL + Drizzle + JSONB
 - triage-labels.md
+- Preservação incremental de PDFs com assinaturas externas
+- relationship.ts
+- auth.ts
+- auth-schema.ts
+- nova.tsx
 
 ## God Nodes (most connected - your core abstractions)
-1. `getDatabase()` - 102 edges
-2. `app` - 83 edges
+1. `getDatabase()` - 110 edges
+2. `app` - 86 edges
 3. `Button()` - 59 edges
 4. `cn()` - 53 edges
 5. `@tanstack/react-router` - 44 edges
@@ -101,35 +112,35 @@
 - 2-file cycle: `packages/db/src/index.ts -> packages/db/src/migrate.ts -> packages/db/src/index.ts`
 - 2-file cycle: `packages/db/src/index.ts -> packages/db/src/seed.ts -> packages/db/src/index.ts`
 
-## Communities (70 total, 19 thin omitted)
+## Communities (81 total, 21 thin omitted)
 
-### Community 0 - "dialogs.tsx"
-Cohesion: 0.08
-Nodes (46): emptySchema, Props, ComboFormPage(), day(), AppointmentFields(), minutesBetween(), PlannedItem, Selection (+38 more)
+### Community 0 - "Button"
+Cohesion: 0.14
+Nodes (25): emptySchema, Props, allowed, AttendancePhotos(), Phase, phases, AttendanceRecordForm(), ContractData (+17 more)
 
-### Community 1 - "@tanstack/react-router"
-Cohesion: 0.12
-Nodes (31): AttendanceRecordForm(), matchesPatient(), PatientRow(), QueryError(), Props, SchemaForm(), attendanceQuery(), combosQuery (+23 more)
-
-### Community 2 - "Button"
+### Community 1 - "catalog.integration.test.ts"
 Cohesion: 0.17
-Nodes (26): AppointmentDetails(), dateLong, Props, Row(), time, FormDialog(), FormDialogProps, FormPageProps (+18 more)
+Nodes (8): headers(), request(), schema, tenantIds, anamnesisProcedures, anamnesisVersions, procedures, procedureVersions
 
-### Community 3 - "SchemaEditor.tsx"
-Cohesion: 0.07
-Nodes (55): AnamnesisFormPage(), submit(), ProcedurePicker(), Column(), DatePicker(), hours, minutes, PickerProps (+47 more)
+### Community 2 - "cn"
+Cohesion: 0.14
+Nodes (25): AppointmentFields(), OfferFields(), Column(), DatePicker(), hours, minutes, PickerProps, TimePicker() (+17 more)
 
-### Community 4 - "procedimentos/index.tsx"
-Cohesion: 0.18
-Nodes (19): OfferFields(), PaymentDialog(), FollowupCard(), offerLabel, StatusBadge(), tones, NativeSelect(), NativeSelectOptGroup() (+11 more)
+### Community 3 - "schemaUi.tsx"
+Cohesion: 0.11
+Nodes (26): Props, CPF_PATTERN, DEFAULT_OPTIONS, FieldKind, fieldKinds, formatCpf(), formatDigits(), formatPhone() (+18 more)
 
-### Community 5 - "queries.ts"
-Cohesion: 0.05
-Nodes (68): allowed, AttendancePhotos(), Phase, phases, api(), RequestOptions, withIds(), photoPhases (+60 more)
+### Community 4 - "queries.ts"
+Cohesion: 0.15
+Nodes (32): api(), attendanceQuery(), everything, keys, list(), MutationConfig, patientRefresh, post() (+24 more)
+
+### Community 5 - "schemas.ts"
+Cohesion: 0.06
+Nodes (33): anamnesisSchema, anamnesisVersionSchema, anySchema, Appointment, appointmentItemSchema, appointmentSchema, AttendancePhoto, attendancePhotoSchema (+25 more)
 
 ### Community 6 - "catalog.ts"
-Cohesion: 0.12
-Nodes (30): addAnamnesisVersion(), addContractVersion(), addContractVersionTx(), anamnesisResponse(), associateAnamnesis(), catalogTenant(), comboResponse(), comboValid() (+22 more)
+Cohesion: 0.10
+Nodes (33): addAnamnesisVersion(), addContractVersion(), addContractVersionTx(), comboResponse(), comboValid(), conflict(), consumeContractVersionPdfUploadIntent(), contractResponse() (+25 more)
 
 ### Community 7 - "routeTree.gen.ts"
 Cohesion: 0.06
@@ -140,16 +151,16 @@ Cohesion: 0.06
 Nodes (35): devDependencies, turbo, engines, node, name, packageManager, private, scripts (+27 more)
 
 ### Community 9 - "admin-commands.ts"
-Cohesion: 0.05
-Nodes (44): dependencies, @aws-sdk/client-s3, @aws-sdk/s3-request-presigner, better-auth, @better-auth/drizzle-adapter, @clinicare/db, drizzle-orm, hono (+36 more)
+Cohesion: 0.25
+Nodes (11): administratorByEmail(), changeClinicAdministratorEmail(), createBetterAuthClinicAdministrator(), deactivateTenant(), normalizeEmail(), provisionClinic(), ProvisionClinicInput, reactivateTenant() (+3 more)
 
 ### Community 10 - "dependencies"
 Cohesion: 0.07
 Nodes (27): dependencies, class-variance-authority, clsx, date-fns, @fullcalendar/core, @fullcalendar/interaction, @fullcalendar/react, @fullcalendar/timegrid (+19 more)
 
-### Community 11 - "followups.integration.test.ts"
-Cohesion: 0.13
-Nodes (15): headers(), request(), schema, tenantIds, request(), anamnesisProcedures, appliedAnamneses, plans (+7 more)
+### Community 11 - "followups.ts"
+Cohesion: 0.08
+Nodes (33): hashToken(), idShape(), invalid(), issueInitialTokens(), latest(), notFound(), Offer, offerForms() (+25 more)
 
 ### Community 12 - "Assinatura eletrônica própria — especificação completa"
 Cohesion: 0.09
@@ -160,8 +171,8 @@ Cohesion: 0.09
 Nodes (22): 10. Histórico, armazenamento e download, 11. Estrutura preparada para evolução, 12. O que fica fora deste MVP, 13. Critérios para considerar o MVP pronto, 14. Limite da evolução futura, 1. Objetivo, 2. Fluxo oficial, também mantido na produção, 3.1. Fingerprint obrigatório desde o MVP (+14 more)
 
 ### Community 14 - "web/package.json"
-Cohesion: 0.11
-Nodes (18): typescript, name, private, type, class-variance-authority, clsx, jsdom, @rjsf/utils (+10 more)
+Cohesion: 0.10
+Nodes (20): typescript, name, private, type, class-variance-authority, clsx, date-fns, jsdom (+12 more)
 
 ### Community 15 - "Especificação: MVP para clínicas pequenas de estética"
 Cohesion: 0.10
@@ -191,25 +202,29 @@ Nodes (13): Handler, marina, renderAt(), queryClient, router, createAppRouter(),
 Cohesion: 0.12
 Nodes (16): compilerOptions, allowImportingTsExtensions, isolatedModules, jsx, lib, module, moduleResolution, noEmit (+8 more)
 
-### Community 23 - "payments.ts"
+### Community 23 - "app.ts"
 Cohesion: 0.12
-Nodes (29): addAnamnesisNote(), noteValue(), encrypted(), conflict(), createPayment(), deletePayment(), invalid(), listPayments() (+21 more)
+Nodes (33): app, appointmentStatusLabel, authTenant(), expiry(), fail(), handleError(), isRecord(), authHandler() (+25 more)
 
-### Community 24 - "ContractFormPage.tsx"
-Cohesion: 0.18
-Nodes (13): ContractData, ContractFormPage(), Props, ContractVersionsButton(), contractsQuery, useCreateContract(), useUpdateContract(), Contract (+5 more)
+### Community 24 - "formulario.$token.tsx"
+Cohesion: 0.43
+Nodes (5): publicFormQuery(), useSaveDraft(), AnamnesisForm(), PublicAnamnesis(), Route
 
-### Community 25 - "_app.tsx"
-Cohesion: 0.24
-Nodes (15): QuickActions(), Sheet(), SheetClose(), SheetContent(), SheetDescription(), SheetHeader(), SheetOverlay(), SheetTitle() (+7 more)
+### Community 25 - "Implementation Decisions"
+Cohesion: 0.09
+Nodes (22): Assinatura local, Concorrência, idempotência e storage, Especificação — Assinatura eletrônica própria no MVP, Estados e conclusão, Fingerprint e evidências, Fonte, PDF e revisões, Further Notes, GOV.BR e assinaturas externas (+14 more)
 
-### Community 26 - "$anamnesisId.tsx"
-Cohesion: 0.21
-Nodes (12): VersionsButton(), VersionsTrigger(), anamnesesQuery, useUpdateAnamnesis(), Anamnesis, AnamnesisVersion, fieldCount(), sameSchema() (+4 more)
+### Community 26 - "AppointmentDetails.tsx"
+Cohesion: 0.22
+Nodes (17): AppointmentDetails(), dateLong, Props, Row(), time, FormDialog(), FormDialogProps, Dialog() (+9 more)
 
 ### Community 27 - "devDependencies"
 Cohesion: 0.20
 Nodes (10): devDependencies, jsdom, @tanstack/router-plugin, @testing-library/jest-dom, @testing-library/react, @testing-library/user-event, @types/react, @types/react-dom (+2 more)
+
+### Community 28 - "@tanstack/react-router"
+Cohesion: 0.10
+Nodes (37): CalendarView(), matchesPatient(), PatientRow(), QueryError(), duration(), monthLabel(), shortDate(), statusLabel() (+29 more)
 
 ### Community 29 - "CalendarView.tsx"
 Cohesion: 0.25
@@ -219,9 +234,9 @@ Nodes (5): CalendarEntry, @fullcalendar/core, @fullcalendar/interaction, @fullca
 Cohesion: 0.20
 Nodes (9): compilerOptions, esModuleInterop, forceConsistentCasingInFileNames, module, moduleResolution, noEmit, skipLibCheck, strict (+1 more)
 
-### Community 31 - "relacionamento.tsx"
-Cohesion: 0.33
-Nodes (9): duration(), monthLabel(), shortDate(), relationshipQuery(), Card(), Chart(), Relationship(), Route (+1 more)
+### Community 31 - "payments.ts"
+Cohesion: 0.12
+Nodes (31): addAnamnesisNote(), noteValue(), protect(), encrypted(), conflict(), createPayment(), deletePayment(), invalid() (+23 more)
 
 ### Community 32 - "api/tsconfig.json"
 Cohesion: 0.29
@@ -232,8 +247,8 @@ Cohesion: 0.29
 Nodes (6): Clínicare, Desenvolvimento sem Docker, Estrutura do monorepo, Rodar localmente via Docker (caminho recomendado), Stack, Verificações
 
 ### Community 34 - "db/src/index.ts"
-Cohesion: 0.13
-Nodes (21): AppLike, assertSafeIntegrationDatabase(), cleanupIntegrationClinics(), integration, IntegrationClinic, integrationCookies, provisionIntegrationClinic(), authAccounts (+13 more)
+Cohesion: 0.17
+Nodes (17): AppLike, assertSafeIntegrationDatabase(), cleanupIntegrationClinics(), integration, IntegrationClinic, integrationCookies, provisionIntegrationClinic(), closeDatabase() (+9 more)
 
 ### Community 36 - "Clínica de cuidados estéticos"
 Cohesion: 0.20
@@ -241,19 +256,19 @@ Nodes (9): Attendance, Atendimento estético, Clínica de cuidados estéticos, D
 
 ### Community 37 - "patients.ts"
 Cohesion: 0.12
-Nodes (22): createPatient(), deactivatePatient(), DEFAULT_TENANT_ID, encryptedColumns(), ensureTenant(), getPatient(), isUuid(), listPatients() (+14 more)
+Nodes (18): createPatient(), DEFAULT_TENANT_ID, encryptedColumns(), ensureTenant(), listPatients(), PatientInput, patientResponse(), ProtectedField (+10 more)
 
 ### Community 38 - "scripts"
 Cohesion: 0.40
 Nodes (5): scripts, build, dev, test, typecheck
 
-### Community 39 - "scheduling.integration.test.ts"
-Cohesion: 0.10
-Nodes (21): response(), fixture(), headers, patch(), post(), request(), reserve(), tenantId (+13 more)
+### Community 39 - "VersionsDialog.tsx"
+Cohesion: 0.15
+Nodes (24): ContractVersionsButton(), Props, Version, VersionsButton(), VersionsTrigger(), anamnesesQuery, combosQuery, contractsQuery (+16 more)
 
-### Community 40 - "storage.ts"
-Cohesion: 0.29
-Nodes (5): bucket, deleteObject(), storage, @aws-sdk/client-s3, @aws-sdk/s3-request-presigner
+### Community 40 - "procedimentos/index.tsx"
+Cohesion: 0.25
+Nodes (9): RequestOptions, withIds(), useUpdateCombo(), useUpdateProcedure(), Combo, Catalog(), comboStatus(), utcDate() (+1 more)
 
 ### Community 42 - "db/tsconfig.json"
 Cohesion: 0.33
@@ -268,36 +283,60 @@ Cohesion: 0.16
 Nodes (35): activeAppointmentStatuses, addAttendancePhoto(), appointmentResponse(), attendanceResponse(), attendanceShape(), cancelAttendance(), confirmAppointment(), conflict() (+27 more)
 
 ### Community 45 - "getDatabase"
-Cohesion: 0.17
-Nodes (27): answerAppliedAnamnesis(), appliedShape(), byToken(), clearDraft, createAnamnesisRequest(), createAppliedAnamnesis(), documentShape(), expiry() (+19 more)
+Cohesion: 0.13
+Nodes (36): answerAppliedAnamnesis(), appliedShape(), byToken(), claimCleanupJob(), CleanupResult, CleanupStatus, clearDraft, createAnamnesisRequest() (+28 more)
 
-### Community 46 - "clinical.integration.test.ts"
-Cohesion: 0.17
-Nodes (10): fixture(), headers(), post(), request(), integrationHeaders(), anamneses, appliedAnamnesisNotes, appliedDocuments (+2 more)
+### Community 46 - "ComboForm.tsx"
+Cohesion: 0.19
+Nodes (17): ComboFormPage(), day(), ProcedurePicker(), PaymentDialog(), FollowupCard(), offerLabel, StatusBadge(), tones (+9 more)
 
 ### Community 47 - "relational-schema.ts"
-Cohesion: 0.08
-Nodes (25): catalogTimestamps, NewRelationalPatient, NewRelationalProcedure, NewTenant, paymentRelations, RelationalAnamnesis, RelationalAnamnesisVersion, RelationalAppliedAnamnesis (+17 more)
+Cohesion: 0.05
+Nodes (39): fixture(), headers(), post(), request(), integrationHeaders(), storage, anamneses, appliedAnamnesisNotes (+31 more)
+
+### Community 48 - "scheduling.integration.test.ts"
+Cohesion: 0.12
+Nodes (19): idShape(), response(), fixture(), headers, patch(), post(), request(), reserve() (+11 more)
 
 ### Community 49 - "Decisão e plano: PostgreSQL + Drizzle + JSONB"
 Cohesion: 0.09
 Nodes (21): 10. Go/no-go para implementação, 1. Conclusão, 2. Decisões de domínio confirmadas, 3. Modelo de domínio e estados, 4. Blueprint relacional inicial, 5. Matriz de invariantes, 6. Fronteiras transacionais, 7. Reaproveitamento do Git (+13 more)
 
 ### Community 50 - "$patientId/index.tsx"
-Cohesion: 0.11
-Nodes (28): CalendarView(), AppointmentDialog(), localDate(), localTime(), NewFollowupDialog(), StandaloneAttendanceDialog(), Body(), Entry (+20 more)
+Cohesion: 0.18
+Nodes (16): AppointmentDialog(), localDate(), localTime(), NewFollowupDialog(), StandaloneAttendanceDialog(), Body(), Entry, kinds (+8 more)
 
 ### Community 51 - "Especificação: migração para PostgreSQL + Drizzle + JSONB"
 Cohesion: 0.13
 Nodes (14): API, frontend e operações de produto, Catálogo, planos e snapshots, Dados protegidos, Especificação: migração para PostgreSQL + Drizzle + JSONB, Further Notes, Implementation Decisions, Integridade e concorrência, Máquina de estados (+6 more)
 
-### Community 53 - "app.ts"
+### Community 52 - "api/package.json"
 Cohesion: 0.14
-Nodes (26): updateInitialPasswordChoice(), app, appointmentStatusLabel, authTenant(), expiry(), fail(), handleError(), isRecord() (+18 more)
+Nodes (13): devDependencies, @types/bun, typescript, drizzle-orm, @types/bun, typescript, name, private (+5 more)
 
-### Community 55 - "followups.ts"
-Cohesion: 0.12
-Nodes (20): hashToken(), idShape(), invalid(), issueInitialTokens(), latest(), notFound(), Offer, offerForms() (+12 more)
+### Community 53 - "SchemaEditor.tsx"
+Cohesion: 0.20
+Nodes (15): AnamnesisFormPage(), submit(), Field, FieldPatch, identifierFor(), newSalt(), saltOf(), Schema (+7 more)
+
+### Community 54 - "dialogs.tsx"
+Cohesion: 0.11
+Nodes (24): minutesBetween(), PlannedItem, Selection, FormPage(), emptySchema, ProcedureFormPage(), Checkbox(), anamnesisForm (+16 more)
+
+### Community 56 - "_app.tsx"
+Cohesion: 0.29
+Nodes (13): Sheet(), SheetClose(), SheetContent(), SheetDescription(), SheetHeader(), SheetOverlay(), SheetTitle(), SheetTrigger() (+5 more)
+
+### Community 57 - "dependencies"
+Cohesion: 0.22
+Nodes (9): dependencies, @aws-sdk/client-s3, @aws-sdk/s3-request-presigner, better-auth, @better-auth/drizzle-adapter, @clinicare/db, drizzle-orm, hono (+1 more)
+
+### Community 58 - "scripts"
+Cohesion: 0.29
+Nodes (7): scripts, build, dev, dev:debug, test, test:integration, typecheck
+
+### Community 59 - "auth-routes.ts"
+Cohesion: 0.36
+Nodes (7): updateInitialPasswordChoice(), getAuth(), clinicSession, getClinicSession(), requireClinicSession(), authUsers, hono
 
 ### Community 60 - "Issue tracker: GitHub"
 Cohesion: 0.29
@@ -307,25 +346,33 @@ Nodes (6): Conventions, Issue tracker: GitHub, Pull requests as a triage surface
 Cohesion: 0.33
 Nodes (5): Before exploring, read these, Domain Docs, File structure, Flag ADR conflicts, Use the glossary's vocabulary
 
+### Community 79 - "auth.ts"
+Cohesion: 0.33
+Nodes (4): AuthInstance, SESSION_DURATION_SECONDS, better-auth, @better-auth/drizzle-adapter
+
+### Community 80 - "auth-schema.ts"
+Cohesion: 0.29
+Nodes (6): authAccounts, authSchema, AuthSession, authSessions, AuthUser, authVerifications
+
 ## Knowledge Gaps
-- **448 isolated node(s):** `name`, `private`, `type`, `dev`, `dev:debug` (+443 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 520 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **19 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **470 isolated node(s):** `name`, `private`, `type`, `dev`, `dev:debug` (+465 more)
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 547 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **21 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `pg` connect `db/package.json` to `db/src/index.ts`?**
-  _High betweenness centrality (0.019) - this node is a cross-community bridge._
-- **Why does `@tanstack/react-router` connect `@tanstack/react-router` to `dialogs.tsx`, `Button`, `procedimentos/index.tsx`, `queries.ts`, `web/package.json`, `$patientId/index.tsx`, `App.test.tsx`, `ContractFormPage.tsx`, `_app.tsx`, `$anamnesisId.tsx`, `relacionamento.tsx`?**
-  _High betweenness centrality (0.018) - this node is a cross-community bridge._
-- **Why does `Button()` connect `Button` to `dialogs.tsx`, `@tanstack/react-router`, `SchemaEditor.tsx`, `procedimentos/index.tsx`, `queries.ts`, `$patientId/index.tsx`, `ContractFormPage.tsx`, `_app.tsx`, `$anamnesisId.tsx`?**
+- **Why does `getDatabase()` connect `getDatabase` to `catalog.integration.test.ts`, `db/src/index.ts`, `patients.ts`, `catalog.ts`, `admin-commands.ts`, `followups.ts`, `scheduling.ts`, `auth.ts`, `relational-schema.ts`, `scheduling.integration.test.ts`, `app.ts`, `auth-routes.ts`, `payments.ts`?**
+  _High betweenness centrality (0.024) - this node is a cross-community bridge._
+- **Why does `@tanstack/react-router` connect `@tanstack/react-router` to `Button`, `schemaUi.tsx`, `VersionsDialog.tsx`, `procedimentos/index.tsx`, `ComboForm.tsx`, `web/package.json`, `nova.tsx`, `$patientId/index.tsx`, `App.test.tsx`, `dialogs.tsx`, `_app.tsx`, `formulario.$token.tsx`, `AppointmentDetails.tsx`?**
+  _High betweenness centrality (0.021) - this node is a cross-community bridge._
+- **Why does `react` connect `Button` to `cn`, `schemaUi.tsx`, `VersionsDialog.tsx`, `procedimentos/index.tsx`, `ComboForm.tsx`, `web/package.json`, `$patientId/index.tsx`, `SchemaEditor.tsx`, `dialogs.tsx`, `App.test.tsx`, `_app.tsx`, `formulario.$token.tsx`, `AppointmentDetails.tsx`, `@tanstack/react-router`, `CalendarView.tsx`?**
   _High betweenness centrality (0.018) - this node is a cross-community bridge._
 - **What connects `name`, `private`, `type` to the rest of the system?**
-  _448 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `dialogs.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.08438228438228439 - nodes in this community are weakly interconnected._
-- **Should `@tanstack/react-router` be split into smaller, more focused modules?**
-  _Cohesion score 0.12270531400966184 - nodes in this community are weakly interconnected._
-- **Should `SchemaEditor.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.06656426011264721 - nodes in this community are weakly interconnected._
+  _470 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Button` be split into smaller, more focused modules?**
+  _Cohesion score 0.13530655391120508 - nodes in this community are weakly interconnected._
+- **Should `cn` be split into smaller, more focused modules?**
+  _Cohesion score 0.1431451612903226 - nodes in this community are weakly interconnected._
+- **Should `schemaUi.tsx` be split into smaller, more focused modules?**
+  _Cohesion score 0.11182795698924732 - nodes in this community are weakly interconnected._

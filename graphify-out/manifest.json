@@ -36,9 +36,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/app.ts": {
-    "mtime": 1791062175.3451285,
-    "seen": 1791146792.6087687,
-    "ast_hash": "554b4ca22ed7e4fc403ea58796a561c0",
+    "mtime": 1791160437.689128,
+    "seen": 1791160505.0160313,
+    "ast_hash": "c4a3dcf0d7b0e2669e2b12294f8c3d6f",
     "semantic_hash": ""
   },
   "apps/api/src/index.ts": {
@@ -54,9 +54,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/storage.ts": {
-    "mtime": 1790716054.9063826,
-    "seen": 1790901634.9667377,
-    "ast_hash": "caf2f3043fed75944183cbe51d14a0ab",
+    "mtime": 1791156502.6531284,
+    "seen": 1791156802.232548,
+    "ast_hash": "2608b07166bdcf0333892fc230487ad7",
     "semantic_hash": ""
   },
   "apps/api/tsconfig.json": {
@@ -588,9 +588,9 @@
     "semantic_hash": ""
   },
   "CONTEXT.md": {
-    "mtime": 1791147935.7731292,
-    "seen": 1791148022.6761925,
-    "ast_hash": "96ca21e4741a7888e292332ed7279f64",
+    "mtime": 1791159845.553129,
+    "seen": 1791160505.0193293,
+    "ast_hash": "ca410002ed2db264230fd23bfb4a8479",
     "semantic_hash": ""
   },
   "README.md": {
@@ -630,15 +630,15 @@
     "semantic_hash": ""
   },
   "docs/assinaturas/assinaturaas-completo.md": {
-    "mtime": 1791148013.901129,
-    "seen": 1791148022.6763997,
-    "ast_hash": "685ae1e32b1de1b4ed22af4399aa0707",
+    "mtime": 1791151020.6291285,
+    "seen": 1791151085.211975,
+    "ast_hash": "bbeff39072fb90bbf34152c3f063aba2",
     "semantic_hash": ""
   },
   "docs/assinaturas/assinaturas-mvp.md": {
-    "mtime": 1791147965.5251293,
-    "seen": 1791148022.6764011,
-    "ast_hash": "0870a66042302c8d369cb8563955f4b6",
+    "mtime": 1791151003.9251285,
+    "seen": 1791151085.2119768,
+    "ast_hash": "a8bfeabca7f919d5e10909c62bc5fc57",
     "semantic_hash": ""
   },
   "docs/specs/clinicas-pequenas-mvp.md": {
@@ -654,33 +654,33 @@
     "semantic_hash": ""
   },
   "apps/api/src/catalog.ts": {
-    "mtime": 1791060680.77313,
-    "seen": 1791146792.608774,
-    "ast_hash": "343902626a8f26837db51c507981f56e",
+    "mtime": 1791157266.6411295,
+    "seen": 1791157375.085602,
+    "ast_hash": "310ebafc6082fabb8b6201d7b38f7fb4",
     "semantic_hash": ""
   },
   "apps/api/src/clinical.integration.test.ts": {
-    "mtime": 1791145363.321128,
-    "seen": 1791146792.6087751,
-    "ast_hash": "d4ff68ebcff6df1b68a2eae49a8648bc",
+    "mtime": 1791158205.0051289,
+    "seen": 1791158223.2127583,
+    "ast_hash": "733e6e57ada95b80a715a43b4de67a6a",
     "semantic_hash": ""
   },
   "apps/api/src/clinical.ts": {
-    "mtime": 1791061212.037129,
-    "seen": 1791146792.6087763,
-    "ast_hash": "cd0be0f65cde4e4f725d9cee59185661",
+    "mtime": 1791160496.2308235,
+    "seen": 1791160505.0161555,
+    "ast_hash": "0c1865354b6393ef0680749bd41c3635",
     "semantic_hash": ""
   },
   "apps/api/src/followups.integration.test.ts": {
-    "mtime": 1791145062.121131,
-    "seen": 1791146792.6087778,
-    "ast_hash": "ba7f74aa2a511faea30cc17cecd96cc8",
+    "mtime": 1791154325.5411277,
+    "seen": 1791156802.23223,
+    "ast_hash": "f35a0cc7c5b57bd30d07acd1de0c4bb7",
     "semantic_hash": ""
   },
   "apps/api/src/followups.ts": {
-    "mtime": 1791020439.4526234,
-    "seen": 1791035698.5378926,
-    "ast_hash": "24ced564d30175d4661b13f1c1957aff",
+    "mtime": 1791157233.4371295,
+    "seen": 1791157375.0856314,
+    "ast_hash": "4e80225b0153c1c8113ab5a00d2c7ffe",
     "semantic_hash": ""
   },
   "apps/api/src/health.integration.test.ts": {
@@ -738,9 +738,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/signatures.integration.test.ts": {
-    "mtime": 1791145851.1931288,
-    "seen": 1791146792.6090038,
-    "ast_hash": "fc149052239f2b3349610a28eea8cc6f",
+    "mtime": 1791154330.6611276,
+    "seen": 1791156802.232523,
+    "ast_hash": "762bb9f69eff9945eac74506fca4a3aa",
     "semantic_hash": ""
   },
   "apps/api/src/signatures.ts": {
@@ -768,9 +768,9 @@
     "semantic_hash": ""
   },
   "packages/db/drizzle/meta/_journal.json": {
-    "mtime": 1791146152.7651286,
-    "seen": 1791146792.6113586,
-    "ast_hash": "a9295897c32015c09a3c7ffaf52d3776",
+    "mtime": 1791160496.2089355,
+    "seen": 1791160505.0189793,
+    "ast_hash": "fcc4f672b5d554afe227ab08327e4be9",
     "semantic_hash": ""
   },
   "packages/db/src/crypto.test.ts": {
@@ -810,9 +810,9 @@
     "semantic_hash": ""
   },
   "packages/db/src/relational-schema.ts": {
-    "mtime": 1791056956.4171283,
-    "seen": 1791146792.6114807,
-    "ast_hash": "e897d41456da53b42ea8ff17274cf650",
+    "mtime": 1791160283.0051277,
+    "seen": 1791160505.0192177,
+    "ast_hash": "971e02d08d72f9b40a766ec2b33f2631",
     "semantic_hash": ""
   },
   "packages/db/src/seed.ts": {
@@ -897,6 +897,18 @@
     "mtime": 1791062077.8171282,
     "seen": 1791146792.6113818,
     "ast_hash": "93db318cf561a08bac7059fd970c8019",
+    "semantic_hash": ""
+  },
+  "docs/adr/0004-preservacao-incremental-de-pdfs-assinados-externamente.md": {
+    "mtime": 1791151055.0091286,
+    "seen": 1791151085.2119093,
+    "ast_hash": "9ccc418d1c0708e256893a5296608ecc",
+    "semantic_hash": ""
+  },
+  "docs/specs/assinatura-eletronica-mvp.md": {
+    "mtime": 1791151385.2731287,
+    "seen": 1791153708.6144717,
+    "ast_hash": "5593d0ab540761393d669c1c58ad6d37",
     "semantic_hash": ""
   }
 }

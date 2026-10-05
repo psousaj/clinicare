@@ -43,7 +43,7 @@ integration('PostgreSQL signatures API', () => {
     const contractRows = [1, 2].map(() => ({ id: crypto.randomUUID(), versionId: crypto.randomUUID() }));
     for (const [index, row] of contractRows.entries()) {
       await db.insert(contracts).values({ id: row.id, tenantId, title: `Contrato obrigatório ${index + 1}`, kind: 'standard' });
-      await db.insert(contractVersions).values({ id: row.versionId, tenantId, contractId: row.id, version: 1, content: `Conteúdo protegido ${index + 1}` });
+      await db.insert(contractVersions).values({ id: row.versionId, tenantId, contractId: row.id, version: 1, content: `Conteúdo protegido ${index + 1}`, renderedPdfObjectKey: crypto.randomUUID(), renderedPdfHash: 'a'.repeat(64), renderedPdfSize: 123, renderedPdfContentType: 'application/pdf' });
       await db.insert(planVersionContracts).values({ tenantId, planVersionId: versionId, contractId: row.id, contractVersion: 1, title: `Contrato obrigatório ${index + 1}` });
     }
 

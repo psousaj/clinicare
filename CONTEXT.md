@@ -34,8 +34,16 @@ HMAC-SHA-256 calculado sobre o `tenant_id`, o nome da tabela, o nome do campo, a
 _Avoid_: hash simples, criptografia determinística
 
 **Administrador**:
-Pessoa responsável pela clínica que possui a única conta administrativa daquela clínica no MVP. O administrador é o dono e operador da clínica, tem acesso completo ao sistema, configura a operação, realiza procedimentos e usa a agenda única. O MVP não oferece funcionários nem múltiplas contas por clínica.
+Pessoa responsável pela clínica que possui a única conta administrativa daquela clínica no MVP. O administrador é o dono e operador da clínica, tem acesso completo ao sistema, configura a operação, realiza procedimentos e usa a agenda única. Também pode configurar no próprio perfil autenticado os dados profissionais usados na autoria e materialização de contratos, incluindo nome profissional e registro profissional. O MVP não oferece funcionários nem múltiplas contas por clínica.
 _Avoid_: usuário compartilhado, dono (quando se referir apenas à permissão sem mencionar a pessoa responsável pela clínica)
+
+**Profissional**:
+Pessoa com uma conta autenticada vinculada ao tenant e marcada como profissional da clínica. A entidade profissional representa os dados profissionais da pessoa, enquanto o nome exibido em contratos vem da conta autenticada relacionada. No MVP, o administrador da clínica pode indicar no dashboard se sua própria conta também é profissional e, nesse caso, cadastrar seu tipo, número e estado opcional de registro. Um profissional pode ser desativado logicamente: deixa de ser elegível para novas aplicações, mas permanece preservado como responsável histórico de contratos aplicados e seus snapshots. A modelagem permite que futuras contas e papéis tenham seus próprios vínculos profissionais, sem transformar todo administrador em profissional automaticamente.
+_Avoid_: administrador (quando o foco for a habilitação profissional), participante da assinatura
+
+**Registro profissional**:
+Identificação profissional de uma entidade profissional, composta por um tipo de conselho ou registro, como CRM ou CREFITO, seu número e, quando aplicável, a unidade federativa do registro. Cada profissional possui exatamente um registro no modelo do produto; não há coleção de registros alternativos nem seleção entre registros. O registro é usado como `{professional.registration}` após formatação no contexto de materialização; alterações posteriores não modificam snapshots já criados. O tipo pertence a um catálogo controlado e o estado é opcional para registros que não tenham essa distinção; quando informado, representa uma UF brasileira válida e não parte do nome da pessoa.
+_Avoid_: CPF, registro do paciente, papel de acesso, múltiplos registros
 
 **Perfis de acesso**:
 A distinção entre administrador, recepção e profissional, incluindo múltiplas contas, roles, permissões e RBAC, fica fora do MVP e será adicionada posteriormente.
@@ -44,7 +52,7 @@ _Avoid_: níveis de usuário (como termo oficial)
 ## Jornada do paciente
 
 **Paciente**:
-Pessoa que realiza ou pretende realizar procedimentos no tenant e cujos dados, documentos e histórico são acompanhados pelo profissional. Dados de contato, identificação, clínicos e demais informações de risco ficam protegidos na persistência e só são revelados depois de autorização; o nome permanece pesquisável em texto aberto para sustentar a busca principal do produto.
+Pessoa que realiza ou pretende realizar procedimentos no tenant e cujos dados, documentos e histórico são acompanhados pelo profissional. Dados de contato, identificação, clínicos e demais informações de risco ficam protegidos na persistência e só são revelados depois de autorização; o nome permanece pesquisável em texto aberto para sustentar a busca principal do produto. A data de nascimento é um dado civil do paciente, sem semântica de horário, e é necessária para o primeiro contrato parametrizado; quando ausente, impede a materialização de contratos que a exigem.
 _Avoid_: cliente (como termo principal do domínio)
 
 **Dado pessoal protegido**:
@@ -134,8 +142,20 @@ Página do paciente com indicadores e gráficos: atendimentos realizados × cont
 _Avoid_: CRM, fidelidade
 
 **Atendimento realizado**:
-Atendimento registrado pelo profissional como efetivamente concluído, consumindo uma unidade das sessões do procedimento no acompanhamento. Pode ser cancelado explicitamente com motivo, preservando seu histórico e devolvendo a sessão ao saldo operacional dentro de uma transação.
+Atendimento registrado pelo profissional como efetivamente concluído, consumindo uma unidade das sessões do procedimento no acompanhamento. Possui uma data de realização própria, distinta da data de materialização de um contrato e da data em que uma assinatura é confirmada. Pode ser cancelado explicitamente com motivo, preservando seu histórico e devolvendo a sessão ao saldo operacional dentro de uma transação.
 _Avoid_: sessão consumida (como status)
+
+**Data prevista do procedimento**:
+Data civil opcional informada explicitamente no cadastro/aplicação de um contrato quando houver uma previsão relevante para aquele caso. É um valor contextual do contrato aplicado, separado dos dados permanentes do paciente. Pode ser exibida pelo placeholder disponível `{procedure.date}` quando houver valor, mas sua existência não é inferida de `appointments.startsAt`, `attendances.performedAt` nem pela simples presença do placeholder no DOCX. Não é sobrescrita por remarcação ou realização posterior e permanece distinta da data de materialização e da data de assinatura.
+_Avoid_: data do procedimento realizado, data de geração, data de assinatura
+
+**Data de materialização do contrato**:
+Momento técnico em que o sistema resolve o contexto, gera o DOCX materializado e produz o PDF específico do contrato aplicado. É distinto da data prevista do procedimento e da data de confirmação de assinatura.
+_Avoid_: data prevista do procedimento, data de assinatura
+
+**Data de assinatura**:
+Momento em que um participante confirma sua assinatura no processo de assinatura. Cada confirmação pode ter seu próprio instante registrado; ele não substitui a data prevista do procedimento nem a data de materialização do contrato.
+_Avoid_: data prevista do procedimento, data de geração
 
 **Detalhes do atendimento**:
 Registro complementar de um atendimento realizado: campos do procedimento, observações e fotos classificadas como antes, durante ou depois. Pode ser editado a qualquer momento a partir da ficha do paciente.
@@ -173,13 +193,25 @@ _Avoid_: formulário livre, tela de cadastro
 Forma de resposta de um campo do formulário: texto curto, texto longo, número, apenas dígitos, data, hora, telefone, e-mail, CPF, sim/não, escolha única, múltipla escolha e escala de 0 a 10. O tipo define máscara, validação e o controle exibido ao responder (telefone/CPF mascarados; data e hora com seletor).
 _Avoid_: formato, máscara (quando significar o tipo do campo)
 
-**Documento modelo**:
-Arquivo-base de um contrato que pode ser importado como DOCX ou editado pelo profissional dentro do sistema. Pode conter campos variáveis para ser aplicado a um paciente e a um plano específico; o documento aplicado deve preservar o conteúdo gerado naquele momento.
-_Avoid_: contrato ativo (quando o foco for o arquivo-base), template (como termo principal do domínio)
+**Contrato modelo**:
+Item reutilizável do catálogo que representa um contrato padrão de serviço ou um contrato específico de procedimento. É nele que o profissional importa e edita a autoria em DOCX. O contrato modelo nasce com um draft e sem versão publicada; só pode ser aplicado depois que uma publicação criar sua primeira versão de contrato com PDF correspondente. Depois disso, possui um draft mutável e versões de contrato publicadas e imutáveis; aplicações futuras escolhem uma versão específica. Alterar o texto do contrato modelo nunca altera uma versão publicada nem um contrato aplicado existente.
+_Avoid_: documento modelo, contrato aplicado, template (como termo principal do domínio)
+
+**Draft de contrato**:
+Estado mutável de autoria de um contrato modelo, cujo formato principal é DOCX. Pode começar vazio ou por importação de um DOCX, ser editado, substituído e salvo várias vezes sem criar uma nova versão de contrato publicada. Um draft vazio ou sem conteúdo DOCX válido não pode ser publicado. A publicação transforma o conteúdo atual do draft em uma versão de contrato imutável e reposiciona o draft como uma cópia editável dessa versão publicada, pronta para uma eventual próxima alteração. O draft nunca é a fonte mutável de uma versão já publicada. Publicar um draft com o mesmo conteúdo da versão publicada corrente não cria uma versão duplicada e mantém a versão corrente.
+_Avoid_: versão de contrato, contrato publicado, rascunho de assinatura
+
+**Configuração de materialização do contrato**:
+Configuração pertencente ao contrato modelo que declara quais contextos de aplicação ele aceita, se cada contexto habilitado é obrigatório ou opcional, e quais placeholders do registry global podem ser usados no DOCX. O profissional habilita os contextos e seleciona explicitamente os placeholders elegíveis; essa configuração não declara quais procedimentos ou planos usam o contrato. Contexto desabilitado não pode fornecer placeholders; contexto habilitado e obrigatório precisa ser resolvido na aplicação; contexto habilitado e opcional pode estar ausente e produzir valores vazios conforme a política do template. Contextos e placeholders permitidos são congelados no snapshot de cada versão de contrato publicada.
+_Avoid_: dependência do procedimento, placeholder arbitrário, configuração do contrato aplicado
+
+**Placeholder permitido**:
+Placeholder pertencente ao registry global e explicitamente habilitado na configuração de materialização do contrato modelo. Só pode ser usado no DOCX se seu contexto estiver habilitado e a própria chave estiver permitida. A publicação valida o DOCX contra esse conjunto; a presença de um placeholder não cria por si só uma nova dependência nem decide sozinha quais dados devem ser coletados.
+_Avoid_: variável livre, campo descoberto automaticamente, código no contrato
 
 **Editor de contrato**:
-Recurso administrativo para o profissional criar ou alterar o conteúdo de um documento modelo dentro do sistema, além de poder importar um arquivo DOCX existente.
-_Avoid_: editor de assinatura, editor do paciente
+Recurso administrativo para o profissional criar ou alterar o draft DOCX de um contrato modelo dentro do sistema, além de poder importar um arquivo DOCX existente. Opera somente no contrato modelo e nunca em um contrato aplicado ou documento PDF de assinatura.
+_Avoid_: editor de assinatura, editor do paciente, editor de PDF
 
 **Formulário baseado em esquema**:
 Formulário cuja estrutura, tipos, validações e campos são definidos por um JSON Schema, permitindo que anamneses e dados específicos de sessões sejam construídos e exibidos por ferramentas compatíveis.
@@ -301,6 +333,10 @@ _Avoid_: venda
 
 ## Documentos e coleta
 
+**Fingerprint técnico da operação**:
+Impressão técnica observável do ambiente de navegador/dispositivo no momento de uma operação relacionada a contrato ou assinatura, persistida como evidência vinculada ao participante, contrato, versão, tentativa e tipo de evento. É um indício complementar sujeito a variação, indisponibilidade e falsificação; não é biometria, autenticação nem prova exclusiva de identidade, e não significa uma identificação completa ou imutável do dispositivo.
+_Avoid_: biometria, hash do contrato, identidade do dispositivo, fingerprint completo
+
 **Formulário de anamnese**:
 Modelo de formulário clínico configurável que o profissional associa aos procedimentos selecionados e que o paciente pode responder por um link. Um formulário de anamnese pode ser associado a vários procedimentos. Na interface, o catálogo desses modelos é chamado de “Formulários de anamnese”.
 _Avoid_: anamnese (quando significar o modelo do catálogo), questionário (quando se tratar de coleta clínica do paciente)
@@ -326,28 +362,52 @@ Versão corrente de uma anamnese disponível para novas aplicações. Desativar 
 _Avoid_: versão publicada (quando não houver um fluxo separado de publicação)
 
 **Contrato padrão de serviço**:
-Documento comercial geral apresentado ao paciente para leitura antes da realização dos procedimentos. O documento pode ser importado como DOCX ou editado pelo profissional no sistema; assinatura digital fica fora do MVP.
+Documento comercial geral apresentado ao paciente para leitura antes da realização dos procedimentos. Sua fonte editável pode ser importada ou editada pelo profissional no painel administrativo; a versão apresentada e assinada é sempre um PDF imutável.
 _Avoid_: contrato genérico
 
 **Contrato específico de procedimento**:
-Documento adicional associado a um procedimento ou combo específico, apresentado além do contrato padrão quando necessário. O documento pode ser importado como DOCX ou editado pelo profissional no sistema; assinatura digital fica fora do MVP.
+Documento adicional associado a um procedimento ou combo específico, apresentado além do contrato padrão quando necessário. Sua fonte editável pode ser importada ou editada pelo profissional no painel administrativo; a versão apresentada e assinada é sempre um PDF imutável.
 _Avoid_: contrato da guia
 
 **Versão de contrato**:
-Estado imutável de um contrato em um momento específico. Versões podem ser consultadas, e restaurar uma versão anterior cria uma nova versão com o próximo número; nenhuma versão existente é sobrescrita. Segue o mesmo fluxo do formulário de anamnese: editar o texto gera a próxima versão (origem "Editada"); o rollback copia a versão escolhida como nova versão (origem "Rollback da vN", com a versão de origem registrada); mudar só nome, aplicação ou procedimento/combo não cria versão. Acompanhamentos já iniciados mantêm o texto congelado da versão que usaram.
+Snapshot imutável de um contrato modelo em um momento específico, preservando a fonte DOCX autoritativa. A fonte pode conter placeholders pertencentes ao catálogo fechado de dados permitidos; quando não houver dados dependentes da aplicação, também pode existir um PDF renderizado canônico, mas esse PDF não substitui a fonte. Versões podem ser consultadas, e restaurar uma versão anterior cria uma nova versão com o próximo número; nenhuma versão existente é sobrescrita. Editar ou importar a fonte gera um novo draft, e publicar esse draft gera a próxima versão; mudar só nome, aplicação ou procedimento/combo não cria versão. A versão publicada é um template congelado até ser materializada para um contrato aplicado.
 _Avoid_: revisão, cópia (quando se referir à sequência oficial do contrato)
 
+**Placeholder de contrato**:
+Marcador textual simples inserido na fonte DOCX de uma versão de contrato, usando a sintaxe oficial `{objeto.propriedade}`. O placeholder declara um dado de apresentação do catálogo fechado, como `{patient.name}` ou `{procedure.price}`, sem executar lógica de negócio. Placeholders desconhecidos, malformados, com propriedades arbitrárias, expressões, loops ou condicionais não são permitidos no MVP.
+_Avoid_: variável livre, expressão de template, código no contrato
+
+**Contexto de materialização**:
+DTO construído exclusivamente para transformar uma versão de contrato em documento aplicado. Contém somente valores permitidos e já formatados para apresentação, nunca entidades ORM nem dados internos arbitrários. A data prevista do procedimento é opcional; quando não houver valor, o placeholder correspondente pode resultar em texto vazio conforme a política de campos opcionais. O contexto é validado antes da renderização, sem transformar a presença de um placeholder em requisito de preenchimento.
+_Avoid_: entidade do paciente, contexto ORM, dados crus
+
+**Snapshot de materialização**:
+Cópia imutável do contexto de materialização efetivamente usado para gerar o DOCX e o PDF de um contrato aplicado. Alterações posteriores no paciente, procedimento, profissional ou clínica não modificam esse snapshot nem o documento já criado.
+_Avoid_: dados atuais, contexto dinâmico
+
+**Materialização de contrato**:
+Transformação de uma versão de contrato publicada em um documento específico para um paciente e seu contexto de aplicação, substituindo os placeholders permitidos por dados formatados para apresentação. A materialização preserva um snapshot imutável do contexto utilizado; falhas de dados obrigatórios ou placeholders inválidos impedem a criação do documento aplicado.
+_Avoid_: preenchimento dinâmico, contrato atual
+
 **Contrato aplicado**:
-Vínculo de uma versão específica de contrato ao plano de um paciente, preservando exatamente o documento apresentado naquele momento. A existência do vínculo não significa que o contrato esteja assinado; a assinatura é um estado posterior e necessário para liberar o agendamento e a execução.
-_Avoid_: contrato atual (quando o foco for o documento vinculado ao paciente)
+Vínculo de uma versão específica de contrato ao plano de um paciente, com o snapshot imutável do contexto de materialização e o PDF específico apresentado naquele momento. A aplicação resolve os contextos habilitados pela versão e recebe explicitamente o profissional responsável escolhido entre os profissionais autorizados do tenant. No MVP, o administrador logado pode ser pré-selecionado quando possuir vínculo profissional; futuramente outro usuário autorizado poderá selecionar qualquer profissional ativo elegível. O `professionalId` escolhido, o nome da conta e o registro profissional são congelados no snapshot. É a entidade de negócio à qual pertencem participantes, processo de assinatura, tentativas, evidências e o documento técnico correspondente. A existência do vínculo não significa que o contrato esteja assinado; a assinatura é um estado posterior e necessário para liberar o agendamento e a execução.
+_Avoid_: contrato atual (quando o foco for o documento vinculado ao paciente), documento (quando significar o vínculo de negócio)
+
+**Documento PDF do contrato aplicado**:
+Artefato técnico associado a um contrato aplicado, responsável por armazenar o PDF original, sua revisão HEAD e as revisões incrementais imutáveis produzidas pelas operações de assinatura. Não é um contrato modelo, uma versão de conteúdo ou o contrato aplicado; é a representação documental versionada usada para visualizar, assinar, baixar e verificar os bytes do PDF.
+_Avoid_: contrato, contrato aplicado, arquivo atual
 
 **Plano assinado**:
 Plano cujos contratos aplicados obrigatórios foram todos confirmados pelo paciente, que é o único participante obrigatório para liberar a operação no escopo atual. A assinatura do representante da clínica pode permanecer pendente sem bloquear o agendamento ou a execução. O plano assinado é o marco que libera esses fluxos; alterações posteriores no catálogo não o modificam.
 _Avoid_: plano apenas criado, contrato aplicado não assinado
 
 **Participante da assinatura**:
-Pessoa autorizada a confirmar um contrato aplicado. O paciente é participante obrigatório para liberar o plano; o representante da clínica é participante esperado, mas sua assinatura pode permanecer pendente no escopo atual.
-_Avoid_: assinante obrigatório (quando se referir ao representante da clínica)
+Pessoa autorizada a confirmar um contrato aplicado em uma relação B2C entre paciente e clínica. O participante tem nome e telefone registrados no processo de assinatura; o paciente é participante obrigatório para liberar o plano e confirma por link individual com código telefônico, enquanto o representante da clínica é participante esperado, confirma no painel pela sessão autenticada e sua assinatura pode permanecer pendente no escopo atual. O MVP não modela empresa representada pelo participante.
+_Avoid_: assinante obrigatório (quando se referir ao representante da clínica), empresa representada
+
+**Código de confirmação do convite**:
+Os quatro últimos dígitos do telefone do participante, usados como confirmação rápida para liberar a assinatura pelo link enviado pelo profissional. O código é previsível e não representa autenticação forte; o MVP o registra como uma barreira operacional simples, complementar ao convite, à sessão ou ao fingerprint técnico.
+_Avoid_: senha, código secreto, autenticação multifator
 
 **Pendência de assinatura**:
 Assinatura esperada de um participante que ainda não confirmou o contrato aplicado. A pendência do representante da clínica é administrativa e deve poder ser consultada separadamente, sem impedir a execução de um plano já assinado pelo paciente.
@@ -362,7 +422,7 @@ Contrato corrente disponível para novas aplicações. Alterações ou restaura�
 _Avoid_: contrato publicado (quando não houver um fluxo separado de publicação)
 
 **Link do paciente**:
-Acesso enviado ao paciente para responder anamneses e ler documentos sem precisar acessar o sistema administrativo. O link de anamnese é seguro e pode ser usado para continuar o preenchimento, mas só pode concluir e enviar a solicitação uma vez.
+Acesso enviado ao paciente para responder anamneses e ler documentos sem precisar acessar o sistema administrativo. Para contratos, o link é individual, temporário e vinculado ao participante; a confirmação exige o código de confirmação do convite baseado nos quatro últimos dígitos do telefone cadastrado. O link de anamnese é seguro e pode ser usado para continuar o preenchimento, mas só pode concluir e enviar a solicitação uma vez.
 _Avoid_: portal do paciente (o MVP não define um portal completo)
 
 **Solicitação de anamnese**:
@@ -386,7 +446,7 @@ Experiência futura autenticada na qual o paciente poderá consultar seus dados,
 _Avoid_: link do paciente (o portal pressupõe login e acesso recorrente)
 
 **Administrador da clínica**:
-Identidade única do responsável por uma clínica cliente no MVP. Cada administrador da clínica pertence a uma única clínica e cada clínica possui uma única conta administrativa. A conta representa o dono e operador da clínica, não um funcionário ou perfil de acesso separado. Ela é criada pelo administrador da plataforma durante o provisionamento do tenant; não há cadastro público. O nome do administrador pertence à conta, enquanto o nome da clínica pertence ao tenant; esses dados não são o mesmo conceito nem precisam ser duplicados.
+Identidade única do responsável por uma clínica cliente no MVP. Cada administrador da clínica pertence a uma única clínica e cada clínica possui uma única conta administrativa. A conta representa o dono e operador da clínica, não um funcionário ou perfil de acesso separado. Ela é criada pelo administrador da plataforma durante o provisionamento do tenant; não há cadastro público. O nome do administrador pertence à conta, enquanto o nome da clínica pertence ao tenant; esses dados não são o mesmo conceito nem precisam ser duplicados. O administrador pode habilitar um vínculo de profissional para sua conta e configurar o registro profissional pelo dashboard; isso não significa que todo administrador seja profissional automaticamente.
 _Avoid_: usuário compartilhado, conta da clínica (quando significar a identidade da pessoa)
 
 **Administrador da plataforma**:
@@ -453,12 +513,23 @@ Aviso ao profissional sobre respostas de anamneses ou assinaturas concluídas. F
 _Avoid_: alerta (como termo do domínio)
 
 **Assinatura digital**:
-Ato pelo qual cada participante obrigatório confirma um contrato aplicado, usando assinatura desenhada na plataforma ou assinatura externa pelo GOV.BR, conforme o fluxo autorizado. O contrato só fica concluído quando todos os participantes obrigatórios confirmam.
+Ato pelo qual um participante esperado confirma um contrato aplicado, usando assinatura desenhada na plataforma ou assinatura externa pelo GOV.BR, conforme o fluxo autorizado. O processo de assinatura só fica concluído quando todos os participantes esperados confirmam; o paciente é obrigatório para liberar o plano, enquanto a assinatura do representante da clínica pode permanecer pendente.
 _Avoid_: aceite eletrônico genérico, assinatura simples
 
 **Documento assinado**:
-Revisão preservada do documento aplicado depois de uma confirmação de assinatura. Cada participante pode gerar uma nova revisão sem apagar as anteriores; o documento final só existe quando todos os participantes obrigatórios concluíram.
+Revisão preservada do documento aplicado depois de uma confirmação de assinatura aceita. Cada confirmação aceita gera uma sucessora da revisão que o participante visualizou, sem apagar as anteriores; uma confirmação baseada em versão desatualizada é uma tentativa registrada, mas não altera o documento. No MVP, a posição da assinatura permanece livre, inclusive após assinatura GOV.BR, mas o participante é orientado a não cobrir assinaturas anteriores e o backend bloqueia alterações incrementais incompatíveis que possam invalidá-las. O documento final só existe quando todos os participantes obrigatórios concluíram.
 _Avoid_: contrato aplicado não assinado
+
+**Motor de mutação incremental de PDF**:
+Componente que acrescenta alterações ao final dos bytes da revisão atual para produzir a próxima revisão, sem reserializar, reconstruir, otimizar ou corrigir retroativamente o PDF anterior. Ele pode inserir aparências manuscritas, mas preserva estruturas externas que não criou, incluindo PAdES, campos de assinatura, CMS, certificados e carimbos; não implementa nem emite assinaturas digitais próprias.
+_Avoid_: editor de PDF, compositor completo, assinador PAdES
+
+**Assinatura digital externa preservada**:
+Assinatura criptográfica criada fora da aplicação e incorporada a uma revisão importada, como uma assinatura feita pelo GOV.BR. A aplicação aceita essa assinatura no MVP quando valida a assinatura nova e a continuidade da revisão, conserva os bytes e a cadeia de revisões e pode acrescentar alterações somente por operações incrementais admissíveis; isso não significa que a aplicação a criou, substituiu ou oferece a mesma implementação criptográfica do assinador externo.
+
+**Tentativa de assinatura**:
+Operação iniciada por um participante para confirmar uma revisão específica de um contrato aplicado. A tentativa conserva o resultado, a evidência e o fingerprint técnico mesmo quando não gera uma revisão aceita, como em conflito de revisão, rejeição, expiração ou falha de validação externa.
+_Avoid_: assinatura confirmada, revisão assinada
 
 **JSON Schema Form**:
 Abordagem futura de construção e renderização visual dos formulários baseada em JSON Schema. Ferramentas como builders visuais podem ser integradas para permitir que o profissional monte o formulário vendo uma prévia ao lado.

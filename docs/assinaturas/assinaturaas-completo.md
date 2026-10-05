@@ -8,7 +8,7 @@ Revisão: fingerprint obrigatório e assinatura opcional pelo GOV.BR incluídos 
 
 Implementar um sistema próprio para assinatura de contratos de prestação de serviço entre empresas e clientes, operado na infraestrutura da aplicação, sem depender de uma plataforma comercial de assinatura e sem se tornar uma autoridade certificadora.
 
-Na sua vez, o participante escolhe assinatura local ou assinatura externa pelo GOV.BR. Ambos os métodos estão presentes no MVP e na produção. O fluxo local é:
+Quando desejar assinar, o participante escolhe assinatura local ou assinatura externa pelo GOV.BR. Ambos os métodos estão presentes no MVP e na produção. Não há ordem obrigatória entre paciente e representante da clínica. O fluxo local é:
 
 1. Abrir e visualizar o contrato.
 2. Desenhar a assinatura com dedo, caneta digital ou mouse.
@@ -81,23 +81,35 @@ Os dados do navegador são indícios sujeitos a alteração, redução e falsifi
 
 Informar a finalidade de rastreabilidade, limitar acesso e retenção e tratar o conjunto como dado pessoal quando associado ao participante. Aplicar hash não o torna automaticamente anônimo. Não exigir canvas, WebGL, varredura de fontes, rastreamento entre sites ou fornecedor pago para cumprir este requisito. [LGPD](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm).
 
-## 4. Documento original e revisões
+## 4. Contrato aplicado, documento PDF e revisões
+
+O **contrato aplicado** é a entidade de negócio que vincula uma versão específica do contrato ao plano do paciente e reúne participantes, processo de assinatura, tentativas e evidências.
+
+O **documento PDF do contrato aplicado** é o artefato técnico associado a esse vínculo. Ele contém o PDF original, seu HEAD e as revisões incrementais imutáveis. Nos endpoints, `documentId` identifica esse PDF versionado, não o contrato modelo, sua versão de conteúdo ou o plano/acompanhamento inteiro.
 
 Gerar ou receber um PDF definitivo antes de iniciar a coleta. Preservar os bytes originais e os anexos aplicáveis.
 
-Cada contrato deve ter identificador, versão de conteúdo, participantes esperados e regras de conclusão. Calcular SHA-256 dos arquivos preservados. Evitar conteúdo ativo e dependências externas que possam modificar a apresentação.
+Cada contrato aplicado deve ter identificador, referência à versão de conteúdo, participantes esperados e regras de conclusão. Calcular SHA-256 dos arquivos preservados. Evitar conteúdo ativo e dependências externas que possam modificar a apresentação.
+
+A aplicação é um sistema de versionamento e transformação incremental de PDFs, não um sistema próprio de assinatura digital. Ela não implementa PAdES, CMS/CAdES, certificados, chaves privadas ou assinatura criptográfica do backend. Se uma revisão importada contiver assinatura digital externa, PAdES, campos de assinatura, certificados, carimbos ou objetos CMS, esses elementos são estruturas que a aplicação não criou e deve preservar. Toda mutação interna deve usar incremental update e nunca reserializar, otimizar, linearizar, recomprimir, normalizar, reconstruir xref, remover objetos ou fazer flatten global por padrão. Se a operação exigir reescrever bytes anteriores ou não puder ser validada como compatível, bloquear a operação e preservar a revisão intacta.
+
+Invariante arquitetural: a aplicação não precisa implementar PAdES; precisa ter disciplina suficiente para não destruir um PAdES que apareceu no meio da cadeia.
+
+A aplicação aceita assinatura externa pelo GOV.BR no MVP. Isso não significa que ela crie ou implemente PAdES: significa receber o PDF assinado, validar a nova assinatura e a continuidade da revisão conforme a seção 4.1, preservar os bytes recebidos e promover essa revisão como confirmada quando o resultado for “validada”. Um arquivo externo inválido, indeterminado ou em formato/fluxo não suportado pode ser preservado como recebimento e histórico, mas não conclui a etapa nem libera o participante.
 
 Para conciliar assinatura visual e integridade, adotar uma sequência explícita de revisões:
 
 1. O PDF base contém o texto contratual definitivo.
-2. O primeiro participante desenha e posiciona sua assinatura sobre a revisão disponível.
+2. Um participante desenha e posiciona sua assinatura sobre a revisão disponível.
 3. O servidor prepara uma nova revisão candidata, incluindo a representação gráfica.
 4. O participante visualiza essa revisão antes da confirmação.
-5. A confirmação se vincula ao hash dos bytes exatos da revisão candidata.
-6. Depois de confirmada, ela se torna uma revisão preservada.
-7. O próximo participante repete o processo sobre a revisão anterior, criando outra revisão.
+5. A confirmação se vincula ao hash dos bytes exatos da revisão candidata e à revisão-base visualizada.
+6. Depois de confirmada e promovida por controle otimista, ela se torna uma revisão preservada.
+7. Outro participante repete o processo sobre a revisão atual, sem ordem obrigatória entre os participantes.
 
-Essa especificação adota coleta sequencial para simplificar consistência e visualização. Não permitir que duas pessoas confirmem silenciosamente sobre a mesma revisão desatualizada. Se houver mudança, a outra tentativa precisa ser refeita sobre a revisão atual, com nova prévia.
+Não há ordem obrigatória entre paciente e representante da clínica. Ambos podem preparar suas assinaturas sobre a mesma revisão e confirmar em qualquer ordem. A consistência usa controle otimista por revisão: a confirmação informa a revisão-base visualizada e somente uma operação pode promovê-la atomicamente à próxima revisão. Uma operação concorrente baseada na revisão anterior perde a disputa, retorna conflito, preserva a tentativa e exige nova visualização e prévia sobre a revisão atual.
+
+A promoção deve usar uma condição atômica equivalente a `UPDATE ... WHERE current_revision = base_revision`, sem lock longo durante desenho ou uso do GOV.BR. O candidato deve permanecer temporário até vencer a promoção; candidato perdedor não é revisão oficial. A coordenação entre banco e armazenamento deve impedir sucesso registrado sem arquivo preservado.
 
 As revisões podem acrescentar as assinaturas autorizadas, sem mudar o texto, os anexos contratuais ou as assinaturas anteriores. Correção de conteúdo exige nova versão e novos aceites.
 
@@ -107,7 +119,7 @@ A prova do primeiro participante se refere à revisão que ele aprovou. A revis�
 
 ### Possibilidade e alcance
 
-Admitir dois métodos por participante: assinatura desenhada na plataforma e assinatura externa pelo portal GOV.BR. A opção externa faz parte do MVP e da produção, inclusive quando escolhida no meio da sequência.
+Admitir dois métodos por participante: assinatura desenhada na plataforma e assinatura externa pelo portal GOV.BR. A opção externa faz parte do MVP e da produção, inclusive quando escolhida depois de outra assinatura ou enquanto outro participante prepara sua operação.
 
 Para o contrato privado comum de prestação de serviço aqui tratado, o uso de outro meio de comprovação de autoria e integridade, aceito nas condições legais, encontra fundamento no art. 10, § 2º, da MP 2.200-2. A conclusão aplicada ao produto é permitir métodos distintos no mesmo processo, preservando as evidências de cada um e observando eventual exigência específica do negócio. Isso não depende de credenciar esta plataforma como certificadora. [MP 2.200-2](https://www.planalto.gov.br/ccivil_03/mpv/antigas_2001/2200-2.htm).
 
@@ -121,9 +133,9 @@ A assinatura GOV.BR pode ser reconhecida pelo VALIDAR do ITI quando o arquivo e 
 4. A pessoa assina no portal e baixa o PDF assinado. Não deve imprimir para PDF, converter, rasterizar nem editar o arquivo retornado.
 5. Ela importa esse PDF na mesma tentativa da plataforma. O fingerprint da importação é registrado separadamente.
 6. A plataforma valida o retorno, apresenta o signatário identificado e o resultado e recebe a confirmação de conclusão da etapa. Essa confirmação registra a importação; a assinatura criptográfica foi feita no portal.
-7. Somente depois da aceitação o PDF importado passa a ser a revisão atual e a vez do próximo participante é liberada.
+7. Somente depois da aceitação o PDF importado passa a ser a revisão atual. Outros participantes podem então visualizar essa revisão e confirmar quando desejarem.
 
-Se a reserva expirar ou for cancelada, liberar a sequência e invalidar a tentativa. Um retorno antigo não pode ser unido silenciosamente a uma versão que avançou. Preservar seu recebimento como histórico e pedir nova assinatura da revisão vigente.
+Se a reserva expirar ou for cancelada, invalidar a tentativa e permitir que qualquer participante autorizado inicie uma nova operação sobre a revisão atual. Um retorno antigo não pode ser unido silenciosamente a uma versão que avançou. Preservar seu recebimento como histórico e pedir nova assinatura da revisão vigente.
 
 O usuário opera o portal oficial. Não coletar senha GOV.BR, não automatizar o login e não presumir API, iframe, callback ou envio automático do documento. A orientação oficial restringe a integração direta dos produtos de identidade GOV.BR ao setor público; isso é diferente de receber um PDF assinado externamente pelo cidadão. [Serviço de assinatura](https://www.gov.br/pt-br/servicos/assinatura-eletronica) e [regras de integração](https://www.gov.br/governodigital/pt-br/identidade/identidade-digital-para-gestores-publicos/duvidas-frequentes-do-ecossistema-da-identidade-digital-gov-br).
 
@@ -138,7 +150,7 @@ Receber um PDF não conclui uma assinatura. Implementar, também no MVP:
 - Identificação de uma nova assinatura do participante da vez, além das já existentes; reenviar o arquivo anterior não pode concluir a operação.
 - Conferência de vínculo com a revisão exportada. Seu hash deve ser usado para localizar e comparar a revisão de origem dentro da cadeia incremental, não para exigir igualdade entre o PDF exportado e o PDF agora assinado, cujo hash muda.
 - Análise das modificações adicionadas, aceitando apenas as necessárias à assinatura e previamente permitidas. Prefixo preservado ou texto aparentemente igual não basta: um incremento pode alterar conteúdo visível ou ocultar objetos.
-- Revalidação de todas as assinaturas digitais anteriores e conferência das evidências/revisões locais. Qualquer mudança indevida em texto, páginas, anexos ou assinaturas anteriores impede o avanço automático.
+- Revalidação de todas as assinaturas digitais anteriores e conferência das evidências/revisões locais. A aplicação não precisa implementar PAdES para preservar um PAdES externo: precisa armazenar os bytes recebidos, manter o vínculo da revisão e não destruir as estruturas que não criou. Qualquer mudança indevida em texto, páginas, anexos ou assinaturas anteriores impede o avanço automático.
 
 Preservar certificado e seu fingerprint, titular, emissor, número de série, identificador da assinatura, hashes de entrada e saída, revisões cobertas, restrições do PDF, resultado, motivo, instante da verificação, versão do validador e referências de confiança usadas. Diferenciar horário declarado da assinatura, horário de importação e tempo comprovado por carimbo, quando existente.
 
@@ -152,13 +164,13 @@ Após existir assinatura criptográfica no PDF, proibir reconstrução do arquiv
 
 Novas assinaturas devem usar atualizações incrementais compatíveis com as permissões do documento, inclusive DocMDP e FieldMDP quando presentes. Preservar os bytes anteriores é necessário para manter a cadeia, mas não basta: as alterações novas também precisam ser admissíveis. [ITI — orientações para PDFs](https://validar.iti.gov.br/guia-desenvolvedor.html) e [análise de alterações incrementais](https://docs.pyhanko.eu/en/latest/lib-guide/validation/diff-analysis.html).
 
-Para a assinatura desenhada depois de uma GOV.BR, prever regiões/campos apropriados antes da primeira assinatura criptográfica e um mecanismo de preenchimento/aparência incremental que seja efetivamente aceito pelos validadores e pelas permissões do arquivo. Desenhar uma imagem não é, por si, acrescentar uma assinatura criptográfica PDF, e não se pode pressupor que o GOV.BR autoriza esse preenchimento em qualquer documento.
+Para a assinatura desenhada depois de uma GOV.BR, usar um mecanismo de preenchimento/aparência incremental efetivamente aceito pelos validadores e pelas permissões do arquivo. Desenhar uma imagem não é, por si, acrescentar uma assinatura criptográfica PDF, e não se pode pressupor que o GOV.BR autoriza esse preenchimento em qualquer documento.
 
-A escolha de posição permanece livre antes da primeira assinatura criptográfica. Depois dela, a interface deve limitar a seleção às regiões cuja alteração seja permitida e testada. Para exigir posições totalmente livres, coletar previamente essas posições antes da primeira assinatura externa ou iniciar uma nova versão; não prometer liberdade irrestrita de edição preservando qualquer assinatura existente.
+No MVP, a escolha de posição permanece livre antes e depois da primeira assinatura criptográfica, com orientação explícita para não cobrir assinaturas anteriores. Não há exigência de regiões ou campos previamente reservados. O backend deve revalidar as assinaturas anteriores e aceitar apenas uma atualização incremental admissível; quando a alteração não for compatível, deve bloquear a operação e preservar a revisão assinada intacta. Regiões/campos reservados podem ser introduzidos futuramente para aumentar a compatibilidade, mas não fazem parte do modelo inicial.
 
 Testar explicitamente a sequência local → GOV.BR → local e GOV.BR → GOV.BR nos modelos suportados. Gerar a revisão candidata e revalidar antes de confirmá-la e novamente no resultado final. Compatibilidade com o VALIDAR precisa ser observada nos arquivos reais de teste; não decorre apenas da escolha da biblioteca.
 
-Se o arquivo ou a próxima operação não forem compatíveis, manter a revisão assinada intacta, mostrar o motivo e oferecer continuidade pelo método externo compatível ou nova versão com recolhimento das assinaturas. Não realizar fallback silencioso que invalide a assinatura GOV.BR. Suportar GOV.BR em qualquer vez significa permitir a escolha e tratar a compatibilidade explicitamente, não garantir que todo PDF aceita toda alteração posterior.
+Se o arquivo ou a próxima operação não forem compatíveis, manter a revisão assinada intacta, mostrar o motivo e oferecer continuidade pelo método externo compatível ou nova versão com recolhimento das assinaturas. Não realizar fallback silencioso que invalide a assinatura GOV.BR. Para o MVP, não exigir nem criar previamente regiões ou campos reservados: a posição permanece livre e o participante deve evitar cobrir assinaturas anteriores. A aplicação deve preservar os bytes anteriores e usar atualização incremental para assinaturas posteriores do próprio sistema; se as permissões, o PDF ou os validadores não aceitarem a alteração sem comprometer a assinatura GOV.BR, bloquear a operação de forma explícita. A versão completa poderá adotar regiões ou campos reservados como reforço, mas isso não é requisito do MVP. Suportar GOV.BR em qualquer vez significa permitir a escolha e tratar a compatibilidade explicitamente, não garantir que todo PDF aceita toda alteração posterior.
 
 ## 5. Captura e posicionamento da assinatura
 
@@ -168,7 +180,7 @@ Preservar a imagem com transparência, preferencialmente em PNG. Capturar press�
 
 Registrar o hash da imagem, página, coordenadas, dimensões e rotação aplicável. Definir explicitamente a origem e as unidades das coordenadas. Converter as posições da tela para o espaço da página do PDF considerando zoom, dimensões, recorte e rotação.
 
-Conferir limites e transformações no servidor. Após uma assinatura criptográfica, limitar posicionamento e preenchimento às regiões e operações compatíveis da seção 4.1 e revalidar as assinaturas anteriores; não regravar o PDF por composição convencional. A aplicação deve mostrar uma prévia fiel dos bytes que serão confirmados. A renderização definitiva deve ocorrer de maneira controlada no backend, sem confiar em um PDF arbitrário enviado pelo navegador como resultado final.
+Conferir limites e transformações no servidor. Após uma assinatura criptográfica, manter a posição livre no MVP, orientar o participante a não cobrir assinaturas anteriores, usar somente preenchimento por atualização incremental e revalidar as assinaturas anteriores; não regravar o PDF por composição convencional. Se a posição ou operação escolhida não for compatível com as permissões e validações do arquivo, bloquear a confirmação e preservar a revisão assinada intacta. A aplicação deve mostrar uma prévia fiel dos bytes que serão confirmados. A renderização definitiva deve ocorrer de maneira controlada no backend, sem confiar em um PDF arbitrário enviado pelo navegador como resultado final.
 
 Depois da confirmação, não permitir mover, substituir ou reutilizar automaticamente aquele desenho em outro contrato. Uma nova utilização exige nova autorização do participante.
 
@@ -181,13 +193,13 @@ Criar um registro estruturado por operação, contendo:
 | Esquema | Versão do formato do manifesto |
 | Operação | Ação explícita de assinar contrato |
 | Contexto | Plataforma e organização responsáveis |
-| Contrato | Identificador e versão do conteúdo |
-| Documentos | Hash do PDF base, anexos e revisão anterior |
+| Contrato aplicado | Identificador do vínculo, contrato modelo e versão do conteúdo |
+| Documento PDF | Identificador técnico, hash do PDF base, anexos e revisão anterior |
 | Resultado aprovado | Hash da revisão candidata mostrada ao participante |
 | Assinatura visual | Hash da imagem e posicionamento local; aparência externa quando disponível |
 | Fingerprint | Referência e digest do registro obrigatório do ambiente, com versão do coletor |
 | Assinatura externa | Exportação, importação, certificado/fingerprint, titular, validação e revisões cobertas, quando o método for GOV.BR |
-| Participante | Identidade histórica, papel e representação |
+| Participante | Identidade histórica e papel na relação B2C entre paciente e clínica |
 | Consentimento | Texto exato do aceite e versão do método apresentado |
 | Autorização | Método e referência da credencial utilizada |
 | Tentativa | Identificador e número aleatório criptográfico exclusivo |
@@ -232,7 +244,7 @@ Gravar a operação aceita, suas evidências e a revisão resultante e consumir 
 
 Usar idempotência para que uma repetição após falha de rede recupere o mesmo resultado. Impedir assinaturas duplicadas e consumo concorrente da mesma tentativa.
 
-Concluir o contrato apenas quando todos os participantes obrigatórios tiverem confirmado. A existência da imagem de uma pessoa não significa conclusão de todas as partes.
+Concluir o processo apenas quando todos os participantes esperados tiverem confirmado, sem exigir ordem entre eles. Liberar o plano conforme a regra do domínio: a confirmação do paciente é obrigatória, enquanto a assinatura esperada do representante da clínica pode permanecer pendente. A existência da imagem de uma pessoa não significa conclusão de todas as partes.
 
 ## 9. Auditoria e preservação
 
@@ -269,7 +281,7 @@ O selo não substitui a assinatura dos participantes nem confere credenciamento 
 
 Disponibilizar às partes um pacote contendo:
 
-- PDF base, anexos, revisões confirmadas e PDF final.
+- PDF base do documento técnico do contrato aplicado, anexos, revisões confirmadas e PDF final.
 - Imagens de assinatura e posicionamentos associados.
 - Manifestos e provas de autorização.
 - Chaves públicas e referências históricas das credenciais.
@@ -313,7 +325,7 @@ A assinatura desenhada é a representação visual permanente nas duas versões 
 - Uma assinatura de outra pessoa, um contrato diferente ou uma revisão antiga não conclui a tentativa atual.
 - Um retorno sem assinatura nova, inválido ou indeterminado permanece rejeitado ou pendente, conforme o caso.
 - Preservar o PDF externo original e revalidar as assinaturas anteriores ao continuar a coleta.
-- Demonstrar local → GOV.BR → local nos modelos e regiões declarados compatíveis e bloquear alterações incompatíveis de forma explícita.
+- Demonstrar local → GOV.BR → local e GOV.BR → GOV.BR nos modelos suportados, com posicionamento livre no MVP, orientação para não cobrir assinaturas anteriores e bloqueio explícito de alterações que não possam ser aplicadas incrementalmente sem comprometer a assinatura GOV.BR.
 - O resultado distingue assinatura local de assinatura GOV.BR validada e informa a revisão coberta por cada uma.
 
 - Alterar um byte de uma revisão confirmada causa divergência verificável.
