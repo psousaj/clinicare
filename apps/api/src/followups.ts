@@ -16,12 +16,13 @@ const latest = <T extends { version: number }>(rows: T[]) => rows.sort((a, b) =>
 const terminal = (status: string) => status === 'completed' || status === 'cancelled';
 const validSha256 = (value: unknown): value is string => typeof value === 'string' && /^[0-9a-f]{64}$/i.test(value);
 const validRenderedPdf = (version: any) => Boolean(version?.renderedPdfObjectKey && version.renderedPdfContentType === 'application/pdf' && validSha256(version.renderedPdfHash) && Number.isSafeInteger(version.renderedPdfSize) && version.renderedPdfSize > 0);
+const validCivilDate = (value: unknown): value is string => value == null || (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00:00Z`).getTime()) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value);
 
 type Offer = {
   name: string; priceCents: number; validUntil: Date | null; planVersionId: string | null;
   requireNewAnamnesis: boolean; items: Array<{ procedureId: string; procedureName: string; sessionsTotal: number; durationMinutes: number; priceCents: number; sessionSchema: unknown }>;
   snapshot: { kind: 'combo' | 'plan'; sourceVersion: number | null; payload: unknown };
-  contracts: Array<{ contractId: string; contractVersion: number; title: string; content: string | null; sourceObjectKey: string | null; renderedPdfObjectKey: string; renderedPdfHash: string; renderedPdfSize: number; renderedPdfContentType: string }>;
+  contracts: Array<{ contractId: string; contractVersion: number; title: string; content: string | null; sourceObjectKey: string | null; sourceDocxObjectKey: string | null; contextConfiguration: unknown; allowedPlaceholders: unknown; requiredPlaceholders: unknown; renderedPdfObjectKey: string | null; renderedPdfHash: string | null; renderedPdfSize: number | null; renderedPdfContentType: string | null }>;
 };
 const protect = (tenantId: string, id: string, column: string, value: string | null) => value == null ? { contentCiphertext: null, contentNonce: null, contentKeyVersion: null } : (() => { const e = encryptValue(value, buildProtectedAad(tenantId, 'followup_contracts', id, column)); return { contentCiphertext: e.ciphertext, contentNonce: e.nonce, contentKeyVersion: e.keyVersion }; })();
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
@@ -47,21 +48,22 @@ async function resolveOffer(tenantId: string, offerType: 'combo' | 'plan', offer
     const items = itemRows.map((item: any) => { const procedure: any = procedureRows.find((p: any) => p.id === item.procedureId)!; return { procedureId: procedure.id, procedureName: procedure.name, sessionsTotal: item.sessions, durationMinutes: procedure.durationMinutes, priceCents: item.priceOverrideCents ?? procedure.priceCents, sessionSchema: procedure.sessionSchema }; });
     return { name: combo.name, priceCents: combo.promotionalPriceCents ?? combo.priceCents, validUntil: combo.validUntil, planVersionId: null, requireNewAnamnesis: combo.requireNewAnamnesis, items, snapshot: { kind: 'combo', sourceVersion: null, payload: { ...idShape(combo), items } }, contracts: [] };
   }
+  await executor.execute(sql`select id from plans where tenant_id = ${tenantId} and id = ${offerId} for share`);
   const plan = (await executor.select().from(plans).where(and(eq(plans.tenantId, tenantId), eq(plans.id, offerId), eq(plans.active, true))))[0];
   if (!plan) throw notFound('Plano não encontrado.');
   const version = (await executor.select().from(planVersions).where(and(eq(planVersions.tenantId, tenantId), eq(planVersions.planId, offerId), eq(planVersions.version, plan.currentVersion))))[0];
   if (!version) throw notFound('Versão do plano não encontrada.');
   const itemRows = await executor.select().from(planVersionItems).where(and(eq(planVersionItems.tenantId, tenantId), eq(planVersionItems.planVersionId, version.id)));
   if (!itemRows.length) throw invalid('Plano sem procedimentos disponíveis.');
-  const contractRows = await executor.select().from(planVersionContracts).where(and(eq(planVersionContracts.tenantId, tenantId), eq(planVersionContracts.planVersionId, version.id)));
+  const contractRows = await executor.select().from(planVersionContracts).where(and(eq(planVersionContracts.tenantId, tenantId), eq(planVersionContracts.planVersionId, version.id))).orderBy(planVersionContracts.contractId);
   if (!contractRows.length) throw invalid('Plano sem contrato aplicável.');
   const contractIds = contractRows.map((row: any) => row.contractId);
-  const contractContentRows = contractIds.length ? await executor.select().from(contractVersions).where(and(eq(contractVersions.tenantId, tenantId), inArray(contractVersions.contractId, contractIds))) : [];
+  const contractContentRows = contractIds.length ? await executor.select().from(contractVersions).where(and(eq(contractVersions.tenantId, tenantId), inArray(contractVersions.contractId, contractIds), sql`${contractVersions.version} = (select max(cv.version) from contract_versions cv where cv.tenant_id = ${tenantId} and cv.contract_id = ${contractVersions.contractId})`)).orderBy(desc(contractVersions.version)) : [];
   return {
     name: plan.name, priceCents: version.priceCents, validUntil: version.validityDays ? new Date(Date.now() + version.validityDays * 86400000) : null,
     planVersionId: version.id, requireNewAnamnesis: version.requireNewAnamnesis, items: itemRows.map((item: any) => ({ procedureId: item.procedureId, procedureName: item.procedureName, sessionsTotal: item.sessions, durationMinutes: item.durationMinutes, priceCents: item.priceCents, sessionSchema: item.sessionSchema })),
     snapshot: { kind: 'plan', sourceVersion: version.version, payload: { ...idShape(plan), version: { ...idShape(version), items: itemRows }, contracts: contractRows } },
-    contracts: contractRows.map((contract: any) => { const version = contractContentRows.find((row: any) => row.contractId === contract.contractId && row.version === contract.contractVersion); if (!validRenderedPdf(version)) throw invalid('A versão do contrato não possui PDF renderizado verificado.'); return { contractId: contract.contractId, contractVersion: contract.contractVersion, title: contract.title, content: version.content ?? null, sourceObjectKey: contract.sourceObjectKey ?? version.sourceObjectKey ?? null, renderedPdfObjectKey: version.renderedPdfObjectKey, renderedPdfHash: version.renderedPdfHash, renderedPdfSize: version.renderedPdfSize, renderedPdfContentType: version.renderedPdfContentType }; }),
+    contracts: contractRows.map((contract: any) => { const version = contractContentRows.find((row: any) => row.contractId === contract.contractId); if (!version || (!version.sourceDocxObjectKey && !validRenderedPdf(version))) throw invalid('A versão publicada do contrato não possui fonte DOCX ou PDF verificável.'); return { contractId: contract.contractId, contractVersion: version.version, title: contract.title, content: version.content ?? null, sourceObjectKey: contract.sourceObjectKey ?? version.sourceObjectKey ?? null, sourceDocxObjectKey: version.sourceDocxObjectKey ?? null, contextConfiguration: version.contextConfiguration, allowedPlaceholders: version.allowedPlaceholders, requiredPlaceholders: version.requiredPlaceholders, renderedPdfObjectKey: version.renderedPdfObjectKey ?? null, renderedPdfHash: version.renderedPdfHash ?? null, renderedPdfSize: version.renderedPdfSize ?? null, renderedPdfContentType: version.renderedPdfContentType ?? null }; }),
   };
 }
 
@@ -73,7 +75,7 @@ async function offerForms(tenantId: string, offer: Offer, executor: any) {
   return forms.map((form: any) => ({ form, version: latest(versions.filter((v: any) => v.anamnesisId === form.id)) })).filter((x: any) => x.version);
 }
 
-export async function createFollowup(tenantId: string, patientId: string, offerType: 'combo' | 'plan', offerId: string, options: { failAfter?: string } = {}) {
+export async function createFollowup(tenantId: string, patientId: string, offerType: 'combo' | 'plan', offerId: string, options: { failAfter?: string; contractApplicationDate?: string | null } = {}) {
   const db = getDatabase();
   return db.transaction(async (tx) => {
     const patient = (await tx.select().from(patients).where(and(eq(patients.tenantId, tenantId), eq(patients.id, patientId))))[0];
@@ -86,15 +88,16 @@ export async function createFollowup(tenantId: string, patientId: string, offerT
       if (!patientPhone) throw invalid('Paciente precisa ter telefone cadastrado para assinar o contrato.');
     }
     const followupId = randomUUID();
+    if (!validCivilDate(options.contractApplicationDate)) throw invalid('Data de aplicação do contrato inválida.');
     const status = offerType === 'plan' ? 'idle' : 'active';
-    const [created] = await tx.insert(followups).values({ id: followupId, tenantId, patientId, offerType, offerId, comboId: offerType === 'combo' ? offerId : null, planId: offerType === 'plan' ? offerId : null, planVersionId: offer.planVersionId, status, offerNameSnapshot: offer.name, priceCents: offer.priceCents, validUntil: offer.validUntil }).returning();
+    const [created] = await tx.insert(followups).values({ id: followupId, tenantId, patientId, offerType, offerId, comboId: offerType === 'combo' ? offerId : null, planId: offerType === 'plan' ? offerId : null, planVersionId: offer.planVersionId, status, contractApplicationDate: offerType === 'plan' ? options.contractApplicationDate ?? null : null, offerNameSnapshot: offer.name, priceCents: offer.priceCents, validUntil: offer.validUntil }).returning();
     if (options.failAfter === 'followup') throw new Error('Falha simulada na criação do acompanhamento.');
     await tx.insert(followupItems).values(offer.items.map((item) => ({ tenantId, followupId, ...item })));
     await tx.insert(followupSnapshots).values({ tenantId, followupId, kind: offer.snapshot.kind, sourceVersion: offer.snapshot.sourceVersion, payload: offer.snapshot.payload });
     let initialTokens: Record<string, { patient?: any; professional?: any }> = {};
     if (offer.contracts.length) {
-      const appliedContracts = await tx.insert(followupContracts).values(offer.contracts.map((contract) => { const id = randomUUID(); const protectedContent = protect(tenantId, id, 'content', contract.content); return { id, tenantId, followupId, contractId: contract.contractId, contractVersion: contract.contractVersion, titleSnapshot: contract.title, ...protectedContent, sourceObjectKey: contract.sourceObjectKey, renderedPdfObjectKey: contract.renderedPdfObjectKey, renderedPdfHash: contract.renderedPdfHash, renderedPdfSize: contract.renderedPdfSize, renderedPdfContentType: contract.renderedPdfContentType }; }) as any).returning();
-      const processes = await tx.insert(signatureProcesses).values(appliedContracts.map((contract: any) => ({ tenantId, followupContractId: contract.id }))).returning();
+      const appliedContracts = await tx.insert(followupContracts).values(offer.contracts.map((contract) => { const id = randomUUID(); const protectedContent = protect(tenantId, id, 'content', contract.content); return { id, tenantId, followupId, contractId: contract.contractId, contractVersion: contract.contractVersion, titleSnapshot: contract.title, ...protectedContent, sourceObjectKey: contract.sourceObjectKey, renderedPdfObjectKey: contract.renderedPdfObjectKey, renderedPdfHash: contract.renderedPdfHash, renderedPdfSize: contract.renderedPdfSize, renderedPdfContentType: contract.renderedPdfContentType, status: contract.sourceDocxObjectKey ? 'generating' : 'pending' }; }) as any).returning();
+      const processes = await tx.insert(signatureProcesses).values(appliedContracts.filter((contract: any) => contract.status === 'pending').map((contract: any) => ({ tenantId, followupContractId: contract.id }))).returning();
       const participants = await tx.insert(signatureParticipants).values(processes.flatMap((process: any) => [
         { id: randomUUID(), tenantId, processId: process.id, role: 'patient', identitySnapshot: { role: 'patient', patientId: patient.id, fullName: patient.fullName, phoneLast4Hash: hashToken(patientPhone!.slice(-4)) } },
         { id: randomUUID(), tenantId, processId: process.id, role: 'professional', identitySnapshot: { role: 'professional', assignment: 'clinic_representative' } },

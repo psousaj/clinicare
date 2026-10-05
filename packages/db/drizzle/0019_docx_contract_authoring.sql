@@ -1,0 +1,40 @@
+-- ADR 0005: DOCX contract authoring, professional profile, and materialization state.
+ALTER TABLE patients ADD COLUMN IF NOT EXISTS birth_date date;
+ALTER TABLE contracts ALTER COLUMN current_version SET DEFAULT 0;
+ALTER TABLE contract_versions ADD COLUMN IF NOT EXISTS source_docx_object_key text;
+ALTER TABLE contract_versions ADD COLUMN IF NOT EXISTS source_docx_hash text;
+ALTER TABLE contract_versions ADD COLUMN IF NOT EXISTS source_docx_size integer;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS draft_docx_object_key text;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS draft_docx_hash text;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS draft_docx_size integer;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS draft_docx_content_type text;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS draft_context_configuration jsonb;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS draft_allowed_placeholders jsonb;
+ALTER TABLE contracts ADD COLUMN IF NOT EXISTS draft_required_placeholders jsonb;
+ALTER TABLE contract_versions ADD COLUMN IF NOT EXISTS source_docx_content_type text;
+ALTER TABLE contract_versions ADD COLUMN IF NOT EXISTS context_configuration jsonb;
+ALTER TABLE contract_versions ADD COLUMN IF NOT EXISTS allowed_placeholders jsonb;
+ALTER TABLE contract_versions ADD COLUMN IF NOT EXISTS required_placeholders jsonb;
+ALTER TABLE plan_version_contracts DROP CONSTRAINT IF EXISTS plan_version_contracts_tenant_contract_version_fk;
+ALTER TABLE plan_version_contracts DROP COLUMN IF EXISTS contract_version;
+ALTER TABLE followups ADD COLUMN IF NOT EXISTS contract_application_date date;
+ALTER TABLE followup_contracts ADD COLUMN IF NOT EXISTS materialization_context_ciphertext text;
+ALTER TABLE followup_contracts ADD COLUMN IF NOT EXISTS materialization_context_nonce text;
+ALTER TABLE followup_contracts ADD COLUMN IF NOT EXISTS materialization_context_key_version integer;
+ALTER TABLE followup_contracts ADD COLUMN IF NOT EXISTS materialization_context_digest text;
+ALTER TABLE followup_contracts ADD COLUMN IF NOT EXISTS materialized_docx_object_key text;
+ALTER TABLE followup_contracts ADD COLUMN IF NOT EXISTS materialized_docx_hash text;
+ALTER TABLE followup_contracts ADD COLUMN IF NOT EXISTS materialized_docx_size integer;
+ALTER TABLE followup_contracts ADD COLUMN IF NOT EXISTS generation_error text;
+ALTER TABLE followup_contracts DROP CONSTRAINT IF EXISTS followup_contracts_status_valid;
+ALTER TABLE followup_contracts ADD CONSTRAINT followup_contracts_status_valid CHECK (status in ('generating', 'ready', 'pending', 'signed', 'failed', 'cancelled'));
+ALTER TABLE followup_contracts DROP CONSTRAINT IF EXISTS followup_contracts_context_protected;
+ALTER TABLE followup_contracts ADD CONSTRAINT followup_contracts_context_protected CHECK ((materialization_context_ciphertext is null and materialization_context_nonce is null and materialization_context_key_version is null) or (materialization_context_ciphertext is not null and materialization_context_nonce is not null and materialization_context_key_version is not null));
+CREATE TABLE IF NOT EXISTS professionals (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL REFERENCES tenants(id), user_id text NOT NULL UNIQUE REFERENCES "user"(id), registration_type text NOT NULL, registration_number text NOT NULL, registration_state text, active boolean NOT NULL DEFAULT true, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), CONSTRAINT professionals_tenant_id_unique UNIQUE (tenant_id, id)
+);
+CREATE INDEX IF NOT EXISTS professionals_tenant_idx ON professionals(tenant_id);
+ALTER TABLE contract_versions DROP CONSTRAINT IF EXISTS contract_versions_content_or_object;
+ALTER TABLE contract_versions ADD CONSTRAINT contract_versions_content_or_object CHECK (content is not null or source_object_key is not null or source_docx_object_key is not null);
+ALTER TABLE contract_versions DROP CONSTRAINT IF EXISTS contract_versions_docx_metadata_valid;
+ALTER TABLE contract_versions ADD CONSTRAINT contract_versions_docx_metadata_valid CHECK ((source_docx_object_key is null and source_docx_hash is null and source_docx_size is null and source_docx_content_type is null) or (source_docx_object_key is not null and source_docx_hash ~ '^[0-9a-fA-F]{64}$' and source_docx_size > 0 and source_docx_content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'));

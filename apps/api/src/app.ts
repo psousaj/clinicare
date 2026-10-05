@@ -12,7 +12,9 @@ import { createPayment, deletePayment, listPayments } from './payments';
 import { deleteObject } from './storage';
 import { addAnamnesisNote, answerAppliedAnamnesis, createAnamnesisRequest, createAppliedAnamnesis, deleteAppliedDocument, getAppliedDocument, listAnamnesisNotes, listAppliedDocuments, materializeAppliedDocumentResult, presignAppliedDocument, readAppliedAnamnesis, readPublicAnamnesis, refreshAnamnesisRequest, retryDocumentCleanupJobs, saveAnamnesisDraft, submitPublicAnamnesis } from './clinical';
 import { authHandler, clinicSession, requireClinicSession } from './auth-routes';
-import { updateInitialPasswordChoice } from './account-routes';
+import { getProfessionalProfile, updateInitialPasswordChoice, updateProfessionalProfile } from './account-routes';
+import { getContractDraftEditor, listContractPlaceholders, presignContractDraft, publishContractDraft, saveContractDraft } from './contract-authoring';
+import { generateFollowupContract, retryFollowupContract } from './contract-generation';
 
 const fail = (c: Context, message: string, status: 400 | 401 | 403 | 404 | 409 | 429 | 503 = 400) => c.json({ error: message }, status);
 const isRecord = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -43,6 +45,8 @@ export const app = new Hono()
   .onError((error, c) => handleError(c, error))
   .on(['POST', 'GET'], '/api/auth/*', (c) => authHandler(c.req.raw))
   .post('/api/auth/initial-password-choice', requireClinicSession, updateInitialPasswordChoice)
+  .get('/api/auth/professional-profile', requireClinicSession, getProfessionalProfile)
+  .put('/api/auth/professional-profile', requireClinicSession, updateProfessionalProfile)
   .get('/api/health', async (c) => {
     try { await getDatabasePool().query('select 1'); return c.json({ status: 'ok', service: 'clinicare-api', database: 'connected' }); }
     catch { return c.json({ status: 'unavailable', service: 'clinicare-api', database: 'disconnected' }, 503); }
@@ -110,6 +114,11 @@ export const app = new Hono()
   .post('/api/contracts/:id/versions', async (c) => { const result = await addContractVersion(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result, 201) : fail(c, 'Contrato não encontrado.', 404); })
   .post('/api/contracts/:id/versions/rendered-pdf/presign', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await presignContractVersionPdf(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), body.contentType, body.contentHash, body.size), 201); } catch (error) { return handleError(c, error); } })
   .post('/api/contracts/:id/versions/rendered-pdf', async (c) => { try { return c.json(await finalizeContractVersionPdf(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json().catch(() => ({}))), 201); } catch (error) { return handleError(c, error); } })
+  .get('/api/contracts/placeholders', async (c) => c.json(await listContractPlaceholders()))
+  .post('/api/contracts/:id/draft/presign', async (c) => { try { return c.json(await presignContractDraft(await catalogTenant(c.req, authTenant(c)), c.req.param('id'))); } catch (error) { return handleError(c, error); } })
+  .get('/api/contracts/:id/draft/editor', async (c) => { try { const result = await getContractDraftEditor(await catalogTenant(c.req, authTenant(c)), c.req.param('id')); return result ? c.json(result) : fail(c, 'Contrato não encontrado.', 404); } catch (error) { return handleError(c, error); } })
+  .put('/api/contracts/:id/draft', async (c) => { try { return c.json(await saveContractDraft(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json())); } catch (error) { return handleError(c, error); } })
+  .post('/api/contracts/:id/publish', async (c) => { try { return c.json(await publishContractDraft(await catalogTenant(c.req, authTenant(c)), c.req.param('id')), 201); } catch (error) { return handleError(c, error); } })
   .get('/api/plans', async (c) => c.json(await listPlans(await catalogTenant(c.req, authTenant(c)))))
   .post('/api/plans', async (c) => c.json(await savePlan(await catalogTenant(c.req, authTenant(c)), null, await c.req.json()), 201))
   .put('/api/plans/:id', async (c) => { const result = await savePlan(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Plano não encontrado.', 404); })
@@ -117,7 +126,7 @@ export const app = new Hono()
     const tenantId = await catalogTenant(c.req, authTenant(c));
     const body = await c.req.json().catch(() => null);
     if (!body || !isUuid(body.patientId) || !['combo', 'plan'].includes(body.offerType) || !isUuid(body.offerId)) return fail(c, 'Paciente e um combo ou plano são obrigatórios; procedimento avulso é criado ao agendar ou registrar o atendimento.');
-    try { return c.json(await createFollowup(tenantId, body.patientId, body.offerType, body.offerId), 201); } catch (error) { return handleError(c, error); }
+    try { return c.json(await createFollowup(tenantId, body.patientId, body.offerType, body.offerId, { contractApplicationDate: body.contractApplicationDate }), 201); } catch (error) { return handleError(c, error); }
   })
   .get('/api/followups', async (c) => {
     return c.json(await listFollowups(await catalogTenant(c.req, authTenant(c))));
@@ -128,6 +137,8 @@ export const app = new Hono()
     const result = await getFollowup(tenantId, c.req.param('id'));
     return result ? c.json(result) : fail(c, 'Acompanhamento não encontrado.', 404);
   })
+  .post('/api/followup-contracts/:id/generate', async (c) => { try { return c.json(await generateFollowupContract(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), clinicSession(c).userId)); } catch (error) { return handleError(c, error); } })
+  .post('/api/followup-contracts/:id/retry', async (c) => { try { return c.json(await retryFollowupContract(await catalogTenant(c.req, authTenant(c)), c.req.param('id'))); } catch (error) { return handleError(c, error); } })
   .get('/api/signature-pending', async (c) => { try { return c.json(await listPendingSignatures(await catalogTenant(c.req, authTenant(c)))); } catch (error) { return handleError(c, error); } })
   .get('/public/signatures/:token', async (c) => { try { return c.json(await readSignatureToken(c.req.param('token')!)); } catch (error) { return handleError(c, error); } })
   .post('/public/signatures/:token/verify-phone', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await verifySignaturePhone(c.req.param('token')!, body.phoneLast4)); } catch (error) { return handleError(c, error); } })

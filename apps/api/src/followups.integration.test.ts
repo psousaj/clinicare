@@ -86,7 +86,7 @@ integration('PostgreSQL followups', () => {
     await db.insert(planVersionItems).values({ tenantId, planVersionId: versionId, procedureId, sessions: 1, procedureName: 'Procedimento plano', durationMinutes: 30, priceCents: 100, sessionSchema: { type: 'object', properties: {} } });
     await db.insert(contracts).values({ id: contractId, tenantId, title: 'Contrato plano', kind: 'standard' });
     await db.insert(contractVersions).values({ id: contractVersionId, tenantId, contractId, version: 1, content: 'terms', renderedPdfObjectKey: crypto.randomUUID(), renderedPdfHash: 'a'.repeat(64), renderedPdfSize: 123, renderedPdfContentType: 'application/pdf' });
-    await db.insert(planVersionContracts).values({ tenantId, planVersionId: versionId, contractId, contractVersion: 1, title: 'Contrato plano' });
+    await db.insert(planVersionContracts).values({ tenantId, planVersionId: versionId, contractId, title: 'Contrato plano' });
     const response = await post('/api/followups', { patientId, offerType: 'plan', offerId: planId });
     expect(response.status).toBe(201);
     const created = await response.json() as any;

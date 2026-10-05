@@ -44,14 +44,7 @@ export const verifyPdfObject = async (key: string, expectedHash: string, expecte
 
 /** Copies an immutable source object to a new opaque key and verifies the copy. */
 export const copyVerifiedPdfObject = async (sourceKey: string, destinationKey: string, expectedHash: string, expectedSize: number) => {
-  if (!storage || !bucket) throw new Error('R2 is not configured.');
-  await storage.send(new CopyObjectCommand({ Bucket: bucket, Key: destinationKey, CopySource: `${bucket}/${sourceKey}`, ContentType: 'application/pdf', MetadataDirective: 'REPLACE' }));
-  try {
-    if (!await verifyPdfObject(destinationKey, expectedHash, expectedSize)) throw new Error('Copied PDF does not match the verified source metadata.');
-  } catch (error) {
-    await deleteObject(destinationKey).catch(() => undefined);
-    throw error;
-  }
+  return copyVerifiedObject(sourceKey, destinationKey, expectedHash, expectedSize, 'application/pdf');
 };
 
 export const deleteObject = async (key: string) => {
@@ -71,7 +64,24 @@ export const uploadObjectBytes = async (key: string, bytes: Uint8Array, contentT
   await storage.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: bytes, ContentType: contentType }));
 };
 
-export const uploadUrlForDocument = async (key: string) => {
+export const uploadUrlForDocument = async (key: string, contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') => {
   if (!storage || !bucket) throw new Error('R2 is not configured.');
-  return getSignedUrl(storage, new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }), { expiresIn: 300 });
+  return getSignedUrl(storage, new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }), { expiresIn: 300 });
+};
+export const uploadObjectBytesForDocument = async (key: string, bytes: Uint8Array) => uploadObjectBytes(key, bytes, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+export const copyVerifiedObject = async (sourceKey: string, destinationKey: string, expectedHash: string, expectedSize: number, contentType: string) => {
+  if (!storage || !bucket) throw new Error('R2 is not configured.');
+  await storage.send(new CopyObjectCommand({ Bucket: bucket, Key: destinationKey, CopySource: `${bucket}/${sourceKey}`, ContentType: contentType, MetadataDirective: 'REPLACE' }));
+  try {
+    if (!await verifyObject(destinationKey, expectedHash, expectedSize, contentType)) throw new Error('Copied object does not match the verified source metadata.');
+  } catch (error) {
+    await deleteObject(destinationKey).catch(() => undefined);
+    throw error;
+  }
+};
+export const verifyObject = async (key: string, expectedHash: string, expectedSize: number, contentType: string) => {
+  const metadata = await headObject(key);
+  if (metadata.ContentType !== contentType || metadata.ContentLength !== expectedSize) return false;
+  const bytes = await downloadObjectBytes(key);
+  return bytes.byteLength === expectedSize && createHash('sha256').update(bytes).digest('hex') === expectedHash.toLowerCase();
 };

@@ -35,7 +35,7 @@ export function patientActorFromRequest(request: { header(name: string): string 
   return actorId && isUuid(actorId) ? actorId : null;
 }
 
-export type PatientInput = { fullName?: unknown; email?: unknown; phone?: unknown; cpf?: unknown; notes?: unknown };
+export type PatientInput = { fullName?: unknown; email?: unknown; phone?: unknown; cpf?: unknown; birthDate?: unknown; notes?: unknown };
 
 type ProtectedField = 'email' | 'phone' | 'cpf' | 'notes';
 
@@ -59,6 +59,7 @@ export function patientResponse(row: PatientRow, actorId?: string | null) {
     phone: canDecrypt ? encrypted(row, 'phone') : null,
     cpf: canDecrypt ? encrypted(row, 'cpf') : null,
     notes: canDecrypt ? encrypted(row, 'notes') : null,
+    birthDate: row.birthDate,
     active: !row.deletedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -67,6 +68,7 @@ export function patientResponse(row: PatientRow, actorId?: string | null) {
 
 function validateInput(input: PatientInput, partial = false) {
   if (!partial && (typeof input.fullName !== 'string' || input.fullName.trim().length < 2)) throw new Error('Nome completo é obrigatório.');
+  if (input.birthDate != null && (typeof input.birthDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input.birthDate) || Number.isNaN(new Date(`${input.birthDate}T00:00:00Z`).getTime()) || new Date(`${input.birthDate}T00:00:00Z`).toISOString().slice(0, 10) !== input.birthDate)) throw new Error('Data de nascimento inválida.');
   if (partial && input.fullName !== undefined && (typeof input.fullName !== 'string' || input.fullName.trim().length < 2)) throw new Error('Nome completo é obrigatório.');
   if (input.email != null && (typeof input.email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(input.email) ?? ''))) throw new Error('E-mail inválido.');
   if (input.phone != null && typeof input.phone !== 'string') throw new Error('Telefone inválido.');
@@ -75,6 +77,7 @@ function validateInput(input: PatientInput, partial = false) {
 }
 
 function encryptedColumns(tenantId: string, id: string, input: PatientInput, fields: ProtectedField[] = ['email', 'phone', 'cpf', 'notes']) {
+  void tenantId; void id;
   const result: Record<string, unknown> = {};
   for (const field of fields) {
     const value = field === 'email' ? normalizeEmail(input.email)
@@ -125,7 +128,7 @@ export async function createPatient(tenantId: string, input: PatientInput, actor
   validateInput(input);
   await ensureTenant(tenantId);
   const id = crypto.randomUUID();
-  const [row] = await getDatabase().insert(patients).values({ tenantId, id, fullName: (input.fullName as string).trim(), ...encryptedColumns(tenantId, id, input) }).returning();
+  const [row] = await getDatabase().insert(patients).values({ tenantId, id, fullName: (input.fullName as string).trim(), birthDate: input.birthDate as string | null ?? null, ...encryptedColumns(tenantId, id, input) }).returning();
   return patientResponse(row, actorId);
 }
 
@@ -137,6 +140,7 @@ export async function updatePatient(tenantId: string, id: string, input: Patient
   if (!existing) return null;
   const values: Record<string, unknown> = { updatedAt: new Date() };
   if (input.fullName !== undefined) values.fullName = (input.fullName as string).trim();
+  if (input.birthDate !== undefined) values.birthDate = input.birthDate as string | null;
 
   // Only encrypt fields explicitly present in a patch. This avoids decrypting
   // existing protected values merely to update an unrelated public field.

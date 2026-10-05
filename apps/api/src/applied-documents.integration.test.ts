@@ -141,7 +141,6 @@ integration('Issue #22: Materializar Documento PDF do contrato aplicado', () => 
       tenantId,
       planVersionId: versionId,
       contractId,
-      contractVersion: 1,
       title: 'Termo de Consentimento'
     });
   });
