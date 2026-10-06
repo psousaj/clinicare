@@ -13,7 +13,10 @@ let calls: { url: string; method: string; body: unknown }[];
 
 beforeEach(() => {
   calls = [];
-  routes = { 'GET /api/patients': () => [marina] };
+  routes = {
+    'GET /api/auth/get-session': () => ({ user: { id: 'u1', tenantId: 't1' } }),
+    'GET /api/patients': () => [marina],
+  };
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     const method = init?.method ?? 'GET';
     calls.push({ url, method, body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined });
@@ -40,6 +43,12 @@ function renderAt(path: string) {
 }
 
 describe('Clinic dashboard', () => {
+  it('redirects unauthenticated visitors to login', async () => {
+    routes['GET /api/auth/get-session'] = () => ({ user: null });
+    renderAt('/');
+    expect(await screen.findByRole('heading', { name: 'Entrar na sua clínica' })).toBeInTheDocument();
+  });
+
   it('shows prototype mode, patient entry point and recently attended patients from the API (_id → id)', async () => {
     routes['GET /api/attendances'] = () => [
       { _id: 's2', patientId: { _id: 'p1', fullName: 'Marina Alves' }, procedureName: 'Peeling', performedAt: '2026-09-29T15:00:00Z', schemaSnapshot: {}, photos: [] },
@@ -425,7 +434,7 @@ describe('Attendance page', () => {
 });
 
 describe('Agenda', () => {
-  const appointment = { _id: 'ap1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, items: [{ _id: 'ai1', followupId: 'pl1', followupItemId: 'it1', procedureId: 'pr1', procedureName: 'Limpeza de pele', quantity: 2, minutesEach: 30, confirmationStatus: 'pending' }], startsAt: '2026-09-29T14:00:00Z', endsAt: '2026-09-29T15:00:00Z', status: 'planned', notes: 'Trazer exames' };
+  const appointment = { _id: 'ap1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, items: [{ _id: 'ai1', followupId: 'pl1', followupItemId: 'it1', procedureId: 'pr1', procedureName: 'Limpeza de pele', quantity: 2, minutesEach: 30, confirmationStatus: 'pending' }], startsAt: '2026-10-06T14:00:00Z', endsAt: '2026-10-06T15:00:00Z', status: 'planned', notes: 'Trazer exames' };
   const followup = { _id: 'pl1', patientId: 'p1', offerName: 'Limpeza', priceCents: 1000, payments: [], items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3 }] };
 
   it('opens an appointment directly in the edit dialog and deletes it after confirmation', async () => {

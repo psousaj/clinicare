@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { PDF } from '@libpdf/core';
 
 export type PdfPlacement = {
-  page: number;
+  pageIndex: number;
   x: number;
   y: number;
   width: number;
@@ -43,10 +43,10 @@ const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest(
 export function validatePlacement(placement: unknown, pageCount: number): PdfPlacement {
   if (!placement || typeof placement !== 'object') throw Object.assign(new Error('Posicionamento inválido.'), { status: 400 });
   const value = placement as Record<string, unknown>;
-  const numbers = ['page', 'x', 'y', 'width', 'height'].map((key) => value[key]);
+  const numbers = ['pageIndex', 'x', 'y', 'width', 'height'].map((key) => value[key]);
   if (!numbers.every((item) => typeof item === 'number' && Number.isFinite(item))) throw Object.assign(new Error('Posicionamento inválido.'), { status: 400 });
   const result = value as unknown as PdfPlacement;
-  if (!Number.isInteger(result.page) || result.page < 0 || result.page >= pageCount || result.width <= 0 || result.height <= 0 || result.width > 0.8 || result.height > 0.5 || result.x < 0 || result.y < 0 || result.x + result.width > 1 || result.y + result.height > 1) {
+  if (!Number.isInteger(result.pageIndex) || result.pageIndex < 0 || result.pageIndex >= pageCount || result.width <= 0 || result.height <= 0 || result.x < 0 || result.y < 0 || result.x + result.width > 1 || result.y + result.height > 1) {
     throw Object.assign(new Error('Posicionamento fora dos limites da página.'), { status: 400 });
   }
   return result;
@@ -63,7 +63,7 @@ export async function createIncrementalSignaturePdf(baseBytes: Uint8Array, signa
   if (incrementalBlocker) throw Object.assign(new Error(`Este PDF não permite mutação incremental: ${incrementalBlocker}.`), { status: 409 });
   const pages = pdf.getPages();
   const placement = validatePlacement(placementInput, pages.length);
-  const page = pages[placement.page]!;
+  const page = pages[placement.pageIndex]!;
   const rect = normalizedPlacementToPdfRect(placement, page);
   const image = pdf.embedPng(signaturePng);
   page.drawImage(image, { x: rect.x, y: rect.y, width: rect.width, height: rect.height });

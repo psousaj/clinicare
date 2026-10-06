@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
 import { app } from './app';
-import { closeDatabase, getDatabase, migrateDatabase, patients, procedures, combos, comboItems, followups, followupItems, followupSnapshots, followupContracts, signatureProcesses, signatureParticipants, signatureRevisions, signatureEvents, signatureTokens, appliedAnamneses, payments, tenants, plans, planVersions, planVersionItems, planVersionContracts, contracts, contractVersions, anamneses, anamnesisVersions, anamnesisProcedures } from '@clinicare/db';
+import { buildPatientAad, closeDatabase, encryptValue, getDatabase, migrateDatabase, patients, procedures, combos, comboItems, followups, followupItems, followupSnapshots, followupContracts, signatureProcesses, signatureParticipants, signatureRevisions, signatureEvents, signatureTokens, appliedAnamneses, payments, tenants, plans, planVersions, planVersionItems, planVersionContracts, contracts, contractVersions, anamneses, anamnesisVersions, anamnesisProcedures } from '@clinicare/db';
 
 import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
 let tenantId: string;
@@ -73,13 +73,14 @@ integration('PostgreSQL followups', () => {
     await db.insert(procedures).values({ id: procedureId, tenantId, name: 'Procedimento isolamento', durationMinutes: 30, priceCents: 100, sessionSchema: { type: 'object', properties: {} } });
     await db.insert(combos).values({ id: comboId, tenantId, name: 'Combo isolamento', priceCents: 100 }); await db.insert(comboItems).values({ tenantId, comboId, procedureId, sessions: 1 });
     const created = await (await post('/api/followups', { patientId, offerType: 'combo', offerId: comboId })).json() as any;
-    expect((await app.request(`/api/followups/${created.id}`, { headers: { ...headers, 'x-tenant-id': otherTenantId } })).status).toBe(404);
+    expect((await app.request(`/api/followups/${created.id}`, { headers: otherClinic.headers() })).status).toBe(404);
     expect((await app.request(`/api/followups/${created.id}/state`, { method: 'PATCH', headers, body: JSON.stringify({ status: 'completed' }) })).status).toBe(409);
   });
 
   it('creates plan followups idle and materializes one signature process per contract', async () => {
     const db = getDatabase(); const patientId = crypto.randomUUID(); const procedureId = crypto.randomUUID(); const planId = crypto.randomUUID(); const versionId = crypto.randomUUID(); const contractId = crypto.randomUUID(); const contractVersionId = crypto.randomUUID();
-    await db.insert(patients).values({ id: patientId, tenantId, fullName: 'Plano idle' });
+    const phone = encryptValue('11987654321', buildPatientAad(tenantId, patientId, 'phone', 1));
+    await db.insert(patients).values({ id: patientId, tenantId, fullName: 'Plano idle', phoneCiphertext: phone.ciphertext, phoneNonce: phone.nonce, phoneKeyVersion: 1 });
     await db.insert(procedures).values({ id: procedureId, tenantId, name: 'Procedimento plano', durationMinutes: 30, priceCents: 100, sessionSchema: { type: 'object', properties: {} } });
     await db.insert(plans).values({ id: planId, tenantId, name: 'Plano teste' });
     await db.insert(planVersions).values({ id: versionId, tenantId, planId, version: 1, priceCents: 100 });

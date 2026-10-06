@@ -63,6 +63,11 @@ export const uploadObjectBytes = async (key: string, bytes: Uint8Array, contentT
   if (!storage || !bucket) throw new Error('R2 is not configured.');
   await storage.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: bytes, ContentType: contentType }));
 };
+export const verifyObjectBytes = async (key: string, expectedHash: string, expectedSize: number) => {
+  const bytes = await downloadObjectBytes(key);
+  if (bytes.byteLength !== expectedSize || createHash('sha256').update(bytes).digest('hex') !== expectedHash.toLowerCase()) throw new Error('O objeto não corresponde aos metadados persistidos.');
+  return bytes;
+};
 
 export const uploadUrlForDocument = async (key: string, contentType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') => {
   if (!storage || !bucket) throw new Error('R2 is not configured.');

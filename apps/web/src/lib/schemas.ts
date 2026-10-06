@@ -109,7 +109,7 @@ export const followupSchema = z.looseObject({
   priceCents: z.number(),
   validUntil: z.string().nullish(),
   createdAt: z.string().nullish(),
-  contracts: z.array(z.looseObject({ title: z.string().optional(), signedAt: z.string().nullish() })).default([]),
+  contracts: z.array(z.looseObject({ id: z.string().optional(), title: z.string().optional(), signedAt: z.string().nullish() })).default([]),
   anamneses: z.array(followupAnamnesisSchema).default([]),
   blocked: z.boolean().default(false),
   items: z.array(followupItemSchema),
@@ -190,3 +190,24 @@ export type AttendancePhoto = z.infer<typeof attendancePhotoSchema>;
 export type Appointment = z.infer<typeof appointmentSchema>;
 export type Relationship = z.infer<typeof relationshipSchema>;
 export type PatientHistory = z.infer<typeof patientHistorySchema>;
+
+export const signatureHistorySchema = z.looseObject({
+  process: z.looseObject({ id: z.string(), status: z.string(), statusLabel: z.string(), followupContractId: z.string() }),
+  contract: z.looseObject({ id: z.string(), title: z.string(), version: z.number(), required: z.boolean(), status: z.string() }),
+  document: z.looseObject({
+    id: z.string(),
+    currentRevisionId: z.string().nullish(),
+    hasExternalSignatures: z.boolean().optional(),
+    revisions: z.array(z.looseObject({
+      id: z.string(), version: z.number(), originLabel: z.string(), hash: z.string(),
+      createdAt: z.string(), downloadUrl: z.string().nullish(),
+      promotedBy: z.looseObject({ role: z.string(), methodLabel: z.string() }).nullish(),
+    })).default([]),
+  }).nullish(),
+  participants: z.array(z.looseObject({ id: z.string(), role: z.string(), roleLabel: z.string(), status: z.string(), statusLabel: z.string(), signedAt: z.string().nullish() })).default([]),
+  operations: z.array(z.looseObject({ id: z.string(), methodLabel: z.string(), statusLabel: z.string(), createdAt: z.string(), confirmedAt: z.string().nullish() })).default([]),
+  externalAttempts: z.array(z.looseObject({ id: z.string(), lifecycleLabel: z.string(), validationLabel: z.string().nullish() })).default([]),
+  events: z.array(z.looseObject({ id: z.string(), label: z.string(), occurredAt: z.string(), method: z.string().nullish(), revision: z.string().nullish(), actor: z.looseObject({ role: z.string(), name: z.string() }) })).default([]),
+  notice: z.string().optional(),
+});
+export type SignatureHistory = z.infer<typeof signatureHistorySchema>;

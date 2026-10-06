@@ -139,7 +139,35 @@
       "idx": 19,
       "version": "7",
       "when": 1791010851390,
-      "tag": "0019_docx_contract_authoring",
+      "tag": "0019_signature_local_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791304567876,
+      "tag": "0020_external_signature_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791305406095,
+      "tag": "0021_external_method_vocabulary",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791305406096,
+      "tag": "0022_pg_trgm_public_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1791010851391,
+      "tag": "0023_docx_contract_authoring",
       "breakpoints": true
     }
   ]

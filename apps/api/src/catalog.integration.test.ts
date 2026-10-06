@@ -55,7 +55,7 @@ integration('catalog API with PostgreSQL', () => {
     await request(a!, `/api/procedures/${p.id}`, 'PUT', { sessionSchema: { ...schema, properties: { x: { type: 'boolean' } } }, expectedVersion: 1 });
     const stale = await request(a!, `/api/procedures/${p.id}`, 'PUT', { sessionSchema: schema, expectedVersion: 1 }); expect(stale.status).toBe(409);
     expect((await request(b!, `/api/procedures/${p.id}`)).status).toBe(404);
-    expect((await request('00000000-0000-0000-0000-000000000099', '/api/procedures')).status).toBe(400);
+    expect((await app.request('/api/procedures', { headers: { 'x-tenant-id': '00000000-0000-0000-0000-000000000099' } })).status).toBe(401);
     const c = await (await request(a!, '/api/contracts', 'POST', { title: 'Restore contract', kind: 'standard', content: 'one' })).json() as any;
     await request(a!, `/api/contracts/${c.id}/versions`, 'POST', { content: 'two', expectedVersion: 1 });
     expect((await request(a!, `/api/contracts/${c.id}/versions`, 'POST', { restoreVersion: 1, expectedVersion: 2 })).status).toBe(201);

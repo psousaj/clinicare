@@ -16,7 +16,9 @@ ALTER TABLE contract_versions ADD COLUMN IF NOT EXISTS context_configuration jso
 ALTER TABLE contract_versions ADD COLUMN IF NOT EXISTS allowed_placeholders jsonb;
 ALTER TABLE contract_versions ADD COLUMN IF NOT EXISTS required_placeholders jsonb;
 ALTER TABLE plan_version_contracts DROP CONSTRAINT IF EXISTS plan_version_contracts_tenant_contract_version_fk;
-ALTER TABLE plan_version_contracts DROP COLUMN IF EXISTS contract_version;
+ALTER TABLE plan_version_contracts DROP CONSTRAINT IF EXISTS plan_version_contracts_version_positive;
+ALTER TABLE plan_version_contracts ADD COLUMN IF NOT EXISTS contract_version integer;
+ALTER TABLE plan_version_contracts ALTER COLUMN contract_version DROP NOT NULL;
 ALTER TABLE followups ADD COLUMN IF NOT EXISTS contract_application_date date;
 ALTER TABLE followup_contracts ADD COLUMN IF NOT EXISTS materialization_context_ciphertext text;
 ALTER TABLE followup_contracts ADD COLUMN IF NOT EXISTS materialization_context_nonce text;

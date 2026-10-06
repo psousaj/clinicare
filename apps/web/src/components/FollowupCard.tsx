@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { FileSignature } from 'lucide-react';
+import { ContractSignatureHistory } from '@/components/ContractSignatureHistory';
 import { StatusBadge } from '@/components/StatusBadge';
 import { currency } from '@/lib/format';
 import type { Followup } from '@/lib/schemas';
@@ -38,7 +39,10 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
       {followup.contracts.length > 0 && (
         <ul className="m-0 mt-2 grid list-none gap-1 p-0 text-xs text-muted-foreground" aria-label={`Contratos de ${followup.offerName}`}>
           {followup.contracts.map((contract, index) => (
-            <li key={index} className="flex items-center gap-2"><FileSignature className="size-3.5" /> {contract.title} · {contract.signedAt ? 'assinado' : 'assinatura pendente'}</li>
+            <li key={index} className="grid gap-1">
+              <span className="flex items-center gap-2"><FileSignature className="size-3.5" /> {contract.title} · {contract.signedAt ? 'assinado' : 'assinatura pendente'}</span>
+              {contract.id && <ContractSignatureHistory followupContractId={contract.id} title={contract.title ?? 'Contrato'} />}
+            </li>
           ))}
         </ul>
       )}

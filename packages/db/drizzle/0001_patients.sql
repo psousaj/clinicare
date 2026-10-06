@@ -1,4 +1,4 @@
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
+CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public;
 CREATE TABLE IF NOT EXISTS "patients" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
   "tenant_id" uuid NOT NULL REFERENCES "tenants"("id"),
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS "patients" (
   "updated_at" timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT "patients_full_name_not_empty" CHECK (length(trim("full_name")) >= 2)
 );
-CREATE INDEX IF NOT EXISTS "patients_tenant_full_name_trgm" ON "patients" USING gin ("full_name" gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS "patients_tenant_full_name_trgm" ON "patients" USING gin ("full_name" public.gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS "patients_tenant_id_idx" ON "patients" ("tenant_id");
 CREATE UNIQUE INDEX IF NOT EXISTS "patients_active_email_unique" ON "patients" ("tenant_id", "email_search_hash") WHERE "deleted_at" IS NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS "patients_active_phone_unique" ON "patients" ("tenant_id", "phone_search_hash") WHERE "deleted_at" IS NULL;
