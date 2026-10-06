@@ -7,7 +7,7 @@ import {
   followupSnapshots, followups, getDatabase, migrateDatabase, patients,
   planVersionContracts, planVersionItems, planVersions, plans, procedures,
   signatureEvents, signatureEvidence, signatureOperations,
-  signatureParticipants, signatureProcesses, signatureRevisions,
+  signatureParticipants, signaturePreviewCandidates, signatureProcesses, signatureRevisions,
   signatureTokens, tenants, encryptValue, buildPatientAad
 } from '@clinicare/db';
 import {
@@ -143,7 +143,7 @@ integration('Issue #23: Entregar assinatura manuscrita local do paciente', () =>
     const db = getDatabase();
     for (const table of [
       signatureEvidence, signatureEvents, signatureRevisions, signatureOperations,
-      signatureTokens, signatureParticipants, signatureProcesses
+      signaturePreviewCandidates, signatureTokens, signatureParticipants, signatureProcesses
     ]) {
       await db.delete(table as any).where(eq((table as any).tenantId, tenantId));
       await db.delete(table as any).where(eq((table as any).tenantId, otherTenantId));
@@ -213,8 +213,8 @@ integration('Issue #23: Entregar assinatura manuscrita local do paciente', () =>
 
     const idempotencyKey = randomUUID();
     const placement = { pageIndex: 0, x: 0.1, y: 0.2, width: 0.25, height: 0.12 };
-    const browserIdentity = await request(`/api/signature-participants/${professionalParticipantId}/confirm`, { method: 'POST', body: JSON.stringify({ userId: 'attacker', evidence: { documentId, baseRevisionId, signaturePng: pngDataUrl, placement, idempotencyKey: randomUUID(), confirmed: true, acceptanceText: 'aceito' } }) });
-    expect([403, 404, 409]).toContain(browserIdentity.status);
+    const browserIdentity = await app.request(`/api/signature-participants/${professionalParticipantId}/confirm`, { method: 'POST', body: JSON.stringify({ userId: 'attacker', evidence: { documentId, baseRevisionId, signaturePng: pngDataUrl, placement, idempotencyKey: randomUUID(), confirmed: true, acceptanceText: 'aceito' } }) });
+    expect(browserIdentity.status).toBe(401);
 
     const payload = {
       baseRevisionId,
@@ -233,14 +233,17 @@ integration('Issue #23: Entregar assinatura manuscrita local do paciente', () =>
     };
 
     // Duas confirmações concorrentes da mesma revisão: uma vence e a outra
-    // permanece como tentativa stale sem promover o HEAD.
-    const previewResponse = await request(`/public/signatures/${patientToken}/preview`, json({ ...payload, previewOnly: true }));
-    expect(previewResponse.status).toBe(200);
-    const previewHash = previewResponse.headers.get('etag')!.replaceAll('"', '');
-    const concurrentPayloads = [
-      { ...payload, previewHash, idempotencyKey: randomUUID() },
-      { ...payload, previewHash, idempotencyKey: randomUUID() },
-    ];
+    // permanece como tentativa stale sem promover o HEAD. Cada tentativa gera
+    // sua própria prévia com sua própria chave de idempotência, como faria um
+    // cliente real antes de confirmar.
+    const concurrentPayloads: Array<typeof payload & { previewHash: string }> = [];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const attemptPayload = { ...payload, idempotencyKey: randomUUID() };
+      const previewResponse = await request(`/public/signatures/${patientToken}/preview`, json({ ...attemptPayload, previewOnly: true }));
+      expect(previewResponse.status).toBe(200);
+      const previewHash = previewResponse.headers.get('etag')!.replaceAll('"', '');
+      concurrentPayloads.push({ ...attemptPayload, previewHash });
+    }
     const concurrentResponses = await Promise.all(concurrentPayloads.map((evidence) => request(`/public/signatures/${patientToken}/confirm`, json({ evidence }))));
     expect(concurrentResponses.filter((response) => response.status === 200)).toHaveLength(1);
     expect(concurrentResponses.filter((response) => response.status === 409)).toHaveLength(1);
@@ -281,10 +284,13 @@ integration('Issue #23: Entregar assinatura manuscrita local do paciente', () =>
     expect(staleOperation.fingerprint).toBeTruthy();
     expect(operations.find((operation) => operation.status === 'confirmed')!.candidateHash).toBe(rev2.contentHash);
 
-    // Concorrência / conflito: tentativa com baseRevisionId antiga resulta em STALE_DOCUMENT_REVISION (409)
+    // Concorrência / conflito: tentativa com baseRevisionId antiga resulta em STALE_DOCUMENT_REVISION (409).
+    // A validação de revisão-base ocorre antes da checagem de correspondência de
+    // prévia, então basta reutilizar um previewHash de uma prévia já consumida
+    // junto com o baseRevisionId original, agora desatualizado.
     const stalePayload = {
       ...payload,
-      previewHash,
+      previewHash: concurrentPayloads[0]!.previewHash,
       idempotencyKey: randomUUID()
     };
     const staleRes = await request(`/public/signatures/${patientToken}/confirm`, json({ evidence: stalePayload }));

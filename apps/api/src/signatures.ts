@@ -12,7 +12,28 @@ const previewExpiry = () => new Date(Date.now() + 15 * 60_000);
 
 const hashToken = (token: string) => createHash('sha256').update(token).digest('hex');
 const hashBytes = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
-const hashJson = (value: unknown) => hashBytes(new TextEncoder().encode(JSON.stringify(value)));
+/**
+ * JSONB round-trips through PostgreSQL normalize object key order (keys are
+ * serialized alphabetically), while values freshly built in JavaScript keep
+ * their original insertion order. Plain `JSON.stringify` equality therefore
+ * spuriously fails when comparing a value just read from the database
+ * against an equivalent value built in the request. Canonicalize both sides
+ * by recursively sorting object keys before stringifying/hashing so
+ * structurally-equal values always compare equal regardless of origin.
+ */
+const canonicalJson = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(canonicalJson);
+  if (value && typeof value === 'object') {
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+      sorted[key] = canonicalJson((value as Record<string, unknown>)[key]);
+    }
+    return sorted;
+  }
+  return value;
+};
+const stableStringify = (value: unknown) => JSON.stringify(canonicalJson(value));
+const hashJson = (value: unknown) => hashBytes(new TextEncoder().encode(stableStringify(value)));
 const expiry = () => new Date(Date.now() + 7 * 86400000);
 const invalid = (message: string, status = 400) => Object.assign(new Error(message), { status });
 const contentAad = (tenantId: string, contractId: string, keyVersion?: number) => buildProtectedAad(tenantId, 'followup_contracts', contractId, 'content', keyVersion);
@@ -268,7 +289,7 @@ export async function signWithToken(token: string, input: unknown, actor?: Clini
     let previewId: string | undefined;
     if (prepared.previewHash) {
       const preview = (await db.select().from(signaturePreviewCandidates).where(and(eq(signaturePreviewCandidates.tenantId, context.participant.tenantId), eq(signaturePreviewCandidates.participantId, context.participant.id), eq(signaturePreviewCandidates.documentId, document.document.id), eq(signaturePreviewCandidates.baseRevisionId, document.revision.id), eq(signaturePreviewCandidates.idempotencyKey, prepared.idempotencyKey), eq(signaturePreviewCandidates.contentHash, prepared.previewHash))))[0];
-      if (!preview || preview.expiresAt <= new Date() || preview.signatureImageHash !== signatureImageHash || JSON.stringify(preview.placement) !== JSON.stringify(prepared.placement) || hashJson(preview.fingerprint) !== hashJson(prepared.fingerprint)) throw invalid('A prévia do PDF não corresponde à confirmação.', 409);
+      if (!preview || preview.expiresAt <= new Date() || preview.signatureImageHash !== signatureImageHash || stableStringify(preview.placement) !== stableStringify(prepared.placement) || hashJson(preview.fingerprint) !== hashJson(prepared.fingerprint)) throw invalid('A prévia do PDF não corresponde à confirmação.', 409);
       candidateKey = preview.objectKey;
       candidateHash = preview.contentHash;
       candidateSize = preview.contentSize;
