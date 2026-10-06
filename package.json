@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "bun --env-file=.env run turbo run dev",
     "dev:web": "turbo run dev --filter=@clinicare/web",
     "dev:api": "turbo run dev --filter=@clinicare/api",
     "debug:api": "turbo run dev:debug --filter=@clinicare/api",
