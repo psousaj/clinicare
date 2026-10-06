@@ -203,7 +203,114 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
 
   if (submitted) return <PublicShell><section className="public-form-card"><h1>Assinatura registrada</h1><p>O contrato foi confirmado e a clínica recebeu o registro da operação.</p></section></PublicShell>;
   const geometry = displayGeometry ?? pageGeometries[page];
-  return <PublicShell><main className="mx-auto grid max-w-5xl gap-5"><header><div className="section-kicker">ASSINATURA ELETRÔNICA</div><h1>{signature.contract?.title ?? 'Contrato aplicado'}</h1><p>Revise todas as páginas, desenhe sua assinatura e confirme quando estiver satisfeito.</p></header><section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]"><div className="overflow-auto rounded-2xl border bg-white p-3 shadow-sm"><div className="mb-3 flex flex-wrap gap-2" aria-label="Páginas do contrato">{Array.from({ length: pageCount }, (_, index) => <Button key={index} type="button" size="sm" variant={index === page ? 'default' : 'outline'} onClick={() => { setPreviewUrl(null); setPreviewHash(null); setPreviewPlacement(null); setPage(index); }}>Página {index + 1}</Button>)}</div>{pdfError && <p className="mb-3 text-sm text-destructive" role="alert">{pdfError}</p>}<div ref={pageContainerRef} className="relative mx-auto w-fit"><canvas ref={pageCanvasRef} className="block" style={{ maxWidth: '100%', height: 'auto' }} aria-label={`Página ${page + 1} do contrato PDF`} />{geometry && <Rnd bounds="parent" size={{ width: position.width, height: position.height }} position={{ x: position.x, y: position.y }} minWidth={Math.min(80, geometry.width)} minHeight={Math.min(40, geometry.height)} maxWidth={geometry.width} maxHeight={geometry.height} onDragStop={(_, data) => { setPreviewUrl(null); setPreviewHash(null); setPreviewPlacement(null); setPosition((old) => ({ ...old, x: data.x, y: data.y })); }} onResizeStop={(_, __, ref, ___, data) => { setPreviewUrl(null); setPreviewHash(null); setPreviewPlacement(null); setPosition({ x: data.x, y: data.y, width: ref.offsetWidth, height: ref.offsetHeight }); }} className="border-2 border-dashed border-[#26785f] bg-[#e8f2ed]/70" aria-label="Posição da assinatura"><span className="p-1 text-xs font-semibold text-[#194d40]">Sua assinatura</span></Rnd>}</div></div><aside className="public-form-card h-fit"><h2>Assinatura</h2><canvas ref={signatureCanvasRef} className="mt-3 h-40 w-full touch-none rounded-xl border bg-white" aria-label="Área para desenhar sua assinatura" /><div className="mt-3 flex gap-2"><Button type="button" variant="outline" onClick={clear}>Limpar</Button><Button type="button" onClick={capture}>Usar assinatura</Button></div><Button type="button" variant="outline" className="mt-3 w-full" disabled={!image || !geometry} onClick={() => void preview()}>Visualizar prévia do PDF</Button>{previewUrl && <iframe className="mt-3 h-64 w-full rounded-xl border" title="Prévia do PDF candidato" src={previewUrl} />}{image && <p className="mt-3 text-sm text-muted-foreground">Assinatura pronta. Você pode reposicioná-la e redimensioná-la no PDF.</p>}<label className="mt-4 flex items-start gap-2 text-sm"><input type="checkbox" checked={consentGiven} onChange={(event) => setConsentGiven(event.target.checked)} /><span>Confirmo que revisei o contrato e autorizo o registro da assinatura visual.</span></label>{message && <p className="mt-3 text-sm text-destructive" role="alert">{message}</p>}<Button className="mt-4 w-full" type="button" disabled={!image || !consentGiven || !geometry || !previewUrl} onClick={() => void confirm()}>Confirmar assinatura</Button></aside></section></main></PublicShell>;
+  return <PublicShell><main className="mx-auto grid max-w-5xl gap-5"><header><div className="section-kicker">ASSINATURA ELETRÔNICA</div><h1>{signature.contract?.title ?? 'Contrato aplicado'}</h1><p>Revise todas as páginas, desenhe sua assinatura e confirme quando estiver satisfeito.</p></header><section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]"><div className="overflow-auto rounded-2xl border bg-white p-3 shadow-sm"><div className="mb-3 flex flex-wrap gap-2" aria-label="Páginas do contrato">{Array.from({ length: pageCount }, (_, index) => <Button key={index} type="button" size="sm" variant={index === page ? 'default' : 'outline'} onClick={() => { setPreviewUrl(null); setPreviewHash(null); setPreviewPlacement(null); setPage(index); }}>Página {index + 1}</Button>)}</div>{pdfError && <p className="mb-3 text-sm text-destructive" role="alert">{pdfError}</p>}<div ref={pageContainerRef} className="relative mx-auto w-fit"><canvas ref={pageCanvasRef} className="block" style={{ maxWidth: '100%', height: 'auto' }} aria-label={`Página ${page + 1} do contrato PDF`} />{geometry && <Rnd bounds="parent" size={{ width: position.width, height: position.height }} position={{ x: position.x, y: position.y }} minWidth={Math.min(80, geometry.width)} minHeight={Math.min(40, geometry.height)} maxWidth={geometry.width} maxHeight={geometry.height} onDragStop={(_, data) => { setPreviewUrl(null); setPreviewHash(null); setPreviewPlacement(null); setPosition((old) => ({ ...old, x: data.x, y: data.y })); }} onResizeStop={(_, __, ref, ___, data) => { setPreviewUrl(null); setPreviewHash(null); setPreviewPlacement(null); setPosition({ x: data.x, y: data.y, width: ref.offsetWidth, height: ref.offsetHeight }); }} className="border-2 border-dashed border-[#26785f] bg-[#e8f2ed]/70" aria-label="Posição da assinatura"><span className="p-1 text-xs font-semibold text-[#194d40]">Sua assinatura</span></Rnd>}</div></div><aside className="public-form-card h-fit"><h2>Assinatura</h2><canvas ref={signatureCanvasRef} className="mt-3 h-40 w-full touch-none rounded-xl border bg-white" aria-label="Área para desenhar sua assinatura" /><div className="mt-3 flex gap-2"><Button type="button" variant="outline" onClick={clear}>Limpar</Button><Button type="button" onClick={capture}>Usar assinatura</Button></div><Button type="button" variant="outline" className="mt-3 w-full" disabled={!image || !geometry} onClick={() => void preview()}>Visualizar prévia do PDF</Button>{previewUrl && <iframe className="mt-3 h-64 w-full rounded-xl border" title="Prévia do PDF candidato" src={previewUrl} />}{image && <p className="mt-3 text-sm text-muted-foreground">Assinatura pronta. Você pode reposicioná-la e redimensioná-la no PDF.</p>}<label className="mt-4 flex items-start gap-2 text-sm"><input type="checkbox" checked={consentGiven} onChange={(event) => setConsentGiven(event.target.checked)} /><span>Confirmo que revisei o contrato e autorizo o registro da assinatura visual.</span></label>{message && <p className="mt-3 text-sm text-destructive" role="alert">{message}</p>}<Button className="mt-4 w-full" type="button" disabled={!image || !consentGiven || !geometry || !previewUrl} onClick={() => void confirm()}>Confirmar assinatura</Button></aside></section><GovBrSection token={token} signature={signature} /></main></PublicShell>;
+}
+
+type GovBrState =
+  | { step: 'idle' }
+  | { step: 'exported'; attemptId: string; exportHash: string }
+  | { step: 'imported'; attemptId: string; receiptId: string; validationStatus: string; reason: string | null; signerName: string | null }
+  | { step: 'done' };
+
+function GovBrSection({ token, signature }: { token: string; signature: Signature }) {
+  const [state, setState] = useState<GovBrState>({ step: 'idle' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [consent, setConsent] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function postJson(path: string, body: unknown) {
+    const response = await fetch(path, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error((payload as { error?: string }).error ?? 'Operação indisponível no momento.');
+    return payload as Record<string, unknown>;
+  }
+
+  async function exportRevision() {
+    setBusy(true); setError(null);
+    try {
+      const fingerprint = await collectFingerprint();
+      const payload = await postJson(`/public/signatures/${token}/external/export`, {
+        documentId: signature.document!.id, baseRevisionId: signature.document!.revisionId,
+        idempotencyKey: crypto.randomUUID(), fingerprint,
+      });
+      setState({ step: 'exported', attemptId: payload.attemptId as string, exportHash: payload.exportHash as string });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Não foi possível reservar a exportação.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function importReturn(file: File, attemptId: string) {
+    setBusy(true); setError(null);
+    try {
+      const buffer = new Uint8Array(await file.arrayBuffer());
+      let binary = '';
+      for (let i = 0; i < buffer.length; i += 0x8000) binary += String.fromCharCode(...buffer.subarray(i, i + 0x8000));
+      const fingerprint = await collectFingerprint();
+      const payload = await postJson(`/public/signatures/${token}/external/import`, { attemptId, pdfBase64: btoa(binary), fingerprint });
+      setState({
+        step: 'imported', attemptId, receiptId: payload.receiptId as string,
+        validationStatus: payload.validationStatus as string, reason: (payload.reason as string | null) ?? null,
+        signerName: ((payload.signer as { commonName?: string } | null)?.commonName) ?? null,
+      });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Não foi possível importar o retorno.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function acceptReturn(attemptId: string) {
+    setBusy(true); setError(null);
+    try {
+      const fingerprint = await collectFingerprint();
+      await postJson(`/public/signatures/${token}/external/confirm`, {
+        attemptId, idempotencyKey: crypto.randomUUID(), fingerprint,
+        acceptanceText: 'Confirmo a assinatura realizada no GOV.BR', confirmed: true,
+      });
+      setState({ step: 'done' });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Não foi possível confirmar a assinatura externa.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function cancelAttempt(attemptId: string) {
+    setBusy(true); setError(null);
+    try {
+      await postJson(`/public/signatures/${token}/external/cancel`, { attemptId });
+      setState({ step: 'idle' });
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Não foi possível cancelar a tentativa.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (state.step === 'done') {
+    return <section className="public-form-card" aria-label="Assinatura pelo GOV.BR"><h2>Assinatura pelo GOV.BR</h2><p>Retorno validado e incorporado ao contrato. A clínica recebeu o registro da operação.</p></section>;
+  }
+  return <section className="public-form-card" aria-label="Assinatura pelo GOV.BR">
+    <h2>Assinar pelo GOV.BR</h2>
+    <p>Alternativa à assinatura desenhada: baixe a revisão atual, assine no portal oficial do GOV.BR sem informar senhas aqui e importe o PDF retornado na mesma tentativa. Somente retornos validados concluem a etapa.</p>
+    {state.step === 'idle' && <Button className="mt-4" type="button" disabled={busy} onClick={() => void exportRevision()}>{busy ? 'Reservando…' : 'Exportar revisão para o GOV.BR'}</Button>}
+    {state.step === 'exported' && <div className="mt-4 grid gap-3">
+      <p className="text-sm">Revisão reservada. <a className="underline" href={`/public/signatures/${token}/external/${state.attemptId}/file`}>Baixar o PDF exato da revisão</a>, assine no portal GOV.BR e importe o arquivo retornado abaixo.</p>
+      <label className="grid gap-2 text-sm font-medium" htmlFor="govbr-return">PDF retornado pelo GOV.BR<input ref={fileRef} id="govbr-return" type="file" accept="application/pdf" disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ''; if (file) void importReturn(file, state.attemptId); }} /></label>
+      <Button type="button" variant="outline" disabled={busy} onClick={() => void cancelAttempt(state.attemptId)}>Cancelar tentativa</Button>
+    </div>}
+    {state.step === 'imported' && <div className="mt-4 grid gap-3">
+      <p className="text-sm">Resultado da validação: <strong>{state.validationStatus}</strong>{state.signerName ? ` — signatário identificado: ${state.signerName}` : ''}{state.reason && state.reason !== 'ok' ? ` (${state.reason})` : ''}</p>
+      {state.validationStatus === 'validada'
+        ? <><label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /><span>Confirmo que assinei este documento no GOV.BR e autorizo a incorporação do retorno validado.</span></label><Button type="button" disabled={busy || !consent} onClick={() => void acceptReturn(state.attemptId)}>{busy ? 'Confirmando…' : 'Confirmar retorno validado'}</Button></>
+        : <p className="text-sm text-destructive">O retorno não foi validado e não conclui a assinatura. Ele fica preservado no histórico; exporte novamente após assinar o arquivo correto.</p>}
+      <Button type="button" variant="outline" disabled={busy} onClick={() => void cancelAttempt(state.attemptId)}>Cancelar tentativa</Button>
+    </div>}
+    {error && <p className="mt-3 text-sm text-destructive" role="alert">{error}</p>}
+  </section>;
 }
 
 function PublicShell({ children }: { children: React.ReactNode }) { return <div className="min-h-screen bg-[#f7f8f5] px-5 py-8 text-[#25312d] md:px-8 md:py-12">{children}</div>; }

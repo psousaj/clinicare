@@ -101,4 +101,32 @@ describe('patient signature workspace', () => {
 
     expect(await screen.findByText(/O documento foi atualizado antes da confirmação/i)).toBeInTheDocument();
   });
+
+  it('walks through the GOV.BR export, import and validated acceptance', async () => {
+    globalThis.fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === '/public/signatures/test-token') return { ok: true, status: 200, json: async () => signatureResponse() };
+      if (url === '/public/signatures/test-token/external/export') return { ok: true, status: 200, json: async () => ({ attemptId: 'attempt-1', exportHash: 'a'.repeat(64), exportSize: 100, expiresAt: new Date(Date.now() + 3600000).toISOString() }) };
+      if (url === '/public/signatures/test-token/external/import') return { ok: true, status: 200, json: async () => ({ receiptId: 'receipt-1', attemptId: 'attempt-1', validationStatus: 'validada', reason: 'ok', signer: { commonName: 'Paciente Teste' }, certificateFingerprint: 'b'.repeat(64) }) };
+      if (url === '/public/signatures/test-token/external/confirm') {
+        const body = JSON.parse(init?.body as string);
+        expect(body.confirmed).toBe(true);
+        expect(body.attemptId).toBe('attempt-1');
+        return { ok: true, status: 200, json: async () => ({ signed: true }) };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    }) as unknown as typeof fetch;
+
+    const user = userEvent.setup();
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Assinar pelo GOV.BR' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Exportar revisão para o GOV.BR' }));
+    expect(await screen.findByText(/Baixar o PDF exato da revisão/i)).toBeInTheDocument();
+    const file = new File(['%PDF-1.4 signed'], 'retorno.pdf', { type: 'application/pdf' });
+    await user.upload(screen.getByLabelText(/PDF retornado pelo GOV.BR/i), file);
+    expect(await screen.findByText(/validada/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Paciente Teste/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox', { name: /assinei este documento no GOV.BR/i }));
+    await user.click(screen.getByRole('button', { name: 'Confirmar retorno validado' }));
+    expect(await screen.findByText(/Retorno validado e incorporado/i)).toBeInTheDocument();
+  });
 });

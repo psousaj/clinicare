@@ -1,11 +1,12 @@
 import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import {
-  appliedDocuments, appliedDocumentRevisions, buildProtectedAad, decryptValue, encryptValue, getDatabase, followupContracts, followups, patients,
-  signatureEvents, signatureEvidence, signatureOperations, signatureParticipants, signatureProcesses, signatureRevisions, signatureTokens, signaturePreviewCandidates, tenants,
+  appliedDocuments, appliedDocumentRevisions, buildPatientAad, buildProtectedAad, decryptValue, encryptValue, getDatabase, followupContracts, followups, patients,
+  signatureEvents, signatureEvidence, signatureExternalAttempts, signatureExternalReceipts, signatureOperations, signatureParticipants, signatureProcesses, signatureRevisions, signatureTokens, signaturePreviewCandidates, tenants,
 } from '@clinicare/db';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createIncrementalSignaturePdf, validatePlacement, type PdfPlacement } from './pdf-mutation';
 import { normalizeEvidence } from './signature-evidence';
+import { loadTrustedRootFiles, loadTrustedRootsFromEnv, validateExternalReturn, type ExpectedSigner } from './external-validation';
 import { deleteObject, downloadObjectBytes, uploadObjectBytes, verifyObjectBytes } from './storage';
 
 const previewExpiry = () => new Date(Date.now() + 15 * 60_000);
@@ -466,4 +467,432 @@ export async function previewSignatureAsClinicRepresentative(participantId: stri
 export async function listPendingSignatures(tenantId: string) {
   const rows = await getDatabase().select({ participant: signatureParticipants, process: signatureProcesses, contract: followupContracts, followup: followups, patient: patients }).from(signatureParticipants).innerJoin(signatureProcesses, and(eq(signatureProcesses.tenantId, signatureParticipants.tenantId), eq(signatureProcesses.id, signatureParticipants.processId))).innerJoin(followupContracts, and(eq(followupContracts.tenantId, signatureProcesses.tenantId), eq(followupContracts.id, signatureProcesses.followupContractId))).innerJoin(followups, and(eq(followups.tenantId, followupContracts.tenantId), eq(followups.id, followupContracts.followupId))).innerJoin(patients, and(eq(patients.tenantId, followups.tenantId), eq(patients.id, followups.patientId))).where(and(eq(signatureParticipants.tenantId, tenantId), eq(signatureParticipants.status, 'pending'), eq(signatureProcesses.status, 'pending'), sql`${followups.status} not in ('cancelled', 'completed')`)).orderBy(desc(signatureParticipants.createdAt));
   return rows.map((row: any) => ({ participantId: row.participant.id, role: row.participant.role, status: row.participant.status, followupId: row.contract.followupId, contractId: row.contract.id, title: row.contract.titleSnapshot, blocking: row.participant.role === 'patient' && row.contract.required, patient: { id: row.patient.id, fullName: row.patient.fullName } }));
+}
+
+/* ------------------------------------------------------------------ */
+/* Assinatura externa (GOV.BR) — Issue #26                             */
+/*                                                                     */
+/* Fluxo exportar → assinar fora → importar → aceitar. A aplicação     */
+/* nunca faz login no portal, nunca recebe credenciais e nunca aceita  */
+/* status declarado pelo navegador: a classificação do retorno deriva */
+/* exclusivamente do validador criptográfico real                      */
+/* (`external-validation.ts`). Somente `validated` promove revisão.   */
+/* ------------------------------------------------------------------ */
+
+const externalReservationMs = 24 * 3600_000;
+const externalImportMaxBytes = 15 * 1024 * 1024;
+
+export const externalValidationPt: Record<string, string> = {
+  validated: 'validada',
+  invalid: 'inválida',
+  indeterminate: 'indeterminada',
+  unsupported: 'não suportada',
+};
+
+async function externalTrustedRoots(): Promise<string[]> {
+  const fromEnv = loadTrustedRootsFromEnv(process.env as Record<string, string | undefined>);
+  const file = (process.env as Record<string, string | undefined>).GOVBR_TRUSTED_ROOTS_FILE;
+  if (!file) return fromEnv;
+  return [...fromEnv, ...(await loadTrustedRootFiles([file]))];
+}
+
+function externalExportInput(input: unknown) {
+  if (!input || typeof input !== 'object') throw invalid('Exportação inválida.');
+  const value = input as Record<string, unknown>;
+  if (typeof value.documentId !== 'string' || !uuid.test(value.documentId)) throw invalid('Documento inválido.');
+  if (typeof value.baseRevisionId !== 'string' || !uuid.test(value.baseRevisionId)) throw invalid('Revisão-base inválida.');
+  if (typeof value.idempotencyKey !== 'string' || value.idempotencyKey.trim().length < 8 || value.idempotencyKey.length > 200) throw invalid('Chave de idempotência inválida.');
+  return { documentId: value.documentId, baseRevisionId: value.baseRevisionId, idempotencyKey: value.idempotencyKey, fingerprint: fingerprintValue(value.fingerprint) };
+}
+
+function externalConfirmInput(input: unknown) {
+  if (!input || typeof input !== 'object') throw invalid('Confirmação externa inválida.');
+  const value = input as Record<string, unknown>;
+  if (typeof value.attemptId !== 'string' || !uuid.test(value.attemptId)) throw invalid('Tentativa inválida.');
+  if (typeof value.idempotencyKey !== 'string' || value.idempotencyKey.trim().length < 8 || value.idempotencyKey.length > 200) throw invalid('Chave de idempotência inválida.');
+  const acceptanceText = typeof value.acceptanceText === 'string' ? value.acceptanceText.trim() : '';
+  if (value.confirmed !== true || !acceptanceText) throw invalid('A confirmação explícita e o texto de aceite são obrigatórios.');
+  return { attemptId: value.attemptId, idempotencyKey: value.idempotencyKey, acceptanceText, fingerprint: fingerprintValue(value.fingerprint) };
+}
+
+type ExternalAccess = { participant: any; contract: any; process: any; followup: any; token: any };
+
+async function externalAccessContext(tx: any, access: string, actor?: ClinicSignatureActor): Promise<ExternalAccess> {
+  const found = access.startsWith('participant:')
+    ? await lockedParticipantContext(tx, access.slice('participant:'.length), actor!)
+    : await lockedTokenContext(tx, access);
+  if (found.participant.role === 'patient' && !found.token?.phoneVerifiedAt) {
+    throw invalid('Os quatro últimos dígitos do telefone devem ser confirmados antes da assinatura externa.', 403);
+  }
+  return { participant: found.participant, contract: found.contract, process: found.process, followup: found.followup, token: (found as { token?: unknown }).token ?? null };
+}
+
+/** Variante por identificadores para a fase de validação fora de transação. */
+async function expectedExternalSignerById(tx: any, tenantId: string, participantId: string, contractId: string, actor?: ClinicSignatureActor): Promise<ExpectedSigner> {
+  const participant = (await tx.select().from(signatureParticipants).where(and(eq(signatureParticipants.tenantId, tenantId), eq(signatureParticipants.id, participantId))))[0];
+  if (!participant) return {};
+  if (participant.role === 'professional') {
+    return actor ? { emails: [actor.user.email] } : {};
+  }
+  const contract = (await tx.select().from(followupContracts).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.id, contractId))))[0];
+  if (!contract) return {};
+  return expectedExternalSigner(tx, participant, contract, actor);
+}
+/** Identificadores verificados esperados do signatário (nunca nome isolado). */
+async function expectedExternalSigner(tx: any, participant: any, contract: any, actor?: ClinicSignatureActor): Promise<ExpectedSigner> {
+  if (participant.role === 'professional') {
+    return actor ? { emails: [actor.user.email] } : {};
+  }
+  const followup = (await tx.select().from(followups).where(and(eq(followups.tenantId, participant.tenantId), eq(followups.id, contract.followupId))))[0];
+  if (!followup) return {};
+  const patient = (await tx.select().from(patients).where(and(eq(patients.tenantId, participant.tenantId), eq(patients.id, followup.patientId))))[0];
+  if (!patient?.cpfCiphertext || !patient?.cpfNonce || patient?.cpfKeyVersion == null) return {};
+  try {
+    const cpf = decryptValue({ ciphertext: patient.cpfCiphertext, nonce: patient.cpfNonce, keyVersion: patient.cpfKeyVersion }, buildPatientAad(participant.tenantId, patient.id, 'cpf', patient.cpfKeyVersion));
+    const digits = cpf.replace(/\D/g, '');
+    return digits.length === 11 ? { cpfDigits: digits } : {};
+  } catch {
+    return {};
+  }
+}
+
+function liveExternalAttempt(attempt: any) {
+  if (!attempt) throw invalid('Tentativa externa não encontrada.', 404);
+  if (attempt.lifecycleStatus === 'cancelled') throw invalid('A tentativa externa foi cancelada.', 409);
+  if (attempt.lifecycleStatus === 'completed') throw invalid('A tentativa externa já foi concluída.', 409);
+  if (attempt.lifecycleStatus === 'expired' || attempt.exportExpiresAt <= new Date()) {
+    throw invalid('A reserva de exportação expirou.', 409);
+  }
+  return attempt;
+}
+
+export async function exportExternalRevision(access: string, input: unknown, actor?: ClinicSignatureActor, reqContext?: { ip?: string }) {
+  const prepared = externalExportInput(input);
+  if (access.startsWith('participant:') && !actor) throw invalid('Autenticação necessária.', 401);
+  const db = getDatabase();
+  const normalized = normalizeEvidence(prepared.fingerprint);
+  return db.transaction(async (tx) => {
+    const found = await externalAccessContext(tx, access, actor);
+    const document = await currentDocument(tx, found.participant.tenantId, found.contract.id);
+    if (document.document.id !== prepared.documentId || document.revision.id !== prepared.baseRevisionId) {
+      const error = invalid('STALE_DOCUMENT_REVISION', 409) as Error & { code?: string; currentRevisionId?: string; currentVersion?: number };
+      error.code = 'STALE_DOCUMENT_REVISION'; error.currentRevisionId = document.revision.id; error.currentVersion = document.revision.version;
+      throw error;
+    }
+    const existing = (await tx.select().from(signatureExternalAttempts).where(and(eq(signatureExternalAttempts.tenantId, found.participant.tenantId), eq(signatureExternalAttempts.participantId, found.participant.id), eq(signatureExternalAttempts.idempotencyKey, prepared.idempotencyKey))))[0];
+    if (existing) {
+      if (existing.documentId !== prepared.documentId || existing.baseRevisionId !== prepared.baseRevisionId) throw invalid('IDEMPOTENCY_KEY_REUSED', 409);
+      return {
+        attemptId: existing.id, exportHash: existing.exportHash, exportSize: existing.exportSize,
+        expiresAt: existing.exportExpiresAt, lifecycleStatus: existing.lifecycleStatus,
+      };
+    }
+    const expiresAt = new Date(Date.now() + externalReservationMs);
+    const rows = (await tx.insert(signatureExternalAttempts).values({
+      tenantId: found.participant.tenantId, participantId: found.participant.id, documentId: document.document.id,
+      baseRevisionId: document.revision.id, provider: 'govbr', lifecycleStatus: 'reserved', idempotencyKey: prepared.idempotencyKey,
+      exportObjectKey: document.revision.objectKey, exportHash: document.revision.contentHash, exportSize: document.revision.contentSize,
+      exportExpiresAt: expiresAt, exportFingerprint: prepared.fingerprint,
+    }).onConflictDoNothing({ target: [signatureExternalAttempts.tenantId, signatureExternalAttempts.participantId, signatureExternalAttempts.idempotencyKey] }).returning() as any[]);
+    const attempt = rows[0] ?? (await tx.select().from(signatureExternalAttempts).where(and(eq(signatureExternalAttempts.tenantId, found.participant.tenantId), eq(signatureExternalAttempts.participantId, found.participant.id), eq(signatureExternalAttempts.idempotencyKey, prepared.idempotencyKey))))[0];
+    if (!attempt) throw invalid('Não foi possível reservar a exportação.', 503);
+    if (attempt.documentId !== prepared.documentId || attempt.baseRevisionId !== prepared.baseRevisionId) throw invalid('IDEMPOTENCY_KEY_REUSED', 409);
+    await tx.insert(signatureEvidence).values({
+      tenantId: found.participant.tenantId, participantId: found.participant.id, documentId: document.document.id,
+      documentRevisionId: document.revision.id, externalAttemptId: attempt.id,
+      eventType: found.participant.role === 'professional' ? 'external_export_representative' : 'external_export',
+      collectorVersion: normalized.collectorVersion, normalizationVersion: normalized.normalizationVersion,
+      attributes: normalized.attributes, unavailableAttributes: normalized.unavailableAttributes,
+      normalizedRepresentation: normalized.normalizedRepresentation, digest: normalized.digest,
+      observedIp: reqContext?.ip ?? null, observedAt: new Date(),
+    });
+    return {
+      attemptId: attempt.id, exportHash: attempt.exportHash, exportSize: attempt.exportSize,
+      expiresAt: attempt.exportExpiresAt, lifecycleStatus: attempt.lifecycleStatus,
+    };
+  });
+}
+
+export async function downloadExternalExport(access: string, attemptId: string, actor?: ClinicSignatureActor) {
+  if (!uuid.test(attemptId)) throw invalid('Tentativa inválida.');
+  if (access.startsWith('participant:') && !actor) throw invalid('Autenticação necessária.', 401);
+  const found = await getDatabase().transaction(async (tx) => {
+    const context = await externalAccessContext(tx, access, actor);
+    const attempt = (await tx.select().from(signatureExternalAttempts).where(and(eq(signatureExternalAttempts.tenantId, context.participant.tenantId), eq(signatureExternalAttempts.id, attemptId), eq(signatureExternalAttempts.participantId, context.participant.id))))[0];
+    liveExternalAttempt(attempt);
+    return { key: attempt.exportObjectKey, hash: attempt.exportHash, size: attempt.exportSize };
+  });
+  return readDocumentBytes({ key: found.key, hash: found.hash, size: found.size });
+}
+
+export async function importExternalReturn(access: string, input: unknown, actor?: ClinicSignatureActor, reqContext?: { ip?: string }) {
+  if (!input || typeof input !== 'object') throw invalid('Importação inválida.');
+  const value = input as Record<string, unknown>;
+  if (typeof value.attemptId !== 'string' || !uuid.test(value.attemptId)) throw invalid('Tentativa inválida.');
+  if (typeof value.pdfBase64 !== 'string' || value.pdfBase64.length === 0) throw invalid('Arquivo PDF ausente.');
+  if (access.startsWith('participant:') && !actor) throw invalid('Autenticação necessária.', 401);
+  let pdfBytes: Uint8Array;
+  try {
+    pdfBytes = Uint8Array.from(Buffer.from(value.pdfBase64, 'base64'));
+  } catch {
+    throw invalid('Arquivo PDF inválido.');
+  }
+  if (pdfBytes.byteLength === 0 || pdfBytes.byteLength > externalImportMaxBytes) throw invalid('Arquivo PDF inválido.');
+  const normalized = normalizeEvidence(fingerprintValue(value.fingerprint));
+  const db = getDatabase();
+  const importHash = hashBytes(pdfBytes);
+  // Fase 1 (leitura curta): contexto, tentativa viva e idempotência de replay.
+  const prepared = await db.transaction(async (tx) => {
+    const found = await externalAccessContext(tx, access, actor);
+    const attempt = (await tx.select().from(signatureExternalAttempts).where(and(eq(signatureExternalAttempts.tenantId, found.participant.tenantId), eq(signatureExternalAttempts.id, value.attemptId), eq(signatureExternalAttempts.participantId, found.participant.id))))[0];
+    liveExternalAttempt(attempt);
+    // Repetição do mesmo retorno é idempotente em qualquer estado vivo da
+    // tentativa; um retorno diferente nunca substitui o primeiro.
+    const existingReceipt = (await tx.select().from(signatureExternalReceipts).where(and(eq(signatureExternalReceipts.tenantId, found.participant.tenantId), eq(signatureExternalReceipts.attemptId, attempt.id))))[0] ?? null;
+    if (existingReceipt) {
+      if (existingReceipt.contentHash !== importHash) throw invalid('A tentativa externa já recebeu um retorno diferente.', 409);
+      return { replay: true as const, receiptId: existingReceipt.id, attemptId: attempt.id, validationStatus: existingReceipt.validationStatus, reason: (existingReceipt.validationReport as any)?.reason ?? null };
+    }
+    if (attempt.lifecycleStatus !== 'reserved') throw invalid('A tentativa externa já recebeu um retorno.', 409);
+    return {
+      replay: false as const,
+      tenantId: found.participant.tenantId, participantId: found.participant.id, role: found.participant.role,
+      attemptId: attempt.id, documentId: attempt.documentId, baseRevisionId: attempt.baseRevisionId,
+      exportRef: { key: attempt.exportObjectKey, hash: attempt.exportHash, size: attempt.exportSize },
+      contractId: found.contract.id,
+    };
+  });
+  if (prepared.replay) {
+    return {
+      receiptId: prepared.receiptId, attemptId: prepared.attemptId,
+      validationStatus: externalValidationPt[prepared.validationStatus] ?? prepared.validationStatus,
+      reason: prepared.reason,
+    };
+  }
+  // Fase 2 (fora de transação: storage + validação criptográfica, que pode
+  // consultar revogação na rede — nunca com locks de linha retidos).
+  const exportBytes = await readDocumentBytes(prepared.exportRef);
+  const expected = await db.transaction(async (tx) => expectedExternalSignerById(tx, prepared.tenantId, prepared.participantId, prepared.contractId, actor));
+  const report = await validateExternalReturn({
+    exportBytes,
+    returnBytes: pdfBytes,
+    trustedRootPems: await externalTrustedRoots(),
+    expected,
+  });
+  const objectKey = randomUUID();
+  await uploadObjectBytes(objectKey, pdfBytes, 'application/pdf');
+  try {
+    await verifyObjectBytes(objectKey, importHash, pdfBytes.byteLength);
+  } catch (error) {
+    await deleteObject(objectKey).catch(() => undefined);
+    throw error;
+  }
+  // Fase 3 (escrita curta): revalida o estado e registra recebimento.
+  return db.transaction(async (tx) => {
+    const attempt = (await tx.select().from(signatureExternalAttempts).where(and(eq(signatureExternalAttempts.tenantId, prepared.tenantId), eq(signatureExternalAttempts.id, prepared.attemptId), eq(signatureExternalAttempts.participantId, prepared.participantId))))[0];
+    liveExternalAttempt(attempt);
+    const racedReceipt = (await tx.select().from(signatureExternalReceipts).where(and(eq(signatureExternalReceipts.tenantId, prepared.tenantId), eq(signatureExternalReceipts.attemptId, attempt.id))))[0] ?? null;
+    if (racedReceipt) {
+      await deleteObject(objectKey).catch(() => undefined);
+      if (racedReceipt.contentHash !== importHash) throw invalid('A tentativa externa já recebeu um retorno diferente.', 409);
+      return {
+        receiptId: racedReceipt.id, attemptId: attempt.id,
+        validationStatus: externalValidationPt[racedReceipt.validationStatus] ?? racedReceipt.validationStatus,
+        reason: (racedReceipt.validationReport as any)?.reason ?? null,
+      };
+    }
+    if (attempt.lifecycleStatus !== 'reserved') {
+      await deleteObject(objectKey).catch(() => undefined);
+      throw invalid('A tentativa externa já recebeu um retorno.', 409);
+    }
+    const receiptRows = (await tx.insert(signatureExternalReceipts).values({
+      tenantId: prepared.tenantId, attemptId: attempt.id, objectKey, contentHash: importHash, contentSize: pdfBytes.byteLength,
+      validationStatus: report.status === 'validated' ? 'validated' : report.status === 'invalid' ? 'invalid' : report.status === 'unsupported' ? 'unsupported' : 'indeterminate',
+      validationReport: { ...report },
+      signerIdentity: report.signer,
+      certificateFingerprint: report.certificateFingerprint,
+      coveredRevisionIds: [attempt.baseRevisionId],
+      detectedSignatureIds: { count: report.detectedSignatureCount, certificateFingerprint: report.certificateFingerprint },
+      rejectedReason: report.status === 'validated' ? null : report.reason,
+    }).returning() as any[]);
+    const receipt = receiptRows[0];
+    if (!receipt) {
+      await deleteObject(objectKey).catch(() => undefined);
+      throw invalid('Não foi possível registrar o recebimento.', 503);
+    }
+    await tx.update(signatureExternalAttempts).set({
+      importObjectKey: objectKey, importHash, importSize: pdfBytes.byteLength, importedAt: new Date(),
+      importFingerprint: fingerprintValue(value.fingerprint), lifecycleStatus: 'return_received',
+      validationStatus: receipt.validationStatus,
+    }).where(and(eq(signatureExternalAttempts.tenantId, prepared.tenantId), eq(signatureExternalAttempts.id, attempt.id)));
+    await tx.insert(signatureEvidence).values({
+      tenantId: prepared.tenantId, participantId: prepared.participantId, documentId: attempt.documentId,
+      documentRevisionId: null, externalAttemptId: attempt.id,
+      eventType: prepared.role === 'professional' ? 'external_import_representative' : 'external_import',
+      collectorVersion: normalized.collectorVersion, normalizationVersion: normalized.normalizationVersion,
+      attributes: normalized.attributes, unavailableAttributes: normalized.unavailableAttributes,
+      normalizedRepresentation: normalized.normalizedRepresentation, digest: normalized.digest,
+      observedIp: reqContext?.ip ?? null, observedAt: new Date(),
+    });
+    return {
+      receiptId: receipt.id, attemptId: attempt.id,
+      validationStatus: externalValidationPt[receipt.validationStatus] ?? receipt.validationStatus,
+      reason: report.reason,
+      signer: report.signer ? { commonName: report.signer.commonName, emails: report.signer.emails } : null,
+      certificateFingerprint: report.certificateFingerprint,
+    };
+  });
+}
+
+export async function confirmExternalReturn(access: string, input: unknown, actor?: ClinicSignatureActor, reqContext?: { ip?: string }) {
+  const prepared = externalConfirmInput(input);
+  if (access.startsWith('participant:') && !actor) throw invalid('Autenticação necessária.', 401);
+  const normalized = normalizeEvidence(prepared.fingerprint);
+  const db = getDatabase();
+  const operation = await db.transaction(async (tx) => {
+    const found = await externalAccessContext(tx, access, actor);
+    const attempt = (await tx.select().from(signatureExternalAttempts).where(and(eq(signatureExternalAttempts.tenantId, found.participant.tenantId), eq(signatureExternalAttempts.id, prepared.attemptId), eq(signatureExternalAttempts.participantId, found.participant.id))))[0];
+    liveExternalAttempt(attempt);
+    if (attempt.lifecycleStatus !== 'return_received') throw invalid('A tentativa externa ainda não recebeu o retorno do GOV.BR.', 409);
+    const receipt = (await tx.select().from(signatureExternalReceipts).where(and(eq(signatureExternalReceipts.tenantId, found.participant.tenantId), eq(signatureExternalReceipts.attemptId, attempt.id))))[0];
+    if (!receipt) throw invalid('Recebimento externo não encontrado.', 404);
+    if (receipt.validationStatus !== 'validated') {
+      throw invalid(`O retorno externo está ${externalValidationPt[receipt.validationStatus] ?? receipt.validationStatus} e não pode confirmar a assinatura.`, 409);
+    }
+    const requestHash = hashJson({ method: 'govbr_external', documentId: attempt.documentId, baseRevisionId: attempt.baseRevisionId, importHash: attempt.importHash, acceptanceText: prepared.acceptanceText, attemptId: attempt.id, receiptId: receipt.id, fingerprint: normalized.normalizedRepresentation });
+    const existing = (await tx.select().from(signatureOperations).where(and(eq(signatureOperations.tenantId, found.participant.tenantId), eq(signatureOperations.participantId, found.participant.id), eq(signatureOperations.idempotencyKey, prepared.idempotencyKey))))[0];
+    if (existing) {
+      if (existing.requestHash !== requestHash) throw invalid('IDEMPOTENCY_KEY_REUSED', 409);
+      return existing;
+    }
+    if (found.participant.role !== 'patient') {
+      if (!actor || actor.tenantId !== found.participant.tenantId) throw invalid('A assinatura do representante deve usar a sessão autenticada da clínica.', 403);
+    }
+    const document = await currentDocument(tx, found.participant.tenantId, found.contract.id);
+    if (document.document.id !== attempt.documentId || document.revision.id !== attempt.baseRevisionId) {
+      const error = invalid('STALE_DOCUMENT_REVISION', 409) as Error & { code?: string; currentRevisionId?: string; currentVersion?: number };
+      error.code = 'STALE_DOCUMENT_REVISION'; error.currentRevisionId = document.revision.id; error.currentVersion = document.revision.version;
+      throw error;
+    }
+    if (found.participant.status === 'signed') {
+      const done = await signatureResult(tx, found.participant.tenantId, found.participant.processId);
+      return { alreadySigned: true as const, result: done };
+    }
+    // Revalida a cadeia preservada antes de promover: a base precisa estar
+    // íntegra no storage, senão nada é promovido.
+    await verifyObjectBytes(attempt.exportObjectKey, attempt.exportHash, attempt.exportSize);
+    await verifyObjectBytes(receipt.objectKey, receipt.contentHash, receipt.contentSize);
+    const representative = found.participant.role === 'professional' && actor ? await professionalSnapshot(tx, actor) : null;
+    const rows = (await tx.insert(signatureOperations).values({
+      tenantId: found.participant.tenantId, participantId: found.participant.id, documentId: attempt.documentId,
+      baseRevisionId: attempt.baseRevisionId, candidateObjectKey: receipt.objectKey, candidateHash: receipt.contentHash,
+      candidateSize: receipt.contentSize, method: 'govbr_external', placement: null, idempotencyKey: prepared.idempotencyKey,
+      requestHash, signatureImageHash: null, signatureImageObjectKey: null, acceptanceText: prepared.acceptanceText,
+      identitySnapshot: representative ?? found.participant.identitySnapshot,
+      fingerprint: prepared.fingerprint, fingerprintCollectorVersion: normalized.collectorVersion,
+      fingerprintNormalizationVersion: normalized.normalizationVersion, fingerprintDigest: normalized.digest,
+      observedIp: reqContext?.ip ?? null, evidenceReceivedAt: new Date(), status: 'prepared',
+    }).onConflictDoNothing({ target: [signatureOperations.tenantId, signatureOperations.participantId, signatureOperations.idempotencyKey] }).returning() as any[]);
+    return rows[0] ?? (await tx.select().from(signatureOperations).where(and(eq(signatureOperations.tenantId, found.participant.tenantId), eq(signatureOperations.participantId, found.participant.id), eq(signatureOperations.idempotencyKey, prepared.idempotencyKey))))[0];
+  });
+  if (!operation) throw invalid('Não foi possível registrar a tentativa externa.', 503);
+  if ('alreadySigned' in operation) return operation.result;
+  if (operation.status === 'confirmed') return signatureResult(db, operation.tenantId, (await db.select().from(signatureParticipants).where(and(eq(signatureParticipants.tenantId, operation.tenantId), eq(signatureParticipants.id, operation.participantId))))[0]!.processId);
+  if (operation.status === 'rejected') throw invalid('Esta operação de assinatura foi rejeitada.', 409);
+  if (operation.status === 'stale') {
+    const current = (await db.select({ document: appliedDocuments, revision: appliedDocumentRevisions }).from(appliedDocuments).innerJoin(appliedDocumentRevisions, and(eq(appliedDocumentRevisions.tenantId, appliedDocuments.tenantId), eq(appliedDocumentRevisions.id, appliedDocuments.currentRevisionId))).where(and(eq(appliedDocuments.tenantId, operation.tenantId), eq(appliedDocuments.id, operation.documentId))))[0];
+    const error = invalid('STALE_DOCUMENT_REVISION', 409) as Error & { code?: string; currentRevisionId?: string; currentVersion?: number };
+    error.code = 'STALE_DOCUMENT_REVISION';
+    if (current) { error.currentRevisionId = current.revision.id; error.currentVersion = current.revision.version; }
+    throw error;
+  }
+  const promoted = await db.transaction(async (tx) => {
+    const context = operation.tenantId && operation.participantId
+      ? (await tx.select({ participant: signatureParticipants, process: signatureProcesses, contract: followupContracts, followup: followups }).from(signatureParticipants).innerJoin(signatureProcesses, and(eq(signatureProcesses.tenantId, signatureParticipants.tenantId), eq(signatureProcesses.id, signatureParticipants.processId))).innerJoin(followupContracts, and(eq(followupContracts.tenantId, signatureProcesses.tenantId), eq(followupContracts.id, signatureProcesses.followupContractId))).innerJoin(followups, and(eq(followups.tenantId, followupContracts.tenantId), eq(followups.id, followupContracts.followupId))).where(and(eq(signatureParticipants.tenantId, operation.tenantId), eq(signatureParticipants.id, operation.participantId))))[0]
+      : null;
+    if (!context?.participant || !context?.process || !context?.contract || !context?.followup) throw invalid('Contrato aplicado não encontrado.', 404);
+    await tx.execute(sql`select id from applied_documents where tenant_id = ${operation.tenantId} and id = (select id from applied_documents where tenant_id = ${operation.tenantId} and followup_contract_id = ${context.contract.id}) for update`);
+    const document = await currentDocument(tx, operation.tenantId, context.contract.id);
+    await verifyObjectBytes(operation.candidateObjectKey, operation.candidateHash, operation.candidateSize);
+    if (document.revision.id !== operation.baseRevisionId) {
+      await tx.update(signatureOperations).set({ status: 'stale', staleReason: 'STALE_DOCUMENT_REVISION' }).where(and(eq(signatureOperations.id, operation.id), eq(signatureOperations.status, 'prepared')));
+      await tx.insert(signatureEvents).values({ tenantId: operation.tenantId, participantId: operation.participantId, type: 'stale', metadata: { operationId: operation.id, reason: 'STALE_DOCUMENT_REVISION', currentRevisionId: document.revision.id, currentVersion: document.revision.version } });
+      return { stale: true as const, currentRevisionId: document.revision.id, currentVersion: document.revision.version };
+    }
+    if (context.participant.status !== 'pending' || context.process.status !== 'pending' || terminalFollowup(context.followup.status)) {
+      await tx.update(signatureOperations).set({ status: 'rejected', staleReason: 'SIGNATURE_PROCESS_NOT_ACTIVE' }).where(and(eq(signatureOperations.id, operation.id), eq(signatureOperations.status, 'prepared')));
+      throw invalid('O processo de assinatura não está mais disponível.', 409);
+    }
+    const receipt = (await tx.select().from(signatureExternalReceipts).where(and(eq(signatureExternalReceipts.tenantId, operation.tenantId), eq(signatureExternalReceipts.contentHash, operation.candidateHash))))[0];
+    if (!receipt || receipt.validationStatus !== 'validated') throw invalid('O retorno externo não está validado para promoção.', 409);
+    const candidateRevisionId = randomUUID();
+    const revisionRows = (await tx.insert(appliedDocumentRevisions).values({ id: candidateRevisionId, tenantId: operation.tenantId, documentId: document.document.id, version: document.revision.version + 1, parentRevisionId: document.revision.id, objectKey: operation.candidateObjectKey, contentHash: operation.candidateHash, contentSize: operation.candidateSize, origin: 'govbr_external', sourceExternalReceiptId: receipt.id }).returning() as any[]);
+    const revision = revisionRows[0];
+    if (!revision) throw invalid('Não foi possível registrar a revisão do documento.', 503);
+    const updatedRows = (await tx.update(appliedDocuments).set({ currentRevisionId: revision.id }).where(and(eq(appliedDocuments.tenantId, operation.tenantId), eq(appliedDocuments.id, document.document.id), eq(appliedDocuments.currentRevisionId, document.revision.id))).returning() as any[]);
+    if (!updatedRows[0]) throw invalid('STALE_DOCUMENT_REVISION', 409);
+    const evidence = encryptValue(JSON.stringify({ method: 'govbr_external', acceptanceText: operation.acceptanceText, candidateHash: operation.candidateHash, baseRevisionId: operation.baseRevisionId, attemptId: receipt.attemptId, receiptId: receipt.id, certificateFingerprint: receipt.certificateFingerprint }), evidenceAad(operation.tenantId, operation.participantId));
+    const signatureRevisionRows = (await tx.insert(signatureRevisions).values({ tenantId: operation.tenantId, participantId: operation.participantId, revision: context.participant.latestRevision + 1, evidenceCiphertext: evidence.ciphertext, evidenceNonce: evidence.nonce, evidenceKeyVersion: evidence.keyVersion, operationId: operation.id, documentRevisionId: revision.id, method: 'govbr_external', placement: null, signatureImageHash: null, externalReceiptId: receipt.id }).returning() as any[]);
+    const acceptEv = normalizeEvidence(operation.fingerprint);
+    await tx.insert(signatureEvidence).values({
+      tenantId: operation.tenantId, participantId: operation.participantId, documentId: document.document.id,
+      documentRevisionId: revision.id, operationId: operation.id, externalAttemptId: receipt.attemptId,
+      eventType: context.participant.role === 'professional' ? 'external_accept_representative' : 'external_accept',
+      collectorVersion: operation.fingerprintCollectorVersion, normalizationVersion: operation.fingerprintNormalizationVersion,
+      attributes: acceptEv.attributes,
+      unavailableAttributes: acceptEv.unavailableAttributes,
+      normalizedRepresentation: acceptEv.normalizedRepresentation,
+      digest: operation.fingerprintDigest, observedIp: operation.observedIp, observedAt: operation.evidenceReceivedAt ?? new Date(),
+    });
+    const signatureRevision = signatureRevisionRows[0];
+    if (!signatureRevision) throw invalid('Não foi possível registrar a assinatura.', 503);
+    await tx.insert(signatureEvents).values({ tenantId: operation.tenantId, participantId: operation.participantId, revisionId: signatureRevision.id, type: 'signed', metadata: { operationId: operation.id, documentRevisionId: revision.id, method: 'govbr_external', receiptId: receipt.id } });
+    const signedAt = new Date();
+    await tx.update(signatureParticipants).set({ status: 'signed', signedAt, latestRevision: signatureRevision.revision, updatedAt: signedAt, identitySnapshot: context.participant.identitySnapshot }).where(and(eq(signatureParticipants.tenantId, operation.tenantId), eq(signatureParticipants.id, operation.participantId), eq(signatureParticipants.status, 'pending')));
+    const tokenRow = (await tx.select().from(signatureTokens).where(and(eq(signatureTokens.tenantId, operation.tenantId), eq(signatureTokens.participantId, operation.participantId), isNull(signatureTokens.revokedAt)))).sort((a: any, b: any) => Number(b.createdAt) - Number(a.createdAt))[0];
+    if (tokenRow) await tx.update(signatureTokens).set({ revokedAt: signedAt }).where(and(eq(signatureTokens.tenantId, operation.tenantId), eq(signatureTokens.id, tokenRow.id)));
+    await tx.update(signatureExternalAttempts).set({ lifecycleStatus: 'completed', completedAt: signedAt }).where(and(eq(signatureExternalAttempts.tenantId, operation.tenantId), eq(signatureExternalAttempts.id, receipt.attemptId)));
+    await tx.update(signatureExternalReceipts).set({ promotedRevisionId: revision.id }).where(and(eq(signatureExternalReceipts.tenantId, operation.tenantId), eq(signatureExternalReceipts.id, receipt.id)));
+    await tx.update(signatureOperations).set({ status: 'confirmed', confirmedAt: signedAt }).where(and(eq(signatureOperations.tenantId, operation.tenantId), eq(signatureOperations.id, operation.id), eq(signatureOperations.status, 'prepared')));
+    return { result: await signatureResult(tx, operation.tenantId, context.participant.processId) };
+  });
+  if ('stale' in promoted) {
+    const error = invalid('STALE_DOCUMENT_REVISION', 409) as Error & { currentRevisionId?: string; currentVersion?: number; code?: string };
+    error.code = 'STALE_DOCUMENT_REVISION'; error.currentRevisionId = promoted.currentRevisionId; error.currentVersion = promoted.currentVersion;
+    throw error;
+  }
+  return promoted.result;
+}
+
+export async function cancelExternalAttempt(access: string, attemptId: unknown, actor?: ClinicSignatureActor) {
+  if (typeof attemptId !== 'string' || !uuid.test(attemptId)) throw invalid('Tentativa inválida.');
+  if (access.startsWith('participant:') && !actor) throw invalid('Autenticação necessária.', 401);
+  const db = getDatabase();
+  return db.transaction(async (tx) => {
+    const found = await externalAccessContext(tx, access, actor);
+    const attempt = (await tx.select().from(signatureExternalAttempts).where(and(eq(signatureExternalAttempts.tenantId, found.participant.tenantId), eq(signatureExternalAttempts.id, attemptId), eq(signatureExternalAttempts.participantId, found.participant.id))))[0];
+    if (!attempt) throw invalid('Tentativa externa não encontrada.', 404);
+    if (attempt.lifecycleStatus === 'completed') throw invalid('A tentativa externa já foi concluída.', 409);
+    if (attempt.lifecycleStatus === 'cancelled') return { cancelled: true, attemptId: attempt.id };
+    await tx.update(signatureExternalAttempts).set({ lifecycleStatus: 'cancelled', cancelledAt: new Date() }).where(and(eq(signatureExternalAttempts.tenantId, found.participant.tenantId), eq(signatureExternalAttempts.id, attempt.id)));
+    await tx.insert(signatureEvents).values({ tenantId: found.participant.tenantId, participantId: found.participant.id, type: 'external_cancelled', metadata: { attemptId: attempt.id } });
+    return { cancelled: true, attemptId: attempt.id };
+  });
+}
+
+/** Representante: mesma reserva/exportação pela sessão autenticada. */
+export async function exportExternalRevisionAsClinicRepresentative(participantId: string, input: unknown, actor: ClinicSignatureActor, reqContext?: { ip?: string }) {
+  return exportExternalRevision(`participant:${participantId}`, input, actor, reqContext);
+}
+export async function downloadExternalExportAsClinicRepresentative(participantId: string, attemptId: string, actor: ClinicSignatureActor) {
+  return downloadExternalExport(`participant:${participantId}`, attemptId, actor);
+}
+export async function importExternalReturnAsClinicRepresentative(participantId: string, input: unknown, actor: ClinicSignatureActor, reqContext?: { ip?: string }) {
+  return importExternalReturn(`participant:${participantId}`, input, actor, reqContext);
+}
+export async function confirmExternalReturnAsClinicRepresentative(participantId: string, input: unknown, actor: ClinicSignatureActor, reqContext?: { ip?: string }) {
+  return confirmExternalReturn(`participant:${participantId}`, input, actor, reqContext);
+}
+export async function cancelExternalAttemptAsClinicRepresentative(participantId: string, attemptId: unknown, actor: ClinicSignatureActor) {
+  return cancelExternalAttempt(`participant:${participantId}`, attemptId, actor);
 }

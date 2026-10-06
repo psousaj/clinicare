@@ -141,6 +141,20 @@
       "when": 1791010851390,
       "tag": "0019_signature_local_integrity",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791304567876,
+      "tag": "0020_external_signature_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791305406095,
+      "tag": "0021_external_method_vocabulary",
+      "breakpoints": true
     }
   ]
 }

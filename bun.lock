@@ -21,6 +21,8 @@
         "drizzle-orm": "latest",
         "drizzle-orm": "latest",
         "hono": "latest",
+        "asn1js": "^3.0.10",
+        "pkijs": "^3.4.1",
       },
       "devDependencies": {
         "@types/bun": "latest",
