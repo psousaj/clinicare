@@ -8,6 +8,7 @@ import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, 
 integration('PostgreSQL payments', () => {
   const tenantId = crypto.randomUUID();
   let clinic: IntegrationClinic;
+  let otherClinic: IntegrationClinic;
   const headers = { 'content-type': 'application/json' };
   const post = (path: string, body: unknown, extra: Record<string, string> = {}) => app.request(path, { method: 'POST', headers: { ...clinic.headers(extra), ...extra }, body: JSON.stringify(body) });
   const db = () => getDatabase();
@@ -16,10 +17,11 @@ integration('PostgreSQL payments', () => {
     assertSafeIntegrationDatabase();
     await migrateDatabase();
     clinic = await provisionIntegrationClinic(app, 'payments', tenantId);
+    otherClinic = await provisionIntegrationClinic(app, 'payments-other');
   });
   afterAll(async () => {
     for (const table of [payments, appliedAnamneses, followupSnapshots, followupItems, comboItems, followups, combos, procedures, patients, anamneses]) await db().delete(table).where(eq((table as any).tenantId, tenantId));
-    await cleanupIntegrationClinics([tenantId]);
+    await cleanupIntegrationClinics([tenantId, otherClinic.tenantId]);
     await closeDatabase();
   });
 
@@ -66,11 +68,11 @@ integration('PostgreSQL payments', () => {
     const anamnesisId = crypto.randomUUID();
     await db().insert(anamneses).values({ id: anamnesisId, tenantId, title: 'Histórico', validityMonths: 12 });
     await db().insert(appliedAnamneses).values({ tenantId, patientId, followupId: followup.id, anamnesisId, version: 1, titleSnapshot: 'Histórico', schemaSnapshot: { type: 'object', properties: {} }, validUntil: new Date(Date.now() + 86400000) });
-    const history = await (await app.request(`/api/patients/${patientId}/history`, { headers })).json() as any;
+    const history = await (await app.request(`/api/patients/${patientId}/history`, { headers: clinic.headers() })).json() as any;
     expect(history.events.some((event: any) => event.type === 'anamnesis' && event.title.includes('pendente'))).toBe(true);
     const otherTenant = crypto.randomUUID();
     await db().insert(tenants).values({ id: otherTenant, name: `Other ${otherTenant}` });
-    const hidden = await app.request(`/api/patients/${patientId}/history`, { headers: { ...headers, 'x-tenant-id': otherTenant } });
+    const hidden = await app.request(`/api/patients/${patientId}/history`, { headers: otherClinic.headers() });
     expect(hidden.status).toBe(404);
     await db().delete(tenants).where(eq(tenants.id, otherTenant));
   });
@@ -81,7 +83,7 @@ integration('PostgreSQL payments', () => {
     expect((await post('/api/payments', { followupId: followup.id, amountCents: 100, method: 'cash' })).status).toBe(409);
     const usable = await fixture(1000);
     const payment = await (await post('/api/payments', { followupId: usable.id, amountCents: 1000, method: 'pix' })).json() as { id: string };
-    expect((await app.request(`/api/payments/${payment.id}`, { method: 'DELETE', headers, body: JSON.stringify({ reason: 'Estorno registrado' }) })).status).toBe(200);
+    expect((await app.request(`/api/payments/${payment.id}`, { method: 'DELETE', headers: clinic.headers(), body: JSON.stringify({ reason: 'Estorno registrado' }) })).status).toBe(200);
     expect((await post('/api/payments', { followupId: usable.id, amountCents: 1000, method: 'pix', idempotencyKey: 'after-delete' })).status).toBe(201);
   });
 });

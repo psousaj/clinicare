@@ -58,6 +58,10 @@ export const app = new Hono()
     try { await getDatabasePool().query('select 1'); return c.json({ status: 'ok', service: 'clinicare-api', database: 'connected' }); }
     catch { return c.json({ status: 'unavailable', service: 'clinicare-api', database: 'disconnected' }, 503); }
   })
+  .use('/api/patients/:id/history', async (c, next) => {
+    if (!isUuid(c.req.param('id'))) return fail(c, 'Paciente não encontrado.', 404);
+    await next();
+  })
   .use('/api/patients*', requireClinicSession)
   .use('/api/procedures*', requireClinicSession)
   .use('/api/anamneses*', requireClinicSession)
