@@ -12,15 +12,13 @@ import {
 import { app } from './app';
 import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
 
-const actorId = '00000000-0000-4000-8000-000000000099';
-
 integration('patient API with PostgreSQL', () => {
   let clinics: IntegrationClinic[];
   const tenantIds = [crypto.randomUUID(), crypto.randomUUID()];
   const clinicIds = () => clinics.map((clinic) => clinic.tenantId);
-  const headers = (clinic: IntegrationClinic, withActor = true) => clinic.headers(withActor ? { 'x-actor-id': actorId } : {});
-  const post = (clinic: IntegrationClinic, body: unknown, withActor = true) => app.request('/api/patients', { method: 'POST', headers: headers(clinic, withActor), body: JSON.stringify(body) });
-  const put = (clinic: IntegrationClinic, id: string, body: unknown, withActor = true) => app.request(`/api/patients/${id}`, { method: 'PUT', headers: headers(clinic, withActor), body: JSON.stringify(body) });
+  const headers = (clinic: IntegrationClinic) => clinic.headers();
+  const post = (clinic: IntegrationClinic, body: unknown) => app.request('/api/patients', { method: 'POST', headers: headers(clinic), body: JSON.stringify(body) });
+  const put = (clinic: IntegrationClinic, id: string, body: unknown) => app.request(`/api/patients/${id}`, { method: 'PUT', headers: headers(clinic), body: JSON.stringify(body) });
 
   beforeAll(async () => {
     assertSafeIntegrationDatabase();
@@ -39,26 +37,30 @@ integration('patient API with PostgreSQL', () => {
     await closeDatabase();
   });
 
-  it('supports CRUD/search while returning protected fields only with an actor context', async () => {
+  it('supports CRUD/search and reveals protected fields to the authenticated clinic session', async () => {
     const [clinic] = clinics;
-    const created = await post(clinic!, { fullName: 'Ana Exemplo', email: 'ANA@example.com', phone: '+55 (11) 99999-0000', cpf: '123.456.789-01', notes: 'sensível' }, false);
+    const created = await post(clinic!, { fullName: 'Ana Exemplo', email: 'ANA@example.com', phone: '+55 (11) 99999-0000', cpf: '123.456.789-01', notes: 'sensível' });
     expect(created.status).toBe(201);
-    const redacted = await created.json() as Record<string, unknown>;
-    expect(redacted).toMatchObject({ fullName: 'Ana Exemplo', email: null, phone: null, cpf: null, notes: null });
-    expect(JSON.stringify(redacted)).not.toContain('Ciphertext');
+    const createdPatient = await created.json() as Record<string, unknown>;
+    expect(createdPatient).toMatchObject({ fullName: 'Ana Exemplo', email: 'ana@example.com', phone: '5511999990000', cpf: '12345678901', notes: 'sensível' });
+    expect(JSON.stringify(createdPatient)).not.toContain('Ciphertext');
 
-    const id = redacted.id as string;
+    const id = createdPatient.id as string;
     const detail = await app.request(`/api/patients/${id}`, { headers: headers(clinic!) });
     expect(detail.status).toBe(200);
     expect(await detail.json()).toMatchObject({ email: 'ana@example.com', phone: '5511999990000', cpf: '12345678901', notes: 'sensível' });
+
+    const history = await app.request(`/api/patients/${id}/history`, { headers: headers(clinic!) });
+    expect(history.status).toBe(200);
+    expect((await history.json()).patient).toMatchObject({ email: 'ana@example.com', phone: '5511999990000', cpf: '12345678901', notes: 'sensível' });
 
     const search = await app.request('/api/patients?query=ana@example.com', { headers: headers(clinic!) });
     expect(search.status).toBe(200);
     expect(await search.json()).toHaveLength(1);
 
-    const updated = await put(clinic!, id, { fullName: 'Ana Atualizada', phone: '5511888887777' }, false);
+    const updated = await put(clinic!, id, { fullName: 'Ana Atualizada', phone: '5511888887777' });
     expect(updated.status).toBe(200);
-    expect(await updated.json()).toMatchObject({ fullName: 'Ana Atualizada', phone: null });
+    expect(await updated.json()).toMatchObject({ fullName: 'Ana Atualizada', phone: '5511888887777' });
     const updatedDetail = await app.request(`/api/patients/${id}`, { headers: headers(clinic!) });
     expect(await updatedDetail.json()).toMatchObject({ fullName: 'Ana Atualizada', email: 'ana@example.com', phone: '5511888887777' });
   });

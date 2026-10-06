@@ -34,8 +34,9 @@ integration('catalog API with PostgreSQL', () => {
     expect(anamnesisResponse.status).toBe(201); const anamnesis = await anamnesisResponse.json() as any;
     const comboResponse = await request(a!, '/api/combos', 'POST', { name: 'Catalog combo', priceCents: 1500, items: [{ procedureId: procedure.id, sessions: 1 }] });
     expect(comboResponse.status).toBe(201);
-    const contractResponse = await request(a!, '/api/contracts', 'POST', { title: 'Standard contract', kind: 'standard', content: 'terms' });
+    const contractResponse = await request(a!, '/api/contracts', 'POST', { title: 'Standard contract', kind: 'standard' });
     expect(contractResponse.status).toBe(201); const contract = await contractResponse.json() as any;
+    expect(contract.versions).toHaveLength(0);
     const planResponse = await request(a!, '/api/plans', 'POST', { name: 'Catalog plan', priceCents: 2000, items: [{ offerType: 'procedure', offerId: procedure.id, sessions: 1 }], contractIds: [contract.id] });
     expect(planResponse.status).toBe(201); expect((await planResponse.json()).items[0].offerType).toBe('procedure');
     expect((await request(a!, `/api/anamneses/${anamnesis.id}/versions`, 'POST', { schema: { ...schema, properties: { age: { type: 'number' } } }, expectedVersion: 1 })).status).toBe(201);
@@ -56,11 +57,12 @@ integration('catalog API with PostgreSQL', () => {
     const stale = await request(a!, `/api/procedures/${p.id}`, 'PUT', { sessionSchema: schema, expectedVersion: 1 }); expect(stale.status).toBe(409);
     expect((await request(b!, `/api/procedures/${p.id}`)).status).toBe(404);
     expect((await app.request('/api/procedures', { headers: { 'x-tenant-id': '00000000-0000-0000-0000-000000000099' } })).status).toBe(401);
-    const c = await (await request(a!, '/api/contracts', 'POST', { title: 'Restore contract', kind: 'standard', content: 'one' })).json() as any;
-    await request(a!, `/api/contracts/${c.id}/versions`, 'POST', { content: 'two', expectedVersion: 1 });
-    expect((await request(a!, `/api/contracts/${c.id}/versions`, 'POST', { restoreVersion: 1, expectedVersion: 2 })).status).toBe(201);
-    const versions = await getDatabase().select().from(contractVersions).where(inArray(contractVersions.contractId, [c.id]));
-    expect(versions.map((v) => v.content)).toEqual(['one', 'two', 'one']);
+    const c = await (await request(a!, '/api/contracts', 'POST', { title: 'Restore contract', kind: 'standard' })).json() as any;
+    expect(c.versions).toHaveLength(0);
+    const patch = await request(a!, `/api/contracts/${c.id}`, 'PATCH', { title: 'Restore contract renomeado' });
+    expect(patch.status).toBe(200); expect((await patch.json()).title).toBe('Restore contract renomeado');
+    expect((await request(a!, `/api/contracts/${c.id}/versions`, 'POST', { content: 'two' })).status).toBe(410);
+    expect((await request(a!, `/api/contracts/${c.id}`, 'PATCH', { content: 'two' })).status).toBe(410);
   });
 
   it('enforces tenant composite links and plan contract requirement', async () => {

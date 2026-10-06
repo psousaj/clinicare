@@ -85,9 +85,11 @@ describe('Clinic dashboard', () => {
     renderAt('/');
     await user.click(await screen.findByRole('link', { name: /novo paciente/i }));
     await user.type(await screen.findByLabelText(/nome completo/i), 'Paula Souza');
+    await user.type(screen.getByLabelText('Telefone'), '11999990000');
     await user.type(screen.getByLabelText(/e-mail/i), 'paula@example.com');
+    await user.type(screen.getByLabelText('CPF'), '12345678901');
     await user.click(screen.getByRole('button', { name: /salvar paciente/i }));
-    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ fullName: 'Paula Souza', phone: null, notes: null, email: 'paula@example.com' }));
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ fullName: 'Paula Souza', birthDate: null, phone: '11999990000', email: 'paula@example.com', cpf: '123.456.789-01', notes: null }));
     expect(await screen.findByRole('heading', { name: 'Pacientes', level: 2 })).toBeInTheDocument();
   });
 });
@@ -300,52 +302,52 @@ describe('Field types', () => {
 describe('Contract edit and versions', () => {
   const contract = () => ({
     _id: 'c1',
+    id: 'c1',
     title: 'Contrato padrão',
     kind: 'standard',
     active: true,
+    currentVersion: 1,
+    draftDocxHash: null,
     versions: [
-      { version: 1, content: 'Texto original', origin: 'created', createdAt: '2026-01-01T10:00:00Z' },
-      { version: 2, content: 'Texto revisado', origin: 'restored', restoredFromVersion: 1, createdAt: '2026-02-01T10:00:00Z' },
+      { version: 1, origin: 'created', createdAt: '2026-01-01T10:00:00Z', hasSourceDocx: true, hasRenderedPdf: false, allowedPlaceholders: ['patient.name'], requiredPlaceholders: [] },
     ],
   });
 
-  it('lists contracts with the current version and its origin', async () => {
+  it('lists contracts with the published version status', async () => {
     routes['GET /api/contracts'] = () => [contract()];
     renderAt('/contratos');
-    expect(await screen.findByText(/2 versões · atual v2 \(rollback da v1\)/i)).toBeInTheDocument();
+    expect(await screen.findByText(/1 versão · atual v1/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /editar/i })).toHaveAttribute('href', '/contratos/c1');
   });
 
-  it('shows a live preview and saves a text change as a new version', async () => {
+  it('shows the immutable version notice and saves metadata through PATCH', async () => {
     routes['GET /api/contracts'] = () => [contract()];
-    routes['POST /api/contracts/c1/versions'] = () => ({});
+    routes['PATCH /api/contracts/c1'] = () => ({});
     const user = userEvent.setup();
     renderAt('/contratos/c1');
-    const text = await screen.findByLabelText('Texto do contrato');
-    expect(screen.getByText(/^Editando a/)).toHaveTextContent('Editando a v2 (rollback da v1). Alterações no texto geram a v3');
+    expect(await screen.findByText(/^Versão atual/)).toHaveTextContent('Versão atual v1 (imutável). Publicar o draft gera a v2');
     await user.click(screen.getByRole('button', { name: /salvar alterações/i }));
-    expect(await screen.findByText('Nenhuma alteração para salvar.')).toBeInTheDocument();
-    expect(calls.some((call) => call.method === 'POST')).toBe(false);
-    await user.clear(text);
-    await user.type(text, 'Texto novo');
-    expect(within(screen.getByRole('region', { name: /prévia do contrato/i })).getByText('Texto novo')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /salvar alterações/i }));
-    await waitFor(() => expect(calls.find((call) => call.method === 'POST')).toMatchObject({ url: '/api/contracts/c1/versions', body: { content: 'Texto novo' } }));
-    expect(calls.some((call) => call.method === 'PATCH')).toBe(false);
+    await waitFor(() => expect(calls.find((call) => call.method === 'PATCH')).toMatchObject({ url: '/api/contracts/c1' }));
+    expect(calls.some((call) => call.url === '/api/contracts/c1/versions')).toBe(false);
   });
 
-  it('restores a chosen version as a new one (rollback)', async () => {
+  it('shows draft upload, placeholders and publish without legacy text editing', async () => {
     routes['GET /api/contracts'] = () => [contract()];
-    routes['POST /api/contracts/c1/versions'] = () => ({});
+    routes['GET /api/contracts/placeholders'] = () => ['patient.name', 'clinic.name'];
+    renderAt('/contratos/c1');
+    expect(await screen.findByRole('heading', { name: /draft docx/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Texto do contrato')).not.toBeInTheDocument();
+    expect(await screen.findByText('{patient.name}')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /publicar v2/i })).toBeInTheDocument();
+  });
+
+  it('lists published versions as read-only history', async () => {
+    routes['GET /api/contracts'] = () => [contract()];
     const user = userEvent.setup();
     renderAt('/contratos');
     await user.click(await screen.findByRole('button', { name: /versões/i }));
-    const list = await screen.findByRole('radiogroup', { name: /versões disponíveis/i });
-    expect(within(list).getByRole('radio', { name: /v2.*rollback da v1.*atual/i })).toBeDisabled();
-    await user.click(within(list).getByRole('radio', { name: /^v1\s*Criada/i }));
-    expect(screen.getByText(/será criada a/i)).toHaveTextContent('v3 como cópia da v1');
-    await user.click(screen.getByRole('button', { name: /fazer rollback/i }));
-    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ restoreVersion: 1 }));
+    expect(await screen.findByText(/não há rollback de texto/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /fazer rollback/i })).not.toBeInTheDocument();
   });
 
   it('requires the procedure when the contract is specific to one', async () => {
@@ -355,12 +357,12 @@ describe('Contract edit and versions', () => {
     renderAt('/contratos/novo');
     await user.type(await screen.findByLabelText('Nome do contrato'), 'Contrato do peeling');
     await user.selectOptions(screen.getByLabelText('Aplicação'), 'procedure');
-    await user.type(screen.getByLabelText('Texto do contrato'), 'Cláusulas');
     await user.click(screen.getByRole('button', { name: /salvar contrato/i }));
     expect(await screen.findByText('Escolha o procedimento deste contrato.')).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText('Procedimento'), 'pr1');
     await user.click(screen.getByRole('button', { name: /salvar contrato/i }));
-    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ kind: 'procedure', procedureId: 'pr1', comboId: null, content: 'Cláusulas' }));
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ kind: 'procedure', procedureId: 'pr1', comboId: null }));
+    expect(calls.find((call) => call.method === 'POST')?.body).not.toMatchObject({ content: expect.anything() });
   });
 });
 
@@ -579,6 +581,27 @@ describe('Acompanhamentos', () => {
     await user.click(within(pending).getByRole('button', { name: /copiar link/i }));
     await waitFor(() => expect(calls.find((call) => call.url === '/api/anamnesis-requests')?.body).toEqual({ patientAnamnesisId: 'pa1' }));
     expect(await screen.findByLabelText('Link da anamnese')).toHaveValue(`${location.origin}/formulario/tok9`);
+  });
+
+  it('edits patient data from the patient detail page', async () => {
+    routes['GET /api/patients/p1/history'] = () => ({
+      patient: { ...marina, phone: '5511999990000', email: 'marina@example.com', cpf: '12345678901', birthDate: '1990-04-12', notes: 'Observação atual' },
+      events: [], pending: [],
+    });
+    routes['PUT /api/patients/p1'] = () => ({});
+    const user = userEvent.setup();
+    renderAt('/pacientes/p1');
+    await user.click(await screen.findByRole('button', { name: /editar paciente/i }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByLabelText('CPF')).toHaveValue('123.456.789-01');
+    await user.clear(within(dialog).getByLabelText('Nome completo'));
+    await user.type(within(dialog).getByLabelText('Nome completo'), 'Marina Souza');
+    await user.clear(within(dialog).getByLabelText('Telefone'));
+    await user.type(within(dialog).getByLabelText('Telefone'), '11988887777');
+    await user.click(within(dialog).getByRole('button', { name: /salvar alterações/i }));
+    await waitFor(() => expect(calls.find((call) => call.url === '/api/patients/p1' && call.method === 'PUT')?.body).toEqual({
+      fullName: 'Marina Souza', email: 'marina@example.com', phone: '11988887777', cpf: '123.456.789-01', birthDate: '1990-04-12', notes: 'Observação atual',
+    }));
   });
 
   it('lets the professional fill a pending anamnesis on the spot', async () => {

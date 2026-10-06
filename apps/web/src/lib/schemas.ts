@@ -8,6 +8,8 @@ export const patientSchema = z.looseObject({
   fullName: z.string(),
   phone: z.string().nullish(),
   email: z.string().nullish(),
+  cpf: z.string().nullish(),
+  birthDate: z.string().nullish(),
   notes: z.string().nullish(),
   createdAt: z.string().optional(),
 });
@@ -46,14 +48,34 @@ export const contractVersionSchema = z.looseObject({
   origin: z.enum(['created', 'edited', 'restored']).nullish(),
   restoredFromVersion: z.number().nullish(),
   createdAt: z.string().nullish(),
+  hasSourceDocx: z.boolean().optional(),
+  sourceDocxHash: z.string().nullish(),
+  sourceDocxSize: z.number().nullish(),
+  sourceDocxContentType: z.string().nullish(),
+  contextConfiguration: z.record(z.string(), z.looseObject({ enabled: z.boolean(), required: z.boolean() })).nullish(),
+  allowedPlaceholders: z.array(z.string()).default([]),
+  requiredPlaceholders: z.array(z.string()).default([]),
+  hasRenderedPdf: z.boolean().optional(),
+  renderedPdfHash: z.string().nullish(),
+  renderedPdfSize: z.number().nullish(),
+  renderedPdfContentType: z.string().nullish(),
 });
-export const contractSchema = z.looseObject({
+const contractDraftSchema = z.looseObject({
+  draftDocxObjectKey: z.string().nullish(),
+  draftDocxHash: z.string().nullish(),
+  draftDocxSize: z.number().nullish(),
+  draftContextConfiguration: z.record(z.string(), z.looseObject({ enabled: z.boolean(), required: z.boolean() })).nullish(),
+  draftAllowedPlaceholders: z.array(z.string()).nullish(),
+  draftRequiredPlaceholders: z.array(z.string()).nullish(),
+});
+export const contractSchema = contractDraftSchema.extend({
   id: z.string(),
   title: z.string(),
   kind: z.enum(['standard', 'procedure', 'combo']),
   procedureId: refId.nullish(),
   comboId: refId.nullish(),
   active: z.boolean().default(true),
+  currentVersion: z.number().default(0),
   versions: z.array(contractVersionSchema),
 });
 export const comboSchema = z.looseObject({

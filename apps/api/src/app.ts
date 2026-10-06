@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { cors } from 'hono/cors';
 import { getDatabasePool } from '@clinicare/db';
 import { getTrustedOrigins } from './auth-config';
-import { createPatient, deactivatePatient, getPatient, isUuid, listPatients, patientActorFromRequest, updatePatient } from './patients';
+import { createPatient, deactivatePatient, getPatient, isUuid, listPatients, updatePatient } from './patients';
 import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, associateAnamnesis, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan, presignContractVersionPdf, finalizeContractVersionPdf } from './catalog';
 import { getRelationalRelationship } from './relational-relationship';
 import { getRelationalHistory } from './relational-history';
@@ -18,7 +18,7 @@ import { getProfessionalProfile, updateInitialPasswordChoice, updateProfessional
 import { getContractDraftEditor, listContractPlaceholders, presignContractDraft, publishContractDraft, saveContractDraft } from './contract-authoring';
 import { generateFollowupContract, retryFollowupContract } from './contract-generation';
 
-const fail = (c: Context, message: string, status: 400 | 401 | 403 | 404 | 409 | 429 | 503 = 400) => c.json({ error: message }, status);
+const fail = (c: Context, message: string, status: 400 | 401 | 403 | 404 | 409 | 410 | 429 | 503 = 400) => c.json({ error: message }, status);
 const isRecord = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);
 const expiry = (days: number) => new Date(Date.now() + days * 86400000);
 const observedClientIp = (c: Context) => process.env.TRUSTED_PROXY === 'true'
@@ -26,16 +26,16 @@ const observedClientIp = (c: Context) => process.env.TRUSTED_PROXY === 'true'
   : undefined;
 const handleError = (c: Context, error: unknown) => {
   const explicitStatus = error && typeof error === 'object' && 'status' in error ? (error as { status: number }).status : undefined;
-  if (explicitStatus && [400, 401, 403, 404, 409, 429, 503].includes(explicitStatus) && error instanceof Error) {
+  if (explicitStatus && [400, 401, 403, 404, 409, 410, 429, 503].includes(explicitStatus) && error instanceof Error) {
     const details = error as Error & { code?: string; currentRevisionId?: string; currentVersion?: number };
-    return c.json({ error: error.message, ...(details.code ? { code: details.code } : {}), ...(details.currentRevisionId ? { currentRevisionId: details.currentRevisionId } : {}), ...(details.currentVersion !== undefined ? { currentVersion: details.currentVersion } : {}) }, explicitStatus as 400 | 401 | 403 | 404 | 409 | 429 | 503);
+    return c.json({ error: error.message, ...(details.code ? { code: details.code } : {}), ...(details.currentRevisionId ? { currentRevisionId: details.currentRevisionId } : {}), ...(details.currentVersion !== undefined ? { currentVersion: details.currentVersion } : {}) }, explicitStatus as 400 | 401 | 403 | 404 | 409 | 410 | 429 | 503);
   }
   const errorCode = error && typeof error === 'object' && 'code' in error ? (error as { code: string | number }).code : undefined;
   const causeCode = error instanceof Error && error.cause && typeof error.cause === 'object' && 'code' in error.cause ? (error.cause as { code: string | number }).code : undefined;
   if ([errorCode, causeCode].includes('23505')) return c.json({ error: 'Este registro já existe.' }, 409);
   if ([errorCode, causeCode].includes('23503') || [errorCode, causeCode].includes('23514') || [errorCode, causeCode].includes('22P02')) return c.json({ error: 'Dados inválidos ou referência não encontrada.' }, 400);
   if (error instanceof Error && error.message === 'Tenant não encontrado.') return c.json({ error: error.message }, 400);
-  if (error instanceof Error && /^(Informe|Dados ou|Combo requer|Combo não|Plano |Procedimento não|Contrato não|Versão não|Formulário inválido|Motivo do cancelamento|O acompanhamento|O PDF|Intenção de upload|Contrato aplicado)/i.test(error.message)) return c.json({ error: error.message }, 400);
+  if (error instanceof Error && /^(Informe|Escolha|Tipo de contrato|Dados ou|Combo requer|Combo não|Plano |Procedimento não|Contrato não|Versão não|Formulário inválido|Motivo do cancelamento|O acompanhamento|O PDF|Intenção de upload|Contrato aplicado|O caminho legado)/i.test(error.message)) return c.json({ error: error.message }, 400);
   if (error instanceof Error && /conflito|versão desatualizada/i.test(error.message)) return c.json({ error: error.message }, 409);
   if (error instanceof Error && /^(DATA_ENCRYPTION_KEY|SEARCH_HMAC_KEY|UPLOAD_SIGNING_KEY)/.test(error.message)) return c.json({ error: error.message }, 503);
   if (error instanceof Error && /R2 is not configured/i.test(error.message)) return c.json({ error: 'R2 não configurado.' }, 503);
@@ -88,29 +88,29 @@ export const app = new Hono()
   .use('/api/applied-documents*', requireClinicSession)
   .get('/api/patients', async (c) => {
     const tenantId = authTenant(c);
-    return c.json(await listPatients(tenantId, c.req.query('query') ?? c.req.query('q'), patientActorFromRequest(c.req)));
+    return c.json(await listPatients(tenantId, c.req.query('query') ?? c.req.query('q'), clinicSession(c).userId));
   })
   .get('/api/patients/:id', async (c) => {
     const tenantId = authTenant(c);
-    const patient = await getPatient(tenantId, c.req.param('id'), patientActorFromRequest(c.req));
+    const patient = await getPatient(tenantId, c.req.param('id'), clinicSession(c).userId);
     return patient ? c.json(patient) : fail(c, 'Paciente não encontrado.', 404);
   })
   .post('/api/patients', async (c) => {
     const tenantId = authTenant(c);
     const body = await c.req.json().catch(() => null);
     if (!body) return fail(c, 'Dados do paciente inválidos.');
-    return c.json(await createPatient(tenantId, body, patientActorFromRequest(c.req)), 201);
+    return c.json(await createPatient(tenantId, body, clinicSession(c).userId), 201);
   })
   .put('/api/patients/:id', async (c) => {
     const tenantId = authTenant(c);
     const body = await c.req.json().catch(() => null);
     if (!body) return fail(c, 'Dados do paciente inválidos.');
-    const patient = await updatePatient(tenantId, c.req.param('id'), body, patientActorFromRequest(c.req));
+    const patient = await updatePatient(tenantId, c.req.param('id'), body, clinicSession(c).userId);
     return patient ? c.json(patient) : fail(c, 'Paciente não encontrado.', 404);
   })
   .delete('/api/patients/:id', async (c) => {
     const tenantId = authTenant(c);
-    const patient = await deactivatePatient(tenantId, c.req.param('id'), patientActorFromRequest(c.req));
+    const patient = await deactivatePatient(tenantId, c.req.param('id'), clinicSession(c).userId);
     if (patient && 'conflict' in patient) return fail(c, patient.conflict, 409);
     return patient ? c.json(patient) : fail(c, 'Paciente não encontrado.', 404);
   })
@@ -128,7 +128,7 @@ export const app = new Hono()
   .get('/api/contracts', async (c) => c.json(await listContracts(await catalogTenant(c.req, authTenant(c)))))
   .post('/api/contracts', async (c) => c.json(await saveContract(await catalogTenant(c.req, authTenant(c)), null, await c.req.json()), 201))
   .patch('/api/contracts/:id', async (c) => { const result = await saveContract(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Contrato não encontrado.', 404); })
-  .post('/api/contracts/:id/versions', async (c) => { const result = await addContractVersion(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result, 201) : fail(c, 'Contrato não encontrado.', 404); })
+  .post('/api/contracts/:id/versions', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await addContractVersion(tenantId, c.req.param('id'), await c.req.json()); return fail(c, 'Contrato não encontrado.', 404); } catch (error) { return handleError(c, error); } })
   .post('/api/contracts/:id/versions/rendered-pdf/presign', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await presignContractVersionPdf(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), body.contentType, body.contentHash, body.size), 201); } catch (error) { return handleError(c, error); } })
   .post('/api/contracts/:id/versions/rendered-pdf', async (c) => { try { return c.json(await finalizeContractVersionPdf(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json().catch(() => ({}))), 201); } catch (error) { return handleError(c, error); } })
   .get('/api/contracts/placeholders', async (c) => c.json(await listContractPlaceholders()))
@@ -284,7 +284,7 @@ export const app = new Hono()
     try {
       if (!isUuid(c.req.param('id'))) return fail(c, 'Paciente não encontrado.', 404);
       const tenantId = await catalogTenant(c.req, authTenant(c));
-      const history = await getRelationalHistory(tenantId, c.req.param('id'));
+       const history = await getRelationalHistory(tenantId, c.req.param('id'), clinicSession(c).userId);
       return history ? c.json(history) : fail(c, 'Paciente não encontrado.', 404);
     } catch (error) { return handleError(c, error); }
   });

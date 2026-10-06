@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { ArrowLeft, Camera, CalendarPlus, ChartNoAxesCombined, ClipboardPlus, Sparkles } from 'lucide-react';
+import { ArrowLeft, Camera, CalendarPlus, ChartNoAxesCombined, ClipboardPlus, Pencil, Sparkles } from 'lucide-react';
 import { useState } from 'react';
+import { EditPatientDialog } from '@/components/EditPatientDialog';
 import { FollowupCard } from '@/components/FollowupCard';
 import { AppointmentDialog, NewFollowupDialog, StandaloneAttendanceDialog } from '@/components/dialogs';
 import { PatientTimeline } from '@/components/PatientTimeline';
@@ -17,7 +18,7 @@ function PatientDetail() {
   const { patientId } = Route.useParams();
   const history = useQuery(patientHistoryQuery(patientId)), followups = useQuery(followupsQuery);
   const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), combos = useQuery(combosQuery), plans = useQuery(plansQuery);
-  const [dialog, setDialog] = useState<'followup' | 'standalone' | 'appointment' | null>(null);
+  const [dialog, setDialog] = useState<'edit' | 'followup' | 'standalone' | 'appointment' | null>(null);
   const allFollowups = (followups.data ?? []).filter((followup) => followup.patientId === patientId);
   const patientFollowups = allFollowups.filter((followup) => followup.offerType !== 'procedure');
   const standaloneCharges = allFollowups.filter((followup) => followup.offerType === 'procedure');
@@ -35,6 +36,7 @@ function PatientDetail() {
             <p className="section-note m-0">{[patient?.phone, patient?.email].filter(Boolean).join(' · ') || (history.isSuccess ? 'Sem contato' : '')}</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setDialog('edit')} disabled={!patient}><Pencil /> Editar paciente</Button>
             <Button variant="outline" asChild><Link to="/pacientes/$patientId/relacionamento" params={{ patientId }}><ChartNoAxesCombined /> Relacionamento</Link></Button>
             <Button variant="outline" onClick={() => setDialog('standalone')}><Sparkles /> Atendimento avulso</Button>
             <Button variant="outline" onClick={() => setDialog('followup')}><ClipboardPlus /> Novo acompanhamento</Button>
@@ -84,6 +86,7 @@ function PatientDetail() {
         </div>
       )}
       <NewFollowupDialog open={dialog === 'followup'} patientId={patientId} patients={patients.data ?? []} combos={combos.data ?? []} plans={plans.data ?? []} onClose={() => setDialog(null)} />
+      {patient && <EditPatientDialog open={dialog === 'edit'} onOpenChange={(open) => setDialog(open ? 'edit' : null)} patient={patient} />}
       <StandaloneAttendanceDialog open={dialog === 'standalone'} patientId={patientId} procedures={procedures.data ?? []} onClose={() => setDialog(null)} />
       <AppointmentDialog open={dialog === 'appointment'} patientId={patientId} patients={patients.data ?? []} followups={followups.data ?? []} procedures={procedures.data ?? []} onClose={() => setDialog(null)} />
     </div>

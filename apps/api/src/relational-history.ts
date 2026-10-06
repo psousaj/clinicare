@@ -1,10 +1,11 @@
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 import { appliedAnamneses, appointments, attendances, followupItems, followups, getDatabase, patients, payments, decryptValue, buildProtectedAad } from '@clinicare/db';
 import { paymentResponse as readPayment } from './payments';
+import { patientResponse } from './patients';
 
 const idShape = (row: any) => ({ ...row, _id: row.id });
 
-export async function getRelationalHistory(tenantId: string, patientId: string) {
+export async function getRelationalHistory(tenantId: string, patientId: string, actorId?: string | null) {
   const db = getDatabase();
   const patient = (await db.select().from(patients).where(and(eq(patients.tenantId, tenantId), eq(patients.id, patientId))))[0];
   if (!patient) return null;
@@ -33,5 +34,5 @@ const anamnesisDetails = (row: any) => ({ id: row.id, _id: row.id, patientId: ro
     }),
   ];
   const pending = events.filter((event) => (event.type === 'appointment' && event.details.status === 'planned') || (event.type === 'anamnesis' && /pendente|vencida/.test(event.title)));
-  return { patient: { _id: patient.id, id: patient.id, fullName: patient.fullName, email: null, phone: null, cpf: null, notes: null, active: !patient.deletedAt, createdAt: patient.createdAt, updatedAt: patient.updatedAt }, events: events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()), pending };
+  return { patient: patientResponse(patient, actorId), events: events.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()), pending };
 }

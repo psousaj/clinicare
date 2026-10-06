@@ -842,6 +842,260 @@ nav {
   margin-bottom: 16px;
 }
 
+/* ----- Contract screens ----- */
+
+.contract-settings-panel {
+  padding: 24px;
+  gap: 16px;
+}
+
+.contract-settings-panel .panel-header {
+  margin-bottom: 4px;
+}
+
+.contract-settings-panel .panel-header h2 {
+  font-size: 17px;
+}
+
+.contract-settings-panel .grid.max-w-3xl {
+  max-width: 768px;
+}
+
+.contract-notice {
+  max-width: 672px;
+}
+
+.contract-notice > * {
+  margin: 0;
+  border-radius: 9px;
+  background: #f1f5f3;
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.contract-form-page > .grid:last-child {
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.contract-content-panel,
+.contract-preview-panel {
+  padding: 20px 22px;
+  gap: 14px;
+}
+
+.contract-content-panel textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.contract-document-preview {
+  min-height: 256px;
+  border-color: #34423d;
+  border-radius: 9px;
+  padding: 24px;
+  box-shadow: none;
+}
+
+.contract-row {
+  padding: 10px;
+}
+
+.contract-row > svg {
+  margin: 0 2px;
+}
+
+.contract-row + .section-note {
+  margin-top: 0;
+}
+
+.contract-metadata-grid {
+  width: 100%;
+}
+
+.contract-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.contract-fieldset legend {
+  padding: 0 6px;
+  font: 700 14px Manrope, sans-serif;
+}
+
+.contract-fieldset > p {
+  margin: -2px 0 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.contract-context-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 8px;
+}
+
+.contract-context-card {
+  min-width: 0;
+  min-height: 72px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.contract-context-card.is-enabled,
+.contract-placeholder-row.is-enabled {
+  border-color: #b8d8cb;
+  background: #f7fbf8;
+}
+
+.contract-context-copy {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 3px;
+}
+
+.contract-context-copy strong {
+  font-size: 12px;
+}
+
+.contract-context-copy small,
+.contract-context-required small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.contract-context-required {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+}
+
+.contract-placeholder-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 7px;
+}
+
+.contract-placeholder-row {
+  min-width: 0;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+}
+
+.contract-placeholder-main,
+.contract-required-toggle {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.contract-placeholder-main code {
+  overflow-wrap: anywhere;
+  color: var(--deep);
+  font-size: 11px;
+}
+
+.contract-required-toggle {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.contract-context-card input,
+.contract-context-required input,
+.contract-placeholder-row input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  margin: 1px 0 0;
+  accent-color: var(--green);
+}
+
+.contract-inline-empty {
+  margin: 0;
+  padding: 12px;
+  border-radius: 9px;
+  background: var(--soft);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.contract-workflow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+@media (max-width: 700px) {
+  .contract-form-page > .grid:last-child {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .contract-settings-panel,
+  .contract-content-panel,
+  .contract-preview-panel {
+    padding: 16px 12px;
+  }
+
+  .contract-fieldset {
+    padding: 12px 10px;
+  }
+
+  .contract-context-grid,
+  .contract-placeholder-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .contract-workflow-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .contract-workflow-actions > button {
+    width: 100%;
+  }
+
+  .contract-form-page .form-page-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .contract-form-page .form-page-extra-actions,
+  .contract-form-page .form-page-actions > * {
+    grid-column: 1;
+  }
+
+  .contract-form-page .contract-context-card {
+    min-height: 68px;
+  }
+}
+
 /* ============================================================
    Responsive — Breakpoints
    ============================================================ */

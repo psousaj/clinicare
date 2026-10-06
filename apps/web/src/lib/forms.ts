@@ -6,7 +6,14 @@ const reais = (label: string, min = 0) => z.coerce.number({ error: `${label} inv
 const optionalReais = z.string().trim().transform((value) => (value ? Math.round(Number(value) * 100) : null)).refine((value) => value === null || Number.isFinite(value), 'Valor promocional inválido.');
 const optionalInt = z.string().trim().transform((value) => Number(value) || null);
 
-export const patientForm = z.object({ fullName: text('Nome'), phone: optionalText, notes: optionalText, email: z.string().trim().pipe(z.union([z.literal(''), z.email('E-mail inválido.')])).transform((value) => value || null) });
+export const patientForm = z.object({
+  fullName: text('Nome'),
+  birthDate: optionalText,
+  phone: optionalText,
+  email: z.string().trim().pipe(z.union([z.literal(''), z.email('E-mail inválido.')])).transform((value) => value || null),
+  cpf: optionalText,
+  notes: optionalText,
+});
 export const procedureForm = z.object({
   name: text('Nome'),
   description: optionalText,

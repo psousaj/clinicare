@@ -13,8 +13,9 @@ function NewContract() {
       submitLabel="Salvar contrato"
       saving={create.isPending}
       onSave={async (data) => {
-        await create.mutateAsync(data);
-        await navigate({ to: '/contratos' });
+        const created = (await create.mutateAsync(data)) as { id?: string };
+        if (created?.id) await navigate({ to: '/contratos/$contractId', params: { contractId: created.id } });
+        else await navigate({ to: '/contratos' });
       }}
     />
   );

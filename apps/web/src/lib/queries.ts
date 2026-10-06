@@ -66,6 +66,8 @@ const patientRefresh = [keys.patients];
 const everything = [keys.patients, keys.procedures, keys.anamneses, keys.contracts, keys.combos, keys.plans, keys.followups, keys.appointments, keys.attendances];
 
 export const useCreatePatient = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/patients', body), invalidate: patientRefresh, success: 'Paciente cadastrado.' });
+export const useUpdatePatient = (id: string) =>
+  useApiMutation({ mutationFn: (body: unknown) => api(`/api/patients/${id}`, { method: 'PUT', body, schema: anySchema }), invalidate: [keys.patients, keys.history(id), keys.relationship(id)], success: 'Dados do paciente atualizados.' });
 export const useCreateProcedure = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/procedures', body), invalidate: [keys.procedures], success: 'Procedimento cadastrado.' });
 export const useCreateAnamnesis = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/anamneses', body), invalidate: [keys.anamneses], success: 'Formulário de anamnese criado.' });
 export const useRestoreAnamnesis = () =>
@@ -80,17 +82,41 @@ export const useUpdateAnamnesis = () =>
     invalidate: [keys.anamneses],
     success: 'Formulário de anamnese atualizado.',
   });
-export const useCreateContract = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/contracts', body), invalidate: [keys.contracts], success: 'Contrato criado.' });
-export const useRestoreContract = () =>
-  useApiMutation({ mutationFn: ({ id, version }: { id: string; version: number }) => post(`/api/contracts/${id}/versions`, { restoreVersion: version }), invalidate: [keys.contracts], success: (_, { version }) => `Rollback feito: nova versão criada a partir da v${version}.` });
+export const useCreateContract = () => useApiMutation({ mutationFn: (body: { title: string; kind: string; procedureId?: string | null; comboId?: string | null }) => post('/api/contracts', body), invalidate: [keys.contracts], success: 'Contrato criado. Agora envie o draft DOCX.' });
 export const useUpdateContract = () =>
   useApiMutation({
-    mutationFn: async ({ id, settings, content }: { id: string; settings?: { title: string; kind: string; procedureId?: string | null; comboId?: string | null }; content?: string }) => {
-      if (settings) await api(`/api/contracts/${id}`, { method: 'PATCH', body: settings, schema: anySchema });
-      if (content !== undefined) await post(`/api/contracts/${id}/versions`, { content });
-    },
+    mutationFn: ({ id, settings }: { id: string; settings: { title?: string; kind?: string; procedureId?: string | null; comboId?: string | null; active?: boolean } }) =>
+      api(`/api/contracts/${id}`, { method: 'PATCH', body: settings, schema: anySchema }),
     invalidate: [keys.contracts, keys.followups],
     success: 'Contrato atualizado.',
+  });
+export const contractPlaceholdersQuery = queryOptions({ queryKey: ['contract-placeholders'] as const, queryFn: () => api('/api/contracts/placeholders', { schema: z.array(z.string()), fallbackError: 'Não foi possível carregar os placeholders.' }) });
+const sha256Hex = async (file: File) => { const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer()); return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(''); };
+export const useSaveContractDraft = () =>
+  useApiMutation({
+    mutationFn: async ({ id, file, contexts, allowedPlaceholders, requiredPlaceholders }: { id: string; file: File; contexts: Record<string, { enabled: boolean; required: boolean }>; allowedPlaceholders: string[]; requiredPlaceholders: string[] }) => {
+      const contentHash = await sha256Hex(file);
+      const presign = await post(`/api/contracts/${id}/draft/presign`, {}, z.looseObject({ objectKey: z.string(), uploadUrl: z.string() }));
+      const upload = await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'content-type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }, body: file });
+      if (!upload.ok) throw new Error('Não foi possível enviar o DOCX.');
+      return api(`/api/contracts/${id}/draft`, { method: 'PUT', body: { objectKey: presign.objectKey, contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', contentHash, size: file.size, contexts, allowedPlaceholders, requiredPlaceholders }, schema: anySchema });
+    },
+    invalidate: [keys.contracts],
+    success: 'Draft DOCX salvo.',
+  });
+export const usePublishContractDraft = () =>
+  useApiMutation({ mutationFn: (id: string) => post(`/api/contracts/${id}/publish`, {}, anySchema), invalidate: [keys.contracts, keys.followups], success: 'Nova versão publicada a partir do draft.' });
+export const usePresignContractVersionPdf = () =>
+  useApiMutation({
+    mutationFn: async ({ id, file }: { id: string; file: File }) => {
+      const contentHash = await sha256Hex(file);
+      const presign = await post(`/api/contracts/${id}/versions/rendered-pdf/presign`, { contentType: 'application/pdf', contentHash, size: file.size }, z.looseObject({ uploadIntentId: z.string(), uploadUrl: z.string() }));
+      const upload = await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'content-type': 'application/pdf' }, body: file });
+      if (!upload.ok) throw new Error('Não foi possível enviar o PDF.');
+      return api(`/api/contracts/${id}/versions/rendered-pdf`, { method: 'POST', body: { uploadIntentId: presign.uploadIntentId }, schema: anySchema });
+    },
+    invalidate: [keys.contracts],
+    success: 'PDF renderizado anexado à versão atual.',
   });
 export const useUpdateProcedure = () =>
   useApiMutation({ mutationFn: ({ id, ...body }: { id: string } & Record<string, unknown>) => api(`/api/procedures/${id}`, { method: 'PUT', body, schema: anySchema }), invalidate: [keys.procedures], success: 'Procedimento atualizado.' });

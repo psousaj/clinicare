@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { Layers } from 'lucide-react';
+import { Layers, Pencil } from 'lucide-react';
 import { useUpdatePlan } from '@/lib/queries';
 import { QueryError } from '@/components/QueryState';
 import { Button } from '@/components/ui/button';

@@ -17,23 +17,7 @@ import {
 
 export const DEFAULT_TENANT_ID = '00000000-0000-0000-0000-000000000001';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const ACTOR_ID_HEADER = 'x-actor-id';
-
 export function isUuid(value: string): boolean { return UUID.test(value); }
-
-/**
- * Transitional authorization contract for protected patient fields.
- *
- * Authentication/authorization is intentionally out of scope for this ticket,
- * so this is only the request-context seam that a future auth middleware will
- * populate. The header is not an authentication mechanism. Until trusted auth
- * middleware owns it, callers without a valid UUID actor header receive a
- * redacted response and are never allowed to decrypt patient fields.
- */
-export function patientActorFromRequest(request: { header(name: string): string | undefined }): string | null {
-  const actorId = request.header(ACTOR_ID_HEADER);
-  return actorId && isUuid(actorId) ? actorId : null;
-}
 
 export type PatientInput = { fullName?: unknown; email?: unknown; phone?: unknown; cpf?: unknown; birthDate?: unknown; notes?: unknown };
 

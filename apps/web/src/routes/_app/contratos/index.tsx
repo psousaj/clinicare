@@ -7,7 +7,6 @@ import { ContractVersionsButton } from '@/components/VersionsDialog';
 import { Button } from '@/components/ui/button';
 import { combosQuery, contractsQuery, proceduresQuery } from '@/lib/queries';
 import type { Contract } from '@/lib/schemas';
-import { originLabel } from '@/lib/versions';
 
 export const Route = createFileRoute('/_app/contratos/')({ component: Contracts });
 
@@ -27,11 +26,11 @@ function Contracts() {
       {(contracts.data ?? []).map((contract) => {
         const current = contract.versions.at(-1);
         return (
-          <div className="procedure-row" key={contract.id}>
+          <div className="procedure-row contract-row" key={contract.id}>
             <FileText size={18} />
             <span className="procedure-info">
               <strong>{contract.title}</strong>
-              <small>{scope(contract)} · {contract.versions.length} {contract.versions.length === 1 ? 'versão' : 'versões'} · atual v{current?.version}{current && current.origin && current.origin !== 'created' ? ` (${originLabel(current).toLowerCase()})` : ''}</small>
+              <small>{scope(contract)} · {contract.versions.length === 0 ? 'sem versão publicada' : `${contract.versions.length} ${contract.versions.length === 1 ? 'versão' : 'versões'} · atual v${current?.version}`} · {current?.hasRenderedPdf ? 'PDF anexado' : current?.hasSourceDocx ? 'DOCX' : 'rascunho'}</small>
             </span>
             {!contract.active && <StatusBadge tone="neutral">Inativo</StatusBadge>}
             <div className="row-actions flex gap-2">
@@ -41,7 +40,7 @@ function Contracts() {
           </div>
         );
       })}
-      <p className="section-note">Assinatura digital não faz parte desta versão do protótipo.</p>
+      <p className="section-note">Versões publicadas são imutáveis e materializadas por acompanhamento via DOCX.</p>
     </section>
   );
 }
