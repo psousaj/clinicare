@@ -1,68 +1,35 @@
+# Produção: somente o app (front+back na mesma imagem).
+# O Dockerfile já compila web+API e serve o frontend estático pelo Hono,
+# então não há serviço de frontend separado.
+# DB (PostgreSQL gerenciado) e storage (Cloudflare R2) são externos via envs.
+# Nada de postgres/ministack aqui — isso vive no dev-compose.yml.
+# Sem S3_ENDPOINT em produção: ausente => o SDK usa o endpoint real do R2
+# (https://<CLOUDFLARE_ACCOUNT_ID>.r2.cloudflarestorage.com).
 services:
   app:
     build:
       context: .
       dockerfile: Dockerfile
+    restart: unless-stopped
     environment:
       NODE_ENV: production
       PORT: 3000
-      DATABASE_URL: postgresql://clinicare:clinicare@postgres:5432/clinicare
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      DB_SCHEMA: ${DB_SCHEMA:?Set DB_SCHEMA in .env}
       DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?Set DATA_ENCRYPTION_KEY in .env}
       SEARCH_HMAC_KEY: ${SEARCH_HMAC_KEY:?Set SEARCH_HMAC_KEY in .env}
       UPLOAD_SIGNING_KEY: ${UPLOAD_SIGNING_KEY:?Set UPLOAD_SIGNING_KEY in .env}
-      S3_ENDPOINT: ${S3_ENDPOINT:-http://ministack:4566}
-      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
-      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-test}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-test}
-      R2_BUCKET: ${R2_BUCKET:-clinicare-dev}
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:?Set BETTER_AUTH_URL in .env}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:?Set CLOUDFLARE_ACCOUNT_ID in .env}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?Set R2_ACCESS_KEY_ID in .env}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?Set R2_SECRET_ACCESS_KEY in .env}
+      R2_BUCKET: ${R2_BUCKET:?Set R2_BUCKET in .env}
+      ONLYOFFICE_CONVERTER_URL: ${ONLYOFFICE_CONVERTER_URL:-}
     ports:
-      - "3000:3000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      ministack-init:
-        condition: service_completed_successfully
+      - "${APP_PORT:-3000}:3000"
     healthcheck:
       test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 10
-  ministack:
-    image: ministackorg/ministack
-    restart: unless-stopped
-    ports:
-      - "${MINISTACK_PORT:-4566}:4566"
-    volumes:
-      - clinicare-ministack:/tmp/ministack
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:4566/', timeout=2)"]
-      interval: 5s
-      timeout: 5s
-      retries: 15
-  ministack-init:
-    image: curlimages/curl:latest
-    depends_on:
-      ministack:
-        condition: service_healthy
-    restart: "no"
-    entrypoint: ["/bin/sh", "-c"]
-    command: ["for i in $$(seq 1 30); do curl -sf -X PUT http://ministack:4566/clinicare-dev && exit 0; sleep 1; done; exit 1"]
-  postgres:
-    image: postgres:17
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: clinicare
-      POSTGRES_USER: clinicare
-      POSTGRES_PASSWORD: clinicare
-    ports:
-      - "5432:5432"
-    volumes:
-      - clinicare-postgres:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U clinicare -d clinicare"]
-      interval: 5s
-      timeout: 5s
-      retries: 15
-volumes:
-  clinicare-postgres:
-  clinicare-ministack:
