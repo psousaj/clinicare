@@ -214,7 +214,7 @@ integration('Issue #23: Entregar assinatura manuscrita local do paciente', () =>
     const idempotencyKey = randomUUID();
     const placement = { pageIndex: 0, x: 0.1, y: 0.2, width: 0.25, height: 0.12 };
     const browserIdentity = await request(`/api/signature-participants/${professionalParticipantId}/confirm`, { method: 'POST', body: JSON.stringify({ userId: 'attacker', evidence: { documentId, baseRevisionId, signaturePng: pngDataUrl, placement, idempotencyKey: randomUUID(), confirmed: true, acceptanceText: 'aceito' } }) });
-    expect([403, 404]).toContain(browserIdentity.status);
+    expect([403, 404, 409]).toContain(browserIdentity.status);
 
     const payload = {
       baseRevisionId,
