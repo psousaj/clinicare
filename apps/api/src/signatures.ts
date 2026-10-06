@@ -51,6 +51,25 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const professionalActorId = (snapshot: unknown) => snapshot && typeof snapshot === 'object' && !Array.isArray(snapshot) && typeof (snapshot as { userId?: unknown }).userId === 'string' ? (snapshot as { userId: string }).userId : null;
 type ClinicSignatureActor = { userId: string; tenantId: string; user: { id: string; name: string; email: string } };
 
+/**
+ * Congela a identidade operacional do representante a partir da sessão
+ * autenticada (Issue #25): userId, nome, e-mail, tenant, clínica e papel.
+ * O tenant é a clínica neste modelo; o nome exibível vem da tabela de
+ * tenants. Alterações posteriores no perfil não modificam este registro
+ * histórico. Nunca usa identidade declarada no corpo da requisição.
+ */
+async function professionalSnapshot(executor: any, actor: ClinicSignatureActor) {
+  const tenantRow = (await executor.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, actor.tenantId)))[0];
+  return {
+    role: 'professional',
+    userId: actor.userId,
+    name: actor.user.name,
+    email: actor.user.email,
+    tenantId: actor.tenantId,
+    clinic: tenantRow?.name ?? null,
+  };
+}
+
 /** Issues a one-time plaintext token. The database stores only its SHA-256 hash. */
 export async function issueSignatureToken(tenantId: string, participantId: string) {
   const db = getDatabase();
@@ -310,7 +329,10 @@ export async function signWithToken(token: string, input: unknown, actor?: Clini
     let operation;
     try {
       operation = await db.transaction(async (tx) => {
-        const rows = await tx.insert(signatureOperations).values({ tenantId: context.participant.tenantId, participantId: context.participant.id, documentId: document.document.id, baseRevisionId: document.revision.id, candidateObjectKey: candidateKey, candidateHash, candidateSize, signatureImageObjectKey: imageKey, placement: prepared.placement, idempotencyKey: prepared.idempotencyKey, requestHash, signatureImageHash, acceptanceText: prepared.acceptanceText, identitySnapshot: context.participant.role === 'professional' && actor ? { role: 'professional', userId: actor.userId, name: actor.user.name, email: actor.user.email, tenantId: actor.tenantId } : context.participant.identitySnapshot, fingerprint: prepared.fingerprint, fingerprintCollectorVersion: normalizedEv.collectorVersion, fingerprintNormalizationVersion: normalizedEv.normalizationVersion, fingerprintDigest: normalizedEv.digest, observedIp: reqContext?.ip ?? null, evidenceReceivedAt: new Date(), status: 'prepared' }).onConflictDoNothing({ target: [signatureOperations.tenantId, signatureOperations.participantId, signatureOperations.idempotencyKey] }).returning() as any[];
+        const representativeSnapshot = context.participant.role === 'professional' && actor
+          ? await professionalSnapshot(tx, actor)
+          : null;
+        const rows = await tx.insert(signatureOperations).values({ tenantId: context.participant.tenantId, participantId: context.participant.id, documentId: document.document.id, baseRevisionId: document.revision.id, candidateObjectKey: candidateKey, candidateHash, candidateSize, signatureImageObjectKey: imageKey, placement: prepared.placement, idempotencyKey: prepared.idempotencyKey, requestHash, signatureImageHash, acceptanceText: prepared.acceptanceText, identitySnapshot: representativeSnapshot ?? context.participant.identitySnapshot, fingerprint: prepared.fingerprint, fingerprintCollectorVersion: normalizedEv.collectorVersion, fingerprintNormalizationVersion: normalizedEv.normalizationVersion, fingerprintDigest: normalizedEv.digest, observedIp: reqContext?.ip ?? null, evidenceReceivedAt: new Date(), status: 'prepared' }).onConflictDoNothing({ target: [signatureOperations.tenantId, signatureOperations.participantId, signatureOperations.idempotencyKey] }).returning() as any[];
         return rows[0] ?? (await tx.select().from(signatureOperations).where(and(eq(signatureOperations.tenantId, context.participant.tenantId), eq(signatureOperations.participantId, context.participant.id), eq(signatureOperations.idempotencyKey, prepared.idempotencyKey))))[0];
       });
     } catch (error) {
