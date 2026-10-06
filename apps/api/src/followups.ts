@@ -5,7 +5,7 @@ import {
   anamneses, anamnesisProcedures, anamnesisVersions, appliedAnamneses, combos, comboItems,
   contracts, contractVersions, followupContracts, followupItems, followupSnapshots, followups,
   getDatabase, patients, plans, planVersionContracts, planVersionItems, planVersions, procedures,
-  payments, signatureProcesses, signatureParticipants, signatureTokens,
+  payments, signatureEvents, signatureProcesses, signatureParticipants, signatureTokens,
   buildPatientAad, buildProtectedAad, decryptValue, encryptValue, normalizePhone,
 } from '@clinicare/db';
 
@@ -152,6 +152,12 @@ export async function updateFollowupState(tenantId: string, followupId: string, 
       await tx.update(signatureTokens).set({ revokedAt: new Date() }).where(and(eq(signatureTokens.tenantId, tenantId), sql`${signatureTokens.participantId} in (select id from signature_participants where tenant_id = ${tenantId} and process_id = ${row.process.id})`));
       await tx.update(signatureProcesses).set({ status: 'cancelled', updatedAt: new Date() }).where(and(eq(signatureProcesses.tenantId, tenantId), eq(signatureProcesses.id, row.process.id), eq(signatureProcesses.status, 'pending')));
       await tx.update(followupContracts).set({ status: 'cancelled' }).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.id, row.contract.id)));
+      if (status === 'cancelled') {
+        const people = await tx.select({ id: signatureParticipants.id }).from(signatureParticipants).where(and(eq(signatureParticipants.tenantId, tenantId), eq(signatureParticipants.processId, row.process.id)));
+        for (const person of people) {
+          await tx.insert(signatureEvents).values({ tenantId, participantId: person.id, type: 'cancelled', metadata: { processId: row.process.id, followupContractId: row.contract.id, reason: reason!.trim(), actor: { role: 'clinic' } } });
+        }
+      }
     }
     return getFollowup(tenantId, followupId, tx);
   });

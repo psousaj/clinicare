@@ -130,6 +130,33 @@ describe('patient signature workspace', () => {
     expect(await screen.findByText(/Retorno validado e incorporado/i)).toBeInTheDocument();
   });
 
+  it('shows the readable history with revisions, events and neutral notice', async () => {
+    globalThis.fetch = vi.fn(async (url: string) => {
+      if (url === '/public/signatures/test-token') return { ok: true, status: 200, json: async () => signatureResponse() };
+      if (url === '/public/signatures/test-token/history') {
+        return {
+          ok: true, status: 200,
+          json: async () => ({
+            process: { id: 'p1', status: 'completed', statusLabel: 'Concluído', followupContractId: 'c1' },
+            participants: [{ roleLabel: 'Paciente', statusLabel: 'Assinada', signedAt: '2026-10-06T10:00:00.000Z' }],
+            document: { revisions: [{ id: 'r1', version: 1, originLabel: 'Original', createdAt: '2026-10-06T09:00:00.000Z', downloadUrl: '/public/signatures/test-token/revisions/r1/pdf', promotedBy: null }] },
+            events: [{ id: 'e1', label: 'Assinatura confirmada', occurredAt: '2026-10-06T10:00:00.000Z', method: 'Manuscrita local', revision: 'revisão 2', actor: { role: 'patient', name: 'Paciente Teste' } }],
+            notice: 'Assinatura eletrônica simples. Este histórico não constitui certificado ICP-Brasil.',
+          }),
+        };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    }) as unknown as typeof fetch;
+
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Contrato de teste' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Ver histórico' }));
+    expect(await screen.findByText(/Assinatura confirmada/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Manuscrita local/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Baixar PDF desta revisão/i)).toBeInTheDocument();
+    expect(await screen.findByText(/não constitui certificado ICP-Brasil/i)).toBeInTheDocument();
+  });
+
   it('warns against covering previous external signatures', async () => {
     globalThis.fetch = vi.fn(async (url: string) => {
       if (url === '/public/signatures/test-token') return { ok: true, status: 200, json: async () => ({ ...signatureResponse(), hasExternalSignatures: true }) };

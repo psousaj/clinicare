@@ -2,7 +2,7 @@ import { queryOptions, useMutation, useQueryClient, type QueryKey } from '@tanst
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { api } from './api';
-import { anamnesisSchema, anySchema, appointmentSchema, contractSchema, createdSchema, comboSchema, planSchema, patientHistorySchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicFormSchema, requestSchema, attendanceSchema, signaturePendingSchema } from './schemas';
+import { anamnesisSchema, anySchema, appointmentSchema, contractSchema, createdSchema, comboSchema, planSchema, patientHistorySchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicFormSchema, requestSchema, attendanceSchema, signatureHistorySchema, signaturePendingSchema } from './schemas';
 
 export const keys = {
   patients: ['patients'] as const,
@@ -19,6 +19,7 @@ export const keys = {
   attendance: (id: string) => ['attendances', id] as const,
   publicForm: (token: string) => ['public-form', token] as const,
   signaturePending: ['signature-pending'] as const,
+  signatureHistory: (followupContractId: string) => ['signature-history', followupContractId] as const,
 };
 
 const list = <S extends z.ZodType>(key: QueryKey, path: string, schema: S) =>
@@ -32,6 +33,8 @@ export const combosQuery = list(keys.combos, '/api/combos', comboSchema);
 export const plansQuery = list(keys.plans, '/api/plans', planSchema);
 export const followupsQuery = list(keys.followups, '/api/followups', followupSchema);
 export const signaturePendingQuery = list(keys.signaturePending, '/api/signature-pending', signaturePendingSchema);
+export const signatureHistoryQuery = (followupContractId: string) =>
+  queryOptions({ queryKey: keys.signatureHistory(followupContractId), queryFn: () => api(`/api/signature-history?followupContractId=${followupContractId}`, { schema: signatureHistorySchema, fallbackError: 'Não foi possível carregar o histórico de assinaturas.' }) });
 export const attendancesQuery = list(keys.attendances, '/api/attendances', attendanceSchema);
 export const appointmentsQuery = list(keys.appointments, '/api/appointments', appointmentSchema);
 export const attendanceQuery = (id: string) =>

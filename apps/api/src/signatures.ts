@@ -146,6 +146,51 @@ async function lockedParticipantContext(tx: any, participantId: string, actor: C
   return { token: null, participant, process, contract, followup, consumed: false };
 }
 
+/**
+ * Contexto de LEITURA (entregáveis pós-assinatura — Issue #28): prova posse
+ * do token (hash), verificação telefônica persistente, expiração e tenant
+ * ativo, sem exigir processo pendente. Links continuam servindo histórico
+ * e PDFs após a conclusão; poder de ASSINATURA continua no contexto
+ * estrito (preview/confirm/export/import). Refresh continua invalidando o
+ * token antigo para assinatura; a verificação persiste no registro.
+ */
+async function lockedTokenReadContext(tx: any, rawToken: string) {
+  const candidate = await tokenParticipant(tx, rawToken, true);
+  const [tenant] = await tx.select({ active: tenants.active }).from(tenants).where(eq(tenants.id, candidate.participant.tenantId));
+  if (!tenant?.active) throw invalid('Link inválido, expirado ou revogado.', 404);
+  if (!candidate.token || candidate.token.expiresAt <= new Date()) throw invalid('Link inválido, expirado ou revogado.', 404);
+  // Revogação encerra o poder de assinatura, mas preserva entregáveis de quem
+  // já assinou. Links rotacionados (refresh) ou cancelados com participante
+  // pendente continuam inválidos para leitura pública; o painel cobre esses
+  // casos via sessão autenticada.
+  if (candidate.token.revokedAt && candidate.participant.status !== 'signed') {
+    throw invalid('Link inválido, expirado ou revogado.', 404);
+  }
+  const tenantId = candidate.participant.tenantId;
+  const participant = (await tx.select().from(signatureParticipants).where(and(eq(signatureParticipants.tenantId, tenantId), eq(signatureParticipants.id, candidate.participant.id))))[0];
+  const process = (await tx.select().from(signatureProcesses).where(and(eq(signatureProcesses.tenantId, tenantId), eq(signatureProcesses.id, candidate.participant.processId))))[0];
+  const contract = process && (await tx.select().from(followupContracts).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.id, process.followupContractId))))[0];
+  const followup = contract && (await tx.select().from(followups).where(and(eq(followups.tenantId, tenantId), eq(followups.id, contract.followupId))))[0];
+  if (!participant || !process || !contract || !followup) throw invalid('Contrato aplicado não encontrado.', 404);
+  return { token: candidate.token, participant, process, contract, followup };
+}
+
+/**
+ * Contexto de LEITURA do painel: participante existe no tenant da sessão,
+ * sem exigir processo pendente. Downloads e histórico sobrevivem à
+ * conclusão e ao cancelamento; mutações continuam no contexto estrito.
+ */
+async function lockedParticipantReadContext(tx: any, participantId: string, actor: ClinicSignatureActor) {
+  if (!uuid.test(participantId)) throw invalid('Participante inválido.', 400);
+  const participant = (await tx.select().from(signatureParticipants).where(and(eq(signatureParticipants.tenantId, actor.tenantId), eq(signatureParticipants.id, participantId))))[0];
+  if (!participant) throw invalid('Participante não encontrado.', 404);
+  const process = (await tx.select().from(signatureProcesses).where(and(eq(signatureProcesses.tenantId, actor.tenantId), eq(signatureProcesses.id, participant.processId))))[0];
+  const contract = process && (await tx.select().from(followupContracts).where(and(eq(followupContracts.tenantId, actor.tenantId), eq(followupContracts.id, process.followupContractId))))[0];
+  const followup = contract && (await tx.select().from(followups).where(and(eq(followups.tenantId, actor.tenantId), eq(followups.id, contract.followupId))))[0];
+  if (!process || !contract || !followup) throw invalid('Contrato aplicado não encontrado.', 404);
+  return { token: null, participant, process, contract, followup, consumed: false };
+}
+
 async function lockedAccessContext(tx: any, access: string, allowConsumed: boolean, actor?: ClinicSignatureActor) {
   if (access.startsWith('participant:')) {
     if (!actor) throw invalid('Autenticação necessária.', 401);
@@ -188,7 +233,7 @@ export async function verifySignaturePhone(token: string, phoneLast4: unknown) {
 export async function readSignatureToken(token: string) {
   const db = getDatabase();
   return db.transaction(async (tx) => {
-    const found = await lockedTokenContext(tx, token);
+    const found = await lockedTokenReadContext(tx, token);
     if (found.participant.role === 'professional') throw invalid('O representante deve acessar pelo painel autenticado da clínica.', 403);
     if (found.participant.role === 'patient' && !found.token.phoneVerifiedAt) {
       return { participantId: found.participant.id, role: found.participant.role, status: 'verification_required', expiresAt: found.token.expiresAt, phoneVerificationRequired: true };
@@ -381,6 +426,7 @@ export async function signWithToken(token: string, input: unknown, actor?: Clini
     }
     if (latestContext.participant.status !== 'pending' || latestContext.process.status !== 'pending' || terminalFollowup(latestContext.followup.status)) {
       await tx.update(signatureOperations).set({ status: 'rejected', staleReason: 'SIGNATURE_PROCESS_NOT_ACTIVE' }).where(and(eq(signatureOperations.id, operation.id), eq(signatureOperations.status, 'prepared')));
+      await tx.insert(signatureEvents).values({ tenantId: found.context.participant.tenantId, participantId: found.context.participant.id, type: 'rejected', metadata: { operationId: operation.id, reason: 'SIGNATURE_PROCESS_NOT_ACTIVE' } });
       throw invalid('O processo de assinatura não está mais disponível.', 409);
     }
     try {
@@ -422,7 +468,14 @@ async function signatureResult(tx: any, tenantId: string, processId: string) {
   const patient = participants.find((p: any) => p.role === 'patient');
   const professional = participants.find((p: any) => p.role === 'professional');
   const bothSigned = patient?.status === 'signed' && professional?.status === 'signed';
-  if (process?.status === 'pending' && bothSigned) await tx.update(signatureProcesses).set({ status: 'completed', updatedAt: new Date() }).where(and(eq(signatureProcesses.tenantId, tenantId), eq(signatureProcesses.id, processId), eq(signatureProcesses.status, 'pending')));
+  if (process?.status === 'pending' && bothSigned) {
+    const completedRows = (await tx.update(signatureProcesses).set({ status: 'completed', updatedAt: new Date() }).where(and(eq(signatureProcesses.tenantId, tenantId), eq(signatureProcesses.id, processId), eq(signatureProcesses.status, 'pending'))).returning() as any[]);
+    if (completedRows[0]) {
+      for (const participant of participants) {
+        await tx.insert(signatureEvents).values({ tenantId, participantId: participant.id, type: 'completed', metadata: { processId, patientSignedAt: patient?.signedAt ?? null, professionalSignedAt: professional?.signedAt ?? null } });
+      }
+    }
+  }
   const processAfter = (await tx.select().from(signatureProcesses).where(and(eq(signatureProcesses.tenantId, tenantId), eq(signatureProcesses.id, processId))))[0];
   const contract = processAfter && (await tx.select().from(followupContracts).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.id, processAfter.followupContractId))))[0];
   if (!contract) return { signed: true };
@@ -465,9 +518,9 @@ async function revalidateExternalAncestors(tx: any, tenantId: string, documentId
 
 export async function readSignaturePdf(token: string, actor?: ClinicSignatureActor) {
   const found = await getDatabase().transaction(async (tx) => {
-    const context = await lockedTokenContext(tx, token);
+    const context = await lockedTokenReadContext(tx, token);
     if (context.participant.role === 'patient' && !context.token.phoneVerifiedAt) throw invalid('Os quatro últimos dígitos do telefone devem ser confirmados antes de visualizar o PDF.', 403);
-    if (context.participant.role === 'professional' && (!actor || actor.tenantId !== context.participant.tenantId)) throw invalid('A assinatura do representante deve usar a sessão autenticada da clínica.', 403);
+    if (context.participant.role === 'professional') throw invalid('O representante deve acessar pelo painel autenticado da clínica.', 403);
     const document = await currentDocument(tx, context.participant.tenantId, context.contract.id);
     return { key: document.revision.objectKey, hash: document.revision.contentHash, size: document.revision.contentSize };
   });
@@ -476,7 +529,7 @@ export async function readSignaturePdf(token: string, actor?: ClinicSignatureAct
 
 export async function readSignaturePdfForParticipant(participantId: string, actor: ClinicSignatureActor) {
   const found = await getDatabase().transaction(async (tx) => {
-    const context = await lockedParticipantContext(tx, participantId, actor);
+    const context = await lockedParticipantReadContext(tx, participantId, actor);
     const document = await currentDocument(tx, actor.tenantId, context.contract.id);
     return { key: document.revision.objectKey, hash: document.revision.contentHash, size: document.revision.contentSize };
   });
@@ -849,6 +902,7 @@ export async function confirmExternalReturn(access: string, input: unknown, acto
     }
     if (context.participant.status !== 'pending' || context.process.status !== 'pending' || terminalFollowup(context.followup.status)) {
       await tx.update(signatureOperations).set({ status: 'rejected', staleReason: 'SIGNATURE_PROCESS_NOT_ACTIVE' }).where(and(eq(signatureOperations.id, operation.id), eq(signatureOperations.status, 'prepared')));
+      await tx.insert(signatureEvents).values({ tenantId: operation.tenantId, participantId: operation.participantId, type: 'rejected', metadata: { operationId: operation.id, reason: 'SIGNATURE_PROCESS_NOT_ACTIVE' } });
       throw invalid('O processo de assinatura não está mais disponível.', 409);
     }
     const receipt = (await tx.select().from(signatureExternalReceipts).where(and(eq(signatureExternalReceipts.tenantId, operation.tenantId), eq(signatureExternalReceipts.contentHash, operation.candidateHash))))[0];
@@ -930,4 +984,249 @@ export async function confirmExternalReturnAsClinicRepresentative(participantId:
 }
 export async function cancelExternalAttemptAsClinicRepresentative(participantId: string, attemptId: unknown, actor: ClinicSignatureActor) {
   return cancelExternalAttempt(`participant:${participantId}`, attemptId, actor);
+}
+
+/* ------------------------------------------------------------------ */
+/* Histórico e estados do contrato assinado — Issue #28                */
+/*                                                                     */
+/* Visão legível por contrato aplicado: processo, participantes,       */
+/* revisões do documento, tentativas, recebimentos externos e eventos, */
+/* com actor/papel/método/revisão/resultado/horário por evento. A via  */
+/* pública mascara a identidade do outro participante (LGPD); o painel */
+/* autenticado recebe snapshots completos. Nenhum texto apresenta o    */
+/* resultado como certificado ICP-Brasil ou aprovação jurídica.        */
+/* ------------------------------------------------------------------ */
+
+export const signatureMethodPt: Record<string, string> = {
+  local_handwritten: 'Manuscrita local',
+  govbr_external: 'Externa GOV.BR',
+};
+
+const signatureOriginPt: Record<string, string> = {
+  initial: 'Original',
+  local_handwritten: 'Manuscrita local',
+  govbr_external: 'Externa GOV.BR',
+};
+
+const signatureStatusPt: Record<string, string> = {
+  pending: 'Pendente',
+  signed: 'Assinada',
+  revoked: 'Revogada',
+  completed: 'Concluído',
+  cancelled: 'Cancelado',
+  prepared: 'Preparada',
+  confirmed: 'Confirmada',
+  stale: 'Desatualizada',
+  rejected: 'Recusada',
+  reserved: 'Reservada',
+  return_received: 'Retorno recebido',
+  expired: 'Expirada',
+};
+
+const signatureEventPt: Record<string, string> = {
+  signed: 'Assinatura confirmada',
+  stale: 'Tentativa desatualizada',
+  rejected: 'Tentativa recusada',
+  completed: 'Processo concluído',
+  cancelled: 'Assinatura cancelada',
+  external_cancelled: 'Tentativa externa cancelada',
+  revalidation_failed: 'Revalidação de assinatura externa falhou',
+};
+
+const rolePt: Record<string, string> = { patient: 'Paciente', professional: 'Representante da clínica', clinic: 'Clínica' };
+
+type HistoryViewer = { kind: 'panel' } | { kind: 'public'; participantId: string };
+
+function maskSnapshot(role: string, snapshot: any, visible: boolean) {
+  if (visible) return snapshot ?? null;
+  if (role === 'patient') return { role: 'patient' };
+  return { role: 'professional', assignment: 'clinic_representative' };
+}
+
+function displayName(role: string, snapshot: any, visible: boolean) {
+  if (!visible) return rolePt[role] ?? role;
+  if (!snapshot || typeof snapshot !== 'object') return rolePt[role] ?? role;
+  if (typeof (snapshot as any).fullName === 'string') return (snapshot as any).fullName;
+  if (typeof (snapshot as any).name === 'string') return (snapshot as any).name;
+  return rolePt[role] ?? role;
+}
+
+export async function getSignatureHistory(tenantId: string, followupContractId: string, viewer: HistoryViewer) {
+  if (!uuid.test(followupContractId)) throw invalid('Contrato aplicado inválido.');
+  const db = getDatabase();
+  return db.transaction(async (tx) => {
+    const contract = (await tx.select().from(followupContracts).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.id, followupContractId))))[0];
+    if (!contract) throw invalid('Contrato aplicado não encontrado.', 404);
+    const process = (await tx.select().from(signatureProcesses).where(and(eq(signatureProcesses.tenantId, tenantId), eq(signatureProcesses.followupContractId, followupContractId))))[0];
+    if (!process) throw invalid('Processo de assinatura não encontrado.', 404);
+    if (viewer.kind === 'public') {
+      const own = (await tx.select().from(signatureParticipants).where(and(eq(signatureParticipants.tenantId, tenantId), eq(signatureParticipants.id, (viewer as { participantId: string }).participantId, ), eq(signatureParticipants.processId, process.id))))[0];
+      if (!own) throw invalid('Link inválido, expirado ou revogado.', 404);
+    }
+    const participants = await tx.select().from(signatureParticipants).where(and(eq(signatureParticipants.tenantId, tenantId), eq(signatureParticipants.processId, process.id)));
+    const document = (await tx.select().from(appliedDocuments).where(and(eq(appliedDocuments.tenantId, tenantId), eq(appliedDocuments.followupContractId, followupContractId))))[0];
+    const revisions = document
+      ? (await tx.select().from(appliedDocumentRevisions).where(and(eq(appliedDocumentRevisions.tenantId, tenantId), eq(appliedDocumentRevisions.documentId, document.id)))).sort((a: any, b: any) => a.version - b.version)
+      : [];
+    const participantIds = participants.map((p: any) => p.id);
+    const operations = participantIds.length
+      ? await tx.select().from(signatureOperations).where(and(eq(signatureOperations.tenantId, tenantId), sql`${signatureOperations.participantId} in (${sql.join(participantIds.map((id: string) => sql`${id}`), sql`, `)})`))
+      : [];
+    const sigRevisions = participantIds.length
+      ? await tx.select().from(signatureRevisions).where(and(eq(signatureRevisions.tenantId, tenantId), sql`${signatureRevisions.participantId} in (${sql.join(participantIds.map((id: string) => sql`${id}`), sql`, `)})`))
+      : [];
+    const attempts = participantIds.length
+      ? await tx.select().from(signatureExternalAttempts).where(and(eq(signatureExternalAttempts.tenantId, tenantId), sql`${signatureExternalAttempts.participantId} in (${sql.join(participantIds.map((id: string) => sql`${id}`), sql`, `)})`))
+      : [];
+    const receipts = attempts.length
+      ? await tx.select().from(signatureExternalReceipts).where(and(eq(signatureExternalReceipts.tenantId, tenantId), sql`${signatureExternalReceipts.attemptId} in (${sql.join(attempts.map((a: any) => a.id), sql`, `)})`))
+      : [];
+    const events = participantIds.length
+      ? (await tx.select().from(signatureEvents).where(and(eq(signatureEvents.tenantId, tenantId), sql`${signatureEvents.participantId} in (${sql.join(participantIds.map((id: string) => sql`${id}`), sql`, `)})`))).sort((a: any, b: any) => Number(a.occurredAt) - Number(b.occurredAt))
+      : [];
+    const participantById = new Map(participants.map((p: any) => [p.id, p]));
+    const operationById = new Map(operations.map((o: any) => [o.id, o]));
+    const revisionById = new Map(revisions.map((r: any) => [r.id, r]));
+
+    const actorOf = (participantId: string, event?: any) => {
+      const declared = (event?.metadata ?? {}) as { actor?: { role?: string; name?: string } };
+      if (declared.actor?.role) {
+        const role = declared.actor.role;
+        return { role, name: declared.actor.name ?? rolePt[role] ?? role };
+      }
+      const participant = participantById.get(participantId) as any;
+      if (!participant) return { role: 'unknown', name: 'Desconhecido' };
+      const visible = viewer.kind === 'panel' || (viewer.kind === 'public' && (viewer as { participantId: string }).participantId === participantId);
+      const latestOperation = operations.filter((o: any) => o.participantId === participantId).sort((a: any, b: any) => Number(b.createdAt) - Number(a.createdAt))[0] as any;
+      const snapshot = latestOperation?.identitySnapshot ?? participant.identitySnapshot;
+      return { role: participant.role, name: displayName(participant.role, snapshot, visible) };
+    };
+
+    const methodOf = (event: any): string | null => {
+      const metadata = (event.metadata ?? {}) as any;
+      if (typeof metadata.method === 'string') return signatureMethodPt[metadata.method] ?? metadata.method;
+      if (metadata.operationId && operationById.get(metadata.operationId)) {
+        const method = (operationById.get(metadata.operationId) as any).method;
+        return signatureMethodPt[method] ?? method;
+      }
+      if (metadata.receiptId) {
+        const receipt = receipts.find((r: any) => r.id === metadata.receiptId);
+        if (receipt) return signatureMethodPt.govbr_external;
+      }
+      return null;
+    };
+
+    const revisionOf = (event: any): string | null => {
+      const metadata = (event.metadata ?? {}) as any;
+      if (metadata.documentRevisionId && revisionById.get(metadata.documentRevisionId)) {
+        return `revisão ${(revisionById.get(metadata.documentRevisionId) as any).version}`;
+      }
+      if (event.revisionId) {
+        const sigRevision = sigRevisions.find((r: any) => r.id === event.revisionId) as any;
+        if (sigRevision?.documentRevisionId && revisionById.get(sigRevision.documentRevisionId)) {
+          return `revisão ${(revisionById.get(sigRevision.documentRevisionId) as any).version}`;
+        }
+      }
+      if (metadata.currentVersion !== undefined) return `revisão ${metadata.currentVersion}`;
+      return null;
+    };
+
+    const downloadUrlFor = (revisionId: string) => viewer.kind === 'panel'
+      ? `/api/signature-participants/${(participants.find((p: any) => p.role === 'professional') ?? participants[0])?.id}/revisions/${revisionId}/pdf`
+      : null;
+
+    return {
+      process: { id: process.id, status: process.status, statusLabel: signatureStatusPt[process.status] ?? process.status, followupContractId: process.followupContractId },
+      contract: {
+        id: contract.id, title: contract.titleSnapshot, version: contract.contractVersion, required: contract.required,
+        status: contract.status, patientSignedAt: contract.patientSignedAt ?? null, professionalSignedAt: contract.professionalSignedAt ?? null,
+      },
+      document: document ? {
+        id: document.id, currentRevisionId: document.currentRevisionId,
+        hasExternalSignatures: revisions.some((r: any) => r.origin === 'govbr_external'),
+        revisions: revisions.map((r: any) => {
+          const promotedBy = sigRevisions.find((s: any) => s.documentRevisionId === r.id) as any;
+          const promoter = promotedBy ? participantById.get(promotedBy.participantId) as any : null;
+          return {
+            id: r.id, version: r.version, origin: r.origin, originLabel: signatureOriginPt[r.origin] ?? r.origin,
+            hash: r.contentHash, size: r.contentSize, parentRevisionId: r.parentRevisionId,
+            createdAt: r.createdAt, promotedBy: promoter ? { role: promoter.role, method: promotedBy.method, methodLabel: signatureMethodPt[promotedBy.method] ?? promotedBy.method } : null,
+            downloadUrl: downloadUrlFor(r.id),
+          };
+        }),
+      } : null,
+      participants: participants.map((p: any) => {
+        const visible = viewer.kind === 'panel' || (viewer.kind === 'public' && (viewer as { participantId: string }).participantId === p.id);
+        const methods = [...new Set(sigRevisions.filter((s: any) => s.participantId === p.id).map((s: any) => s.method).filter(Boolean))];
+        return {
+          id: p.id, role: p.role, roleLabel: rolePt[p.role] ?? p.role,
+          status: p.status, statusLabel: signatureStatusPt[p.status] ?? p.status,
+          signedAt: p.signedAt ?? null, identity: maskSnapshot(p.role, p.identitySnapshot, visible),
+          methods: methods.map((m) => ({ method: m, label: signatureMethodPt[m as string] ?? m })),
+        };
+      }),
+      operations: operations.map((o: any) => ({
+        id: o.id, participantId: o.participantId, method: o.method, methodLabel: signatureMethodPt[o.method] ?? o.method,
+        status: o.status, statusLabel: signatureStatusPt[o.status] ?? o.status,
+        createdAt: o.createdAt, confirmedAt: o.confirmedAt ?? null,
+        baseRevisionId: o.baseRevisionId, candidateHash: o.candidateHash,
+        staleReason: o.staleReason ?? null, acceptanceText: o.acceptanceText,
+      })),
+      externalAttempts: attempts.map((a: any) => {
+        const receipt = receipts.find((r: any) => r.attemptId === a.id) as any;
+        return {
+          id: a.id, participantId: a.participantId, provider: a.provider,
+          lifecycleStatus: a.lifecycleStatus, lifecycleLabel: signatureStatusPt[a.lifecycleStatus] ?? a.lifecycleStatus,
+          validationStatus: a.validationStatus ?? null, validationLabel: a.validationStatus ? (externalValidationPt[a.validationStatus] ?? a.validationStatus) : null,
+          exportHash: a.exportHash, exportedAt: a.exportedAt, expiresAt: a.exportExpiresAt,
+          importHash: a.importHash ?? null, importedAt: a.importedAt ?? null,
+          completedAt: a.completedAt ?? null, cancelledAt: a.cancelledAt ?? null,
+          receipt: receipt ? {
+            id: receipt.id, validationStatus: receipt.validationStatus,
+            validationLabel: externalValidationPt[receipt.validationStatus] ?? receipt.validationStatus,
+            reason: (receipt.validationReport as any)?.reason ?? receipt.rejectedReason ?? null,
+            signerCommonName: (receipt.signerIdentity as any)?.commonName ?? null,
+            certificateFingerprint: receipt.certificateFingerprint ?? null,
+            receivedAt: receipt.receivedAt, promotedRevisionId: receipt.promotedRevisionId ?? null,
+          } : null,
+        };
+      }),
+      events: events.map((e: any) => ({
+        id: e.id, type: e.type, label: signatureEventPt[e.type] ?? e.type,
+        occurredAt: e.occurredAt, participantId: e.participantId,
+        actor: actorOf(e.participantId, e), method: methodOf(e), revision: revisionOf(e),
+      })),
+      notice: 'Assinatura eletrônica simples para o fluxo do acompanhamento. Este histórico não constitui certificado ICP-Brasil, reconhecimento de firma nem aprovação jurídica.',
+    };
+  });
+}
+
+export async function readSignatureHistoryByToken(token: string) {
+  const found = await getDatabase().transaction(async (tx) => {
+    const context = await lockedTokenReadContext(tx, token);
+    if (context.participant.role === 'patient' && !context.token.phoneVerifiedAt) throw invalid('Os quatro últimos dígitos do telefone devem ser confirmados antes de visualizar o histórico.', 403);
+    if (context.participant.role === 'professional') throw invalid('O representante deve acessar pelo painel autenticado da clínica.', 403);
+    return { tenantId: context.participant.tenantId, contractId: context.contract.id, participantId: context.participant.id };
+  });
+  const history = await getSignatureHistory(found.tenantId, found.contractId, { kind: 'public', participantId: found.participantId }) as any;
+  const withUrls = (history.document?.revisions ?? []).map((r: any) => ({ ...r, downloadUrl: `/public/signatures/${token}/revisions/${r.id}/pdf` }));
+  return { ...history, document: history.document ? { ...history.document, revisions: withUrls } : history.document };
+}
+
+export async function readSignatureRevisionPdf(access: string, revisionId: string, actor?: ClinicSignatureActor) {
+  if (!uuid.test(revisionId)) throw invalid('Revisão inválida.');
+  if (access.startsWith('participant:') && !actor) throw invalid('Autenticação necessária.', 401);
+  const found = await getDatabase().transaction(async (tx) => {
+    const context = access.startsWith('participant:')
+      ? await lockedParticipantReadContext(tx, access.slice('participant:'.length), actor!)
+      : await lockedTokenReadContext(tx, access);
+    if (context.participant.role === 'patient' && !(context as { token?: any }).token?.phoneVerifiedAt) throw invalid('Os quatro últimos dígitos do telefone devem ser confirmados antes de visualizar o PDF.', 403);
+    if (context.participant.role === 'professional' && access.startsWith('participant:') === false) throw invalid('O representante deve acessar pelo painel autenticado da clínica.', 403);
+    const revision = (await tx.select().from(appliedDocumentRevisions).where(and(eq(appliedDocumentRevisions.tenantId, context.participant.tenantId), eq(appliedDocumentRevisions.id, revisionId))))[0];
+    if (!revision) throw invalid('Revisão não encontrada.', 404);
+    const document = await currentDocument(tx, context.participant.tenantId, context.contract.id);
+    if (revision.documentId !== document.document.id) throw invalid('Revisão não encontrada.', 404);
+    return { key: revision.objectKey, hash: revision.contentHash, size: revision.contentSize };
+  });
+  return readDocumentBytes({ key: found.key, hash: found.hash, size: found.size });
 }

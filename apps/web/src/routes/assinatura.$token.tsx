@@ -204,7 +204,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
 
   if (submitted) return <PublicShell><section className="public-form-card"><h1>Assinatura registrada</h1><p>O contrato foi confirmado e a clínica recebeu o registro da operação.</p></section></PublicShell>;
   const geometry = displayGeometry ?? pageGeometries[page];
-  return <PublicShell><main className="mx-auto grid max-w-5xl gap-5"><header><div className="section-kicker">ASSINATURA ELETRÔNICA</div><h1>{signature.contract?.title ?? 'Contrato aplicado'}</h1><p>Revise todas as páginas, desenhe sua assinatura e confirme quando estiver satisfeito.</p>{signature.hasExternalSignatures && <p className="mt-2 text-sm font-medium" role="note">Este documento já contém assinatura externa validada. Posicione a sua sem cobrir as assinaturas anteriores.</p>}</header><section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]"><div className="overflow-auto rounded-2xl border bg-white p-3 shadow-sm"><div className="mb-3 flex flex-wrap gap-2" aria-label="Páginas do contrato">{Array.from({ length: pageCount }, (_, index) => <Button key={index} type="button" size="sm" variant={index === page ? 'default' : 'outline'} onClick={() => { setPreviewUrl(null); setPreviewHash(null); setPreviewPlacement(null); setPage(index); }}>Página {index + 1}</Button>)}</div>{pdfError && <p className="mb-3 text-sm text-destructive" role="alert">{pdfError}</p>}<div ref={pageContainerRef} className="relative mx-auto w-fit"><canvas ref={pageCanvasRef} className="block" style={{ maxWidth: '100%', height: 'auto' }} aria-label={`Página ${page + 1} do contrato PDF`} />{geometry && <Rnd bounds="parent" size={{ width: position.width, height: position.height }} position={{ x: position.x, y: position.y }} minWidth={Math.min(80, geometry.width)} minHeight={Math.min(40, geometry.height)} maxWidth={geometry.width} maxHeight={geometry.height} onDragStop={(_, data) => { setPreviewUrl(null); setPreviewHash(null); setPreviewPlacement(null); setPosition((old) => ({ ...old, x: data.x, y: data.y })); }} onResizeStop={(_, __, ref, ___, data) => { setPreviewUrl(null); setPreviewHash(null); setPreviewPlacement(null); setPosition({ x: data.x, y: data.y, width: ref.offsetWidth, height: ref.offsetHeight }); }} className="border-2 border-dashed border-[#26785f] bg-[#e8f2ed]/70" aria-label="Posição da assinatura"><span className="p-1 text-xs font-semibold text-[#194d40]">Sua assinatura</span></Rnd>}</div></div><aside className="public-form-card h-fit"><h2>Assinatura</h2><canvas ref={signatureCanvasRef} className="mt-3 h-40 w-full touch-none rounded-xl border bg-white" aria-label="Área para desenhar sua assinatura" /><div className="mt-3 flex gap-2"><Button type="button" variant="outline" onClick={clear}>Limpar</Button><Button type="button" onClick={capture}>Usar assinatura</Button></div><Button type="button" variant="outline" className="mt-3 w-full" disabled={!image || !geometry} onClick={() => void preview()}>Visualizar prévia do PDF</Button>{previewUrl && <iframe className="mt-3 h-64 w-full rounded-xl border" title="Prévia do PDF candidato" src={previewUrl} />}{image && <p className="mt-3 text-sm text-muted-foreground">Assinatura pronta. Você pode reposicioná-la e redimensioná-la no PDF.</p>}<label className="mt-4 flex items-start gap-2 text-sm"><input type="checkbox" checked={consentGiven} onChange={(event) => setConsentGiven(event.target.checked)} /><span>Confirmo que revisei o contrato e autorizo o registro da assinatura visual.</span></label>{message && <p className="mt-3 text-sm text-destructive" role="alert">{message}</p>}<Button className="mt-4 w-full" type="button" disabled={!image || !consentGiven || !geometry || !previewUrl} onClick={() => void confirm()}>Confirmar assinatura</Button></aside></section><GovBrSection token={token} signature={signature} /></main></PublicShell>;
+  return <PublicShell><main className="mx-auto grid max-w-5xl gap-5"><header><div className="section-kicker">ASSINATURA ELETRÔNICA</div><h1>{signature.contract?.title ?? 'Contrato aplicado'}</h1><p>Revise todas as páginas, desenhe sua assinatura e confirme quando estiver satisfeito.</p>{signature.hasExternalSignatures && <p className="mt-2 text-sm font-medium" role="note">Este documento já contém assinatura externa validada. Posicione a sua sem cobrir as assinaturas anteriores.</p>}</header><section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]"><div className="overflow-auto rounded-2xl border bg-white p-3 shadow-sm"><div className="mb-3 flex flex-wrap gap-2" aria-label="Páginas do contrato">{Array.from({ length: pageCount }, (_, index) => <Button key={index} type="button" size="sm" variant={index === page ? 'default' : 'outline'} onClick={() => { setPreviewUrl(null); setPreviewHash(null); setPreviewPlacement(null); setPage(index); }}>Página {index + 1}</Button>)}</div>{pdfError && <p className="mb-3 text-sm text-destructive" role="alert">{pdfError}</p>}<div ref={pageContainerRef} className="relative mx-auto w-fit"><canvas ref={pageCanvasRef} className="block" style={{ maxWidth: '100%', height: 'auto' }} aria-label={`Página ${page + 1} do contrato PDF`} />{geometry && <Rnd bounds="parent" size={{ width: position.width, height: position.height }} position={{ x: position.x, y: position.y }} minWidth={Math.min(80, geometry.width)} minHeight={Math.min(40, geometry.height)} maxWidth={geometry.width} maxHeight={geometry.height} onDragStop={(_, data) => { setPreviewUrl(null); setPreviewHash(null); setPreviewPlacement(null); setPosition((old) => ({ ...old, x: data.x, y: data.y })); }} onResizeStop={(_, __, ref, ___, data) => { setPreviewUrl(null); setPreviewHash(null); setPreviewPlacement(null); setPosition({ x: data.x, y: data.y, width: ref.offsetWidth, height: ref.offsetHeight }); }} className="border-2 border-dashed border-[#26785f] bg-[#e8f2ed]/70" aria-label="Posição da assinatura"><span className="p-1 text-xs font-semibold text-[#194d40]">Sua assinatura</span></Rnd>}</div></div><aside className="public-form-card h-fit"><h2>Assinatura</h2><canvas ref={signatureCanvasRef} className="mt-3 h-40 w-full touch-none rounded-xl border bg-white" aria-label="Área para desenhar sua assinatura" /><div className="mt-3 flex gap-2"><Button type="button" variant="outline" onClick={clear}>Limpar</Button><Button type="button" onClick={capture}>Usar assinatura</Button></div><Button type="button" variant="outline" className="mt-3 w-full" disabled={!image || !geometry} onClick={() => void preview()}>Visualizar prévia do PDF</Button>{previewUrl && <iframe className="mt-3 h-64 w-full rounded-xl border" title="Prévia do PDF candidato" src={previewUrl} />}{image && <p className="mt-3 text-sm text-muted-foreground">Assinatura pronta. Você pode reposicioná-la e redimensioná-la no PDF.</p>}<label className="mt-4 flex items-start gap-2 text-sm"><input type="checkbox" checked={consentGiven} onChange={(event) => setConsentGiven(event.target.checked)} /><span>Confirmo que revisei o contrato e autorizo o registro da assinatura visual.</span></label>{message && <p className="mt-3 text-sm text-destructive" role="alert">{message}</p>}<Button className="mt-4 w-full" type="button" disabled={!image || !consentGiven || !geometry || !previewUrl} onClick={() => void confirm()}>Confirmar assinatura</Button></aside></section><GovBrSection token={token} signature={signature} /><SignatureHistorySection token={token} /></main></PublicShell>;
 }
 
 type GovBrState =
@@ -312,6 +312,62 @@ function GovBrSection({ token, signature }: { token: string; signature: Signatur
     </div>}
     {error && <p className="mt-3 text-sm text-destructive" role="alert">{error}</p>}
   </section>;
+}
+
+type PublicHistoryEvent = { id: string; label: string; occurredAt: string; method: string | null; revision: string | null; actor: { role: string; name: string } };
+type PublicHistoryRevision = { id: string; version: number; originLabel: string; createdAt: string; downloadUrl: string | null; promotedBy: { methodLabel: string } | null };
+
+function SignatureHistorySection({ token }: { token: string }) {
+  const [history, setHistory] = useState<{ participants: Array<{ roleLabel: string; statusLabel: string; signedAt: string | null }>; document: { revisions: PublicHistoryRevision[] } | null; events: PublicHistoryEvent[]; notice?: string } | null>(null);
+  const [open, setOpen] = useState(false);
+  const [failed, setFailed] = useState(false);
+  async function load() {
+    setFailed(false);
+    try {
+      const payload = await api(`/public/signatures/${token}/history`, { schema: anySchema });
+      setHistory(payload as never);
+      setOpen(true);
+    } catch {
+      setFailed(true);
+    }
+  }
+  return (
+    <section className="public-form-card" aria-label="Histórico da assinatura">
+      <h2>Histórico da assinatura</h2>
+      <p>Acompanhe participantes, revisões preservadas e eventos deste contrato, com data e hora de cada etapa.</p>
+      {!open && <Button className="mt-4" type="button" variant="outline" onClick={() => void load()}>Ver histórico</Button>}
+      {failed && <p className="mt-3 text-sm text-destructive" role="alert">Não foi possível carregar o histórico.</p>}
+      {open && history && (
+        <div className="mt-4 grid gap-3 text-sm">
+          <ul className="grid list-none gap-1 p-0" aria-label="Participantes">
+            {history.participants.map((participant, index) => (
+              <li key={index}>{participant.roleLabel} · {participant.statusLabel}{participant.signedAt ? ` · ${new Date(participant.signedAt).toLocaleString('pt-BR')}` : ''}</li>
+            ))}
+          </ul>
+          {history.document && (
+            <ul className="grid list-none gap-1 p-0" aria-label="Revisões preservadas">
+              {history.document.revisions.map((revision) => (
+                <li key={revision.id}>
+                  Revisão {revision.version} · {revision.originLabel}
+                  {revision.promotedBy && ` · ${revision.promotedBy.methodLabel}`} · {new Date(revision.createdAt).toLocaleString('pt-BR')}
+                  {revision.downloadUrl && <> · <a className="underline" href={revision.downloadUrl}>Baixar PDF desta revisão</a></>}
+                </li>
+              ))}
+            </ul>
+          )}
+          <ol className="grid list-none gap-1 p-0" aria-label="Linha do tempo">
+            {history.events.map((event) => (
+              <li key={event.id}>
+                {new Date(event.occurredAt).toLocaleString('pt-BR')} — <strong>{event.actor.name}</strong> · {event.label}
+                {event.method ? ` · ${event.method}` : ''}{event.revision ? ` · ${event.revision}` : ''}
+              </li>
+            ))}
+          </ol>
+          {history.notice && <p className="text-xs text-muted-foreground">{history.notice}</p>}
+        </div>
+      )}
+    </section>
+  );
 }
 
 function PublicShell({ children }: { children: React.ReactNode }) { return <div className="min-h-screen bg-[#f7f8f5] px-5 py-8 text-[#25312d] md:px-8 md:py-12">{children}</div>; }
