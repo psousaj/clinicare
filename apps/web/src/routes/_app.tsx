@@ -20,7 +20,8 @@ const mobileNavigation = [navigation[0], navigation[1], navigation[2], navigatio
 export const Route = createFileRoute('/_app')({
   beforeLoad: async () => {
     const response = await fetch('/api/auth/get-session', { credentials: 'include' });
-    if (!response.ok || !(await response.json()).user) throw redirect({ to: '/login' });
+    const session = response.ok ? await response.json() : null;
+    if (!session?.user) throw redirect({ to: '/login' });
   },
   component: AppLayout,
 });

@@ -44,7 +44,7 @@ function renderAt(path: string) {
 
 describe('Clinic dashboard', () => {
   it('redirects unauthenticated visitors to login', async () => {
-    routes['GET /api/auth/get-session'] = () => ({ user: null });
+    routes['GET /api/auth/get-session'] = () => null;
     renderAt('/');
     expect(await screen.findByRole('heading', { name: 'Entrar na sua clínica' })).toBeInTheDocument();
   });
