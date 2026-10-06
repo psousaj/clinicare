@@ -6,7 +6,7 @@ import {
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { createIncrementalSignaturePdf, validatePlacement, type PdfPlacement } from './pdf-mutation';
 import { normalizeEvidence } from './signature-evidence';
-import { loadTrustedRootFiles, loadTrustedRootsFromEnv, validateExternalReturn, type ExpectedSigner } from './external-validation';
+import { loadTrustedRootFiles, loadTrustedRootsFromEnv, revalidateEmbeddedSignatures, validateExternalReturn, type ExpectedSigner } from './external-validation';
 import { deleteObject, downloadObjectBytes, uploadObjectBytes, verifyObjectBytes } from './storage';
 
 const previewExpiry = () => new Date(Date.now() + 15 * 60_000);
@@ -196,7 +196,8 @@ export async function readSignatureToken(token: string) {
     const { participant, token: tokenRow, contract } = found;
     const content = contract.contentCiphertext ? decryptValue({ ciphertext: contract.contentCiphertext, nonce: contract.contentNonce!, keyVersion: contract.contentKeyVersion! }, contentAad(participant.tenantId, contract.id, contract.contentKeyVersion!)) : null;
     const document = await currentDocument(tx, participant.tenantId, contract.id);
-    return { participantId: participant.id, role: participant.role, status: participant.status, expiresAt: tokenRow.expiresAt, document: { id: document.document.id, revisionId: document.revision.id, version: document.revision.version, hash: document.revision.contentHash, size: document.revision.contentSize, url: `/public/signatures/${token}/pdf` }, contract: { id: contract.id, followupId: contract.followupId, title: contract.titleSnapshot, version: contract.contractVersion, content, sourceObjectKey: contract.sourceObjectKey } };
+    const externalAncestor = (await tx.select({ id: appliedDocumentRevisions.id }).from(appliedDocumentRevisions).where(and(eq(appliedDocumentRevisions.tenantId, participant.tenantId), eq(appliedDocumentRevisions.documentId, document.document.id), eq(appliedDocumentRevisions.origin, 'govbr_external'))).limit(1))[0];
+    return { participantId: participant.id, role: participant.role, status: participant.status, expiresAt: tokenRow.expiresAt, hasExternalSignatures: !!externalAncestor, document: { id: document.document.id, revisionId: document.revision.id, version: document.revision.version, hash: document.revision.contentHash, size: document.revision.contentSize, url: `/public/signatures/${token}/pdf` }, contract: { id: contract.id, followupId: contract.followupId, title: contract.titleSnapshot, version: contract.contractVersion, content, sourceObjectKey: contract.sourceObjectKey } };
   });
 }
 
@@ -382,6 +383,13 @@ export async function signWithToken(token: string, input: unknown, actor?: Clini
       await tx.update(signatureOperations).set({ status: 'rejected', staleReason: 'SIGNATURE_PROCESS_NOT_ACTIVE' }).where(and(eq(signatureOperations.id, operation.id), eq(signatureOperations.status, 'prepared')));
       throw invalid('O processo de assinatura não está mais disponível.', 409);
     }
+    try {
+      await revalidateExternalAncestors(tx, found.context.participant.tenantId, document.document.id, document.revision);
+    } catch (error) {
+      await tx.update(signatureOperations).set({ status: 'rejected', staleReason: 'EXTERNAL_REVALIDATION_FAILED' }).where(and(eq(signatureOperations.id, operation.id), eq(signatureOperations.status, 'prepared')));
+      await tx.insert(signatureEvents).values({ tenantId: found.context.participant.tenantId, participantId: found.context.participant.id, type: 'revalidation_failed', metadata: { operationId: operation.id, reason: (error as Error & { code?: string }).code ?? 'EXTERNAL_REVALIDATION_FAILED' } });
+      throw error;
+    }
     const candidateRevisionId = randomUUID();
     const revisionRows = await tx.insert(appliedDocumentRevisions).values({ id: candidateRevisionId, tenantId: found.context.participant.tenantId, documentId: document.document.id, version: document.revision.version + 1, parentRevisionId: document.revision.id, objectKey: operation.candidateObjectKey, contentHash: operation.candidateHash, contentSize: operation.candidateSize, origin: 'local_handwritten' }).returning() as any[];
     if (found.previewId) await tx.update(signaturePreviewCandidates).set({ consumedAt: new Date() }).where(and(eq(signaturePreviewCandidates.id, found.previewId), isNull(signaturePreviewCandidates.consumedAt)));
@@ -433,6 +441,26 @@ async function readDocumentBytes(document: { key: string; hash: string; size: nu
   const bytes = await downloadObjectBytes(document.key);
   if (bytes.byteLength !== document.size || hashBytes(bytes) !== document.hash.toLowerCase()) throw invalid('A revisão do PDF não corresponde aos metadados.', 409);
   return bytes;
+}
+
+/**
+ * Revalida assinaturas externas embutidas antes de promover qualquer
+ * mutação posterior (Issue #27): se a cadeia do documento contém revisão
+ * externa, cada assinatura embutida no HEAD precisa continuar íntegra
+ * (cobertura, digest, CMS, validade; cadeia quando há raízes
+ * configuradas). Falha fechada: bloqueia a promoção e mantém a revisão
+ * anterior intacta, sem nenhum fallback destrutivo.
+ */
+async function revalidateExternalAncestors(tx: any, tenantId: string, documentId: string, headRevision: { id: string; objectKey: string; contentHash: string; contentSize: number }) {
+  const revisions = await tx.select({ id: appliedDocumentRevisions.id, origin: appliedDocumentRevisions.origin }).from(appliedDocumentRevisions).where(and(eq(appliedDocumentRevisions.tenantId, tenantId), eq(appliedDocumentRevisions.documentId, documentId)));
+  if (!revisions.some((revision: any) => revision.origin === 'govbr_external')) return;
+  const headBytes = await readDocumentBytes({ key: headRevision.objectKey, hash: headRevision.contentHash, size: headRevision.contentSize });
+  const result = await revalidateEmbeddedSignatures(headBytes, { trustedRootPems: await externalTrustedRoots() });
+  if (!result.ok) {
+    const error = invalid(`A assinatura externa existente não pôde ser revalidada (${result.reason}); a operação foi bloqueada e a revisão permanece intacta.`, 409) as Error & { code?: string };
+    error.code = 'EXTERNAL_REVALIDATION_FAILED';
+    throw error;
+  }
 }
 
 export async function readSignaturePdf(token: string, actor?: ClinicSignatureActor) {
@@ -825,6 +853,13 @@ export async function confirmExternalReturn(access: string, input: unknown, acto
     }
     const receipt = (await tx.select().from(signatureExternalReceipts).where(and(eq(signatureExternalReceipts.tenantId, operation.tenantId), eq(signatureExternalReceipts.contentHash, operation.candidateHash))))[0];
     if (!receipt || receipt.validationStatus !== 'validated') throw invalid('O retorno externo não está validado para promoção.', 409);
+    try {
+      await revalidateExternalAncestors(tx, operation.tenantId, document.document.id, document.revision);
+    } catch (error) {
+      await tx.update(signatureOperations).set({ status: 'rejected', staleReason: 'EXTERNAL_REVALIDATION_FAILED' }).where(and(eq(signatureOperations.id, operation.id), eq(signatureOperations.status, 'prepared')));
+      await tx.insert(signatureEvents).values({ tenantId: operation.tenantId, participantId: operation.participantId, type: 'revalidation_failed', metadata: { operationId: operation.id, reason: (error as Error & { code?: string }).code ?? 'EXTERNAL_REVALIDATION_FAILED' } });
+      throw error;
+    }
     const candidateRevisionId = randomUUID();
     const revisionRows = (await tx.insert(appliedDocumentRevisions).values({ id: candidateRevisionId, tenantId: operation.tenantId, documentId: document.document.id, version: document.revision.version + 1, parentRevisionId: document.revision.id, objectKey: operation.candidateObjectKey, contentHash: operation.candidateHash, contentSize: operation.candidateSize, origin: 'govbr_external', sourceExternalReceiptId: receipt.id }).returning() as any[]);
     const revision = revisionRows[0];

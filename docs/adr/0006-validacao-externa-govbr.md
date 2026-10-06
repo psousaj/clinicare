@@ -36,3 +36,13 @@ validados são preservados como histórico e nunca liberam o participante.
 A confirmação exige HEAD igual à revisão-base (`STALE_DOCUMENT_REVISION`
 com revisão atual, sem merge silencioso) e revalida a integridade da base
 no storage antes de promover.
+
+## Revalidação em mutações posteriores (Issue #27)
+
+Toda promoção — manuscrita ou externa — sobre documento cuja cadeia contém
+revisão externa revalida cada assinatura embutida no HEAD (cobertura
+aritmética, digest, assinatura CMS, validade temporal; cadeia quando há
+raízes configuradas). Falha fechada: a operação é marcada como rejeitada,
+um evento `revalidation_failed` é registrado e a revisão anterior
+permanece intacta, sem fallback destrutivo. Na importação, uma assinatura
+anterior não revalidável impede a decisão (`indeterminate`), nunca o sucesso.

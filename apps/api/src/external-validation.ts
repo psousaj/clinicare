@@ -467,21 +467,23 @@ export async function validateExternalReturn(input: ValidateExternalInput): Prom
   }
   base.coverageValid = true;
 
-  // Revalida assinaturas anteriores (cobertura + digest do CMS de cada
-  // uma), sem exigir cadeia: prova que a cadeia preservada segue íntegra.
-  let previousOk: boolean | null = exportPairs.length === 0 ? true : null;
-  if (exportPairs.length > 0) {
-    previousOk = true;
-    for (const pair of returnPairs.slice(0, -1)) {
-      const content = rangeContent(returnBytes, pair.byteRange);
-      const expectedDigest = await cmsMessageDigest(pair.cmsBytes);
-      if (!content || !expectedDigest || sha256Hex(content).toLowerCase() !== expectedDigest.toLowerCase()) {
-        previousOk = false;
-        break;
-      }
+  // Revalida as assinaturas anteriores do próprio retorno (todas menos a
+  // mais nova), sem exigir cadeia: prova que a cadeia preservada segue
+  // íntegra sob o novo apêndice. Uma anterior quebrada impede a decisão
+  // (indeterminado), nunca o sucesso.
+  let previousOk = true;
+  for (const pair of returnPairs.slice(0, -1)) {
+    const content = rangeContent(returnBytes, pair.byteRange);
+    const expectedDigest = await cmsMessageDigest(pair.cmsBytes);
+    if (!content || !expectedDigest || sha256Hex(content).toLowerCase() !== expectedDigest.toLowerCase()) {
+      previousOk = false;
+      break;
     }
   }
-  base.previousSignaturesOk = previousOk;
+  base.previousSignaturesOk = returnPairs.length <= 1 ? null : previousOk;
+  if (previousOk === false) {
+    return fail(base, 'previous_signatures_unverifiable', 'indeterminate');
+  }
 
   const signedContent = rangeContent(returnBytes, newest.byteRange)!;
   const computedDigest = sha256Hex(signedContent);
@@ -655,6 +657,135 @@ export async function validateExternalReturn(input: ValidateExternalInput): Prom
   }
 
   return { ...base, status: 'validated', reason: 'ok' };
+}
+
+export type EmbeddedRevalidation = {
+  ok: boolean;
+  reason: string;
+  signatures: Array<{
+    digestMatch: boolean;
+    cmsValid: boolean;
+    chain: 'trusted' | 'untrusted' | 'skipped';
+    certificateValid: boolean;
+  }>;
+};
+
+/**
+ * Revalida assinaturas embutidas já presentes num PDF (Issue #27): usada
+ * antes de promover qualquer mutação posterior sobre documento que contém
+ * revisão externa. Verifica cobertura aritmética, digest, assinatura
+ * criptográfica e validade temporal de cada assinatura; a cadeia é
+ * reconstruída quando há raízes configuradas e registrada como `skipped`
+ * quando não há (a confiança foi estabelecida na importação). Falha
+ * fechada: qualquer verificação negativa bloqueia a mutação.
+ */
+export async function revalidateEmbeddedSignatures(
+  pdfBytes: Uint8Array,
+  input: { trustedRootPems?: string[]; now?: Date } = {},
+): Promise<EmbeddedRevalidation> {
+  const now = input.now ?? new Date();
+  const pairs = resolveSignaturePairs(pdfBytes);
+  if (pairs.length === 0) return { ok: true, reason: 'no_embedded_signatures', signatures: [] };
+  const roots = parseTrustedRoots(input.trustedRootPems ?? []);
+  const rootViews: CertView[] = [];
+  for (const root of roots) {
+    const view = await toCertView(root.der);
+    if (view) rootViews.push(view);
+  }
+  const signatures: EmbeddedRevalidation['signatures'] = [];
+  for (const pair of pairs) {
+    const [a, b, c] = pair.byteRange;
+    const cmsLen = pair.cmsBytes.byteLength;
+    const entry = { digestMatch: false, cmsValid: false, chain: 'skipped' as 'trusted' | 'untrusted' | 'skipped', certificateValid: false };
+    if (!(a === 0 && b > 0 && c - b === cmsLen * 2 + 2 && pdfBytes[b] === 0x3c && pdfBytes[c - 1] === 0x3e)) {
+      return { ok: false, reason: 'byte_range_coverage', signatures };
+    }
+    const content = rangeContent(pdfBytes, pair.byteRange);
+    const expectedDigest = await cmsMessageDigest(pair.cmsBytes);
+    if (!content || !expectedDigest || sha256Hex(content).toLowerCase() !== expectedDigest.toLowerCase()) {
+      return { ok: false, reason: 'digest_mismatch', signatures };
+    }
+    entry.digestMatch = true;
+    let signedData: SignedData;
+    try {
+      const asn1 = fromBER(exactBytes(pair.cmsBytes));
+      if (asn1.offset === -1) return { ok: false, reason: 'cms_unparsable', signatures };
+      const contentInfo = new ContentInfo({ schema: asn1.result });
+      signedData = new SignedData({ schema: contentInfo.content });
+    } catch {
+      return { ok: false, reason: 'cms_unparsable', signatures };
+    }
+    let cmsOk = false;
+    try {
+      cmsOk = await signedData.verify({ signer: 0, data: exactBytes(content), checkChain: false });
+    } catch {
+      cmsOk = false;
+    }
+    if (!cmsOk) return { ok: false, reason: 'cms_signature_invalid', signatures };
+    entry.cmsValid = true;
+    // Localiza o certificado do signatário para validade e cadeia.
+    let signerDer: Uint8Array | null = null;
+    try {
+      const sid = signedData.signerInfos[0]!.sid as unknown as {
+        issuer?: { typesAndValues: Array<{ type: string; value: { valueBlock: { value: unknown } } }> };
+        serialNumber?: { valueBlock: { valueHexView: ArrayBuffer } };
+      };
+      if (sid?.issuer && sid?.serialNumber) {
+        const issuerKey = JSON.stringify(sid.issuer.typesAndValues.map((t: any) => [t.type, t.value.valueBlock.value]));
+        const serialHex = Buffer.from(sid.serialNumber.valueBlock.valueHexView).toString('hex').replace(/^0+/, '');
+        for (const candidate of signedData.certificates ?? []) {
+          if (!(candidate instanceof Certificate)) continue;
+          const candidateKey = JSON.stringify(candidate.issuer.typesAndValues.map((t: any) => [t.type, t.value.valueBlock.value]));
+          const candidateSerial = Buffer.from(candidate.serialNumber.valueBlock.valueHexView).toString('hex').replace(/^0+/, '');
+          if (candidateKey === issuerKey && candidateSerial === serialHex) {
+            signerDer = new Uint8Array(candidate.toSchema().toBER(false));
+            break;
+          }
+        }
+      }
+    } catch {
+      signerDer = null;
+    }
+    if (!signerDer) return { ok: false, reason: 'signer_cert_not_embedded', signatures };
+    const signerView = await toCertView(signerDer);
+    if (!signerView) return { ok: false, reason: 'signer_cert_unparsable', signatures };
+    if (!(signerView.notBefore <= now && now <= signerView.notAfter)) {
+      entry.certificateValid = false;
+      return { ok: false, reason: 'certificate_not_valid', signatures };
+    }
+    entry.certificateValid = true;
+    if (rootViews.length > 0) {
+      let trusted = rootViews.some((root) => root.fingerprint === signerView.fingerprint);
+      if (!trusted) {
+        let cursor: CertView | null = signerView;
+        const seen = new Set<string>([signerView.fingerprint]);
+        for (let depth = 0; depth < 8 && cursor; depth++) {
+          const directRoot = rootViews.find((root) => root.subjectKey === cursor!.issuerKey);
+          if (directRoot) {
+            if (await verifyCertSignature(cursor, directRoot)) trusted = true;
+            break;
+          }
+          const embedded: CertView[] = [];
+          for (const candidate of signedData.certificates ?? []) {
+            if (!(candidate instanceof Certificate)) continue;
+            const view = await toCertView(new Uint8Array(candidate.toSchema().toBER(false)));
+            if (view) embedded.push(view);
+          }
+          const issuer = embedded.find(
+            (candidate) => candidate.subjectKey === cursor!.issuerKey && !seen.has(candidate.fingerprint),
+          );
+          if (!issuer) break;
+          if (!(await verifyCertSignature(cursor, issuer))) break;
+          seen.add(issuer.fingerprint);
+          cursor = issuer;
+        }
+      }
+      if (!trusted) return { ok: false, reason: 'untrusted_chain', signatures };
+      entry.chain = 'trusted';
+    }
+    signatures.push(entry);
+  }
+  return { ok: true, reason: 'ok', signatures };
 }
 
 /** Raízes confiáveis a partir de `GOVBR_TRUSTED_ROOTS` (PEM inline ou caminho). */

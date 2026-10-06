@@ -306,6 +306,30 @@ integration('Issue #26: Exportar e importar assinatura externa pelo GOV.BR', () 
     expect(brokenImport.status).toBe(200);
     expect((await brokenImport.json() as any).validationStatus).toBe('inválida');
 
+    // Assinatura nova válida sobre base com assinatura anterior quebrada:
+    // anterior não revalidável impede a decisão (indeterminado, sem promoção).
+    const stackedExport = await request(`/public/signatures/${token}/external/export`, json({
+      documentId: document.id, baseRevisionId: document.revisionId,
+      idempotencyKey: randomUUID(), fingerprint: { visitorId: 'vis-stacked', version: 'fingerprintjs-oss-5' },
+    }));
+    const stackedAttempt = (await stackedExport.json() as any).attemptId;
+    const stackedBase = new Uint8Array(await (await request(`/public/signatures/${token}/external/${stackedAttempt}/file`)).arrayBuffer());
+    const stackedBytes = await buildSignedReturnPdf(buildUnparsableCmsReturn(stackedBase), patientSigner, ca.dir);
+    const stackedImport = await request(`/public/signatures/${token}/external/import`, json({
+      attemptId: stackedAttempt, pdfBase64: Buffer.from(stackedBytes).toString('base64'),
+      fingerprint: { visitorId: 'vis-stacked-import', version: 'fingerprintjs-oss-5' },
+    }));
+    expect(stackedImport.status).toBe(200);
+    const stackedBody = await stackedImport.json() as any;
+    expect(stackedBody.validationStatus).toBe('indeterminada');
+    expect(stackedBody.reason).toBe('previous_signatures_unverifiable');
+    const stackedConfirm = await request(`/public/signatures/${token}/external/confirm`, json({
+      attemptId: stackedAttempt, idempotencyKey: randomUUID(),
+      fingerprint: { visitorId: 'vis-stacked-accept', version: 'fingerprintjs-oss-5' },
+      acceptanceText: 'aceito', confirmed: true,
+    }));
+    expect(stackedConfirm.status).toBe(409);
+
     // Conteúdo adulterado após a assinatura: digest não confere.
     const tamperExport = await request(`/public/signatures/${token}/external/export`, json({
       documentId: document.id, baseRevisionId: document.revisionId,

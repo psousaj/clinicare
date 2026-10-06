@@ -11,8 +11,11 @@ import {
   type TestSigner,
 } from './external-test-fixtures';
 
-const minimalPdf = (body = '1 0 obj\n<< >>\nendobj\n') =>
-  new TextEncoder().encode(`%PDF-1.4\n${body}trailer\n<< /Size 1 >>\n`);
+const minimalPdf = (body = '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\n') => {
+  const head = `%PDF-1.4\n${body}`;
+  const trailerPos = head.length;
+  return new TextEncoder().encode(`${head}trailer\n<< /Size 3 /Root 1 0 R >>\nstartxref\n${trailerPos}\n%%EOF\n`);
+};
 
 describe('External return validation (structural)', () => {
   it('rejects non-PDF content as unsupported', async () => {
@@ -161,6 +164,67 @@ describe.skipIf(!hasOpenssl)('External return validation (real CMS fixtures)', (
   });
 });
 
+describe('Embedded signature revalidation (Issue #27)', () => {
+  let ca: TestCa;
+  let signer: TestSigner;
+  let exportBytes: Uint8Array;
+
+  beforeAll(async () => {
+    await ensureOpensslAvailable();
+    ca = await createTestCa('revalidate-unit');
+    signer = await issueTestSigner(ca, { commonName: 'Paciente Revalidação', cpfDigits: '52998224725', email: 'paciente@example.test' });
+    const head = '%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [] /Count 0 >>\nendobj\n';
+    const trailerPos = head.length;
+    exportBytes = new TextEncoder().encode(`${head}trailer\n<< /Size 3 /Root 1 0 R >>\nstartxref\n${trailerPos}\n%%EOF\n`);
+  });
+
+  it('revalidates an intact signed file with its chain', async () => {
+    const { revalidateEmbeddedSignatures } = await import('./external-validation');
+    const signed = await buildSignedReturnPdf(exportBytes, signer, ca.dir);
+    const result = await revalidateEmbeddedSignatures(new Uint8Array(signed), { trustedRootPems: [ca.caPem] });
+    expect(result.ok).toBe(true);
+    expect(result.signatures).toHaveLength(1);
+    expect(result.signatures[0]).toMatchObject({ digestMatch: true, cmsValid: true, chain: 'trusted', certificateValid: true });
+  });
+
+  it('fails closed on tampered bytes', async () => {
+    const { revalidateEmbeddedSignatures } = await import('./external-validation');
+    const signed = await buildSignedReturnPdf(exportBytes, signer, ca.dir);
+    const tampered = tamperAfterExport(new Uint8Array(signed), exportBytes.byteLength);
+    const result = await revalidateEmbeddedSignatures(tampered, { trustedRootPems: [ca.caPem] });
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('digest_mismatch');
+  });
+
+  it('fails closed against an unrelated trust store', async () => {
+    const { revalidateEmbeddedSignatures } = await import('./external-validation');
+    const signed = await buildSignedReturnPdf(exportBytes, signer, ca.dir);
+    const other = await createTestCa('revalidate-unit-other');
+    const result = await revalidateEmbeddedSignatures(new Uint8Array(signed), { trustedRootPems: [other.caPem] });
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('untrusted_chain');
+  });
+
+  it('passes vacuously on files without embedded signatures', async () => {
+    const { revalidateEmbeddedSignatures } = await import('./external-validation');
+    const result = await revalidateEmbeddedSignatures(exportBytes, { trustedRootPems: [ca.caPem] });
+    expect(result.ok).toBe(true);
+    expect(result.signatures).toHaveLength(0);
+  });
+
+  it('blocks files whose signer certificate is expired', async () => {
+    const { revalidateEmbeddedSignatures } = await import('./external-validation');
+    const { issueDatedTestSigner } = await import('./external-test-fixtures');
+    const expired = await issueDatedTestSigner(ca, {
+      commonName: 'Expirado', cpfDigits: '11144477735', email: 'expirado@example.test',
+      startDate: '20200101000000Z', endDate: '20210101000000Z',
+    });
+    const signed = await buildSignedReturnPdf(exportBytes, expired, ca.dir);
+    const result = await revalidateEmbeddedSignatures(new Uint8Array(signed), { trustedRootPems: [ca.caPem] });
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('certificate_not_valid');
+  });
+});
 describe('OCSP revocation against real responder bytes', () => {
   const fixtureDir = new URL('./fixtures/external/', import.meta.url).pathname;
   const pemToDer = (pem: string) => Uint8Array.from(Buffer.from(pem.replace(/-----(BEGIN|END)[^-]+-----/g, '').replace(/\s+/g, ''), 'base64'));

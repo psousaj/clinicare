@@ -129,4 +129,14 @@ describe('patient signature workspace', () => {
     await user.click(screen.getByRole('button', { name: 'Confirmar retorno validado' }));
     expect(await screen.findByText(/Retorno validado e incorporado/i)).toBeInTheDocument();
   });
+
+  it('warns against covering previous external signatures', async () => {
+    globalThis.fetch = vi.fn(async (url: string) => {
+      if (url === '/public/signatures/test-token') return { ok: true, status: 200, json: async () => ({ ...signatureResponse(), hasExternalSignatures: true }) };
+      return { ok: true, status: 200, json: async () => ({}) };
+    }) as unknown as typeof fetch;
+
+    renderPage();
+    expect(await screen.findByText(/sem cobrir as assinaturas anteriores/i)).toBeInTheDocument();
+  });
 });
