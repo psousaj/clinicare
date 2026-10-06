@@ -33,6 +33,10 @@ docker compose down -v
 docker compose up --build
 ```
 
+No primeiro startup, o app cria a conta administrativa inicial usando `BOOTSTRAP_CLINIC_NAME`, `BOOTSTRAP_ADMIN_NAME`, `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD` do ambiente. Configure-as com valores próprios e fortes (em produção, use um gerenciador de secrets). O seed roda em todo startup, mas não altera senha nem sobrescreve uma conta existente; para trocar a senha, use `bun run reset-clinic-password --admin-email email --admin-password senha`.
+
+Para gerar os segredos próprios do app no formato esperado, rode `bun run secrets:generate` e copie as linhas para `.env`. O comando imprime valores novos sem alterar arquivos; não regenere chaves de uma instalação existente, pois elas são necessárias para ler dados protegidos. Credenciais do PostgreSQL e do Cloudflare R2 devem vir desses serviços, não deste gerador.
+
 `bun run db:reset` executa os mesmos comandos no ambiente com Bun instalado.
 
 ## Desenvolvimento sem Docker

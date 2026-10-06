@@ -1,9 +1,11 @@
 import { serveStatic } from 'hono/bun';
 import { connectPostgresDatabase, migrateDatabase, seedDatabase } from '@clinicare/db';
 import { app } from './app';
+import { seedConfiguredAdministrator } from './admin-commands';
 
 await migrateDatabase();
-await seedDatabase();
+await seedDatabase(process.env.BOOTSTRAP_CLINIC_NAME?.trim() || undefined);
+await seedConfiguredAdministrator();
 await connectPostgresDatabase();
 app.use('/*', serveStatic({ root: './apps/web/dist' }));
 // Fallback da SPA para rotas do TanStack Router (ex.: /pacientes, /formulario/:token).

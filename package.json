@@ -26,6 +26,7 @@
     "provision-tenant": "bun run --cwd apps/api src/admin-commands.ts provision-tenant",
     "reset-clinic-password": "bun run --cwd apps/api src/admin-commands.ts reset-password",
     "change-clinic-email": "bun run --cwd apps/api src/admin-commands.ts change-email",
+    "secrets:generate": "bun run scripts/generate-secrets.ts",
     "db:reset": "docker compose down -v && docker compose up --build -d",
     "infra:up": "docker compose -f dev-compose.yml up -d",
     "infra:down": "docker compose -f dev-compose.yml down",

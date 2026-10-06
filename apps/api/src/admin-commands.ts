@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import { closeDatabase, getDatabase, tenants, authUsers, authSessions } from '@clinicare/db';
+import { closeDatabase, getDatabase, getDatabasePool, tenantDefaults, tenants, authUsers, authSessions } from '@clinicare/db';
 import { getAuth } from './auth';
 
 export type ProvisionClinicInput = {
@@ -74,6 +74,45 @@ export async function provisionClinic(input: ProvisionClinicInput) {
   } catch (error) {
     await database.delete(tenants).where(eq(tenants.id, tenant.id)).catch(() => undefined);
     throw error;
+  }
+}
+
+const BOOTSTRAP_ENV_KEYS = ['BOOTSTRAP_CLINIC_NAME', 'BOOTSTRAP_ADMIN_NAME', 'BOOTSTRAP_ADMIN_EMAIL', 'BOOTSTRAP_ADMIN_PASSWORD'] as const;
+
+export function bootstrapConfigFromEnv(env: Record<string, string | undefined> = process.env): ProvisionClinicInput | null {
+  const values = BOOTSTRAP_ENV_KEYS.map((key) => env[key]?.trim() ?? '');
+  if (values.every((value) => !value)) {
+    if (env.NODE_ENV === 'production') throw new Error('Bootstrap administrativo obrigatório: configure BOOTSTRAP_CLINIC_NAME, BOOTSTRAP_ADMIN_NAME, BOOTSTRAP_ADMIN_EMAIL e BOOTSTRAP_ADMIN_PASSWORD.');
+    return null;
+  }
+  if (values.some((value) => !value)) throw new Error('Configure todas as variáveis BOOTSTRAP_* para criar o administrador inicial.');
+  const [clinicName, administratorName, email, password] = values;
+  return { tenantId: tenantDefaults.id, clinicName: clinicName!, administratorName: administratorName!, email: email!, password: password! };
+}
+
+/** Creates the configured first clinic administrator once; later boots never reset its password. */
+export async function seedConfiguredAdministrator(env: Record<string, string | undefined> = process.env) {
+  const config = bootstrapConfigFromEnv(env);
+  if (!config) return null;
+  const values = validateProvisionInput(config);
+  const pool = getDatabasePool();
+  const lock = await pool.connect();
+  try {
+    await lock.query('select pg_advisory_lock(hashtext($1))', ['clinicare:bootstrap-administrator']);
+    const database = getDatabase();
+    await database.insert(tenants).values({ id: tenantDefaults.id, name: values.clinicName, active: true }).onConflictDoNothing({ target: tenants.id });
+    const [existingTenantUser] = await database.select().from(authUsers).where(eq(authUsers.tenantId, tenantDefaults.id));
+    if (existingTenantUser) {
+      if (existingTenantUser.email !== values.email) throw new Error('Já existe um administrador para a clínica inicial; o bootstrap não altera contas existentes.');
+      return { created: false, email: existingTenantUser.email };
+    }
+    const [existingEmail] = await database.select({ id: authUsers.id }).from(authUsers).where(eq(authUsers.email, values.email));
+    if (existingEmail) throw new Error('O e-mail configurado para o administrador inicial já pertence a outra clínica.');
+    const user = await createBetterAuthClinicAdministrator({ tenantId: tenantDefaults.id, administratorName: values.administratorName, email: values.email, password: values.password });
+    return { created: true, email: user.email };
+  } finally {
+    await lock.query('select pg_advisory_unlock(hashtext($1))', ['clinicare:bootstrap-administrator']).catch(() => undefined);
+    lock.release();
   }
 }
 

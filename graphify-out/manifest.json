@@ -36,15 +36,15 @@
     "semantic_hash": ""
   },
   "apps/api/src/app.ts": {
-    "mtime": 1791324710.1081104,
-    "seen": 1791326340.4385443,
-    "ast_hash": "4b4fd68f40f36ec78e1e30537a86ab52",
+    "mtime": 1791326985.1549811,
+    "seen": 1791327057.3387675,
+    "ast_hash": "a39b872d3f1f635092f95b1729199966",
     "semantic_hash": ""
   },
   "apps/api/src/index.ts": {
-    "mtime": 1791034590.5811205,
-    "seen": 1791035698.5378954,
-    "ast_hash": "6ca8a49428b80bd89293649967d4fc62",
+    "mtime": 1791326503.28062,
+    "seen": 1791326562.8719368,
+    "ast_hash": "6a507104a1d0dbfada21ca147311bce1",
     "semantic_hash": ""
   },
   "apps/api/src/relationship.ts": {
@@ -546,9 +546,9 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1791325902.808622,
-    "seen": 1791326340.4410965,
-    "ast_hash": "076363d9fb1f5c117d4051b5e270b48b",
+    "mtime": 1791328729.1086245,
+    "seen": 1791328750.837144,
+    "ast_hash": "84047878cd097b8980ea2a320547424d",
     "semantic_hash": ""
   },
   "packages/db/package.json": {
@@ -576,9 +576,9 @@
     "semantic_hash": ""
   },
   "turbo.json": {
-    "mtime": 1791325801.040618,
-    "seen": 1791326340.4413753,
-    "ast_hash": "a9820fb5bd33831b21bf67e4ce1693c6",
+    "mtime": 1791326985.1549811,
+    "seen": 1791327057.3427105,
+    "ast_hash": "51d993176d6a573b0f113464714893e6",
     "semantic_hash": ""
   },
   "AGENTS.md": {
@@ -594,9 +594,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1791035172.181115,
-    "seen": 1791035698.5399652,
-    "ast_hash": "ff38cd3570e0f3678c1f83016038316a",
+    "mtime": 1791328729.1086245,
+    "seen": 1791328750.8376553,
+    "ast_hash": "a8e146b1f0e89dd9041ec55b8d233938",
     "semantic_hash": ""
   },
   "apps/web/index.html": {
@@ -612,9 +612,9 @@
     "semantic_hash": ""
   },
   "docker-compose.yml": {
-    "mtime": 1791324710.1174948,
-    "seen": 1791326340.4414387,
-    "ast_hash": "7d579d7814a7efec98a908e7e90df67c",
+    "mtime": 1791326985.1549811,
+    "seen": 1791327057.3427896,
+    "ast_hash": "c953647f3d6088cba380db16776af147",
     "semantic_hash": ""
   },
   "docs/adr/0001-stack-da-aplicacao.md": {
@@ -816,9 +816,9 @@
     "semantic_hash": ""
   },
   "packages/db/src/seed.ts": {
-    "mtime": 1791003811.636705,
-    "seen": 1791035698.5399392,
-    "ast_hash": "1d43fc8a63924ce694d980909bcac121",
+    "mtime": 1791326529.188624,
+    "seen": 1791326562.8752954,
+    "ast_hash": "773f20b9ed546181c990323dd85adc4a",
     "semantic_hash": ""
   },
   "docs/adr/0003-persistencia-postgresql-drizzle-jsonb.md": {
@@ -870,9 +870,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/admin-commands.ts": {
-    "mtime": 1791144492.4771285,
-    "seen": 1791146792.6087654,
-    "ast_hash": "c38f170162984b81d375038bb72240d6",
+    "mtime": 1791326503.28062,
+    "seen": 1791326562.8709571,
+    "ast_hash": "0ebfff5c1e90d1efecec789a668a346f",
     "semantic_hash": ""
   },
   "apps/api/src/auth-routes.ts": {
@@ -882,9 +882,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/auth.ts": {
-    "mtime": 1791146081.577128,
-    "seen": 1791146792.608771,
-    "ast_hash": "248140c4a390216a82089812e4c246e1",
+    "mtime": 1791326985.1549811,
+    "seen": 1791327057.3388233,
+    "ast_hash": "47dc3880388d023da392108eeb148bd2",
     "semantic_hash": ""
   },
   "apps/web/src/routes/login.tsx": {
@@ -1083,6 +1083,30 @@
     "mtime": 1791324710.1214955,
     "seen": 1791326340.4418073,
     "ast_hash": "6878d35866640a77bf461462fbf1dd2f",
+    "semantic_hash": ""
+  },
+  "apps/api/src/admin-commands.test.ts": {
+    "mtime": 1791326514.6766238,
+    "seen": 1791326562.8709548,
+    "ast_hash": "c34db91e3a5c2323b14df3dd771d0c5f",
+    "semantic_hash": ""
+  },
+  "apps/api/src/auth-config.test.ts": {
+    "mtime": 1791326985.1573224,
+    "seen": 1791327057.338795,
+    "ast_hash": "a737a9e0f3c5c1ff228cfa1de741f8bb",
+    "semantic_hash": ""
+  },
+  "apps/api/src/auth-config.ts": {
+    "mtime": 1791326985.1549811,
+    "seen": 1791327057.338797,
+    "ast_hash": "28175696d900d5749dde58d49c39aac3",
+    "semantic_hash": ""
+  },
+  "scripts/generate-secrets.ts": {
+    "mtime": 1791328729.1086245,
+    "seen": 1791328750.8375776,
+    "ast_hash": "99a024be5ee17257908eb6eb995686f1",
     "semantic_hash": ""
   }
 }

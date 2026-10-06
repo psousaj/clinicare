@@ -1,6 +1,7 @@
 import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { betterAuth } from 'better-auth';
 import { authSchema, getDatabase } from '@clinicare/db';
+import { getTrustedOrigins } from './auth-config';
 
 export const SESSION_DURATION_SECONDS = 24 * 60 * 60;
 
@@ -8,6 +9,7 @@ export function getAuth() {
   return betterAuth({
   appName: 'Clínicare',
   baseURL: process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
+  trustedOrigins: getTrustedOrigins(),
   basePath: '/api/auth',
   database: drizzleAdapter(getDatabase(), { provider: 'pg', schema: authSchema, transaction: true }),
   emailAndPassword: {

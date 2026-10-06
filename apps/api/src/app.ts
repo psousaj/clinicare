@@ -2,6 +2,7 @@ import { Hono, type Context } from 'hono';
 import { createHash } from 'node:crypto';
 import { cors } from 'hono/cors';
 import { getDatabasePool } from '@clinicare/db';
+import { getTrustedOrigins } from './auth-config';
 import { createPatient, deactivatePatient, getPatient, isUuid, listPatients, patientActorFromRequest, updatePatient } from './patients';
 import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, associateAnamnesis, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan, presignContractVersionPdf, finalizeContractVersionPdf } from './catalog';
 import { getRelationalRelationship } from './relational-relationship';
@@ -52,7 +53,7 @@ const handleError = (c: Context, error: unknown) => {
 const appointmentStatusLabel: Record<string, string> = { planned: 'agendado', confirmed: 'confirmado', rescheduled: 'remarcado', cancelled: 'cancelado', no_show: 'faltou' };
 const authTenant = (c: Context) => clinicSession(c).tenantId;
 export const app = new Hono()
-  .use('/api/*', cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'] }))
+  .use('/api/*', cors({ origin: getTrustedOrigins() }))
   .onError((error, c) => handleError(c, error))
   .on(['POST', 'GET'], '/api/auth/*', (c) => authHandler(c.req.raw))
   .post('/api/auth/initial-password-choice', requireClinicSession, updateInitialPasswordChoice)
