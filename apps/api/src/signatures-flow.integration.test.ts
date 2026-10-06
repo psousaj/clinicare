@@ -284,6 +284,47 @@ integration('Issue #23: Entregar assinatura manuscrita local do paciente', () =>
     expect(staleOperation.fingerprint).toBeTruthy();
     expect(operations.find((operation) => operation.status === 'confirmed')!.candidateHash).toBe(rev2.contentHash);
 
+    // Issue #24: evidência técnica vinculada à tentativa e revisão corretas.
+    const confirmedOperation = operations.find((operation) => operation.status === 'confirmed')!;
+    const evidenceRows = await db.select().from(signatureEvidence).where(eq(signatureEvidence.tenantId, tenantId));
+    const localEvidence = evidenceRows.find((row) => row.operationId === confirmedOperation.id)!;
+    expect(localEvidence).toBeDefined();
+    expect(localEvidence.participantId).toBe(patientParticipantId);
+    expect(localEvidence.documentId).toBe(documentId);
+    expect(localEvidence.documentRevisionId).toBe(rev2.id);
+    expect(localEvidence.eventType).toBe('local_confirmation');
+    expect(localEvidence.collectorVersion).toBe('fingerprintjs-oss-5');
+    expect(localEvidence.normalizationVersion).toBe('v1');
+    expect(localEvidence.digest).toMatch(/^[0-9a-f]{64}$/);
+    expect(localEvidence.digest).toBe(confirmedOperation.fingerprintDigest);
+    expect(localEvidence.normalizedRepresentation).toMatchObject({ visitorId: 'vis-123', attributes: { userAgent: 'test-agent' } });
+    expect(localEvidence.observedAt).toBeInstanceOf(Date);
+    // Sem proxy confiável no ambiente de teste, nenhum IP é observado.
+    expect(localEvidence.observedIp).toBeNull();
+    // O documento pertence ao contrato aplicado do acompanhamento.
+    const evidenceDocument = (await db.select().from(appliedDocuments).where(eq(appliedDocuments.id, localEvidence.documentId)))[0]!;
+    expect(evidenceDocument.followupContractId).toBeTruthy();
+
+    // Nenhum dado de fingerprint vaza nas respostas públicas ou do painel.
+    const winnerBody = JSON.stringify(await concurrentResponses[winnerIndex]!.clone().json());
+    expect(winnerBody).not.toContain('vis-123');
+    expect(winnerBody).not.toContain('userAgent');
+    expect(winnerBody).not.toContain('test-agent');
+    expect(winnerBody).not.toContain('fingerprint');
+    expect(winnerBody).not.toContain('observedIp');
+    const retryBody = JSON.stringify(await retryRes.clone().json());
+    expect(retryBody).not.toContain('vis-123');
+    expect(retryBody).not.toContain('fingerprint');
+    const pendingBody = JSON.stringify(await (await request('/api/signature-pending')).json());
+    expect(pendingBody).not.toContain('vis-123');
+    expect(pendingBody).not.toContain('fingerprint');
+
+    // Snapshot histórico do paciente não muda com edição posterior do cadastro.
+    const renameRes = await request(`/api/patients/${patientId}`, { method: 'PUT', body: JSON.stringify({ fullName: 'Nome Alterado Depois' }) });
+    expect(renameRes.status).toBe(200);
+    const participantAfterRename = (await db.select().from(signatureParticipants).where(eq(signatureParticipants.id, patientParticipantId)))[0]!;
+    expect((participantAfterRename.identitySnapshot as any).fullName).not.toBe('Nome Alterado Depois');
+
     // Concorrência / conflito: tentativa com baseRevisionId antiga resulta em STALE_DOCUMENT_REVISION (409).
     // A validação de revisão-base ocorre antes da checagem de correspondência de
     // prévia, então basta reutilizar um previewHash de uma prévia já consumida

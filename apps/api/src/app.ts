@@ -36,7 +36,14 @@ const handleError = (c: Context, error: unknown) => {
   if (error instanceof Error && /conflito|versão desatualizada/i.test(error.message)) return c.json({ error: error.message }, 409);
   if (error instanceof Error && /^(DATA_ENCRYPTION_KEY|SEARCH_HMAC_KEY|UPLOAD_SIGNING_KEY)/.test(error.message)) return c.json({ error: error.message }, 503);
   if (error instanceof Error && /R2 is not configured/i.test(error.message)) return c.json({ error: 'R2 não configurado.' }, 503);
-  console.error(error);
+  // Unexpected errors may wrap driver failures whose enumerable properties
+  // carry request-derived values (fingerprint attributes, evidence payloads
+  // in query params). Fingerprints are personal data linked to a participant,
+  // so log only a sanitized summary — never the raw error object.
+  const sanitized = error instanceof Error
+    ? { name: error.name, message: error.message, ...('code' in error ? { code: String((error as { code: unknown }).code) } : {}) }
+    : { message: 'unknown' };
+  console.error(JSON.stringify({ route: c.req.path, method: c.req.method, ...sanitized }));
   return c.json({ error: 'Ocorreu um erro inesperado.' }, 500);
 };
 

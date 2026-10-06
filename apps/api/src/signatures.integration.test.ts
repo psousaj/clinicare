@@ -192,13 +192,15 @@ integration('PostgreSQL signatures API', () => {
     const secondRead = await request(`/public/signatures/${patientTokens[1]}`);
     const secondDocument = ((await secondRead.json()) as any).document;
     const secondIdempotencyKey = randomUUID();
-    const secondPreviewPayload = { documentId: secondDocument.id, baseRevisionId: secondDocument.revisionId, signaturePng: pngDataUrl, placement, idempotencyKey: secondIdempotencyKey, fingerprint: { visitorId: 'vis-2', version: 'fingerprintjs-oss-5' }, previewOnly: true };
+    // Sem fingerprint (navegador com coleta bloqueada): a assinatura não pode
+    // ser bloqueada por indisponibilidade de atributos (Issue #24).
+    const secondPreviewPayload = { documentId: secondDocument.id, baseRevisionId: secondDocument.revisionId, signaturePng: pngDataUrl, placement, idempotencyKey: secondIdempotencyKey, previewOnly: true };
     const secondPreview = await request(`/public/signatures/${patientTokens[1]}/preview`, json(secondPreviewPayload));
     expect(secondPreview.status).toBe(200);
     const secondPreviewHash = secondPreview.headers.get('etag')!.replaceAll('"', '');
     const second = await request(`/public/signatures/${patientTokens[1]}/confirm`, json({ evidence: {
       documentId: secondDocument.id, baseRevisionId: secondDocument.revisionId, signaturePng: pngDataUrl, placement,
-      idempotencyKey: secondIdempotencyKey, previewHash: secondPreviewHash, fingerprint: { visitorId: 'vis-2', version: 'fingerprintjs-oss-5' },
+      idempotencyKey: secondIdempotencyKey, previewHash: secondPreviewHash,
       confirmed: true, acceptanceText: 'aceito',
     } }));
     expect(second.status).toBe(200);
@@ -230,6 +232,18 @@ integration('PostgreSQL signatures API', () => {
     expect(revisions).toHaveLength(3);
     expect(events.filter((event) => event.type === 'signed')).toHaveLength(3);
     expect(revisions.every((revision) => !!revision.evidenceCiphertext)).toBe(true);
+
+    // Issue #24: confirmação sem fingerprint gera evidência marcada como
+    // indisponível, vinculada à operação, sem inventar valores.
+    const allEvidence = await db.select().from(signatureEvidence).where(eq(signatureEvidence.tenantId, tenantId));
+    const unavailableEvidence = allEvidence.find((row) => row.participantId === patientParticipantIds[1])!;
+    expect(unavailableEvidence).toBeDefined();
+    expect(unavailableEvidence.collectorVersion).toBe('fingerprintjs-oss-5');
+    expect(unavailableEvidence.digest).toMatch(/^[0-9a-f]{64}$/);
+    expect(unavailableEvidence.attributes).toEqual({});
+    expect(unavailableEvidence.unavailableAttributes).toEqual([]);
+    // Nenhum visitorId foi inventado para a coleta ausente.
+    expect((unavailableEvidence.normalizedRepresentation as any).visitorId).toBeUndefined();
   });
 
   it('rejects expired tokens and isolates tenant-scoped pending data', async () => {
