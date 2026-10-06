@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS signature_external_attempts (
 CREATE INDEX IF NOT EXISTS signature_external_attempts_status_idx ON signature_external_attempts (tenant_id, participant_id, lifecycle_status);
 CREATE INDEX IF NOT EXISTS signature_external_attempts_expiry_idx ON signature_external_attempts (tenant_id, export_expires_at);
 
+CREATE UNIQUE INDEX IF NOT EXISTS signature_external_attempts_tenant_id_unique ON signature_external_attempts (tenant_id, id);
 CREATE TABLE IF NOT EXISTS signature_external_receipts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL,
@@ -72,6 +73,7 @@ CREATE TABLE IF NOT EXISTS signature_external_receipts (
 );
 CREATE INDEX IF NOT EXISTS signature_external_receipts_attempt_idx ON signature_external_receipts (tenant_id, attempt_id, received_at);
 
+CREATE UNIQUE INDEX IF NOT EXISTS signature_external_receipts_tenant_id_unique ON signature_external_receipts (tenant_id, id);
 CREATE TABLE IF NOT EXISTS signature_evidence (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL,
