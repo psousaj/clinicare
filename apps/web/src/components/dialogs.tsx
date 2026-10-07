@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { appointmentForm, followupForm, parseForm, paymentForm } from '@/lib/forms';
 import { useConfirmAppointment, useCreateAppointment, useCreateFollowup, useCreatePayment, useDeleteAppointment, useUpdateAppointment } from '@/lib/queries';
-import type { Appointment, Followup, Combo, Patient, Plan, Procedure } from '@/lib/schemas';
+import type { Appointment, EventOffer, Followup, Combo, Patient, Plan, Procedure } from '@/lib/schemas';
 import { currency, offerLabel } from '@/lib/format';
 
 type Selection = { start: string; end: string };
@@ -239,7 +239,7 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
 }
 
 // Escolha uma oferta do catálogo (combo ou plano) para iniciar o acompanhamento do paciente.
-export function NewFollowupDialog({ open, patientId, patients, combos, plans, onClose }: { open: boolean; patientId?: string; patients: Patient[]; combos: Combo[]; plans: Plan[]; onClose: () => void }) {
+export function NewFollowupDialog({ open, patientId, patients, combos, plans, events = [], procedures = [], onClose }: { open: boolean; patientId?: string; patients: Patient[]; combos: Combo[]; plans: Plan[]; events?: EventOffer[]; procedures?: Procedure[]; onClose: () => void }) {
   const create = useCreateFollowup();
   const navigate = useNavigate();
   return (
@@ -247,21 +247,23 @@ export function NewFollowupDialog({ open, patientId, patients, combos, plans, on
       open={open}
       onOpenChange={(next) => !next && onClose()}
       title="Novo acompanhamento"
-      description="Escolha um combo ou plano. Contratos e anamneses exigidos são gerados automaticamente. Procedimento avulso não precisa de acompanhamento: é só agendar."
+      description="Escolha um combo, plano ou evento. Contratos e anamneses exigidos são gerados automaticamente. Procedimento avulso não precisa de acompanhamento: é só agendar."
       submitLabel="Iniciar acompanhamento"
       onSubmit={async (form) => {
         const { patientId: patient, offer } = parseForm(followupForm, form);
         const [offerType, offerId] = offer.split(':');
-        await create.mutateAsync({ patientId: patient, offerType, offerId });
+        const choice = offerType === 'event' ? form.getAll('choice').map(String).map((key) => { const [kind, id] = key.split(':'); return kind === 'combo' ? { kind, comboId: id } : { kind, procedureId: id }; }) : undefined;
+        if (offerType === 'event' && !choice?.length) throw new Error('Escolha ao menos um item do cardápio do evento.');
+        await create.mutateAsync({ patientId: patient, offerType, offerId, ...(choice ? { choice } : {}) });
         if (!patientId) await navigate({ to: '/pacientes/$patientId', params: { patientId: patient } });
       }}
     >
-      <OfferFields lockedPatientId={patientId} patients={patients} combos={combos} plans={plans} />
+      <OfferFields lockedPatientId={patientId} patients={patients} combos={combos} plans={plans} events={events} procedures={procedures} />
     </FormDialog>
   );
 }
 
-function OfferFields({ lockedPatientId, patients, combos, plans }: { lockedPatientId?: string; patients: Patient[]; combos: Combo[]; plans: Plan[] }) {
+function OfferFields({ lockedPatientId, patients, combos, plans, events, procedures }: { lockedPatientId?: string; patients: Patient[]; combos: Combo[]; plans: Plan[]; events: EventOffer[]; procedures: Procedure[] }) {
   const [offer, setOffer] = useState('');
   const [type, id] = offer.split(':');
   const price = type === 'combo' ? (combos.find((item) => item.id === id)?.promotionalPriceCents ?? combos.find((item) => item.id === id)?.priceCents) : type === 'plan' ? plans.find((item) => item.id === id)?.priceCents : undefined;
@@ -284,10 +286,28 @@ function OfferFields({ lockedPatientId, patients, combos, plans }: { lockedPatie
           <NativeSelectOption value="">Selecione…</NativeSelectOption>
           {combos.filter((combo) => combo.active !== false).map((combo) => <NativeSelectOption key={combo.id} value={`combo:${combo.id}`}>{offerLabel('combo', combo.name)}</NativeSelectOption>)}
           {plans.map((plan) => <NativeSelectOption key={plan.id} value={`plan:${plan.id}`}>{offerLabel('plan', plan.name)}</NativeSelectOption>)}
+          {events.filter((event) => event.active !== false).map((event) => <NativeSelectOption key={event.id} value={`event:${event.id}`}>{offerLabel('event', `${event.name} (${event.eventDate.split('-').reverse().join('/')})`)}</NativeSelectOption>)}
         </NativeSelect>
       </Field>
       {price !== undefined && <p className="m-0 text-sm text-muted-foreground">Valor: <strong className="text-foreground">{currency(price)}</strong></p>}
+      {type === 'event' && <EventChoice event={events.find((item) => item.id === id)} procedures={procedures} combos={combos} />}
     </>
+  );
+}
+
+// Escolha do paciente no cardápio do evento. Não é preço contratado: o valor só nasce da baixa do que for realizado.
+function EventChoice({ event, procedures, combos }: { event?: EventOffer; procedures: Procedure[]; combos: Combo[] }) {
+  if (!event) return null;
+  return (
+    <fieldset className="grid gap-1 rounded-lg border border-border p-3">
+      <legend className="px-1 text-sm font-medium">Escolha do paciente</legend>
+      {event.items.map((item) => {
+        const key = item.kind === 'procedure' ? `procedure:${item.procedureId}` : `combo:${item.comboId}`;
+        const name = item.kind === 'procedure' ? procedures.find((procedure) => procedure.id === item.procedureId)?.name ?? 'Procedimento' : `${combos.find((combo) => combo.id === item.comboId)?.name ?? 'Combo'} (pacote fechado)`;
+        return <Label key={key} className="flex items-center gap-2 font-normal"><input type="checkbox" name="choice" value={key} />{name}</Label>;
+      })}
+      <small className="text-xs text-muted-foreground">A escolha vai para o contrato. O valor só é cobrado pelo que o profissional der baixa.</small>
+    </fieldset>
   );
 }
 
@@ -301,7 +321,7 @@ export function PaymentDialog({ followup, onClose }: { followup: Followup | null
       onOpenChange={(open) => !open && onClose()}
       title="Registrar pagamento"
       submitLabel="Registrar"
-      description={followup && `${followup.offerName} · total ${currency(followup.priceCents)} · recebido ${currency(received)} · falta ${currency(due)}`}
+      description={followup && `${followup.offerName} · ${followup.offerType === 'event' ? 'realizado' : 'total'} ${currency(followup.priceCents)} · recebido ${currency(received)} · falta ${currency(due)}`}
       onSubmit={(form) => {
         const { amount, ...data } = parseForm(paymentForm, form);
         return create.mutateAsync({ ...data, followupId: followup!.id, amountCents: amount });

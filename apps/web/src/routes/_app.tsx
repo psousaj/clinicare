@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from '@tanstack/react-router';
-import { Activity, CalendarDays, ChevronDown, ChevronRight, ClipboardList, FileSignature, FileText, Layers, LayoutDashboard, Plus, Settings2, Sparkles, UsersRound, WalletCards, X } from 'lucide-react';
+import { Activity, CalendarDays, ChevronDown, ChevronRight, ClipboardList, FileSignature, FileText, Layers, LayoutDashboard, PartyPopper, Plus, Settings2, Sparkles, UsersRound, WalletCards, X } from 'lucide-react';
 import { useState } from 'react';
 import { QuickActions } from '@/components/QuickActions';
 import { Button } from '@/components/ui/button';
@@ -13,12 +13,13 @@ const navigation = [
   { to: '/agenda', label: 'Agenda', title: 'Agenda semanal', icon: CalendarDays },
   { to: '/procedimentos', label: 'Procedimentos', title: 'Procedimentos e combos', icon: Sparkles },
   { to: '/planos', label: 'Planos', title: 'Planos', icon: Layers },
+  { to: '/eventos', label: 'Eventos', title: 'Eventos da clínica', icon: PartyPopper },
   { to: '/formularios-anamnese', label: 'Formulários de anamnese', title: 'Formulários de anamnese', icon: ClipboardList },
   { to: '/contratos', label: 'Contratos', title: 'Contratos da clínica', icon: FileText },
   { to: '/documentos', label: 'Documentos', title: 'Assinaturas do representante', icon: FileSignature },
   { to: '/financeiro', label: 'Financeiro', title: 'Acompanhamentos e pagamentos', icon: WalletCards },
 ] as const;
-const mobileNavigation = [navigation[0], navigation[1], navigation[2], navigation[7]] as const;
+const mobileNavigation = [navigation[0], navigation[1], navigation[2], navigation[8]] as const;
 const settingsEntry = { to: '/configuracoes', label: 'Configurações', title: 'Registro profissional e preferências da conta.' } as const;
 
 export const Route = createFileRoute('/_app')({

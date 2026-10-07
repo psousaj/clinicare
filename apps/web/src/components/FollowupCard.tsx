@@ -7,7 +7,7 @@ import { currency } from '@/lib/format';
 import { useGenerateFollowupContract } from '@/lib/queries';
 import type { Followup } from '@/lib/schemas';
 
-const offerLabel = { procedure: 'Avulso', combo: 'Combo', plan: 'Plano' } as const;
+const offerLabel = { procedure: 'Avulso', combo: 'Combo', plan: 'Plano', event: 'Evento' } as const;
 
 // Acompanhamento do paciente: itens com progresso, contratos exigidos e situação para agendar.
 export function FollowupCard({ followup, patientId }: { followup: Followup; patientId: string }) {
@@ -15,7 +15,8 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
   return (
     <div className="followup-card mb-3 grid gap-1 rounded-lg border border-border p-3 last:mb-0">
       <div className="flex flex-wrap items-center gap-2">
-        <strong>{followup.offerName} · {currency(followup.priceCents)}</strong>
+        {/* Evento não tem preço contratado: o valor exibido é o realizado, que nasce da baixa. */}
+        <strong>{followup.offerName} · {followup.offerType === 'event' ? `realizado ${currency(followup.priceCents)}` : currency(followup.priceCents)}</strong>
         <StatusBadge tone="neutral">{offerLabel[followup.offerType]}</StatusBadge>
         {expired && <StatusBadge tone="danger">Vencido</StatusBadge>}
         {followup.blocked && <StatusBadge tone="warning">Anamnese pendente</StatusBadge>}

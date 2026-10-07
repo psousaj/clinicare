@@ -111,6 +111,18 @@ export const planSchema = z.looseObject({
   contractIds: z.array(refId).default([]),
   requireNewAnamnesis: z.boolean().optional(),
 });
+export const eventSchema = z.looseObject({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().nullish(),
+  eventDate: z.string(),
+  active: z.boolean().optional(),
+  items: z.array(z.discriminatedUnion('kind', [
+    z.looseObject({ kind: z.literal('procedure'), procedureId: z.string(), sessions: z.number().int().min(1) }),
+    z.looseObject({ kind: z.literal('combo'), comboId: z.string() }),
+  ])),
+  contractIds: z.array(refId).default([]),
+});
 export const followupItemSchema = z.looseObject({
   id: z.string(),
   procedureId: z.string().nullish(),
@@ -119,6 +131,8 @@ export const followupItemSchema = z.looseObject({
   durationMinutes: z.number().nullish(),
   sessionsPerformed: z.number().default(0),
   sessionSchema: jsonSchema.nullish(),
+  comboId: z.string().nullish(),
+  comboName: z.string().nullish(),
 });
 export const followupAnamnesisSchema = z.looseObject({
   id: z.string(),
@@ -161,7 +175,8 @@ export const signatureSchema = z.looseObject({ participantId: z.string(), role: 
 export const followupSchema = z.looseObject({
   id: z.string(),
   patientId: refId,
-  offerType: z.enum(['procedure', 'combo', 'plan']).default('procedure'),
+  offerType: z.enum(['procedure', 'combo', 'plan', 'event']).default('procedure'),
+  eventDate: z.string().nullish(),
   offerName: z.string(),
   priceCents: z.number(),
   validUntil: z.string().nullish(),
@@ -247,6 +262,7 @@ export type AnamnesisVersion = z.infer<typeof anamnesisVersionSchema>;
 export type Combo = z.infer<typeof comboSchema>;
 export type FollowupItem = z.infer<typeof followupItemSchema>;
 export type Plan = z.infer<typeof planSchema>;
+export type EventOffer = z.infer<typeof eventSchema>;
 export type ProfessionalProfile = z.infer<typeof professionalProfileSchema>;
 export type Account = z.infer<typeof accountSchema>;
 export type FollowupAnamnesis = z.infer<typeof followupAnamnesisSchema>;

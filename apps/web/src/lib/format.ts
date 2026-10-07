@@ -16,5 +16,5 @@ export const duration = (minutes: number) => (minutes >= 60 ? `${Math.floor(minu
 export const shortDate = (value: string) => new Date(value).toLocaleDateString('pt-BR');
 export const monthLabel = (month: string) => new Date(`${month}-01T12:00:00`).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '').replace(' de ', '/');
 
-export const offerKinds = { procedure: 'Avulso', combo: 'Combo', plan: 'Plano' } as const;
+export const offerKinds = { procedure: 'Avulso', combo: 'Combo', plan: 'Plano', event: 'Evento' } as const;
 export const offerLabel = (type: keyof typeof offerKinds, name: string) => `${offerKinds[type]} - ${name}`;

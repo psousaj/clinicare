@@ -31,7 +31,7 @@ export const comboForm = z.object({
   validUntil: optionalText,
 });
 export const planForm = z.object({ name: text('Nome'), description: optionalText, price: reais('Preço'), durationDays: optionalInt, validityDays: optionalInt });
-export const followupForm = z.object({ patientId: text('Paciente'), offer: z.string().regex(/^(procedure|combo|plan):.+$/, 'Escolha um procedimento, combo ou plano.') });
+export const followupForm = z.object({ patientId: text('Paciente'), offer: z.string().regex(/^(procedure|combo|plan|event):.+$/, 'Escolha um combo, plano ou evento.') });
 export const appointmentForm = z.object({ patientId: text('Paciente') });
 export const paymentForm = z.object({ amount: reais('Valor', 0.01), method: z.enum(['pix', 'cash', 'credit_card']), installments: z.coerce.number().int().min(1).default(1) });
 

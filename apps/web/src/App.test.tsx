@@ -611,6 +611,33 @@ describe('Acompanhamentos', () => {
     await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ patientId: 'p1', offerType: 'plan', offerId: 'pl1' }));
   });
 
+  it('enrolls a patient in an event sending the menu choice, with combos as closed packages', async () => {
+    routes['GET /api/procedures'] = () => [{ _id: 'pr1', name: 'Botox', baseSessions: 1, priceCents: 1000, active: true, versions: [] }];
+    routes['GET /api/combos'] = () => [{ _id: 'c1', name: 'Combo facial', priceCents: 5000, active: true, items: [] }];
+    routes['GET /api/events'] = () => [{ _id: 'ev1', name: 'Dia da clínica', eventDate: '2026-10-15', active: true, items: [{ kind: 'procedure', procedureId: 'pr1', sessions: 1 }, { kind: 'combo', comboId: 'c1' }], contractIds: ['k1'] }];
+    routes['POST /api/followups'] = () => ({ _id: 'at1' });
+    const user = userEvent.setup();
+    renderAt('/');
+    await user.click(await screen.findByRole('button', { name: /novo acompanhamento/i }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('combobox', { name: 'Paciente' }));
+    await user.click(await screen.findByRole('option', { name: 'Marina Alves' }));
+    await user.selectOptions(within(dialog).getByLabelText('Oferta'), 'event:ev1');
+    await user.click(within(dialog).getByRole('button', { name: /iniciar acompanhamento/i }));
+    expect(calls.some((call) => call.method === 'POST')).toBe(false);
+    await user.click(await within(dialog).findByRole('checkbox', { name: /combo facial \(pacote fechado\)/i }));
+    await user.click(within(dialog).getByRole('checkbox', { name: 'Botox' }));
+    await user.click(within(dialog).getByRole('button', { name: /iniciar acompanhamento/i }));
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ patientId: 'p1', offerType: 'event', offerId: 'ev1', choice: [{ kind: 'procedure', procedureId: 'pr1' }, { kind: 'combo', comboId: 'c1' }] }));
+  });
+
+  it('shows the realized value, not a contracted price, for event followups', async () => {
+    routes['GET /api/followups'] = () => [pendingFollowup({ offerType: 'event', offerName: 'Dia da clínica', priceCents: 2500, blocked: false, anamneses: [] })];
+    routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
+    renderAt('/pacientes/p1');
+    expect(await screen.findByText(/Dia da clínica · realizado R\$\s?25,00/)).toBeInTheDocument();
+  });
+
   it('lists pending anamneses on the patient page and copies the link', async () => {
     routes['GET /api/followups'] = () => [pendingFollowup()];
     routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });

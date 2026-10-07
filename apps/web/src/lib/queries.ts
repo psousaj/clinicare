@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { api } from './api';
 import { sha256Hex } from './sha256';
-import { anamnesisSchema, anySchema, accountSchema, appointmentSchema, appliedAnamnesisSchema, contractSchema, createdSchema, comboSchema, planSchema, patientHistorySchema, professionalProfileSchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicAnamnesisSchema, publicFormSchema, requestSchema, attendanceSchema, sessionSchema, signatureHistorySchema, signaturePendingSchema } from './schemas';
+import { anamnesisSchema, anySchema, accountSchema, appointmentSchema, appliedAnamnesisSchema, contractSchema, createdSchema, comboSchema, eventSchema, planSchema, patientHistorySchema, professionalProfileSchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicAnamnesisSchema, publicFormSchema, requestSchema, attendanceSchema, sessionSchema, signatureHistorySchema, signaturePendingSchema } from './schemas';
 
 export const keys = {
   patients: ['patients'] as const,
@@ -12,6 +12,7 @@ export const keys = {
   contracts: ['contracts'] as const,
   combos: ['combos'] as const,
   plans: ['plans'] as const,
+  events: ['events'] as const,
   followups: ['followups'] as const,
   appointments: ['appointments'] as const,
   history: (patientId: string) => ['patients', patientId, 'history'] as const,
@@ -34,6 +35,7 @@ export const anamnesesQuery = list(keys.anamneses, '/api/anamneses', anamnesisSc
 export const contractsQuery = list(keys.contracts, '/api/contracts', contractSchema);
 export const combosQuery = list(keys.combos, '/api/combos', comboSchema);
 export const plansQuery = list(keys.plans, '/api/plans', planSchema);
+export const eventsQuery = list(keys.events, '/api/events', eventSchema);
 export const followupsQuery = list(keys.followups, '/api/followups', followupSchema);
 export const signaturePendingQuery = list(keys.signaturePending, '/api/signature-pending', signaturePendingSchema);
 export const professionalProfileQuery = queryOptions({
@@ -87,7 +89,7 @@ export function useApiMutation<V, R = unknown>({ mutationFn, invalidate, success
 
 const post = <S extends z.ZodType>(path: string, body: unknown, schema: S = anySchema as unknown as S) => api(path, { method: 'POST', body, schema });
 const patientRefresh = [keys.patients];
-const everything = [keys.patients, keys.procedures, keys.anamneses, keys.contracts, keys.combos, keys.plans, keys.followups, keys.appointments, keys.attendances];
+const everything = [keys.patients, keys.procedures, keys.anamneses, keys.contracts, keys.combos, keys.plans, keys.events, keys.followups, keys.appointments, keys.attendances];
 
 export const useCreatePatient = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/patients', body), invalidate: patientRefresh, success: 'Paciente cadastrado.' });
 export const useUpdatePatient = (id: string) =>
@@ -165,6 +167,12 @@ export const useCreateFollowup = () =>
   });
 export const useCreatePlan = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/plans', body), invalidate: [keys.plans], success: 'Plano cadastrado.' });
 export const useUpdatePlan = () => useApiMutation({ mutationFn: ({ id, ...body }: { id: string; active?: boolean; expectedVersion?: number } & Record<string, unknown>) => api(`/api/plans/${id}`, { method: 'PUT', body, schema: anySchema }), invalidate: [keys.plans], success: 'Plano atualizado.' });
+export const useSaveEvent = () =>
+  useApiMutation({
+    mutationFn: ({ id, ...body }: { id?: string } & Record<string, unknown>) => id ? api(`/api/events/${id}`, { method: 'PUT', body, schema: anySchema }) : post('/api/events', body),
+    invalidate: [keys.events],
+    success: (_, { id }) => (id ? 'Evento atualizado.' : 'Evento cadastrado.'),
+  });
 export const useDeletePlan = () =>
   useApiMutation({ mutationFn: (id: string) => api(`/api/plans/${id}`, { method: 'PUT', body: { active: false }, schema: anySchema }), invalidate: [keys.plans], success: 'Plano excluído.' });
 export const useAnswerAnamnesis = () =>
