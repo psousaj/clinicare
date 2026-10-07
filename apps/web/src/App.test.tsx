@@ -785,16 +785,170 @@ describe('Atendimento avulso', () => {
 });
 
 describe('Planos', () => {
+  const standard = { _id: 'c1', title: 'Contrato padrão', kind: 'standard', active: true, versions: [] };
+  const procedureContract = { _id: 'c3', title: 'Contrato da limpeza', kind: 'procedure', procedureId: 'pr1', active: true, versions: [] };
+  const comboContract = { _id: 'c2', title: 'Contrato do combo', kind: 'combo', comboId: 'cb1', active: true, versions: [] };
+  const limpeza = { _id: 'pr1', name: 'Limpeza de pele', baseSessions: 3, priceCents: 15000, versions: [] };
+  const combo = { _id: 'cb1', name: 'Combo Facial', priceCents: 50000, active: true, items: [{ procedureId: 'pr1', sessions: 2 }] };
+  const savedBody = () => calls.find((call) => call.method === 'POST' && call.url === '/api/plans')?.body;
+
   it('creates a catalog plan grouping procedures', async () => {
-    routes['GET /api/procedures'] = () => [{ _id: 'pr1', name: 'Limpeza de pele', baseSessions: 3, priceCents: 15000, versions: [] }];
+    routes['GET /api/procedures'] = () => [limpeza];
+    routes['GET /api/contracts'] = () => [standard];
     routes['POST /api/plans'] = () => ({ _id: 'pl1' });
     const user = userEvent.setup();
     renderAt('/planos/novo');
     await user.type(await screen.findByLabelText('Nome do plano'), 'Plano Pele');
     await user.type(screen.getByLabelText(/preço do plano/i), '900');
     await user.click(await screen.findByRole('checkbox', { name: /limpeza de pele/i }));
+    await user.click(await screen.findByRole('checkbox', { name: /contrato padrão/i }));
     await user.click(screen.getByRole('button', { name: /salvar plano/i }));
-    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ name: 'Plano Pele', priceCents: 90000, items: [{ offerType: 'procedure', offerId: 'pr1' }] }));
+    await waitFor(() => expect(savedBody()).toMatchObject({ name: 'Plano Pele', priceCents: 90000, items: [{ offerType: 'procedure', offerId: 'pr1', sessions: 3 }], contractIds: ['c1'] }));
+  });
+
+  it('adds a combo, pre-selects its contract, suggests the price and sends the combo by reference', async () => {
+    routes['GET /api/procedures'] = () => [limpeza];
+    routes['GET /api/combos'] = () => [combo];
+    routes['GET /api/contracts'] = () => [standard, procedureContract, comboContract];
+    routes['POST /api/plans'] = () => ({ _id: 'pl1' });
+    const user = userEvent.setup();
+    renderAt('/planos/novo');
+    await user.type(await screen.findByLabelText('Nome do plano'), 'Plano Combo');
+    await user.click(await screen.findByRole('button', { name: 'Combos' }));
+    await user.click(await screen.findByRole('checkbox', { name: /combo facial/i }));
+    const selected = within(screen.getByRole('region', { name: 'Itens selecionados' }));
+    expect(selected.getByText('Combo Facial')).toBeInTheDocument();
+    expect(selected.getByText(/Limpeza de pele ×2/)).toBeInTheDocument();
+    expect(selected.queryByLabelText(/sessões de combo facial/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /contrato do combo/i })).toBeChecked();
+    expect(screen.getByText(/Automático · Combo Facial/)).toBeInTheDocument();
+    expect(screen.getByRole('checkbox', { name: /contrato da limpeza/i })).not.toBeChecked();
+    expect(screen.getByLabelText(/preço do plano/i)).toHaveValue(500);
+    await user.click(screen.getByRole('button', { name: /salvar plano/i }));
+    await waitFor(() => expect(savedBody()).toMatchObject({ priceCents: 50000, items: [{ offerType: 'combo', offerId: 'cb1' }], contractIds: ['c2'] }));
+    expect((savedBody() as { items: Array<Record<string, unknown>> }).items[0]).not.toHaveProperty('sessions');
+  });
+
+  it('keeps a manually typed price and offers to go back to the suggested one', async () => {
+    routes['GET /api/procedures'] = () => [limpeza];
+    routes['GET /api/contracts'] = () => [standard];
+    const user = userEvent.setup();
+    renderAt('/planos/novo');
+    await user.click(await screen.findByRole('checkbox', { name: /limpeza de pele/i }));
+    const price = screen.getByLabelText(/preço do plano/i);
+    expect(price).toHaveValue(450);
+    await user.clear(price);
+    await user.type(price, '300');
+    await user.clear(screen.getByLabelText('Sessões de Limpeza de pele'));
+    await user.type(screen.getByLabelText('Sessões de Limpeza de pele'), '4');
+    expect(price).toHaveValue(300);
+    await user.click(screen.getByRole('button', { name: /usar sugerido/i }));
+    expect(price).toHaveValue(600);
+  });
+
+  it('refuses to save when no applicable contract remains selected', async () => {
+    routes['GET /api/procedures'] = () => [limpeza];
+    routes['GET /api/contracts'] = () => [procedureContract];
+    const user = userEvent.setup();
+    renderAt('/planos/novo');
+    await user.type(await screen.findByLabelText('Nome do plano'), 'Sem contrato');
+    await user.click(await screen.findByRole('checkbox', { name: /limpeza de pele/i }));
+    const contract = screen.getByRole('checkbox', { name: /contrato da limpeza/i });
+    expect(contract).toBeChecked();
+    await user.click(contract);
+    await user.click(screen.getByRole('button', { name: /salvar plano/i }));
+    expect(await screen.findByText(/ao menos um contrato aplicável/i)).toBeInTheDocument();
+    expect(savedBody()).toBeUndefined();
+  });
+
+  it('searches and paginates the catalog without losing the selected items', async () => {
+    routes['GET /api/procedures'] = () => Array.from({ length: 10 }, (_, index) => ({ _id: `pr${index + 1}`, name: `Procedimento ${String(index + 1).padStart(2, '0')}`, baseSessions: 1, priceCents: 1000, versions: [] }));
+    routes['GET /api/contracts'] = () => [standard];
+    const user = userEvent.setup();
+    renderAt('/planos/novo');
+    await screen.findByRole('checkbox', { name: 'Procedimento 01' });
+    const available = async () => within(await screen.findByRole('group', { name: /procedimentos disponíveis/i }));
+    expect((await available()).getAllByRole('checkbox')).toHaveLength(8);
+    await user.click((await available()).getByRole('checkbox', { name: 'Procedimento 01' }));
+    await user.click(screen.getByRole('button', { name: 'Próxima' }));
+    expect(screen.getByText('Página 2 de 2')).toBeInTheDocument();
+    expect((await available()).getAllByRole('checkbox')).toHaveLength(2);
+    await user.click(screen.getByRole('button', { name: 'Anterior' }));
+    expect((await available()).getByRole('checkbox', { name: 'Procedimento 01' })).toBeChecked();
+    await user.type(screen.getByLabelText('Buscar procedimentos'), '09');
+    expect((await available()).getAllByRole('checkbox')).toHaveLength(1);
+    expect(screen.queryByRole('navigation', { name: /páginas/i })).not.toBeInTheDocument();
+    expect(within(screen.getByRole('region', { name: 'Itens selecionados' })).getByText('Procedimento 01')).toBeInTheDocument();
+    await user.clear(screen.getByLabelText('Buscar procedimentos'));
+    await user.type(screen.getByLabelText('Buscar procedimentos'), 'zzz');
+    expect(screen.getByText(/nenhum procedimento encontrado/i)).toBeInTheDocument();
+  });
+
+  it('does not submit the form when pressing Enter in the search box and hides inactive combos', async () => {
+    routes['GET /api/procedures'] = () => [limpeza];
+    routes['GET /api/combos'] = () => [combo, { ...combo, _id: 'cb2', name: 'Combo Inativo', active: false }];
+    routes['GET /api/contracts'] = () => [standard];
+    const user = userEvent.setup();
+    renderAt('/planos/novo');
+    await user.type(await screen.findByLabelText('Nome do plano'), 'Enter teste');
+    await user.click(await screen.findByRole('button', { name: 'Combos' }));
+    await screen.findByRole('checkbox', { name: /combo facial/i });
+    expect(screen.queryByRole('checkbox', { name: /combo inativo/i })).not.toBeInTheDocument();
+    await user.type(screen.getByLabelText('Buscar combos'), 'facial{Enter}');
+    expect(calls.some((call) => call.method === 'POST')).toBe(false);
+    expect(screen.getByLabelText('Buscar combos')).toHaveValue('facial');
+  });
+
+  it('drops the automatic contract of a combo when the combo is removed and hides the price hint with no items', async () => {
+    routes['GET /api/procedures'] = () => [limpeza];
+    routes['GET /api/combos'] = () => [combo];
+    routes['GET /api/contracts'] = () => [standard, comboContract];
+    const user = userEvent.setup();
+    renderAt('/planos/novo');
+    await user.click(await screen.findByRole('button', { name: 'Combos' }));
+    const comboBox = await screen.findByRole('checkbox', { name: /combo facial/i });
+    await user.click(comboBox);
+    const contract = screen.getByRole('checkbox', { name: /contrato do combo/i });
+    expect(contract).toBeChecked();
+    expect(screen.getByText(/sugerido: r\$\s*500,00/i)).toBeInTheDocument();
+    await user.click(contract);
+    expect(screen.getByText(/Sugerido · Combo Facial/)).toBeInTheDocument();
+    await user.click(contract);
+    await user.click(screen.getByRole('button', { name: /remover combo facial/i }));
+    expect(screen.getByRole('checkbox', { name: /contrato do combo/i })).not.toBeChecked();
+    expect(screen.queryByText(/sugerido: r\$/i)).not.toBeInTheDocument();
+  });
+
+  it('auto-selects the contract of an item added while editing a saved plan', async () => {
+    routes['GET /api/procedures'] = () => [limpeza];
+    routes['GET /api/combos'] = () => [combo];
+    routes['GET /api/contracts'] = () => [standard, procedureContract, comboContract];
+    routes['GET /api/plans'] = () => [{ _id: 'pl1', name: 'Plano salvo', priceCents: 70000, contractIds: ['c1'], items: [{ offerType: 'procedure', offerId: 'pr1', sessions: 5 }] }];
+    const user = userEvent.setup();
+    renderAt('/planos/novo?planId=pl1');
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: /contrato padrão/i })).toBeChecked());
+    expect(screen.getByRole('checkbox', { name: /contrato da limpeza/i })).not.toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Combos' }));
+    await user.click(await screen.findByRole('checkbox', { name: /combo facial/i }));
+    expect(screen.getByRole('checkbox', { name: /contrato do combo/i })).toBeChecked();
+  });
+
+  it('loads an existing plan with its combos, sessions and saved contracts', async () => {
+    routes['GET /api/procedures'] = () => [limpeza];
+    routes['GET /api/combos'] = () => [combo];
+    routes['GET /api/contracts'] = () => [standard, procedureContract, comboContract];
+    routes['GET /api/plans'] = () => [{ _id: 'pl1', name: 'Plano salvo', priceCents: 70000, contractIds: ['c1'], items: [{ offerType: 'procedure', offerId: 'pr1', sessions: 5 }, { offerType: 'combo', offerId: 'cb1', comboName: 'Combo Facial', items: [] }] }];
+    routes['PUT /api/plans/pl1'] = () => ({ _id: 'pl1' });
+    const user = userEvent.setup();
+    renderAt('/planos/novo?planId=pl1');
+    const selected = within(await screen.findByRole('region', { name: 'Itens selecionados' }));
+    expect(await selected.findByText('Combo Facial')).toBeInTheDocument();
+    expect(selected.getByLabelText('Sessões de Limpeza de pele')).toHaveValue(5);
+    await waitFor(() => expect(screen.getByRole('checkbox', { name: /contrato padrão/i })).toBeChecked());
+    expect(screen.getByRole('checkbox', { name: /contrato do combo/i })).not.toBeChecked();
+    expect(screen.getByLabelText(/preço do plano/i)).toHaveValue(700);
+    await user.click(screen.getByRole('button', { name: /salvar plano/i }));
+    await waitFor(() => expect(calls.find((call) => call.method === 'PUT')?.body).toMatchObject({ priceCents: 70000, items: [{ offerType: 'procedure', offerId: 'pr1', sessions: 5 }, { offerType: 'combo', offerId: 'cb1' }], contractIds: ['c1'] }));
   });
 });
 

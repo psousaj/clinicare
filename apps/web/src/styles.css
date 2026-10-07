@@ -2477,3 +2477,128 @@ a.patient-row {
 .notice-block .notice-paragraph:last-child {
   margin-bottom: 0;
 }
+
+.plan-picker {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.plan-picker-kinds {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px;
+  background: #f1f5f2;
+  border: 1px solid #e4eae5;
+  border-radius: 10px;
+}
+.plan-picker-kind {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #5b6c62;
+  cursor: pointer;
+  font: 600 13px 'DM Sans', sans-serif;
+  transition: background-color 150ms ease-out, color 150ms ease-out;
+}
+.plan-picker-kind.is-active {
+  background: #fff;
+  color: #1d5e4a;
+  box-shadow: 0 1px 2px rgba(31, 60, 47, 0.12);
+}
+.plan-picker-kind:focus-visible {
+  outline: 2px solid #26785f;
+  outline-offset: 2px;
+}
+.plan-picker-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.plan-picker-search > svg {
+  position: absolute;
+  left: 11px;
+  color: #819087;
+  pointer-events: none;
+}
+.plan-picker-pages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #5b6c62;
+  font-size: 12px;
+}
+.plan-picker-selected {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  background: #fafcf9;
+  border: 1px solid #e4eae5;
+  border-radius: 10px;
+}
+.plan-picker-selected h4 {
+  margin: 0;
+  font-size: 13px;
+}
+.plan-picker-selected ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plan-picked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  padding: 9px 11px;
+  background: #fff;
+  border: 1px solid #e4eae5;
+  border-radius: 10px;
+}
+.plan-picked-name {
+  display: grid;
+  flex: 1 1 200px;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+}
+.plan-picked-name small {
+  color: #78877e;
+  font-size: 11px;
+}
+.plan-badge {
+  width: fit-content;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: #e8f2ed;
+  color: #1d5e4a;
+  font-size: 10px;
+  font-weight: 600;
+}
+.plan-badge.is-combo {
+  background: #efe9f7;
+  color: #5b3d8a;
+}
+.plan-badge.is-auto {
+  background: #fff3d6;
+  color: #7a5200;
+}
+.plan-price-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: #78877e;
+  font-size: 11px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .plan-picker-kind { transition: none; }
+}
