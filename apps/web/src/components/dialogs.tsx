@@ -1,6 +1,9 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import { Check, ChevronsUpDown, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { StatusBadge } from '@/components/StatusBadge';
 import { Field, FormDialog } from '@/components/FormDialog';
 import { DatePicker, TimePicker } from '@/components/pickers';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -77,7 +80,7 @@ export function AppointmentDialog({ open, selection, appointment, patientId, pat
             <Field label="Início"><TimePicker value={start} onChange={setStart} /></Field>
             <Field label="Fim"><TimePicker value={end} onChange={setEnd} /></Field>
           </div>
-          <div className="rounded-lg border border-border p-3"><div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Procedimentos agendados</div><ul className="m-0 grid gap-1 text-sm">{appointment.items.map((item) => <li key={item.id} className="flex items-center gap-2"><Checkbox checked={selectedItemIds.includes(item.id)} onCheckedChange={(checked) => setSelectedItemIds((current) => checked === true ? [...new Set([...current, item.id])] : current.filter((id) => id !== item.id))} disabled={item.confirmationStatus === 'confirmed'} aria-label={`Selecionar ${item.procedureName}`} /> <span>{item.procedureName}{item.quantity > 1 ? ` ×${item.quantity}` : ''}</span></li>)}</ul><Button type="button" className="mt-3" disabled={confirm.isPending || appointment.status !== 'planned' && appointment.status !== 'rescheduled'} onClick={() => confirm.mutate({ id: appointment.id, selectedItemIds })}>Confirmar todos</Button></div>
+          <div className="rounded-lg border border-border p-3"><div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Procedimentos agendados</div><ul className="m-0 grid gap-1 text-sm">{appointment.items.map((item) => <li key={item.id} className="flex items-center gap-2"><Checkbox checked={selectedItemIds.includes(item.id)} onCheckedChange={(checked) => setSelectedItemIds((current) => checked === true ? [...new Set([...current, item.id])] : current.filter((id) => id !== item.id))} disabled={item.confirmationStatus === 'confirmed'} aria-label={`Selecionar ${item.procedureName}`} /> <span>{item.procedureName}{item.quantity > 1 ? ` ×${item.quantity}` : ''}</span> <StatusBadge tone={item.followupItemId ? 'neutral' : 'warning'}>{item.followupItemId ? 'Abate o plano' : 'Avulso'}</StatusBadge></li>)}</ul><Button type="button" className="mt-3" disabled={confirm.isPending || appointment.status !== 'planned' && appointment.status !== 'rescheduled'} onClick={() => confirm.mutate({ id: appointment.id, selectedItemIds })}>Confirmar todos</Button></div>
         </>
       ) : <AppointmentFields selection={selection} lockedPatientId={patientId} patients={patients} followups={followups} procedures={procedures} />}
     </FormDialog>
@@ -87,6 +90,7 @@ export function AppointmentDialog({ open, selection, appointment, patientId, pat
 // Monta a sessão: procedimentos avulsos e sessões dos acompanhamentos do paciente, limitados pelos minutos do horário.
 function AppointmentFields({ selection, lockedPatientId, patients, followups, procedures }: { selection?: Selection | null; lockedPatientId?: string; patients: Patient[]; followups: Followup[]; procedures: Procedure[] }) {
   const [patientId, setPatientId] = useState(lockedPatientId ?? patients[0]?.id ?? '');
+  const [patientPickerOpen, setPatientPickerOpen] = useState(false), [patientQuery, setPatientQuery] = useState('');
   const [date, setDate] = useState<string>(), [start, setStart] = useState<string>(), [end, setEnd] = useState<string>();
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const capacity = selection ? minutesBetween(selection.start, selection.end) : date && start && end ? minutesBetween(`${date}T${start}`, `${date}T${end}`) : 0;
@@ -95,6 +99,7 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
   const patientFollowups = followups.filter((followup) => followup.patientId === patientId);
   const blockedStandalone = new Set(patientFollowups.filter((followup) => followup.offerType === 'procedure' && followup.blocked).flatMap((followup) => followup.items.map((item) => item.procedureId)));
   const mine = patientFollowups.filter((followup) => followup.offerType !== 'procedure').map((followup) => ({ ...followup, items: followup.items.filter((item) => item.sessionsPerformed < item.sessionsTotal) })).filter((followup) => followup.items.length > 0);
+  const contractedProcedureIds = new Set(mine.flatMap((followup) => followup.items.map((item) => item.procedureId).filter(Boolean)));
   const avulsos = procedures.filter((procedure) => procedure.active !== false && procedure.standalone !== false);
   const pending = patientFollowups.filter((followup) => followup.blocked).flatMap((followup) => followup.anamneses.filter((form) => form.required && !form.answered).map((form) => form.title));
   const rows = [
@@ -116,9 +121,31 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
             <div className="flex h-9 items-center rounded-lg border border-border bg-muted px-3 text-sm">{patients.find((patient) => patient.id === lockedPatientId)?.fullName}</div>
           </>
         ) : (
-          <NativeSelect name="patientId" required value={patientId} onChange={(event) => { setPatientId(event.target.value); setQuantities({}); }}>
-            {patients.map((patient) => <NativeSelectOption key={patient.id} value={patient.id}>{patient.fullName}</NativeSelectOption>)}
-          </NativeSelect>
+          <>
+          <input type="hidden" name="patientId" value={patientId} required />
+          <Popover open={patientPickerOpen} onOpenChange={(open) => { setPatientPickerOpen(open); if (!open) setPatientQuery(''); }}>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="outline" role="combobox" aria-expanded={patientPickerOpen} aria-label="Paciente" className="w-full justify-between font-normal">
+                {patients.find((patient) => patient.id === patientId)?.fullName ?? 'Selecione o paciente'}
+                <ChevronsUpDown className="size-4 text-muted-foreground" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-2">
+              <label className="mb-2 flex items-center gap-2 rounded-md border border-border px-2">
+                <Search className="size-4 text-muted-foreground" />
+                <input autoFocus className="h-9 min-w-0 flex-1 border-0 bg-transparent text-sm outline-none" placeholder="Buscar paciente por nome" aria-label="Buscar paciente" value={patientQuery} onChange={(event) => setPatientQuery(event.target.value)} />
+              </label>
+              <div role="listbox" aria-label="Pacientes" className="grid max-h-64 gap-1 overflow-y-auto">
+                {patients.filter((patient) => patient.fullName.toLocaleLowerCase('pt-BR').includes(patientQuery.trim().toLocaleLowerCase('pt-BR'))).map((patient) => (
+                  <button key={patient.id} type="button" role="option" aria-selected={patientId === patient.id} className="flex cursor-pointer items-center justify-between rounded-md border-0 bg-transparent px-2 py-2 text-left text-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => { setPatientId(patient.id); setQuantities({}); setPatientPickerOpen(false); setPatientQuery(''); }}>
+                    {patient.fullName}{patientId === patient.id && <Check aria-hidden="true" className="size-4 text-primary" />}
+                  </button>
+                ))}
+                {patients.filter((patient) => patient.fullName.toLocaleLowerCase('pt-BR').includes(patientQuery.trim().toLocaleLowerCase('pt-BR'))).length === 0 && <p className="m-0 p-3 text-center text-sm text-muted-foreground">Nenhum paciente encontrado.</p>}
+              </div>
+            </PopoverContent>
+          </Popover>
+          </>
         )}
       </Field>
       {!selection && (
@@ -136,8 +163,9 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
         <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted"><div className={left < 0 ? 'h-full rounded-full bg-destructive transition-[width] duration-300 ease-out' : 'h-full rounded-full bg-primary transition-[width] duration-300 ease-out'} style={{ width: `${capacity > 0 ? Math.min(100, (used / capacity) * 100) : 0}%` }} /></div>
       </div>
       {pending.length > 0 && <p role="alert" className="m-0 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">Procedimentos bloqueados por anamnese pendente ({pending.join(", ")}). Conclua na ficha do paciente para liberar o agendamento.</p>}
-      <fieldset className="m-0 grid gap-2 border-0 p-0">
-        <legend className="mb-1 text-sm font-medium">Procedimentos dos acompanhamentos</legend>
+      <fieldset className="m-0 grid gap-2 border-0 border-l-4 border-primary p-3 pl-4">
+        <legend className="px-1 text-sm font-semibold text-primary">Do acompanhamento <StatusBadge tone="success">ABATE SESSÕES</StatusBadge></legend>
+        <p className="m-0 text-xs text-muted-foreground">Selecione aqui para usar uma sessão já contratada. A baixa acontece quando confirmar o atendimento.</p>
         {mine.length === 0 && <p className="m-0 text-sm text-muted-foreground">Nenhum combo ou plano ativo para este paciente.</p>}
         {mine.map((followup) => (
           <div key={followup.id} className="grid gap-1">
@@ -146,27 +174,45 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
               const key = `f:${item.id}`, minutes = minutesOfItem(item), quantity = quantities[key] ?? 0, max = item.sessionsTotal - item.sessionsPerformed;
               return (
                 <div key={item.id} className="flex items-center gap-3 rounded-lg border border-border px-3 py-2.5">
-                  <div className="flex-1 text-sm"><strong>{item.procedureName}</strong><div className="text-xs text-muted-foreground">{minutes} min por sessão · {item.sessionsPerformed}/{item.sessionsTotal} realizadas</div></div>
-                  <Input aria-label={`Sessões de ${item.procedureName} (${followup.offerName})`} className="w-20" type="number" min={0} max={Math.min(max, quantity + Math.floor(Math.max(left, 0) / minutes))} disabled={followup.blocked} value={quantity} onChange={(event) => change(key, Math.max(0, Math.min(max, Number(event.target.value) || 0)))} />
+                  <div className="flex-1 text-sm"><strong>{item.procedureName}</strong><div className="text-xs text-muted-foreground">{minutes} min por sessão · {item.sessionsPerformed}/{item.sessionsTotal} realizadas · abate do plano</div></div>
+                  <Input aria-label={`Sessões de ${item.procedureName} (${followup.offerName}) — abate do plano`} className="w-20" type="number" min={0} max={Math.min(max, quantity + Math.floor(Math.max(left, 0) / minutes))} disabled={followup.blocked} value={quantity} onChange={(event) => change(key, Math.max(0, Math.min(max, Number(event.target.value) || 0)))} />
                 </div>
               );
             })}
           </div>
         ))}
       </fieldset>
-      <fieldset className="m-0 grid gap-2 border-0 p-0">
-        <legend className="mb-1 text-sm font-medium">Procedimentos avulsos</legend>
+      <fieldset className="m-0 grid gap-2 border-0 border-l-4 border-amber-500 p-3 pl-4">
+        <legend className="px-1 text-sm font-semibold text-amber-900">Avulso <StatusBadge tone="warning">COBRADO À PARTE</StatusBadge></legend>
+        <p className="m-0 text-xs text-muted-foreground">Selecione aqui para cobrar como avulso. Isso <strong>não usa</strong> sessões do plano, mesmo que o procedimento tenha o mesmo nome.</p>
         {avulsos.length === 0 && <p className="m-0 text-sm text-muted-foreground">Nenhum procedimento avulso cadastrado.</p>}
         {avulsos.map((procedure) => {
           const key = `p:${procedure.id}`, minutes = minutesOf(procedure.id), checked = (quantities[key] ?? 0) > 0;
+          const contracted = contractedProcedureIds.has(procedure.id);
           return (
             <Label key={procedure.id} className="cursor-pointer gap-3 rounded-lg border border-border px-3 py-2.5 transition-colors duration-150 hover:bg-muted/40">
               <Checkbox checked={checked} disabled={!checked && (!fits(minutes) || blockedStandalone.has(procedure.id))} onCheckedChange={(value) => change(key, value === true ? 1 : 0)} />
-              <span className="flex-1 text-sm"><strong>{procedure.name}</strong> <span className="text-xs text-muted-foreground">· {minutes} min</span></span>
+              <span className="flex-1 text-sm"><strong>{procedure.name}</strong> <span className="text-xs text-muted-foreground">· {minutes} min · avulso</span>
+                {contracted && <span className="mt-0.5 block text-xs font-medium text-amber-800">Também contratado no plano: marcar aqui faz avulso (não abate). Para abater, marque na seção do acompanhamento acima.</span>}
+              </span>
             </Label>
           );
         })}
       </fieldset>
+      {planned.length > 0 && (
+        <div role="status" className="rounded-lg border border-border p-3">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Resumo da sessão</div>
+          <ul className="m-0 grid gap-1 pl-5 text-sm">
+            {planned.map((entry) => {
+              if (entry.followupItemId) {
+                const found = patientFollowups.flatMap((followup) => followup.items.map((item) => ({ item, offerName: followup.offerName }))).find((candidate) => candidate.item.id === entry.followupItemId);
+                return <li key={`f:${entry.followupItemId}`}>{found?.item.procedureName ?? 'Procedimento'} ×{entry.quantity} — <strong>abate do plano</strong>{found ? ` ${found.offerName}` : ''}</li>;
+              }
+              return <li key={`p:${entry.procedureId}`}>{procedures.find((procedure) => procedure.id === entry.procedureId)?.name ?? 'Procedimento'} ×{entry.quantity} — <strong>avulso (não abate)</strong></li>;
+            })}
+          </ul>
+        </div>
+      )}
     </>
   );
 }

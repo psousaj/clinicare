@@ -21,7 +21,7 @@ function NewStandaloneAttendance() {
       </div>
       <QueryError query={procedures} />
       {procedures.isSuccess && !procedure && <p className="section-note" role="alert">Procedimento avulso não encontrado.</p>}
-      {procedure && <AttendanceRecordForm patientId={patientId} procedureName={procedure.name} schema={(procedure.sessionSchema ?? { type: 'object', properties: {} }) as Record<string, unknown>} target={{ patientId, procedureId: procedure.id }} defaultDuration={procedure.durationMinutes} />}
+      {procedure && <AttendanceRecordForm patientId={patientId} procedureName={procedure.name} schema={(procedure.sessionSchema ?? { type: 'object', properties: {} }) as Record<string, unknown>} target={{ patientId, procedureId: procedure.id }} />}
     </section>
   );
 }

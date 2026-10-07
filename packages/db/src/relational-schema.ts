@@ -34,7 +34,7 @@ export const procedureVersions = pgTable('procedure_versions', {
 }, (t) => [foreignKey({ columns: [t.tenantId, t.procedureId], foreignColumns: [procedures.tenantId, procedures.id], name: 'procedure_versions_tenant_procedure_fk' }), unique('procedure_versions_tenant_procedure_version_unique').on(t.tenantId, t.procedureId, t.version), index('procedure_versions_lookup_idx').on(t.tenantId, t.procedureId)]);
 
 export const anamneses = pgTable('anamneses', {
-  id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull(), title: text('title').notNull(), active: boolean('active').notNull().default(true), requiredByDefault: boolean('required_by_default').notNull().default(true), validityMonths: integer('validity_months').notNull().default(12), currentVersion: integer('current_version').notNull().default(1), ...catalogTimestamps,
+  id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull(), title: text('title').notNull(), description: text('description'), active: boolean('active').notNull().default(true), requiredByDefault: boolean('required_by_default').notNull().default(true), validityMonths: integer('validity_months').notNull().default(12), currentVersion: integer('current_version').notNull().default(1), ...catalogTimestamps,
 }, (t) => [foreignKey({ columns: [t.tenantId], foreignColumns: [tenants.id], name: 'anamneses_tenant_fk' }), unique('anamneses_tenant_id_unique').on(t.tenantId, t.id), check('anamneses_title_not_empty', sql`length(trim(${t.title})) >= 2`), check('anamneses_validity_positive', sql`${t.validityMonths} >= 1`)]);
 
 export const anamnesisVersions = pgTable('anamnesis_versions', {

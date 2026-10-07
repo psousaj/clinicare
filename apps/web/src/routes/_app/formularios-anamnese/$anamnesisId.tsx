@@ -31,7 +31,8 @@ function Editor({ anamnesis }: { anamnesis: Anamnesis }) {
     <AnamnesisFormPage
       heading={`Editar · ${anamnesis.title}`}
       submitLabel="Salvar alterações"
-      initialTitle={anamnesis.title}
+       initialTitle={anamnesis.title}
+       initialDescription={anamnesis.description}
       initialSchema={current.schema as Record<string, unknown>}
       initialValidityMonths={anamnesis.validityMonths}
       initialProcedureIds={anamnesis.procedureIds}
@@ -42,11 +43,11 @@ function Editor({ anamnesis }: { anamnesis: Anamnesis }) {
           Editando a <strong>v{current.version}</strong> ({originLabel(current).toLowerCase()}). Alterações nos campos geram a <strong>v{current.version + 1}</strong>; as versões anteriores e as respostas já enviadas não mudam.
         </p>
       )}
-      onSave={async ({ title, schema, validityMonths, procedureIds }) => {
-        const settingsChanged = title !== anamnesis.title || validityMonths !== anamnesis.validityMonths || [...procedureIds].sort().join() !== [...anamnesis.procedureIds].sort().join();
+       onSave={async ({ title, description, schema, validityMonths, procedureIds }) => {
+         const settingsChanged = title !== anamnesis.title || description !== (anamnesis.description ?? null) || validityMonths !== anamnesis.validityMonths || [...procedureIds].sort().join() !== [...anamnesis.procedureIds].sort().join();
         const schemaChanged = !sameSchema(schema, current.schema as Record<string, unknown>);
         if (!settingsChanged && !schemaChanged) return toast.info('Nenhuma alteração para salvar.');
-        await update.mutateAsync({ id: anamnesis.id, ...(settingsChanged && { title, validityMonths, procedureIds }), schema: schemaChanged ? schema : undefined });
+         await update.mutateAsync({ id: anamnesis.id, ...(settingsChanged && { title, description, validityMonths, procedureIds }), schema: schemaChanged ? schema : undefined });
         await navigate({ to: '/formularios-anamnese' });
       }}
     />

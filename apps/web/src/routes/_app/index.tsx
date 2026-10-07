@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { matchesPatient } from '@/components/PatientRow';
 import { QueryError } from '@/components/QueryState';
 import { dateTime, shortDate } from '@/lib/format';
-import { appointmentsQuery, patientsQuery, followupsQuery, proceduresQuery, attendancesQuery, signaturePendingQuery, useConfirmAppointment, useNoShowAppointment } from '@/lib/queries';
+import { appointmentsQuery, patientsQuery, followupsQuery, proceduresQuery, attendancesQuery, signaturePendingQuery } from '@/lib/queries';
 
 export const Route = createFileRoute('/_app/')({ component: Overview });
 
@@ -16,9 +16,16 @@ function SignatureGroup({ title, description, items }: { title: string; descript
 
 function Overview() {
   const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), appointments = useQuery(appointmentsQuery), followups = useQuery(followupsQuery), attendances = useQuery(attendancesQuery), signatures = useQuery(signaturePendingQuery);
-  const confirmAppointment = useConfirmAppointment(), noShowAppointment = useNoShowAppointment();
   const [query, setQuery] = useState('');
   const patientList = patients.data ?? [], appointmentList = appointments.data ?? [];
+  // "Próximas" = apenas agendamentos acionáveis no futuro (planejado/remarcado
+  // e ainda não encerrado). Confirmados já viraram atendimento, e vencidos
+  // ficam para confirmação na Agenda — não podem ocupar o topo da Visão geral.
+  const now = new Date();
+  const upcomingSessions = appointmentList
+    .filter((appointment) => (appointment.status === 'planned' || appointment.status === 'rescheduled') && new Date(appointment.endsAt) >= now)
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())
+    .slice(0, 4);
   // Sessões já vêm da mais recente para a mais antiga; cada paciente aparece uma vez, na sua última sessão.
   const recent = new Map<string, { patientId: string; procedureName: string; performedAt: string }>();
   for (const attendance of attendances.data ?? []) if (!recent.has(attendance.patientId)) recent.set(attendance.patientId, attendance);
@@ -32,7 +39,7 @@ function Overview() {
   return (
     <>
       <QueryError query={patients} />
-      {signatures.data && signatures.data.length > 0 && <section className="panel mb-4"><div className="panel-header"><div><div className="section-kicker">ASSINATURAS PENDENTES</div><h2>Documentos que precisam de atenção</h2></div></div><div className="grid gap-4 text-sm"><SignatureGroup title="Bloqueiam a liberação" items={signatures.data.filter((item) => item.blocking)} description="O paciente precisa confirmar estes contratos antes de o plano ficar ativo." /><SignatureGroup title="Pendências administrativas" items={signatures.data.filter((item) => !item.blocking)} description="A assinatura profissional acompanha a documentação, mas não bloqueia a execução." /></div></section>}
+      {signatures.data && signatures.data.length > 0 && <section className="panel mb-4"><div className="panel-header"><div><div className="section-kicker">ASSINATURAS PENDENTES</div><h2>Documentos que precisam de atenção</h2></div><Link className="text-button" to="/documentos">Abrir documentos</Link></div><div className="grid gap-4 text-sm"><SignatureGroup title="Bloqueiam a liberação" items={signatures.data.filter((item) => item.blocking)} description="O paciente precisa confirmar estes contratos antes de o plano ficar ativo." /><SignatureGroup title="Pendências administrativas" items={signatures.data.filter((item) => !item.blocking)} description="A assinatura profissional acompanha a documentação, mas não bloqueia a execução." /></div></section>}
       <section className="stats-grid">
         {stats.map(({ heading, icon: Icon, tone, value, suffix, foot }) => (
           <article className="stat-card" key={heading}>
@@ -57,11 +64,11 @@ function Overview() {
         </article>
         <article className="panel">
           <div className="panel-header"><div><div className="section-kicker">EXECUÇÃO</div><h2>Próximas sessões</h2></div><Link className="text-button" to="/agenda">Abrir agenda</Link></div>
-          {appointmentList.slice(0, 4).map((appointment) => (
+          {upcomingSessions.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma sessão futura agendada.</p>}
+          {upcomingSessions.map((appointment) => (
             <div className="procedure-row" key={appointment.id}>
               <CalendarDays size={18} />
               <span className="procedure-info"><strong>{patientList.find((patient) => patient.id === appointment.patientId)?.fullName ?? 'Paciente'}</strong><small>{dateTime(appointment.startsAt)} · {appointment.items.map((item) => item.procedureName).join(', ')}</small></span>
-              {new Date(appointment.endsAt) < new Date() && appointment.status === 'planned' && <span className="flex gap-1"><button className="text-button" onClick={() => confirmAppointment.mutate({ id: appointment.id })}>Confirmar</button><button className="text-button" onClick={() => noShowAppointment.mutate(appointment.id)}>Faltou</button></span>}
             </div>
           ))}
         </article>

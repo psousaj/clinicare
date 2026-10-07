@@ -29,7 +29,7 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
               <span>{item.procedureName}</span>
               <span className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="h-1.5 w-24 overflow-hidden rounded-full bg-accent"><span className="block h-full rounded-full bg-primary" style={{ width: `${Math.min(100, (item.sessionsPerformed / item.sessionsTotal) * 100)}%` }} /></span>
-                {item.sessionsPerformed}/{item.sessionsTotal} sessões
+                {item.sessionsPerformed}/{item.sessionsTotal} {followup.offerType === 'procedure' ? 'sessões' : 'sessões do plano'}
               </span>
             </span>
             {done

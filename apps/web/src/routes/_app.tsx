@@ -1,9 +1,11 @@
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from '@tanstack/react-router';
-import { Activity, CalendarDays, ChevronDown, ChevronRight, CircleHelp, ClipboardList, FileText, Layers, LayoutDashboard, Plus, Settings2, Sparkles, UsersRound, WalletCards, X } from 'lucide-react';
+import { Activity, CalendarDays, ChevronDown, ChevronRight, CircleHelp, ClipboardList, FileSignature, FileText, Layers, LayoutDashboard, Plus, Settings2, Sparkles, UsersRound, WalletCards, X } from 'lucide-react';
 import { useState } from 'react';
 import { QuickActions } from '@/components/QuickActions';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { useQuery } from '@tanstack/react-query';
+import { accountQuery, professionalProfileQuery } from '@/lib/queries';
 
 const navigation = [
   { to: '/', label: 'Visão geral', title: 'Sua clínica, em um só lugar.', icon: LayoutDashboard },
@@ -13,6 +15,7 @@ const navigation = [
   { to: '/planos', label: 'Planos', title: 'Planos', icon: Layers },
   { to: '/formularios-anamnese', label: 'Formulários de anamnese', title: 'Formulários de anamnese', icon: ClipboardList },
   { to: '/contratos', label: 'Contratos', title: 'Contratos da clínica', icon: FileText },
+  { to: '/documentos', label: 'Documentos', title: 'Assinaturas do representante', icon: FileSignature },
   { to: '/financeiro', label: 'Financeiro', title: 'Acompanhamentos e pagamentos', icon: WalletCards },
 ] as const;
 const mobileNavigation = [navigation[0], navigation[1], navigation[2], navigation[7]] as const;
@@ -28,6 +31,13 @@ export const Route = createFileRoute('/_app')({
 });
 
 function NavigationPanelContent({ onNavigate, mobile = false }: { onNavigate: () => void; mobile?: boolean }) {
+  const account = useQuery(accountQuery);
+  const profile = useQuery(professionalProfileQuery);
+  const userName = account.data?.user.name ?? '…';
+  const tenantName = account.data?.tenant.name ?? '…';
+  const council = profile.data?.registrationType && profile.data?.registrationNumber
+    ? `${profile.data.registrationType} ${profile.data.registrationNumber}${profile.data.registrationState ? `/${profile.data.registrationState}` : ''}`
+    : null;
   return (
     <>
       <div className="mobile-drawer-header">
@@ -38,8 +48,8 @@ function NavigationPanelContent({ onNavigate, mobile = false }: { onNavigate: ()
         {mobile && <SheetClose asChild><button type="button" className="mobile-drawer-close" aria-label="Fechar menu"><X size={18} /></button></SheetClose>}
       </div>
       <div className="clinic-switch">
-        <span className="clinic-avatar">V</span>
-        <span className="clinic-label"><strong>Clínica Vitta</strong><small>Estética & bem-estar</small></span>
+        <span className="clinic-avatar">{initials(tenantName)}</span>
+        <span className="clinic-label"><strong>{tenantName}</strong><small>{council ?? account.data?.user.email ?? '…'}</small></span>
         <ChevronDown size={15} />
       </div>
       <div className="nav-caption">MENU PRINCIPAL</div>
@@ -58,16 +68,23 @@ function NavigationPanelContent({ onNavigate, mobile = false }: { onNavigate: ()
           <div><strong>Ambiente de teste</strong><small>Use apenas dados fictícios</small></div>
         </div>
         <div className="profile-row">
-          <div className="profile-avatar">AD</div>
-          <div className="profile-copy"><strong>Administradora</strong><small>Clínica Vitta</small></div>
+          <div className="profile-avatar">{initials(userName)}</div>
+          <div className="profile-copy"><strong>{userName}</strong><small>{tenantName}</small></div>
         </div>
       </div>
     </>
   );
 }
 
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length || parts[0] === '…') return '•';
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? (parts.at(-1)?.[0] ?? '') : '')).toUpperCase() || '•';
+}
+
 function AppLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const account = useQuery(accountQuery);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const current = pathname.startsWith('/configuracoes')
     ? settingsEntry
@@ -83,7 +100,7 @@ function AppLayout() {
         </aside>
         <main className="main-area">
           <header className="topbar">
-            <div className="breadcrumb">Clínica Vitta <ChevronRight size={14} /> <strong>{current.label}</strong></div>
+            <div className="breadcrumb">{account.data?.tenant.name ?? '…'} <ChevronRight size={14} /> <strong>{current.label}</strong></div>
             <div className="topbar-right">
               <span className="prototype-tag">PROTÓTIPO · DADOS FICTÍCIOS</span>
               <span className="date-chip"><CalendarDays size={15} /> {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'full' }).format(new Date())}</span>

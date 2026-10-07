@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
 import { and, eq } from 'drizzle-orm';
-import { authUsers, getDatabase, professionals } from '@clinicare/db';
+import { authUsers, getDatabase, professionals, tenants } from '@clinicare/db';
 import { clinicSession } from './auth-routes';
 
 export async function updateInitialPasswordChoice(c: Context) {
@@ -9,6 +9,14 @@ export async function updateInitialPasswordChoice(c: Context) {
   const session = clinicSession(c);
   await getDatabase().update(authUsers).set({ initialPasswordChoice: body.choice }).where(eq(authUsers.id, session.userId));
   return c.json({ choice: body.choice });
+}
+
+export async function getAccount(c: Context) {
+  const session = clinicSession(c);
+  const db = getDatabase();
+  const [tenant] = await db.select({ id: tenants.id, name: tenants.name }).from(tenants).where(eq(tenants.id, session.tenantId));
+  if (!tenant) return c.json({ error: 'Clínica não encontrada.' }, 404);
+  return c.json({ user: session.user, tenant });
 }
 
 export async function getProfessionalProfile(c: Context) {

@@ -577,7 +577,8 @@ describe('Acompanhamentos', () => {
     renderAt('/');
     await user.click(await screen.findByRole('button', { name: /novo acompanhamento/i }));
     const dialog = await screen.findByRole('dialog');
-    await user.selectOptions(await within(dialog).findByLabelText('Paciente'), 'p1');
+    await user.click(within(dialog).getByRole('combobox', { name: 'Paciente' }));
+    await user.click(await screen.findByRole('option', { name: 'Marina Alves' }));
     expect(within(within(dialog).getByLabelText('Oferta')).getAllByRole('option').map((option) => option.textContent)).toEqual(['Selecione…', 'Combo - Combo verão', 'Plano - Plano Pele']);
     await user.selectOptions(within(dialog).getByLabelText('Oferta'), 'plan:pl1');
     await user.click(within(dialog).getByRole('button', { name: /iniciar acompanhamento/i }));
@@ -677,7 +678,8 @@ describe('Acompanhamentos', () => {
     renderAt('/');
     await user.click(await screen.findByRole('button', { name: /novo agendamento/i }));
     const dialog = await screen.findByRole('dialog');
-    await user.selectOptions(await within(dialog).findByLabelText('Paciente'), 'p1');
+    await user.click(within(dialog).getByRole('combobox', { name: 'Paciente' }));
+    await user.click(await screen.findByRole('option', { name: 'Marina Alves' }));
     expect(await within(dialog).findByRole('alert')).toHaveTextContent(/anamnese pendente/i);
     expect(within(dialog).getByLabelText(/sessões de limpeza de pele/i)).toBeDisabled();
   });
@@ -695,8 +697,13 @@ describe('Acompanhamentos', () => {
     renderAt('/');
     await user.click(await screen.findByRole('button', { name: /novo agendamento/i }));
     const dialog = await screen.findByRole('dialog');
-    await user.selectOptions(await within(dialog).findByLabelText('Paciente'), 'p1');
-    expect(await within(dialog).findByLabelText('Sessões de Peeling (Plano Pele)')).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('combobox', { name: 'Paciente' }));
+    await user.click(await screen.findByRole('option', { name: 'Marina Alves' }));
+    expect(await within(dialog).findByLabelText('Sessões de Peeling (Plano Pele) — abate do plano')).toBeInTheDocument();
+    expect(within(dialog).getByText('Do acompanhamento')).toBeInTheDocument();
+    expect(within(dialog).getByText('ABATE SESSÕES')).toBeInTheDocument();
+    expect(within(dialog).getByText('Avulso')).toBeInTheDocument();
+    expect(within(dialog).getByText('COBRADO À PARTE')).toBeInTheDocument();
     expect(within(dialog).queryByLabelText(/Sessões de Outro/)).not.toBeInTheDocument();
     expect(within(dialog).getByRole('checkbox', { name: /Limpeza de pele/ })).toBeInTheDocument();
     expect(within(dialog).queryByRole('checkbox', { name: /Peeling/ })).not.toBeInTheDocument();
@@ -821,5 +828,40 @@ describe('Configurações', () => {
     await user.click(screen.getByRole('button', { name: /salvar registro/i }));
     await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true));
     expect(calls.find((call) => call.method === 'PUT')?.body).toEqual({ registrationType: 'CRM', registrationNumber: '123456', registrationState: 'SP' });
+  });
+});
+
+describe('Documentos', () => {
+  const queue = () => [
+    { participantId: 'prof1', role: 'professional', status: 'pending', followupId: 'at1', contractId: 'c1', title: 'Contrato padrão', blocking: false, patient: { id: 'p1', fullName: 'Marina Alves' } },
+    { participantId: 'pat1', role: 'patient', status: 'pending', followupId: 'at1', contractId: 'c1', title: 'Contrato padrão', blocking: true, patient: { id: 'p1', fullName: 'Marina Alves' } },
+  ];
+
+  it('lists the representative queue and the patient queue', async () => {
+    routes['GET /api/signature-pending'] = () => queue();
+    renderAt('/documentos');
+    expect(await screen.findByRole('heading', { name: 'Sua assinatura' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /revisar e assinar/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Falta o paciente' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /abrir paciente/i })).toHaveAttribute('href', '/pacientes/p1');
+  });
+
+  it('shows an empty state when nothing is waiting', async () => {
+    routes['GET /api/signature-pending'] = () => [];
+    renderAt('/documentos');
+    expect(await screen.findByText(/nenhum contrato esperando sua assinatura/i)).toBeInTheDocument();
+  });
+});
+
+describe('Conta', () => {
+  it('shows the logged user and clinic in the sidebar', async () => {
+    routes['GET /api/auth/me'] = () => ({ user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com' }, tenant: { id: 't1', name: 'Clínica Essenza' } });
+    routes['GET /api/auth/professional-profile'] = () => ({ id: 'prof1', userId: 'u1', registrationType: 'CRM', registrationNumber: '123456', registrationState: 'SP', active: true });
+    renderAt('/');
+    expect((await screen.findAllByText('Dra. Paula')).length).toBeGreaterThanOrEqual(1);
+    expect((await screen.findAllByText('Clínica Essenza')).length).toBeGreaterThanOrEqual(1);
+    expect((await screen.findAllByText('CRM 123456/SP')).length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText('Administradora')).not.toBeInTheDocument();
+    expect(screen.queryByText('Clínica Vitta')).not.toBeInTheDocument();
   });
 });

@@ -37,6 +37,7 @@ export const anamnesisVersionSchema = z.looseObject({
 export const anamnesisSchema = z.looseObject({
   id: z.string(),
   title: z.string(),
+  description: z.string().nullable().optional(),
   validityMonths: z.number().default(12),
   procedureIds: z.array(refId).default([]),
   versions: z.array(anamnesisVersionSchema),
@@ -144,6 +145,10 @@ export const professionalProfileSchema = z.looseObject({
   active: z.boolean().optional(),
 });
 export const sessionSchema = z.looseObject({ user: z.looseObject({ id: z.string(), name: z.string(), email: z.string().nullish() }) });
+export const accountSchema = z.looseObject({
+  user: z.looseObject({ id: z.string(), name: z.string(), email: z.string().nullish() }),
+  tenant: z.looseObject({ id: z.string(), name: z.string() }),
+});
 export const signatureSchema = z.looseObject({ participantId: z.string(), role: z.string(), status: z.string(), expiresAt: z.string(), contract: z.looseObject({ id: z.string(), followupId: z.string(), title: z.string(), version: z.number(), content: z.string().nullish() }) });
 export const followupSchema = z.looseObject({
   id: z.string(),
@@ -197,7 +202,8 @@ export const attendanceSchema = z.looseObject({
   notes: z.string().nullish(),
   photos: z.array(attendancePhotoSchema).default([]),
 });
-const historyEntry = z.looseObject({ type: z.string(), at: z.string(), title: z.string(), details: z.looseObject({ id: z.string().optional(), notes: z.union([z.string(), z.array(z.unknown())]).nullish(), photos: z.array(z.unknown()).optional() }).optional() });
+const historyPhoto = z.looseObject({ id: z.string().optional(), _id: z.string().optional(), attendanceId: z.string().optional(), phase: z.string().optional(), url: z.string().nullish(), createdAt: z.string().nullish() });
+const historyEntry = z.looseObject({ type: z.string(), at: z.string(), title: z.string(), details: z.looseObject({ id: z.string().optional(), status: z.string().optional(), notes: z.union([z.string(), z.array(z.unknown())]).nullish(), photos: z.array(historyPhoto).optional(), photoCount: z.number().optional() }).optional() });
 export const relationshipSchema = z.looseObject({
   totals: z.looseObject({
     followups: z.number(), attendancesPerformed: z.number(), attendancesContracted: z.number(), minutesTotal: z.number(), attendancesWithoutDuration: z.number(),
@@ -213,6 +219,10 @@ export const relationshipSchema = z.looseObject({
 });
 export const patientHistorySchema = z.looseObject({ patient: patientSchema, events: z.array(historyEntry), pending: z.array(historyEntry) });
 export const publicFormSchema = z.looseObject({ title: z.string(), schema: jsonSchema, draft: jsonSchema });
+export const publicAnamnesisSchema = z.looseObject({
+  title: z.string(), description: z.string().nullable().optional(), schema: jsonSchema, draft: jsonSchema,
+  branding: z.looseObject({ clinicName: z.string(), professionalName: z.string().nullable(), professionalRegistration: z.string().nullable() }).optional(),
+});
 
 export const createdSchema = z.looseObject({ id: z.string() });
 export const requestSchema = z.looseObject({ id: z.string(), url: z.string() });
@@ -228,6 +238,7 @@ export type Combo = z.infer<typeof comboSchema>;
 export type FollowupItem = z.infer<typeof followupItemSchema>;
 export type Plan = z.infer<typeof planSchema>;
 export type ProfessionalProfile = z.infer<typeof professionalProfileSchema>;
+export type Account = z.infer<typeof accountSchema>;
 export type FollowupAnamnesis = z.infer<typeof followupAnamnesisSchema>;
 export type AppliedAnamnesis = z.infer<typeof appliedAnamnesisSchema>;
 export type Followup = z.infer<typeof followupSchema>;

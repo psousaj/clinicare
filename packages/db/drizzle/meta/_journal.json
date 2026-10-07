@@ -176,6 +176,13 @@
       "when": 1791337042772,
       "tag": "0024_drop_legacy_contract_versions_check",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791350000000,
+      "tag": "0025_anamnesis_description",
+      "breakpoints": true
     }
   ]
 }

@@ -2207,3 +2207,39 @@ a.patient-row {
     animation: none;
   }
 }
+
+.public-clinic-identity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #e3eae4;
+}
+.public-clinic-mark {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border: 1px solid #b9d8c8;
+  border-radius: 12px;
+  background: #e8f2ed;
+  color: #26785f;
+  font: 800 20px Manrope, sans-serif;
+}
+.public-clinic-identity strong,
+.public-clinic-identity span { display: block; }
+.public-clinic-identity strong { color: #25312d; font: 800 15px Manrope, sans-serif; }
+.public-clinic-identity span { margin-top: 3px; color: #85908b; font-size: 12px; }
+
+.public-form-description {
+  margin: 18px 0 0;
+  padding: 14px 16px;
+  border-left: 3px solid #26785f;
+  border-radius: 0 10px 10px 0;
+  background: #f0f7f3;
+  color: #31584b;
+  font-size: 14px;
+  line-height: 1.6;
+}

@@ -12,7 +12,7 @@ function NewAnamnesis() {
       heading="Novo formulário de anamnese"
       submitLabel="Salvar formulário"
       saving={create.isPending}
-      onSave={async (data) => {
+       onSave={async (data) => {
         await create.mutateAsync(data);
         await navigate({ to: '/formularios-anamnese' });
       }}

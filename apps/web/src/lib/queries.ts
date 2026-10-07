@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { api } from './api';
 import { sha256Hex } from './sha256';
-import { anamnesisSchema, anySchema, appointmentSchema, appliedAnamnesisSchema, contractSchema, createdSchema, comboSchema, planSchema, patientHistorySchema, professionalProfileSchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicFormSchema, requestSchema, attendanceSchema, sessionSchema, signatureHistorySchema, signaturePendingSchema } from './schemas';
+import { anamnesisSchema, anySchema, accountSchema, appointmentSchema, appliedAnamnesisSchema, contractSchema, createdSchema, comboSchema, planSchema, patientHistorySchema, professionalProfileSchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicAnamnesisSchema, publicFormSchema, requestSchema, attendanceSchema, sessionSchema, signatureHistorySchema, signaturePendingSchema } from './schemas';
 
 export const keys = {
   patients: ['patients'] as const,
@@ -44,6 +44,10 @@ export const sessionQuery = queryOptions({
   queryKey: keys.session,
   queryFn: () => api('/api/auth/get-session', { schema: sessionSchema, fallbackError: 'Não foi possível carregar a sessão.' }),
 });
+export const accountQuery = queryOptions({
+  queryKey: ['account'] as const,
+  queryFn: () => api('/api/auth/me', { schema: accountSchema, fallbackError: 'Não foi possível carregar os dados da conta.' }),
+});
 export const useSaveProfessionalProfile = () =>
   useApiMutation({
     mutationFn: (body: { registrationType: string; registrationNumber: string; registrationState?: string | null }) =>
@@ -64,7 +68,7 @@ export const relationshipQuery = (patientId: string) =>
 export const patientHistoryQuery = (patientId: string) =>
   queryOptions({ queryKey: keys.history(patientId), queryFn: () => api(`/api/patients/${patientId}/history`, { schema: patientHistorySchema, fallbackError: 'Não foi possível carregar o paciente.' }) });
 export const publicFormQuery = (token: string) =>
-  queryOptions({ queryKey: keys.publicForm(token), retry: false, queryFn: () => api(`/public/anamnesis/${token}`, { schema: publicFormSchema, fallbackError: 'Link inválido, expirado ou já enviado.' }) });
+  queryOptions({ queryKey: keys.publicForm(token), retry: false, queryFn: () => api(`/public/anamnesis/${token}`, { schema: publicAnamnesisSchema, fallbackError: 'Link inválido, expirado ou já enviado.' }) });
 
 type MutationConfig<V, R> = { mutationFn: (variables: V) => Promise<R>; invalidate: QueryKey[]; success?: string | ((result: R, variables: V) => string) };
 
@@ -209,6 +213,46 @@ export const useGenerateFollowupContract = () =>
     invalidate: [keys.followups, ['signature-history']],
     success: 'Documento do contrato gerado.',
   });
+// Cerimônia do representante da clínica (lado profissional): prévia e
+// confirmação usam os endpoints autenticados do painel, com o mesmo corpo de
+// evidência do fluxo do paciente (documentId, baseRevisionId, PNG, posição,
+// idempotência, fingerprint, aceite). A prévia devolve bytes, não JSON.
+async function postParticipantPdf(participantId: string, action: 'preview' | 'confirm', body: Record<string, unknown>) {
+  const response = await fetch(`/api/signature-participants/${participantId}/${action}`, {
+    method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error((await response.json().catch(() => null) as { error?: string } | null)?.error ?? 'Não foi possível concluir.');
+  return response;
+}
+
+export async function previewProfessionalSignature(participantId: string, body: Record<string, unknown>): Promise<{ url: string; hash: string | null }> {
+  const response = await postParticipantPdf(participantId, 'preview', body);
+  const url = URL.createObjectURL(await response.blob());
+  return { url, hash: response.headers.get('etag')?.replaceAll('"', '') ?? null };
+}
+
+export async function confirmProfessionalSignature(participantId: string, body: Record<string, unknown>): Promise<unknown> {
+  return postParticipantPdf(participantId, 'confirm', body).then((response) => response.json());
+}
+
+export const usePreviewProfessionalSignature = () =>
+  useMutation({
+    mutationFn: ({ participantId, body }: { participantId: string; body: Record<string, unknown> }) => previewProfessionalSignature(participantId, body),
+  });
+
+export const useConfirmProfessionalSignature = () =>
+  useApiMutation({
+    mutationFn: ({ participantId, body }: { participantId: string; body: Record<string, unknown> }) =>
+      postParticipantPdf(participantId, 'confirm', body).then((response) => response.json()),
+    invalidate: [keys.signaturePending, keys.followups, ['signature-history']],
+    success: 'Assinatura do representante registrada.',
+  });
+
+export async function fetchProfessionalPdf(participantId: string): Promise<string> {
+  const response = await fetch(`/api/signature-participants/${participantId}/pdf`, { credentials: 'include' });
+  if (!response.ok) throw new Error('Não foi possível carregar o PDF do contrato.');
+  return URL.createObjectURL(await response.blob());
+}
 // Gera um link novo de assinatura para o paciente (revoga o anterior) e devolve
 // a URL pública pronta para copiar e enviar. Sem token (já assinado) vira erro amigável.
 export const useRefreshSignatureLink = () =>

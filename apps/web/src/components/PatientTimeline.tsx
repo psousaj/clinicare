@@ -14,14 +14,28 @@ const kinds: Record<string, { label: string; icon: LucideIcon; tone: string }> =
 };
 
 function Body({ entry, patientId }: { entry: Entry; patientId: string }) {
-  const photos = entry.details?.photos?.length ?? 0;
+  const rawPhotos = (entry.details as { photos?: Array<{ id?: string; _id?: string; url?: string | null; phase?: string }>; photoCount?: number; followupId?: string | null; followupItemId?: string | null } | undefined);
+  const photos = rawPhotos?.photos ?? [];
+  const count = rawPhotos?.photoCount ?? photos.length;
+  const thumbs = photos.filter((photo) => photo.url).slice(0, 4);
+  const linked = entry.type === 'attendance' ? Boolean(rawPhotos?.followupId ?? rawPhotos?.followupItemId) : true;
   const content = (
     <>
       <strong className="text-sm">{entry.title}</strong>
-      <span className="text-xs text-muted-foreground">{kinds[entry.type]?.label ?? entry.type} · {dateTime(entry.at)}</span>
+      <span className="text-xs text-muted-foreground">{kinds[entry.type]?.label ?? entry.type} · {dateTime(entry.at)}{entry.type === 'attendance' && !linked ? ' · avulso (não abate o plano)' : ''}</span>
       {entry.type === 'attendance' && typeof entry.details?.notes === 'string' && entry.details.notes && <span className="line-clamp-2 text-xs text-foreground/80">{entry.details.notes}</span>}
       {entry.type === 'attendance' && (
-        <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary"><Camera className="size-3.5" /> {photos} {photos === 1 ? 'foto' : 'fotos'} · acompanhar sessão</span>
+        <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary"><Camera className="size-3.5" /> {count} {count === 1 ? 'foto' : 'fotos'} · acompanhar sessão</span>
+      )}
+      {entry.type === 'attendance' && thumbs.length > 0 && (
+        <span className="mt-1.5 flex gap-1.5" aria-label={`${count} fotos da sessão`}>
+          {thumbs.map((photo) => (
+            <img key={photo.id ?? photo._id ?? photo.url} src={photo.url!} alt="" loading="lazy" className="size-11 rounded-md border border-border object-cover" />
+          ))}
+          {count > thumbs.length && (
+            <span className="grid size-11 place-items-center rounded-md border border-border bg-muted text-[11px] font-semibold text-muted-foreground">+{count - thumbs.length}</span>
+          )}
+        </span>
       )}
     </>
   );
