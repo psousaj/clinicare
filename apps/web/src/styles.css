@@ -2157,3 +2157,53 @@ a.patient-row {
 .schema-response-form input[type=range] {
   width: 100%;
 }
+
+/* Prévia do carimbo profissional (Configurações): dupla moldura verde,
+   leve inclinação de carimbo real, tipografia condensada em caixa alta. */
+.stamp-preview {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 18px 14px;
+  background: #fff;
+  border: 2px solid #26785f;
+  outline: 1px solid #26785f;
+  outline-offset: 3px;
+  border-radius: 10px;
+  color: #26785f;
+  font: 800 15px/1.5 Manrope, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  transform: rotate(-1.5deg);
+  animation: stamp-in 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.stamp-preview span {
+  font-size: 13px;
+}
+.stamp-preview.is-empty {
+  border-style: dashed;
+  outline: none;
+  color: var(--muted);
+  font: 500 13px/1.5 'DM Sans', sans-serif;
+  text-transform: none;
+  letter-spacing: normal;
+  transform: none;
+  animation: none;
+}
+@keyframes stamp-in {
+  from {
+    opacity: 0;
+    transform: rotate(-1.5deg) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-1.5deg) scale(1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stamp-preview {
+    animation: none;
+  }
+}

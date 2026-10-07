@@ -16,6 +16,7 @@ const navigation = [
   { to: '/financeiro', label: 'Financeiro', title: 'Acompanhamentos e pagamentos', icon: WalletCards },
 ] as const;
 const mobileNavigation = [navigation[0], navigation[1], navigation[2], navigation[7]] as const;
+const settingsEntry = { to: '/configuracoes', label: 'Configurações', title: 'Registro profissional e preferências da conta.' } as const;
 
 export const Route = createFileRoute('/_app')({
   beforeLoad: async () => {
@@ -51,7 +52,7 @@ function NavigationPanelContent({ onNavigate, mobile = false }: { onNavigate: ()
         ))}
       </nav>
       <div className="sidebar-bottom">
-        <button className="nav-link"><Settings2 size={18} /><span>Configurações</span></button>
+        <Link to="/configuracoes" className="nav-link" activeProps={{ className: 'active' }} onClick={onNavigate}><Settings2 size={18} /><span>Configurações</span></Link>
         <div className="help-card">
           <span className="help-icon"><CircleHelp size={17} /></span>
           <div><strong>Ambiente de teste</strong><small>Use apenas dados fictícios</small></div>
@@ -68,7 +69,9 @@ function NavigationPanelContent({ onNavigate, mobile = false }: { onNavigate: ()
 function AppLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const current = navigation.find(({ to }) => (to === '/' ? pathname === '/' : pathname.startsWith(to))) ?? navigation[0];
+  const current = pathname.startsWith('/configuracoes')
+    ? settingsEntry
+    : (navigation.find(({ to }) => (to === '/' ? pathname === '/' : pathname.startsWith(to))) ?? navigation[0]);
   const path = pathname.replace(/(.)\/$/, '$1');
   const showNewPatient = path === '/pacientes';
 

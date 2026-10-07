@@ -137,10 +137,10 @@ export async function generateFollowupContract(tenantId: string, followupContrac
   }
 }
 
-export async function retryFollowupContract(tenantId: string, followupContractId: string) {
+export async function retryFollowupContract(tenantId: string, followupContractId: string, professionalUserId?: string) {
   const row = (await dbRows(tenantId, followupContractId))[0];
   if (!row) return null;
   if (row.status === 'cancelled') throw invalid('Acompanhamento cancelado não pode ser regenerado.', 409);
-  return generateFollowupContract(tenantId, followupContractId);
+  return generateFollowupContract(tenantId, followupContractId, professionalUserId);
 }
 async function dbRows(tenantId: string, id: string) { return getDatabase().select().from(followupContracts).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.id, id))); }

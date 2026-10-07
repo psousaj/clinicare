@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { FileDown, History } from 'lucide-react';
+import { FileDown, History, Link2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { QueryError } from '@/components/QueryState';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { dateTime } from '@/lib/format';
-import { signatureHistoryQuery } from '@/lib/queries';
+import { signatureHistoryQuery, useRefreshSignatureLink } from '@/lib/queries';
 
 // Histórico legível do contrato aplicado no painel: processo, participantes,
 // revisões preservadas com download, tentativas e linha do tempo de eventos.
@@ -13,7 +15,17 @@ import { signatureHistoryQuery } from '@/lib/queries';
 // reconhecimento de firma ou aprovação jurídica.
 export function ContractSignatureHistory({ followupContractId, title }: { followupContractId: string; title: string }) {
   const [open, setOpen] = useState(false);
+  const [link, setLink] = useState<string | null>(null);
   const history = useQuery({ ...signatureHistoryQuery(followupContractId), enabled: open });
+  const refreshLink = useRefreshSignatureLink();
+  const patientPending = history.data?.participants.find((participant) => participant.role === 'patient' && participant.status !== 'signed');
+
+  async function copySignatureLink(participantId: string) {
+    const url = await refreshLink.mutateAsync(participantId);
+    setLink(url);
+    await navigator.clipboard.writeText(url).then(() => toast.success('Link copiado — envie ao paciente.'), () => toast.info('Copie o link exibido abaixo.'));
+  }
+
   return (
     <div className="mt-1">
       <Button type="button" variant="outline" size="sm" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
@@ -30,6 +42,16 @@ export function ContractSignatureHistory({ followupContractId, title }: { follow
                   {history.data.process.statusLabel}
                 </StatusBadge>
               </div>
+              {patientPending && (
+                <div className="grid gap-2">
+                  <div>
+                    <Button type="button" variant="outline" size="sm" disabled={refreshLink.isPending} onClick={() => copySignatureLink(patientPending.id).catch(() => undefined)}>
+                      <Link2 className="size-3.5" /> {refreshLink.isPending ? 'Gerando link…' : 'Copiar link de assinatura'}
+                    </Button>
+                  </div>
+                  {link && <Input readOnly value={link} aria-label="Link de assinatura" onFocus={(event) => event.target.select()} />}
+                </div>
+              )}
               <ul className="m-0 grid list-none gap-1 p-0 text-xs" aria-label="Participantes">
                 {history.data.participants.map((participant) => (
                   <li key={participant.id} className="flex flex-wrap items-center gap-2">

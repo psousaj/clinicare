@@ -121,7 +121,29 @@ export const followupAnamnesisSchema = z.looseObject({
   submittedAt: z.string().nullish(),
   validUntil: z.string().nullish(),
 });
+// Detalhe de uma anamnese aplicada (GET /api/patient-anamneses/:id): inclui as
+// respostas descriptografadas para exibição em leitura no painel da clínica.
+export const appliedAnamnesisSchema = z.looseObject({
+  id: z.string(),
+  title: z.string().nullish(),
+  titleSnapshot: z.string().nullish(),
+  schemaSnapshot: jsonSchema.nullish(),
+  answers: jsonSchema.nullish(),
+  submittedAt: z.string().nullish(),
+  required: z.boolean().optional(),
+});
 export const signaturePendingSchema = z.looseObject({ participantId: z.string(), role: z.string(), status: z.string(), followupId: z.string(), contractId: z.string(), title: z.string(), blocking: z.boolean(), patient: z.looseObject({ id: z.string(), fullName: z.string() }) });
+// Perfil profissional do usuário logado (GET/PUT /api/auth/professional-profile):
+// conselho + número (+ UF) que carimba os contratos materializados.
+export const professionalProfileSchema = z.looseObject({
+  id: z.string().optional(),
+  userId: z.string().optional(),
+  registrationType: z.string().nullish(),
+  registrationNumber: z.string().nullish(),
+  registrationState: z.string().nullish(),
+  active: z.boolean().optional(),
+});
+export const sessionSchema = z.looseObject({ user: z.looseObject({ id: z.string(), name: z.string(), email: z.string().nullish() }) });
 export const signatureSchema = z.looseObject({ participantId: z.string(), role: z.string(), status: z.string(), expiresAt: z.string(), contract: z.looseObject({ id: z.string(), followupId: z.string(), title: z.string(), version: z.number(), content: z.string().nullish() }) });
 export const followupSchema = z.looseObject({
   id: z.string(),
@@ -131,7 +153,7 @@ export const followupSchema = z.looseObject({
   priceCents: z.number(),
   validUntil: z.string().nullish(),
   createdAt: z.string().nullish(),
-  contracts: z.array(z.looseObject({ id: z.string().optional(), title: z.string().optional(), signedAt: z.string().nullish() })).default([]),
+  contracts: z.array(z.looseObject({ id: z.string().optional(), title: z.string().optional(), signedAt: z.string().nullish(), status: z.string().optional() })).default([]),
   anamneses: z.array(followupAnamnesisSchema).default([]),
   blocked: z.boolean().default(false),
   items: z.array(followupItemSchema),
@@ -205,7 +227,9 @@ export type AnamnesisVersion = z.infer<typeof anamnesisVersionSchema>;
 export type Combo = z.infer<typeof comboSchema>;
 export type FollowupItem = z.infer<typeof followupItemSchema>;
 export type Plan = z.infer<typeof planSchema>;
+export type ProfessionalProfile = z.infer<typeof professionalProfileSchema>;
 export type FollowupAnamnesis = z.infer<typeof followupAnamnesisSchema>;
+export type AppliedAnamnesis = z.infer<typeof appliedAnamnesisSchema>;
 export type Followup = z.infer<typeof followupSchema>;
 export type Attendance = z.infer<typeof attendanceSchema>;
 export type AttendancePhoto = z.infer<typeof attendancePhotoSchema>;

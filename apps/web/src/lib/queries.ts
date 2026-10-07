@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { api } from './api';
 import { sha256Hex } from './sha256';
-import { anamnesisSchema, anySchema, appointmentSchema, contractSchema, createdSchema, comboSchema, planSchema, patientHistorySchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicFormSchema, requestSchema, attendanceSchema, signatureHistorySchema, signaturePendingSchema } from './schemas';
+import { anamnesisSchema, anySchema, appointmentSchema, appliedAnamnesisSchema, contractSchema, createdSchema, comboSchema, planSchema, patientHistorySchema, professionalProfileSchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicFormSchema, requestSchema, attendanceSchema, sessionSchema, signatureHistorySchema, signaturePendingSchema } from './schemas';
 
 export const keys = {
   patients: ['patients'] as const,
@@ -20,6 +20,8 @@ export const keys = {
   attendance: (id: string) => ['attendances', id] as const,
   publicForm: (token: string) => ['public-form', token] as const,
   signaturePending: ['signature-pending'] as const,
+  professionalProfile: ['professional-profile'] as const,
+  session: ['session'] as const,
   signatureHistory: (followupContractId: string) => ['signature-history', followupContractId] as const,
 };
 
@@ -34,8 +36,25 @@ export const combosQuery = list(keys.combos, '/api/combos', comboSchema);
 export const plansQuery = list(keys.plans, '/api/plans', planSchema);
 export const followupsQuery = list(keys.followups, '/api/followups', followupSchema);
 export const signaturePendingQuery = list(keys.signaturePending, '/api/signature-pending', signaturePendingSchema);
+export const professionalProfileQuery = queryOptions({
+  queryKey: keys.professionalProfile,
+  queryFn: () => api('/api/auth/professional-profile', { schema: professionalProfileSchema.nullable(), fallbackError: 'Não foi possível carregar o registro profissional.' }),
+});
+export const sessionQuery = queryOptions({
+  queryKey: keys.session,
+  queryFn: () => api('/api/auth/get-session', { schema: sessionSchema, fallbackError: 'Não foi possível carregar a sessão.' }),
+});
+export const useSaveProfessionalProfile = () =>
+  useApiMutation({
+    mutationFn: (body: { registrationType: string; registrationNumber: string; registrationState?: string | null }) =>
+      api('/api/auth/professional-profile', { method: 'PUT', body, schema: professionalProfileSchema }),
+    invalidate: [keys.professionalProfile],
+    success: 'Registro profissional salvo. Novos contratos já saem carimbados.',
+  });
 export const signatureHistoryQuery = (followupContractId: string) =>
   queryOptions({ queryKey: keys.signatureHistory(followupContractId), queryFn: () => api(`/api/signature-history?followupContractId=${followupContractId}`, { schema: signatureHistorySchema, fallbackError: 'Não foi possível carregar o histórico de assinaturas.' }) });
+export const appliedAnamnesisQuery = (id: string) =>
+  queryOptions({ queryKey: ['applied-anamnesis', id] as const, queryFn: () => api(`/api/patient-anamneses/${id}`, { schema: appliedAnamnesisSchema, fallbackError: 'Não foi possível carregar as respostas.' }) });
 export const attendancesQuery = list(keys.attendances, '/api/attendances', attendanceSchema);
 export const appointmentsQuery = list(keys.appointments, '/api/appointments', appointmentSchema);
 export const attendanceQuery = (id: string) =>
@@ -129,7 +148,17 @@ export const useUpdateProcedure = () =>
 export const useUpdateCombo = () =>
   useApiMutation({ mutationFn: ({ id, ...body }: { id: string } & Record<string, unknown>) => api(`/api/combos/${id}`, { method: 'PUT', body, schema: anySchema }), invalidate: [keys.combos], success: 'Combo atualizado.' });
 export const useCreateCombo = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/combos', body), invalidate: [keys.combos], success: 'Combo cadastrado.' });
-export const useCreateFollowup = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/followups', body), invalidate: everything, success: 'Acompanhamento iniciado.' });
+export const useCreateFollowup = () =>
+  useApiMutation({
+    mutationFn: (body: unknown) => post('/api/followups', body),
+    invalidate: everything,
+    success: (result) => {
+      const contracts = (result as { contracts?: Array<{ status?: string }> } | null)?.contracts ?? [];
+      return contracts.some((contract) => contract.status === 'generating')
+        ? 'Acompanhamento iniciado. Gerando documento em segundo plano.'
+        : 'Acompanhamento iniciado.';
+    },
+  });
 export const useCreatePlan = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/plans', body), invalidate: [keys.plans], success: 'Plano cadastrado.' });
 export const useUpdatePlan = () => useApiMutation({ mutationFn: ({ id, ...body }: { id: string; active?: boolean; expectedVersion?: number } & Record<string, unknown>) => api(`/api/plans/${id}`, { method: 'PUT', body, schema: anySchema }), invalidate: [keys.plans], success: 'Plano atualizado.' });
 export const useDeletePlan = () =>
@@ -167,6 +196,27 @@ export const useRequestAnamnesis = () =>
     mutationFn: async (patientAnamnesisId: string) => {
       const request = await post('/api/anamnesis-requests', { patientAnamnesisId }, requestSchema);
       return `${location.origin}/formulario/${request.url.split('/').at(-1)}`;
+    },
+    invalidate: [],
+  });
+
+// Geração sob demanda do contrato aplicado (DOCX->PDF): sem cron/worker,
+// o POST /api/followups já tenta gerar inline, e o card permite retry manual
+// quando fica em generating/failed.
+export const useGenerateFollowupContract = () =>
+  useApiMutation({
+    mutationFn: (followupContractId: string) => post(`/api/followup-contracts/${followupContractId}/generate`, {}, anySchema),
+    invalidate: [keys.followups, ['signature-history']],
+    success: 'Documento do contrato gerado.',
+  });
+// Gera um link novo de assinatura para o paciente (revoga o anterior) e devolve
+// a URL pública pronta para copiar e enviar. Sem token (já assinado) vira erro amigável.
+export const useRefreshSignatureLink = () =>
+  useApiMutation({
+    mutationFn: async (participantId: string) => {
+      const result = await api(`/api/signature-participants/${participantId}/refresh`, { method: 'POST', body: {}, schema: z.looseObject({ participantId: z.string(), token: z.string().optional(), alreadySigned: z.boolean().optional() }) });
+      if (result.alreadySigned || !result.token) throw new Error('Este contrato já foi assinado pelo paciente.');
+      return `${location.origin}/assinatura/${result.token}`;
     },
     invalidate: [],
   });

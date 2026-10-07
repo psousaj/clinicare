@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { ArrowLeft } from 'lucide-react';
+import { createFileRoute, Link, Outlet, useMatch, useNavigate } from '@tanstack/react-router';
+import { ArrowLeft, BookOpenText } from 'lucide-react';
 import { useState } from 'react';
 import { QueryError } from '@/components/QueryState';
 import { SchemaForm } from '@/components/SchemaForm';
@@ -15,9 +15,11 @@ function FillAnamnesis() {
   const followups = useQuery(followupsQuery), patients = useQuery(patientsQuery);
   const answer = useAnswerAnamnesis();
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
+  // A página de respostas é rota filha: quando ativa, o pai só cede o lugar.
+  const respostasActive = !!useMatch({ from: '/_app/pacientes/$patientId/anamneses/$formId/respostas', shouldThrow: false });
+  if (respostasActive) return <Outlet />;
   const form = (followups.data ?? []).flatMap((followup) => followup.anamneses).find((candidate) => candidate.id === formId);
   const patient = patients.data?.find((candidate) => candidate.id === patientId);
-
   async function submit(value: Record<string, unknown>) {
     await answer.mutateAsync({ id: formId, answers: value });
     await navigate({ to: '/pacientes/$patientId', params: { patientId } });
@@ -34,7 +36,18 @@ function FillAnamnesis() {
       </div>
       <QueryError query={followups} />
       {followups.isSuccess && !form && <p className="section-note" role="alert">Anamnese não encontrada.</p>}
-      {form?.answered && <p className="section-note" role="status">Esta anamnese já foi respondida.</p>}
+      {form?.answered && (
+        <div className="grid gap-2">
+          <p className="section-note m-0" role="status">Esta anamnese já foi respondida.</p>
+          <div>
+            <Button size="sm" asChild>
+              <Link to="/pacientes/$patientId/anamneses/$formId/respostas" params={{ patientId, formId: form.id }}>
+                <BookOpenText /> Ver respostas
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
       {form && !form.answered && form.schemaSnapshot && (
         <SchemaForm
           schema={form.schemaSnapshot}

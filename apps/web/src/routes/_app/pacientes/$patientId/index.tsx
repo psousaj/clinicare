@@ -5,18 +5,29 @@ import { useState } from 'react';
 import { EditPatientDialog } from '@/components/EditPatientDialog';
 import { FollowupCard } from '@/components/FollowupCard';
 import { AppointmentDialog, NewFollowupDialog, StandaloneAttendanceDialog } from '@/components/dialogs';
+import { ContractSummary } from '@/components/ContractSummary';
 import { PatientTimeline } from '@/components/PatientTimeline';
 import { PendingRequirements } from '@/components/PendingRequirements';
 import { QueryError } from '@/components/QueryState';
 import { Button } from '@/components/ui/button';
 import { dateTime } from '@/lib/format';
 import { followupsQuery, combosQuery, patientHistoryQuery, patientsQuery, plansQuery, proceduresQuery } from '@/lib/queries';
+import type { Followup } from '@/lib/schemas';
 
 export const Route = createFileRoute('/_app/pacientes/$patientId/')({ component: PatientDetail });
 
 function PatientDetail() {
   const { patientId } = Route.useParams();
-  const history = useQuery(patientHistoryQuery(patientId)), followups = useQuery(followupsQuery);
+  const history = useQuery(patientHistoryQuery(patientId)),
+    followups = useQuery({
+      ...followupsQuery,
+      // Enquanto algum contrato estiver gerando em background, atualiza a lista
+      // sozinha até concluir (sem cron, sem refresh manual).
+      refetchInterval: (query) => {
+        const data = query.state.data as Followup[] | undefined;
+        return data?.some((followup) => followup.contracts.some((contract) => contract.status === 'generating')) ? 4000 : false;
+      },
+    });
   const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), combos = useQuery(combosQuery), plans = useQuery(plansQuery);
   const [dialog, setDialog] = useState<'edit' | 'followup' | 'standalone' | 'appointment' | null>(null);
   const allFollowups = (followups.data ?? []).filter((followup) => followup.patientId === patientId);
@@ -49,7 +60,7 @@ function PatientDetail() {
         <div className="grid items-start gap-4 lg:grid-cols-2">
           <div className="grid gap-4">
             <PendingRequirements followups={allFollowups} patientId={patientId} />
-            <section className="panel">
+            <ContractSummary followups={patientFollowups} />            <section className="panel">
               <div className="panel-header"><h2>Acompanhamentos</h2></div>
               {patientFollowups.length === 0 && <p className="text-sm text-muted-foreground">Inicie um acompanhamento para escolher os procedimentos e registrar sessões.</p>}
               {patientFollowups.map((followup) => <FollowupCard key={followup.id} followup={followup} patientId={patientId} />)}

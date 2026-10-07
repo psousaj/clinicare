@@ -74,9 +74,9 @@ describe('Clinic dashboard', () => {
     const router = renderAt('/pacientes?q=zzz');
     await screen.findByRole('heading', { name: 'Pacientes', level: 2 });
     await waitFor(() => expect(calls.some((call) => call.url === '/api/patients')).toBe(true));
-    expect(screen.queryByRole('link', { name: /Marina Alves/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /^MAMarina/ })).not.toBeInTheDocument();
     await router.navigate({ to: '/pacientes', search: { q: 'mari' } });
-    expect(await screen.findByRole('link', { name: /Marina Alves/ })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /^MAMarina/ })).toBeInTheDocument();
   });
 
   it('validates and posts a new patient', async () => {
@@ -372,9 +372,9 @@ describe('Contract edit and versions', () => {
     const user = userEvent.setup();
     renderAt('/contratos/novo');
     await user.type(await screen.findByLabelText('Nome do contrato'), 'Contrato do peeling');
-    await user.selectOptions(screen.getByLabelText('Aplicação'), 'procedure');
+    await user.click(screen.getByRole('radio', { name: /procedimento/i }));
     await user.click(screen.getByRole('button', { name: /salvar contrato/i }));
-    expect(await screen.findByText('Escolha o procedimento deste contrato.')).toBeInTheDocument();
+    expect(calls.some((call) => call.method === 'POST')).toBe(false);
     await user.selectOptions(screen.getByLabelText('Procedimento'), 'pr1');
     await user.click(screen.getByRole('button', { name: /salvar contrato/i }));
     await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ kind: 'procedure', procedureId: 'pr1', comboId: null }));
@@ -565,7 +565,7 @@ const pendingFollowup = (extra: Record<string, unknown> = {}) => ({
 describe('Acompanhamentos', () => {
   it('does not offer "Solicitar anamnese" on the patient list', async () => {
     renderAt('/pacientes');
-    await screen.findByRole('link', { name: /Marina Alves/ });
+    await screen.findByRole('link', { name: /^MAMarina/ });
     expect(screen.queryByRole('button', { name: /solicitar anamnese/i })).not.toBeInTheDocument();
   });
 
@@ -597,6 +597,47 @@ describe('Acompanhamentos', () => {
     await user.click(within(pending).getByRole('button', { name: /copiar link/i }));
     await waitFor(() => expect(calls.find((call) => call.url === '/api/anamnesis-requests')?.body).toEqual({ patientAnamnesisId: 'pa1' }));
     expect(await screen.findByLabelText('Link da anamnese')).toHaveValue(`${location.origin}/formulario/tok9`);
+  });
+
+  it('lists pending and signed contracts below the answered anamneses with shortcuts', async () => {
+    routes['GET /api/followups'] = () => [pendingFollowup({
+      anamneses: [],
+      contracts: [
+        { id: 'c1', title: 'Contrato padrão', signedAt: null, status: 'generating' },
+        { id: 'c2', title: 'Termo adicional', signedAt: '2026-10-07T00:00:05.000Z', status: 'signed' },
+      ],
+    })];
+    routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
+    renderAt('/pacientes/p1');
+    const summary = await screen.findByRole('region', { name: 'Contratos' });
+    expect(within(summary).getByText('Contrato padrão')).toBeInTheDocument();
+    expect(within(summary).getByText('Gerando documento')).toBeInTheDocument();
+    expect(within(summary).getByText('Termo adicional')).toBeInTheDocument();
+    expect(within(summary).getByText('Assinado')).toBeInTheDocument();
+    expect(within(summary).getByRole('link', { name: /contrato padrão/i })).toHaveAttribute('href', '#followup-contract-c1');
+    expect(within(summary).getByRole('link', { name: /termo adicional/i })).toHaveAttribute('href', '#followup-contract-c2');
+  });
+
+  it('lists answered anamneses on the patient page with a link to the answers', async () => {
+    routes['GET /api/followups'] = () => [pendingFollowup({ anamneses: [{ id: 'pa1', title: 'Anamnese geral', required: true, answered: true, submittedAt: '2026-10-01T10:00:00.000Z', schemaSnapshot: { type: 'object', properties: {} } }] })];
+    routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
+    renderAt('/pacientes/p1');
+    const answered = await screen.findByRole('region', { name: /anamneses respondidas/i });
+    expect(within(answered).getByText('Anamnese geral')).toBeInTheDocument();
+    expect(within(answered).getByRole('link', { name: /ver respostas/i })).toHaveAttribute('href', '/pacientes/p1/anamneses/pa1/respostas');
+    expect(screen.queryByRole('region', { name: /anamneses pendentes/i })).not.toBeInTheDocument();
+  });
+
+  it('shows submitted anamnesis answers read-only on the answers page', async () => {
+    routes['GET /api/patient-anamneses/pa1'] = () => ({
+      id: 'pa1', title: 'Anamnese geral', submittedAt: '2026-10-01T10:00:00.000Z',
+      schemaSnapshot: { type: 'object', properties: { alergias: { type: 'string', title: 'Alergias' } } },
+      answers: { alergias: 'Nenhuma' },
+    });
+    renderAt('/pacientes/p1/anamneses/pa1/respostas');
+    expect(await screen.findByRole('heading', { name: 'Anamnese geral' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('Alergias')).toHaveValue('Nenhuma');
+    expect(screen.getByLabelText('Alergias')).toBeDisabled();
   });
 
   it('edits patient data from the patient detail page', async () => {
@@ -716,7 +757,7 @@ describe('Planos', () => {
     routes['POST /api/plans'] = () => ({ _id: 'pl1' });
     const user = userEvent.setup();
     renderAt('/planos/novo');
-    await user.type(await screen.findByLabelText('Nome'), 'Plano Pele');
+    await user.type(await screen.findByLabelText('Nome do plano'), 'Plano Pele');
     await user.type(screen.getByLabelText(/preço do plano/i), '900');
     await user.click(await screen.findByRole('checkbox', { name: /limpeza de pele/i }));
     await user.click(screen.getByRole('button', { name: /salvar plano/i }));
@@ -761,5 +802,24 @@ describe('Relacionamento do paciente', () => {
     await user.type(await screen.findByLabelText('Duração (minutos)'), '75');
     await user.click(screen.getByRole('button', { name: /salvar atendimento/i }));
     await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ durationMinutes: 75 }));
+  });
+});
+
+describe('Configurações', () => {
+  it('saves the professional registration and previews the stamp', async () => {
+    routes['GET /api/auth/get-session'] = () => ({ user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com' } });
+    routes['GET /api/auth/professional-profile'] = () => null;
+    routes['PUT /api/auth/professional-profile'] = (init) => ({ id: 'prof1', userId: 'u1', ...(JSON.parse(init?.body as string) as Record<string, unknown>), active: true });
+    const user = userEvent.setup();
+    renderAt('/configuracoes');
+    expect(await screen.findByRole('heading', { name: 'Registro no conselho' })).toBeInTheDocument();
+    expect(screen.getByText(/sem registro/i)).toBeInTheDocument();
+    await user.selectOptions(await screen.findByLabelText('Conselho'), 'CRM');
+    await user.type(screen.getByLabelText(/número do registro/i), '123456');
+    await user.selectOptions(screen.getByLabelText(/UF/), 'SP');
+    expect(await screen.findByText('CRM 123456/SP')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /salvar registro/i }));
+    await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true));
+    expect(calls.find((call) => call.method === 'PUT')?.body).toEqual({ registrationType: 'CRM', registrationNumber: '123456', registrationState: 'SP' });
   });
 });

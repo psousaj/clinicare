@@ -40,9 +40,9 @@ function AnamnesisForm({ token, title, schema, initialDraft }: { token: string; 
         onChange={setDraft}
         onSubmit={(answers) => send(answers).catch(() => undefined)}
         actions={(
-          <div className="modal-actions">
-            <Button type="button" variant="outline" disabled={saveDraft.isPending} onClick={() => saveDraft.mutate(draft)}>Salvar rascunho</Button>
-            <Button type="submit" disabled={submit.isPending}>Enviar anamnese</Button>
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" className="w-full sm:w-auto" disabled={saveDraft.isPending} onClick={() => saveDraft.mutate(draft)}>Salvar rascunho</Button>
+            <Button type="submit" className="w-full sm:w-auto" disabled={submit.isPending}>Enviar anamnese</Button>
           </div>
         )}
       />

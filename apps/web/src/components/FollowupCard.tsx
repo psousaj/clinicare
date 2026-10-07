@@ -1,8 +1,10 @@
 import { Link } from '@tanstack/react-router';
-import { FileSignature } from 'lucide-react';
+import { FileSignature, RefreshCw } from 'lucide-react';
 import { ContractSignatureHistory } from '@/components/ContractSignatureHistory';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Button } from '@/components/ui/button';
 import { currency } from '@/lib/format';
+import { useGenerateFollowupContract } from '@/lib/queries';
 import type { Followup } from '@/lib/schemas';
 
 const offerLabel = { procedure: 'Avulso', combo: 'Combo', plan: 'Plano' } as const;
@@ -39,13 +41,36 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
       {followup.contracts.length > 0 && (
         <ul className="m-0 mt-2 grid list-none gap-1 p-0 text-xs text-muted-foreground" aria-label={`Contratos de ${followup.offerName}`}>
           {followup.contracts.map((contract, index) => (
-            <li key={index} className="grid gap-1">
-              <span className="flex items-center gap-2"><FileSignature className="size-3.5" /> {contract.title} · {contract.signedAt ? 'assinado' : 'assinatura pendente'}</span>
+            <li key={contract.id ?? index} id={contract.id ? `followup-contract-${contract.id}` : undefined} className="grid scroll-mt-24 gap-1">
+              <span className="flex flex-wrap items-center gap-2"><FileSignature className="size-3.5" /> {contract.title} · {contract.signedAt ? 'assinado' : 'assinatura pendente'}
+                {contract.status === 'generating' && <StatusBadge tone="warning">Gerando documento</StatusBadge>}
+                {contract.status === 'failed' && <StatusBadge tone="danger">Falha na geração</StatusBadge>}
+              </span>
+              {contract.id && (contract.status === 'generating' || contract.status === 'failed') && (
+                <ContractGenerateButton followupContractId={contract.id} failed={contract.status === 'failed'} />
+              )}
               {contract.id && <ContractSignatureHistory followupContractId={contract.id} title={contract.title ?? 'Contrato'} />}
             </li>
           ))}
         </ul>
       )}
+    </div>
+  );
+}
+
+function ContractGenerateButton({ followupContractId, failed }: { followupContractId: string; failed?: boolean }) {
+  const generate = useGenerateFollowupContract();
+  return (
+    <div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={generate.isPending}
+        onClick={() => generate.mutate(followupContractId)}
+      >
+        <RefreshCw className="size-3.5" /> {generate.isPending ? 'Gerando…' : failed ? 'Tentar gerar de novo' : 'Gerar documento agora'}
+      </Button>
     </div>
   );
 }

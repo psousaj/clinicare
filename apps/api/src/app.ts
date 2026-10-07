@@ -56,10 +56,13 @@ const authTenant = (c: Context) => clinicSession(c).tenantId;
 export const app = new Hono()
   .use('/api/*', cors({ origin: getTrustedOrigins() }))
   .onError((error, c) => handleError(c, error))
-  .on(['POST', 'GET'], '/api/auth/*', (c) => authHandler(c.req.raw))
+  // Rotas específicas ANTES do curinga do better-auth: o Hono executa o
+  // primeiro handler que responde, então o '/api/auth/*' sombrearia o GET/POST
+  // abaixo com 404 se viesse primeiro.
   .post('/api/auth/initial-password-choice', requireClinicSession, updateInitialPasswordChoice)
   .get('/api/auth/professional-profile', requireClinicSession, getProfessionalProfile)
   .put('/api/auth/professional-profile', requireClinicSession, updateProfessionalProfile)
+  .on(['POST', 'GET'], '/api/auth/*', (c) => authHandler(c.req.raw))
   .get('/api/health', async (c) => {
     try { await getDatabasePool().query('select 1'); return c.json({ status: 'ok', service: 'clinicare-api', database: 'connected' }); }
     catch { return c.json({ status: 'unavailable', service: 'clinicare-api', database: 'disconnected' }, 503); }
@@ -144,7 +147,23 @@ export const app = new Hono()
     const tenantId = await catalogTenant(c.req, authTenant(c));
     const body = await c.req.json().catch(() => null);
     if (!body || !isUuid(body.patientId) || !['combo', 'plan'].includes(body.offerType) || !isUuid(body.offerId)) return fail(c, 'Paciente e um combo ou plano são obrigatórios; procedimento avulso é criado ao agendar ou registrar o atendimento.');
-    try { return c.json(await createFollowup(tenantId, body.patientId, body.offerType, body.offerId, { contractApplicationDate: body.contractApplicationDate }), 201); } catch (error) { return handleError(c, error); }
+    try {
+      const created = await createFollowup(tenantId, body.patientId, body.offerType, body.offerId, { contractApplicationDate: body.contractApplicationDate });
+      // Sem cron/worker: dispara a materialização em background sem bloquear o
+      // 201. Falha de geração não desfaz o acompanhamento — fica como
+      // generating/failed p/ retry no card (com polling até concluir).
+      const professionalUserId = clinicSession(c).userId;
+      const pending = (created?.contracts ?? []).filter((contract: any) => contract.status === 'generating' && contract.id).map((contract: any) => contract.id as string);
+      if (pending.length) {
+        void (async () => {
+          for (const followupContractId of pending) {
+            try { await generateFollowupContract(tenantId, followupContractId, professionalUserId); }
+            catch { /* mantém generating/failed com generationError p/ retry manual */ }
+          }
+        })().catch(() => undefined);
+      }
+      return c.json(created, 201);
+    } catch (error) { return handleError(c, error); }
   })
   .get('/api/followups', async (c) => {
     return c.json(await listFollowups(await catalogTenant(c.req, authTenant(c))));
@@ -156,7 +175,7 @@ export const app = new Hono()
     return result ? c.json(result) : fail(c, 'Acompanhamento não encontrado.', 404);
   })
   .post('/api/followup-contracts/:id/generate', async (c) => { try { return c.json(await generateFollowupContract(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), clinicSession(c).userId)); } catch (error) { return handleError(c, error); } })
-  .post('/api/followup-contracts/:id/retry', async (c) => { try { return c.json(await retryFollowupContract(await catalogTenant(c.req, authTenant(c)), c.req.param('id'))); } catch (error) { return handleError(c, error); } })
+  .post('/api/followup-contracts/:id/retry', async (c) => { try { return c.json(await retryFollowupContract(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), clinicSession(c).userId)); } catch (error) { return handleError(c, error); } })
   .get('/api/signature-pending', async (c) => { try { return c.json(await listPendingSignatures(await catalogTenant(c.req, authTenant(c)))); } catch (error) { return handleError(c, error); } })
   .get('/public/signatures/:token', async (c) => { try { return c.json(await readSignatureToken(c.req.param('token')!)); } catch (error) { return handleError(c, error); } })
   .post('/public/signatures/:token/verify-phone', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await verifySignaturePhone(c.req.param('token')!, body.phoneLast4)); } catch (error) { return handleError(c, error); } })
