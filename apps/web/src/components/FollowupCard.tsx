@@ -113,9 +113,10 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
           ))}
           {open && <span className="followup-actions__spacer" />}
           {open && (
-            <button
+            <Button
               type="button"
-              className="text-button text-button--danger"
+              variant="destructive"
+              size="sm"
               disabled={cancelFollowup.isPending}
               aria-label={`Cancelar acompanhamento ${followup.offerName}`}
               onClick={() => {
@@ -129,7 +130,7 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
               }}
             >
               Cancelar acompanhamento
-            </button>
+            </Button>
           )}
         </footer>
       )}

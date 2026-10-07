@@ -697,6 +697,10 @@ nav {
   background: #d1d5db;
 }
 
+.followup-card + .followup-card {
+  margin-top: 12px;
+}
+
 .followup-card__head {
   display: flex;
   flex-wrap: wrap;
@@ -783,12 +787,6 @@ nav {
   flex: 1;
 }
 
-.followup-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-}
-
 /* ----- Text Button ----- */
 
 .text-button {
@@ -807,14 +805,6 @@ nav {
   color: var(--deep);
   text-decoration: underline;
   text-underline-offset: 3px;
-}
-
-.text-button--danger {
-  color: #b3261e;
-}
-
-.text-button--danger:hover {
-  color: #7a1a14;
 }
 
 /* ----- Modal ----- */
