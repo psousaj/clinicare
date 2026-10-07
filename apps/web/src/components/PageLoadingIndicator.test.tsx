@@ -33,7 +33,7 @@ describe('PageLoadingIndicator', () => {
   it('covers a slow route loader and clears after navigation', async () => {
     const load = deferred();
     const { router } = await setup(() => load.promise);
-    act(() => { void router.navigate({ to: '/destination' }); });
+    act(() => { router.history.push('/destination'); });
     await screen.findByText('Carregando página…');
     await act(async () => { load.resolve('ok'); });
     await screen.findByText('Destino');
@@ -43,7 +43,7 @@ describe('PageLoadingIndicator', () => {
   it.each(['success', 'error'])('covers initial data loading and clears on %s', async (outcome) => {
     const data = deferred();
     const { router } = await setup(undefined, () => data.promise);
-    await act(async () => { await router.navigate({ to: '/destination' }); });
+    await act(async () => { router.history.push('/destination'); });
     await screen.findByText('Carregando página…');
     await act(async () => {
       if (outcome === 'success') data.resolve('ok');
