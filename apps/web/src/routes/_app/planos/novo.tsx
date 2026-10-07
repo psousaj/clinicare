@@ -69,7 +69,7 @@ function NewPlan() {
       </section>
       <section className="plan-section">
         <SectionHeading icon={<FileText size={17} />} title="Contratos e anamnese" detail="Defina quais documentos acompanham a contratação." count={`${contractIds.length} contrato${contractIds.length === 1 ? '' : 's'}`} />
-        <Group label="Contratos adicionais" hint="O contrato padrão e os contratos dos procedimentos e combos são incluídos automaticamente." empty="Nenhum contrato adicional cadastrado." items={contracts.filter((contract) => contract.kind !== 'standard').map((contract) => ({ id: contract.id, name: contract.title }))} selected={contractIds} onToggle={(id, on) => setContractIds((list) => toggle(list, id, on))} />
+        <Group label="Contratos adicionais" hint="Escolha os contratos que acompanham este plano." empty="Nenhum contrato cadastrado." items={contracts.map((contract) => ({ id: contract.id, name: contract.title }))} selected={contractIds} onToggle={(id, on) => setContractIds((list) => toggle(list, id, on))} />
         <Label className="plan-anamnesis cursor-pointer"><Checkbox checked={requireNewAnamnesis} onCheckedChange={(value) => setRequireNewAnamnesis(value === true)} /><span><strong>Solicitar nova anamnese</strong><small>Mesmo que a última ainda esteja dentro do prazo de validade.</small></span></Label>
       </section>
     </FormPage>
