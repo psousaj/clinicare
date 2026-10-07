@@ -1,4 +1,4 @@
-export type FieldKind = 'text' | 'longtext' | 'number' | 'digits' | 'date' | 'time' | 'phone' | 'email' | 'cpf' | 'boolean' | 'choice' | 'multi' | 'scale';
+export type FieldKind = 'text' | 'longtext' | 'number' | 'digits' | 'date' | 'time' | 'phone' | 'email' | 'cpf' | 'boolean' | 'choice' | 'multi' | 'scale' | 'notice';
 export type SchemaField = Record<string, unknown> & { title?: string; type?: string; 'x-kind'?: FieldKind };
 export type FormSchema = { type?: string; required?: string[]; properties?: Record<string, SchemaField> };
 
@@ -21,6 +21,7 @@ export const fieldKinds: { kind: FieldKind; label: string }[] = [
   { kind: 'choice', label: 'Escolha única' },
   { kind: 'multi', label: 'Múltipla escolha' },
   { kind: 'scale', label: 'Escala de 0 a 10' },
+  { kind: 'notice', label: 'Texto informativo' },
 ];
 
 export const hasOptions = (kind: FieldKind) => kind === 'choice' || kind === 'multi';
@@ -39,6 +40,7 @@ export function buildField(kind: FieldKind, title: string, options: string[] = D
     case 'choice': return { ...base, type: 'string', enum: options };
     case 'multi': return { ...base, type: 'array', uniqueItems: true, items: { type: 'string', enum: options } };
     case 'scale': return { ...base, type: 'integer', minimum: 0, maximum: 10 };
+    case 'notice': return { ...base, type: 'string' };
     default: return { ...base, type: 'string' };
   }
 }
@@ -87,6 +89,7 @@ export function validateFormSchema(schema: FormSchema, { requireFields = true } 
   const fields = Object.values(schema.properties ?? {});
   if (requireFields && !fields.length) return 'Adicione ao menos um campo.';
   if (fields.some((field) => !field.title?.trim())) return 'Todos os campos precisam de um nome.';
+  if (fields.some((field) => kindOf(field) === 'notice' && !String(field.description ?? '').trim())) return 'Todo texto informativo precisa de um conteúdo.';
   for (const field of fields) {
     if (!hasOptions(kindOf(field))) continue;
     const options = optionsOf(field).map((option) => option.trim());
