@@ -106,7 +106,11 @@ function PatientPreview({ title, description, schema, onClose }: { title: string
         schema={schema}
         value={draft}
         onChange={setDraft}
-        actions={<Button type="button" variant="outline" onClick={onClose}>Fechar</Button>}
+        actions={(
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose}>Fechar</Button>
+          </div>
+        )}
       />
     </section>
   );
