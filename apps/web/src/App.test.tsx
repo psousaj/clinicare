@@ -615,6 +615,26 @@ const pendingFollowup = (extra: Record<string, unknown> = {}) => ({
 });
 
 describe('Eventos', () => {
+  it('supports keyboard selection and shows an empty event without hiding its filters', async () => {
+    routes['GET /api/events'] = () => [
+      { _id: 'ev1', name: 'Dia facial', eventDate: '2026-10-15', active: false, items: [], contractIds: [], enrolledPatients: [] },
+    ];
+    const user = userEvent.setup();
+    renderAt('/eventos');
+    const patients = await screen.findByRole('region', { name: 'Pacientes por evento' });
+    const badge = within(patients).getByRole('button', { name: /Dia facial/ });
+    expect(badge).toHaveAttribute('aria-pressed', 'false');
+    badge.focus();
+    await user.keyboard('{Enter}');
+    expect(badge).toHaveAttribute('aria-pressed', 'true');
+    expect(within(patients).getByText('Nenhum paciente inscrito')).toBeInTheDocument();
+    expect(within(patients).getByText('15/10/2026')).toHaveAttribute('datetime', '2026-10-15');
+    expect(screen.getByRole('button', { name: 'Reativar Dia facial' })).toBeInTheDocument();
+    await user.click(within(patients).getByRole('button', { name: 'Limpar seleção' }));
+    expect(badge).toHaveAttribute('aria-pressed', 'false');
+    expect(within(patients).getByText('Nenhum evento selecionado')).toBeInTheDocument();
+  });
+
   it('lists enrolled patients after selecting an event badge', async () => {
     routes['GET /api/events'] = () => [
       { _id: 'ev1', name: 'Dia facial', eventDate: '2026-10-15', items: [], contractIds: [], anamnesisIds: [], enrolledPatients: [{ id: 'p1', fullName: 'Ana Souza' }] },
