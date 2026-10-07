@@ -1,6 +1,7 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
   anamneses, anamnesisProcedures, anamnesisVersions, combos, comboItems, contracts, contractVersions, contractVersionPdfUploadIntents,
+  eventContracts, eventItems, events,
   getDatabase, planVersionContracts, planVersionItems, planVersions, plans, procedureVersions, procedures,
 } from '@clinicare/db';
 import { uploadUrlForPdf, verifyPdfObject } from './storage';
@@ -36,6 +37,10 @@ async function lockContract(tx: any, tenantId: string, id: string) {
 async function lockPlan(tx: any, tenantId: string, id: string) {
   await tx.execute(sql`select id from plans where tenant_id = ${tenantId} and id = ${id} for update`);
 }
+async function lockEvent(tx: any, tenantId: string, id: string) {
+  await tx.execute(sql`select id from events where tenant_id = ${tenantId} and id = ${id} for update`);
+}
+const validCivilDate = (value: unknown): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00:00Z`).getTime()) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
 
 export async function listProcedures(tenantId: string) {
   const db = getDatabase(); const rows = await db.select().from(procedures).where(eq(procedures.tenantId, tenantId)).orderBy(desc(procedures.createdAt));
@@ -155,4 +160,91 @@ export async function savePlan(tenantId: string, planId: string | null, input: a
     await tx.update(plans).set({ currentVersion: version, updatedAt: new Date() }).where(and(eq(plans.tenantId, tenantId), eq(plans.id, row.id))); return { ...row, currentVersion: version };
   });
   return row ? planResponse(tenantId, row) : null;
+}
+
+async function eventResponse(tenantId: string, row: any, executor = getDatabase()) {
+  const [items, cs] = await Promise.all([
+    executor.select().from(eventItems).where(and(eq(eventItems.tenantId, tenantId), eq(eventItems.eventId, row.id))),
+    executor.select().from(eventContracts).where(and(eq(eventContracts.tenantId, tenantId), eq(eventContracts.eventId, row.id))),
+  ]);
+  return {
+    ...id(row),
+    eventDate: typeof row.eventDate === 'string' ? row.eventDate : new Date(row.eventDate).toISOString().slice(0, 10),
+    items: items.map((x: any) => x.kind === 'procedure'
+      ? { kind: 'procedure', procedureId: x.procedureId, sessions: x.sessions }
+      : { kind: 'combo', comboId: x.comboId }),
+    contractIds: cs.map((x: any) => x.contractId),
+  };
+}
+export async function listEvents(tenantId: string) {
+  const rows = await getDatabase().select().from(events).where(eq(events.tenantId, tenantId)).orderBy(desc(events.eventDate));
+  return Promise.all(rows.map((r) => eventResponse(tenantId, r)));
+}
+export async function saveEvent(tenantId: string, eventId: string | null, input: any) {
+  const db = getDatabase();
+  const row = await db.transaction(async (tx) => {
+    const existing = eventId ? (await tx.select().from(events).where(and(eq(events.tenantId, tenantId), eq(events.id, eventId))))[0] : null;
+    if (eventId && !existing) return null;
+    if (existing) await lockEvent(tx, tenantId, existing.id);
+    const offerChange = ['items', 'contractIds'].some((key) => input[key] !== undefined);
+    const name = input.name !== undefined ? String(input.name).trim() : existing?.name;
+    if (!name || name.length < 2) throw new Error('Evento requer nome com ao menos 2 caracteres.');
+    const eventDate = input.eventDate !== undefined ? input.eventDate : existing?.eventDate;
+    if (!validCivilDate(eventDate)) throw new Error('Evento requer data civil válida (AAAA-MM-DD).');
+    const values: any = {
+      tenantId, name,
+      description: input.description !== undefined ? (typeof input.description === 'string' && input.description.trim() ? input.description.trim() : null) : existing?.description ?? null,
+      eventDate, active: input.active ?? existing?.active ?? true, updatedAt: new Date(),
+    };
+    if (existing && !offerChange) {
+      const [updated] = await tx.update(events).set(values).where(and(eq(events.tenantId, tenantId), eq(events.id, eventId!))).returning();
+      return updated;
+    }
+    const items = input.items;
+    if (!Array.isArray(items) || !items.length) throw new Error('Evento requer cardápio com ao menos um procedimento ou combo.');
+    for (const item of items) {
+      if (item?.kind === 'procedure') {
+        if (typeof item.procedureId !== 'string' || !Number.isInteger(item.sessions) || item.sessions < 1) throw new Error('Evento requer procedimentos do cardápio com sessões válidas.');
+      } else if (item?.kind === 'combo') {
+        if (typeof item.comboId !== 'string') throw new Error('Evento requer combos do cardápio válidos.');
+      } else {
+        throw new Error('Evento requer itens de cardápio do tipo procedure ou combo.');
+      }
+    }
+    const seen = new Set(items.map((x: any) => `${x.kind}:${x.kind === 'procedure' ? x.procedureId : x.comboId}`));
+    if (seen.size !== items.length) throw new Error('Evento não aceita item de cardápio repetido.');
+    if (!Array.isArray(input.contractIds) || !input.contractIds.length) throw new Error('Evento requer ao menos um contrato aplicável.');
+    if (new Set(input.contractIds).size !== input.contractIds.length) throw new Error('Evento não aceita contrato repetido.');
+    const procedureIds = items.filter((x: any) => x.kind === 'procedure').map((x: any) => x.procedureId);
+    const comboIds = items.filter((x: any) => x.kind === 'combo').map((x: any) => x.comboId);
+    const [ps, cb, cs] = await Promise.all([
+      procedureIds.length ? tx.select().from(procedures).where(and(eq(procedures.tenantId, tenantId), inArray(procedures.id, procedureIds))) : [],
+      comboIds.length ? tx.select().from(combos).where(and(eq(combos.tenantId, tenantId), inArray(combos.id, comboIds))) : [],
+      tx.select().from(contracts).where(and(eq(contracts.tenantId, tenantId), inArray(contracts.id, input.contractIds), eq(contracts.active, true))),
+    ]);
+    if (ps.length !== procedureIds.length) throw new Error('Evento requer procedimentos existentes no cardápio.');
+    if (ps.some((p: any) => !p.active)) throw new Error('Evento requer procedimentos ativos no cardápio.');
+    if (cb.length !== comboIds.length) throw new Error('Evento requer combos existentes no cardápio.');
+    if (cb.some((c: any) => !c.active)) throw new Error('Evento requer combos ativos no cardápio.');
+    if (cs.length !== input.contractIds.length) throw new Error('Evento requer contratos existentes e ativos.');
+    for (const item of items.filter((x: any) => x.kind === 'procedure')) {
+      const p = ps.find((a: any) => a.id === item.procedureId)!;
+      if (item.sessions < (p.baseSessions ?? 1)) throw new Error('Evento requer sessões do cardápio ao menos iguais à base do procedimento.');
+    }
+    const [created] = existing
+      ? await tx.update(events).set(values).where(and(eq(events.tenantId, tenantId), eq(events.id, eventId!))).returning()
+      : await tx.insert(events).values(values).returning();
+    const target = existing ? eventId! : created.id;
+    await tx.delete(eventItems).where(and(eq(eventItems.tenantId, tenantId), eq(eventItems.eventId, target)));
+    await tx.delete(eventContracts).where(and(eq(eventContracts.tenantId, tenantId), eq(eventContracts.eventId, target)));
+    await tx.insert(eventItems).values(items.map((x: any) => x.kind === 'procedure'
+      ? { tenantId, eventId: target, kind: 'procedure', procedureId: x.procedureId, comboId: null, sessions: x.sessions }
+      : { tenantId, eventId: target, kind: 'combo', procedureId: null, comboId: x.comboId, sessions: null }));
+    await tx.insert(eventContracts).values(input.contractIds.map((contractId: string) => {
+      const c = cs.find((x: any) => x.id === contractId)!;
+      return { tenantId, eventId: target, contractId, title: c.title };
+    }));
+    return created;
+  });
+  return row ? eventResponse(tenantId, row) : null;
 }

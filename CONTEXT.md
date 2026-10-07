@@ -86,11 +86,11 @@ _Avoid_: chave de cifragem, SHA simples
 Registro técnico que pode conter request, tenant, ator, operação, entidade, ID técnico, resultado, duração e classe de erro, mas nunca valores pessoais, clínicos, termos de busca, plaintext protegido, ciphertext, nonce, índices HMAC completos ou chaves. Auditoria de negócio preserva eventos nas tabelas próprias sem copiar conteúdo sensível para logs.
 
 **Procedimento**:
-Oferta individual de uma intervenção estética, com duração e preço por sessão e um mínimo opcional de sessões. Sem mínimo acima de uma sessão, pode ser realizado avulso; com mínimo de duas ou mais, só pode ser incluído em combo ou plano. O mínimo também é a quantidade inicial sugerida para o item de combo ou plano, que pode ser aumentada mas não reduzida abaixo dele. Um atendimento avulso corresponde a uma sessão, é cobrado e segue as regras de anamnese e validade; ao ser agendado ou registrado, gera internamente um registro de cobrança próprio, exibido como "Atendimento avulso" e não como acompanhamento.
+Oferta individual de uma intervenção estética, com duração e preço por sessão e um mínimo opcional de sessões. Sem mínimo acima de uma sessão, pode ser realizado avulso; com mínimo de duas ou mais, só pode ser incluído em combo, plano ou evento. O mínimo também é a quantidade inicial sugerida para o item de combo, plano ou evento, que pode ser aumentada mas não reduzida abaixo dele. Um atendimento avulso corresponde a uma sessão, é cobrado e segue as regras de anamnese e validade; ao ser agendado ou registrado, gera internamente um registro de cobrança próprio, exibido como "Atendimento avulso" e não como acompanhamento.
 _Avoid_: sessão, combo
 
 **Acompanhamento**:
-Registro iniciado pelo profissional na ficha do paciente ("Novo acompanhamento") a partir de um combo ou de um plano (procedimento avulso tem apenas o registro interno de cobrança, sem ser um acompanhamento). Ao ser iniciado, congela a versão da oferta, as condições comerciais (itens, sessões, preço e validade), os schemas e, quando a oferta for um plano, seus contratos aplicáveis. Um acompanhamento de combo entra ativo; um acompanhamento de plano começa ocioso e fica ativo após a assinatura dos contratos obrigatórios pelo paciente. Enquanto houver um acompanhamento não encerrado da mesma oferta para o paciente, não é permitido iniciar outro; a identidade da oferta é o plano ou combo, independentemente da versão do plano. Depois que o anterior for finalizado, uma nova contratação da mesma oferta é permitida usando a versão corrente. Pode ser cancelado explicitamente e reúne atendimentos e pagamentos enquanto ativo. Um paciente pode ter vários acompanhamentos da mesma oferta ao longo do tempo.
+Registro iniciado pelo profissional na ficha do paciente ("Novo acompanhamento") a partir de um combo, de um plano ou de um evento (procedimento avulso tem apenas o registro interno de cobrança, sem ser um acompanhamento). Ao ser iniciado, congela a versão da oferta, as condições comerciais (itens, sessões, preço e validade), os schemas e, quando a oferta for um plano ou evento, seus contratos aplicáveis. Um acompanhamento de combo entra ativo; um acompanhamento de plano ou de evento começa ocioso e fica ativo após a assinatura dos contratos obrigatórios pelo paciente. Enquanto houver um acompanhamento não encerrado da mesma oferta para o paciente, não é permitido iniciar outro; a identidade da oferta é o plano, combo ou evento, independentemente da versão do plano. Depois que o anterior for finalizado, uma nova contratação da mesma oferta é permitida usando a versão corrente. Pode ser cancelado explicitamente e reúne atendimentos e pagamentos enquanto ativo. Um paciente pode ter vários acompanhamentos da mesma oferta ao longo do tempo.
 _Avoid_: tratamento, plano aplicado, contratação, pedido, atendimento (nome antigo)
 
 **Acompanhamento encerrado**:
@@ -104,11 +104,11 @@ _Avoid_: rascunho descartável, plano atual
 Encerramento explícito de um acompanhamento, com motivo registrado. Bloqueia novas operações e cancela agendamentos futuros vinculados, liberando reservas, mas preserva atendimentos realizados, pagamentos, contratos, anamneses e demais históricos. Se ocorrer durante a geração de documentos, impede a promoção para pronto e o início da assinatura; R0 ou artefatos já criados são preservados como histórico, mas não se tornam operacionais, e arquivos temporários podem ser limpos posteriormente. Um acompanhamento cancelado não aceita retry de geração nem volta à operação silenciosamente; uma nova contratação cria outro acompanhamento.
 
 **Catálogo**:
-Conjunto de procedimentos, combos, planos, formulários de anamnese e documentos modelo que podem ser oferecidos ou aplicados pela clínica. Alterar ou retirar um item do catálogo não altera acompanhamentos nem atendimentos já existentes.
+Conjunto de procedimentos, combos, planos, eventos, formulários de anamnese e documentos modelo que podem ser oferecidos ou aplicados pela clínica. Alterar ou retirar um item do catálogo não altera acompanhamentos nem atendimentos já existentes.
 _Avoid_: histórico do paciente
 
 **Desativação de catálogo**:
-Retirada de um procedimento, combo, plano, formulário ou documento modelo da disponibilidade para novas aplicações, preservando o próprio registro e tudo que já foi aplicado a pacientes. No MVP, exclusões solicitadas pelo sistema têm esse significado, e não o apagamento do histórico. A desativação não invalida nem cancela acompanhamentos ociosos já iniciados com snapshots próprios.
+Retirada de um procedimento, combo, plano, evento, formulário ou documento modelo da disponibilidade para novas aplicações, preservando o próprio registro e tudo que já foi aplicado a pacientes. No MVP, exclusões solicitadas pelo sistema têm esse significado, e não o apagamento do histórico. A desativação não invalida nem cancela acompanhamentos ociosos já iniciados com snapshots próprios.
 _Avoid_: cancelamento de acompanhamento, exclusão de histórico
 
 **Paciente desativado**:
@@ -265,6 +265,18 @@ _Avoid_: componente, produto do plano
 Combo comercial disponível durante um período de validade e com preço promocional diferente dos preços individuais ou do combo padrão. A validade controla até quando o combo pode ser aplicado; depois de aplicado, o paciente pode concluir as sessões mesmo após o fim da validade.
 _Avoid_: campanha (quando o conjunto de procedimentos e seu preço forem o foco)
 
+**Evento**:
+Dia civil da clínica com cardápio próprio de procedimentos e/ou combos, contratos obrigatórios e vários pacientes. Cada paciente escolhe um ou mais itens do cardápio no início do acompanhamento; a escolha vai para o contrato aplicado e só vira valor devido depois da baixa do profissional no que foi efetivamente realizado. Combo escolhido entra fechado, com todos os seus procedimentos e sessões cumpridos na data do evento, sem resto para depois. Não há preço total no catálogo do evento nem versionamento formal: a inscrição congela snapshot próprio e mudanças posteriores não alteram acompanhamentos já iniciados. Desativar o evento impede novas aplicações, mas preserva os já iniciados.
+_Avoid_: campanha, mutirão, plano aberto, sessão (quando significar o dia), evento de assinatura
+
+**Escolha do evento**:
+Itens do cardápio que o paciente seleciona no início do acompanhamento de evento. A escolha é registrada no contrato aplicado como referência do que foi contratado naquele dia; não é preço contratado e item escolhido e não realizado vale zero.
+_Avoid_: pedido, compra
+
+**Valor realizado do evento**:
+Soma dos preços das baixas confirmadas em um acompanhamento de evento, que começa em zero e cresce a cada atendimento realizado (procedimento avulso pelo preço da sessão, combo pelo preço do pacote, uma vez). É o único teto financeiro do evento: pagamentos não podem ultrapassá-lo e acompanhamento ocioso de evento não recebe pagamento.
+_Avoid_: preço contratado, estimativa da escolha
+
 **Procedimento selecionado**:
 Procedimento ou item de combo que o profissional vincula ao acompanhamento de um paciente após definir o que será realizado.
 _Avoid_: pedido, compra
@@ -317,7 +329,7 @@ Integração futura com serviço externo para processar cobranças e receber con
 _Avoid_: registro manual de pagamento
 
 **Contrato exigido**:
-Contrato de um plano, incluindo o contrato padrão e os documentos específicos aplicáveis aos procedimentos incluídos. No MVP, somente planos possuem contratos, e um plano sem ao menos um contrato aplicável é inválido. Contratos específicos de combo ficam adiados enquanto combos não puderem compor planos. A contratação pode existir enquanto a assinatura estiver pendente, mas o agendamento e a execução ficam bloqueados até que os contratos obrigatórios estejam assinados.
+Contrato de um plano ou de um evento, incluindo o contrato padrão e os documentos específicos aplicáveis aos procedimentos incluídos. No MVP, somente planos e eventos possuem contratos, e um plano ou evento sem ao menos um contrato aplicável é inválido. Contratos específicos de combo ficam adiados enquanto combos não puderem compor planos. A contratação pode existir enquanto a assinatura estiver pendente, mas o agendamento e a execução ficam bloqueados até que os contratos obrigatórios estejam assinados.
 _Avoid_: contratação
 
 **Anamnese pendente**:

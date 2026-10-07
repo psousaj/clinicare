@@ -4,7 +4,7 @@ import { cors } from 'hono/cors';
 import { getDatabasePool } from '@clinicare/db';
 import { getTrustedOrigins } from './auth-config';
 import { createPatient, deactivatePatient, getPatient, isUuid, listPatients, updatePatient } from './patients';
-import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, associateAnamnesis, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan, presignContractVersionPdf, finalizeContractVersionPdf } from './catalog';
+import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, associateAnamnesis, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan, listEvents, saveEvent, presignContractVersionPdf, finalizeContractVersionPdf } from './catalog';
 import { getRelationalRelationship } from './relational-relationship';
 import { getRelationalHistory } from './relational-history';
 import { createFollowup, getFollowup, listFollowups, cancelFollowup, updateFollowupState } from './followups';
@@ -36,7 +36,7 @@ const handleError = (c: Context, error: unknown) => {
   if ([errorCode, causeCode].includes('23503') || [errorCode, causeCode].includes('23514') || [errorCode, causeCode].includes('22P02')) return c.json({ error: 'Dados inválidos ou referência não encontrada.' }, 400);
   if (error instanceof Error && error.message === 'Tenant não encontrado.') return c.json({ error: error.message }, 400);
   if (error instanceof Error && /^(Nome completo é obrigatório\.|Data de nascimento inválida\.|E-mail inválido\.|Telefone inválido\.|CPF deve conter exatamente 11 dígitos\.|Notas inválidas\.)$/.test(error.message)) return c.json({ error: error.message }, 400);
-  if (error instanceof Error && /^(Informe|Escolha|Tipo de contrato|Dados ou|Combo requer|Combo não|Plano |Procedimento não|Contrato não|Versão não|Formulário inválido|Motivo do cancelamento|O acompanhamento|O PDF|Intenção de upload|Contrato aplicado|O caminho legado)/i.test(error.message)) return c.json({ error: error.message }, 400);
+  if (error instanceof Error && /^(Informe|Escolha|Tipo de contrato|Dados ou|Combo requer|Combo não|Plano |Evento |Procedimento não|Contrato não|Versão não|Formulário inválido|Motivo do cancelamento|O acompanhamento|O PDF|Intenção de upload|Contrato aplicado|O caminho legado)/i.test(error.message)) return c.json({ error: error.message }, 400);
   if (error instanceof Error && /conflito|versão desatualizada/i.test(error.message)) return c.json({ error: error.message }, 409);
   if (error instanceof Error && /^(DATA_ENCRYPTION_KEY|SEARCH_HMAC_KEY|UPLOAD_SIGNING_KEY)/.test(error.message)) return c.json({ error: error.message }, 503);
   if (error instanceof Error && /R2 is not configured/i.test(error.message)) return c.json({ error: 'R2 não configurado.' }, 503);
@@ -78,6 +78,7 @@ export const app = new Hono()
   .use('/api/combos*', requireClinicSession)
   .use('/api/contracts*', requireClinicSession)
   .use('/api/plans*', requireClinicSession)
+  .use('/api/events*', requireClinicSession)
   .use('/api/followups*', requireClinicSession)
   .use('/api/signature-pending', requireClinicSession)
   .use('/api/signature-history', requireClinicSession)
@@ -144,6 +145,9 @@ export const app = new Hono()
   .get('/api/plans', async (c) => c.json(await listPlans(await catalogTenant(c.req, authTenant(c)))))
   .post('/api/plans', async (c) => c.json(await savePlan(await catalogTenant(c.req, authTenant(c)), null, await c.req.json()), 201))
   .put('/api/plans/:id', async (c) => { const result = await savePlan(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Plano não encontrado.', 404); })
+  .get('/api/events', async (c) => c.json(await listEvents(await catalogTenant(c.req, authTenant(c)))))
+  .post('/api/events', async (c) => c.json(await saveEvent(await catalogTenant(c.req, authTenant(c)), null, await c.req.json()), 201))
+  .put('/api/events/:id', async (c) => { const result = await saveEvent(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Evento não encontrado.', 404); })
   .post('/api/followups', async (c) => {
     const tenantId = await catalogTenant(c.req, authTenant(c));
     const body = await c.req.json().catch(() => null);
