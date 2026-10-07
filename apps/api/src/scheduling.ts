@@ -5,6 +5,7 @@ import {
   followupItems, followups, patients, procedures, appointments, appointmentItems, attendances, attendancePhotos,
 } from '@clinicare/db';
 import { downloadUrl, uploadUrl } from './storage';
+import { civilDateOf } from './civil-date';
 
 const invalid = (message: string) => Object.assign(new Error(message), { status: 400 });
 const notFound = (message: string) => Object.assign(new Error(message), { status: 404 });
@@ -110,6 +111,7 @@ export async function createAppointment(tenantId: string, input: any) {
           .innerJoin(followups, and(eq(followups.tenantId, followupItems.tenantId), eq(followups.id, followupItems.followupId)))
           .where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.id, entry.followupItemId), eq(followups.patientId, input.patientId)))).at(0);
         if (!item || item.followup.status !== 'active') throw notFound('Procedimento não pertence a um acompanhamento ativo deste paciente.');
+        assertEventDay(item.followup, startsAt);
         const reserved = await reservationCount(tx, tenantId, item.item.id);
         if (quantity > item.item.sessionsTotal - item.item.sessionsPerformed - reserved) throw conflict(`${item.item.procedureName}: sessões insuficientes para reservar.`);
         minutes += quantity * item.item.durationMinutes;
@@ -131,8 +133,44 @@ export async function createAppointment(tenantId: string, input: any) {
   });
 }
 
+// Evento: execução só no dia civil do evento (fuso da clínica); não sobra execução para depois.
+function assertEventDay(followup: { offerType: string; eventDate: string | null }, instant: Date) {
+  if (followup.offerType === 'event' && followup.eventDate && civilDateOf(instant) !== followup.eventDate) throw conflict('Acompanhamento de evento só pode ser agendado ou realizado na data do evento.');
+}
+
+// Valor realizado do evento: sessão de procedimento avulso pelo preço da sessão; combo pelo preço do pacote, uma vez, quando todo o pacote foi realizado.
+function eventRealizedCents(items: any[]) {
+  let total = 0;
+  const packages = new Map<string, any[]>();
+  for (const item of items) {
+    if (!item.comboId) total += item.sessionsPerformed * item.priceCents;
+    else packages.set(item.comboId, [...(packages.get(item.comboId) ?? []), item]);
+  }
+  for (const rows of packages.values()) if (rows.every((row) => row.sessionsPerformed >= row.sessionsTotal)) total += rows[0].packagePriceCents ?? 0;
+  return total;
+}
+
+// Combo escolhido é pacote fechado: o ato de baixa precisa cobrir todas as sessões restantes de todos os itens do combo.
+async function assertAtomicCombos(tx: any, tenantId: string, chosen: any[]) {
+  const quantityByItem = new Map<string, number>();
+  for (const item of chosen) if (item.followupItemId) quantityByItem.set(item.followupItemId, (quantityByItem.get(item.followupItemId) ?? 0) + (item.quantity ?? 1));
+  const picked = quantityByItem.size ? await tx.select().from(followupItems).where(and(eq(followupItems.tenantId, tenantId), inArray(followupItems.id, [...quantityByItem.keys()]))) : [];
+  const checked = new Set<string>();
+  for (const row of picked.filter((entry: any) => entry.comboId)) {
+    const key = `${row.followupId}:${row.comboId}`;
+    if (checked.has(key)) continue;
+    checked.add(key);
+    const owner = (await tx.select().from(followups).where(and(eq(followups.tenantId, tenantId), eq(followups.id, row.followupId)))).at(0);
+    if (owner?.offerType !== 'event') continue;
+    const pack = await tx.select().from(followupItems).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.followupId, row.followupId), eq(followupItems.comboId, row.comboId)));
+    if (pack.some((member: any) => (quantityByItem.get(member.id) ?? 0) !== member.sessionsTotal - member.sessionsPerformed)) throw conflict(`${row.comboName}: o combo é um pacote fechado e deve ser baixado inteiro, com todas as sessões restantes de todos os procedimentos no mesmo ato.`);
+  }
+}
+
 async function recomputeFollowup(tx: any, tenantId: string, followupId: string) {
   const items = await tx.select().from(followupItems).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.followupId, followupId)));
+  const owner = (await tx.select({ offerType: followups.offerType }).from(followups).where(and(eq(followups.tenantId, tenantId), eq(followups.id, followupId)))).at(0);
+  if (owner?.offerType === 'event') await tx.update(followups).set({ priceCents: eventRealizedCents(items) }).where(and(eq(followups.tenantId, tenantId), eq(followups.id, followupId)));
   const complete = items.length > 0 && items.every((item: any) => item.sessionsPerformed >= item.sessionsTotal);
   await tx.update(followups).set({
     status: sql`case when ${followups.status} = 'cancelled' then 'cancelled' when ${complete} then 'completed' else 'active' end`,
@@ -164,9 +202,11 @@ export async function updateAppointment(tenantId: string, id: string, input: any
     if (!(endsAt > startsAt)) throw invalid('O fim deve ser depois do início.');
     const items = await tx.select().from(appointmentItems).where(and(eq(appointmentItems.tenantId, tenantId), eq(appointmentItems.appointmentId, id)));
     await lockItems(tx, tenantId, items.map((item: any) => item.followupItemId).filter((value: unknown): value is string => !!value));
-    if (status === 'planned' || status === 'rescheduled') {
+    if (status === 'planned' || status === 'rescheduled' || input?.startsAt) {
       for (const item of items.filter((x: any) => x.followupItemId && x.confirmationStatus !== 'deselected')) {
         const row = (await tx.select().from(followupItems).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.id, item.followupItemId!)))).at(0);
+        const owner = row ? (await tx.select().from(followups).where(and(eq(followups.tenantId, tenantId), eq(followups.id, row.followupId)))).at(0) : null;
+        if (owner) assertEventDay(owner, startsAt);
         if (!row || item.quantity > row.sessionsTotal - row.sessionsPerformed - await reservationCount(tx, tenantId, item.followupItemId!, id)) throw conflict('Sessões insuficientes para o reagendamento.');
       }
     }
@@ -228,6 +268,7 @@ async function perform(tx: any, tenantId: string, appointmentId: string | null, 
   const chosen = items.filter((item: any) => !selected || selected.includes(item.id));
   if (!chosen.length) throw invalid('Selecione ao menos um item.');
   await lockItems(tx, tenantId, chosen.map((item: any) => item.followupItemId).filter((value: any): value is string => !!value));
+  await assertAtomicCombos(tx, tenantId, chosen);
   if (selected && appointmentId) {
     for (const item of items) if (!selected.includes(item.id)) {
       await tx.update(appointmentItems).set({ confirmationStatus: 'deselected' }).where(and(eq(appointmentItems.tenantId, tenantId), eq(appointmentItems.id, item.id)));
@@ -237,6 +278,7 @@ async function perform(tx: any, tenantId: string, appointmentId: string | null, 
   for (const item of chosen) {
     const current = item.followupItemId ? (await tx.select({ item: followupItems, followup: followups }).from(followupItems).innerJoin(followups, and(eq(followups.tenantId, followupItems.tenantId), eq(followups.id, followupItems.followupId))).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.id, item.followupItemId), eq(followups.patientId, directPatientId)))).at(0) : null;
     if (item.followupItemId && (!current || current.followup.status !== 'active')) throw notFound('Procedimento não pertence ao paciente deste atendimento.');
+    if (current) assertEventDay(current.followup, input?.performedAt ? new Date(input.performedAt) : new Date());
     const repetitions = item.quantity ?? 1;
     for (let occurrence = 0; occurrence < repetitions; occurrence++) {
       if (current && current.item.sessionsPerformed + 1 > current.item.sessionsTotal) throw conflict(`${current.item.procedureName}: todas as sessões já foram realizadas.`);
