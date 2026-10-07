@@ -19,6 +19,8 @@ type PlanOfferPickerProps = {
   onToggleProcedure: (id: string, on: boolean) => void;
   onToggleCombo: (id: string, on: boolean) => void;
   onSessionsChange: (id: string, value: string) => void;
+  // Na escolha do paciente (evento) não há edição de sessões: valem as do cardápio.
+  sessionsEditable?: boolean;
 };
 
 const kinds: { kind: Kind; label: string; singular: string; searchLabel: string; empty: string }[] = [
@@ -27,7 +29,7 @@ const kinds: { kind: Kind; label: string; singular: string; searchLabel: string;
 ];
 
 // Escolha de procedimentos avulsos e combos do plano: abas, busca e paginação no próprio componente; os escolhidos ficam sempre visíveis abaixo.
-export function PlanOfferPicker({ procedures, combos, procedureIds, comboIds, sessions, onToggleProcedure, onToggleCombo, onSessionsChange }: PlanOfferPickerProps) {
+export function PlanOfferPicker({ procedures, combos, procedureIds, comboIds, sessions, onToggleProcedure, onToggleCombo, onSessionsChange, sessionsEditable = true }: PlanOfferPickerProps) {
   const [kind, setKind] = useState<Kind>('procedure');
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
@@ -96,7 +98,7 @@ export function PlanOfferPicker({ procedures, combos, procedureIds, comboIds, se
           {selectedProcedures.map((procedure) => (
             <li key={`procedure:${procedure.id}`} className="plan-picked">
               <span className="plan-picked-name"><strong>{procedure.name}</strong><span className="plan-badge">Procedimento</span></span>
-              <Label className="plan-sessions">Sessões<Input aria-label={`Sessões de ${procedure.name}`} className="w-20" type="number" min={minSessionsOf(procedure)} value={sessions[procedure.id] ?? String(minSessionsOf(procedure))} onChange={(event) => onSessionsChange(procedure.id, event.target.value)} /></Label>
+              {sessionsEditable && <Label className="plan-sessions">Sessões<Input aria-label={`Sessões de ${procedure.name}`} className="w-20" type="number" min={minSessionsOf(procedure)} value={sessions[procedure.id] ?? String(minSessionsOf(procedure))} onChange={(event) => onSessionsChange(procedure.id, event.target.value)} /></Label>}
               <Button type="button" variant="ghost" size="icon-sm" className="size-10" aria-label={`Remover ${procedure.name}`} onClick={() => onToggleProcedure(procedure.id, false)}><X /></Button>
             </li>
           ))}

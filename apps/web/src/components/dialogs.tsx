@@ -10,6 +10,7 @@ import { DatePicker, TimePicker } from '@/components/pickers';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { PlanOfferPicker } from '@/components/PlanOfferPicker';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { appointmentForm, followupForm, parseForm, paymentForm } from '@/lib/forms';
 import { useConfirmAppointment, useCreateAppointment, useCreateFollowup, useCreatePayment, useDeleteAppointment, useUpdateAppointment } from '@/lib/queries';
@@ -290,22 +291,34 @@ function OfferFields({ lockedPatientId, patients, combos, plans, events, procedu
         </NativeSelect>
       </Field>
       {price !== undefined && <p className="m-0 text-sm text-muted-foreground">Valor: <strong className="text-foreground">{currency(price)}</strong></p>}
-      {type === 'event' && <EventChoice event={events.find((item) => item.id === id)} procedures={procedures} combos={combos} />}
+      {type === 'event' && <EventChoice key={id} event={events.find((item) => item.id === id)} procedures={procedures} combos={combos} />}
     </>
   );
 }
 
 // Escolha do paciente no cardápio do evento. Não é preço contratado: o valor só nasce da baixa do que for realizado.
 function EventChoice({ event, procedures, combos }: { event?: EventOffer; procedures: Procedure[]; combos: Combo[] }) {
+  const menuProcedures = (event?.items ?? []).filter((item) => item.kind === 'procedure').map((item) => item.procedureId);
+  const menuCombos = (event?.items ?? []).filter((item) => item.kind === 'combo').map((item) => item.comboId);
+  const [procedureIds, setProcedureIds] = useState<string[]>([]);
+  const [comboIds, setComboIds] = useState<string[]>([]);
   if (!event) return null;
+  const toggleList = (list: string[], setter: (next: string[]) => void, id: string, on: boolean) => setter(on ? [...list.filter((entry) => entry !== id), id] : list.filter((entry) => entry !== id));
   return (
-    <fieldset className="grid gap-1 rounded-lg border border-border p-3">
-      <legend className="px-1 text-sm font-medium">Escolha do paciente</legend>
-      {event.items.map((item) => {
-        const key = item.kind === 'procedure' ? `procedure:${item.procedureId}` : `combo:${item.comboId}`;
-        const name = item.kind === 'procedure' ? procedures.find((procedure) => procedure.id === item.procedureId)?.name ?? 'Procedimento' : `${combos.find((combo) => combo.id === item.comboId)?.name ?? 'Combo'} (pacote fechado)`;
-        return <Label key={key} className="flex items-center gap-2 font-normal"><input type="checkbox" name="choice" value={key} />{name}</Label>;
-      })}
+    <fieldset className="grid gap-1">
+      <PlanOfferPicker
+        procedures={procedures.filter((procedure) => menuProcedures.includes(procedure.id))}
+        combos={combos.filter((combo) => menuCombos.includes(combo.id))}
+        procedureIds={procedureIds}
+        comboIds={comboIds}
+        sessions={{}}
+        sessionsEditable={false}
+        onToggleProcedure={(id, on) => toggleList(procedureIds, setProcedureIds, id, on)}
+        onToggleCombo={(id, on) => toggleList(comboIds, setComboIds, id, on)}
+        onSessionsChange={() => undefined}
+      />
+      {procedureIds.map((id) => <input key={`procedure:${id}`} type="hidden" name="choice" value={`procedure:${id}`} />)}
+      {comboIds.map((id) => <input key={`combo:${id}`} type="hidden" name="choice" value={`combo:${id}`} />)}
       <small className="text-xs text-muted-foreground">A escolha vai para o contrato. O valor só é cobrado pelo que o profissional der baixa.</small>
     </fieldset>
   );

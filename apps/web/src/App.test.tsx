@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory } from '@tanstack/react-router';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAppRouter, createQueryClient } from './router';
@@ -588,6 +588,39 @@ const pendingFollowup = (extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
+describe('Eventos', () => {
+  it('creates an event picking menu items through search, tabs and the selected block', async () => {
+    routes['GET /api/procedures'] = () => [
+      { _id: 'pr1', name: 'Botox', baseSessions: 1, priceCents: 1000, active: true, versions: [] },
+      { _id: 'pr2', name: 'Peeling', baseSessions: 1, priceCents: 2000, active: true, versions: [] },
+    ];
+    routes['GET /api/combos'] = () => [{ _id: 'c1', name: 'Combo facial', priceCents: 5000, active: true, items: [] }];
+    routes['GET /api/contracts'] = () => [{ _id: 'k1', title: 'Padrão', kind: 'standard', active: true, versions: [] }];
+    routes['GET /api/events'] = () => [];
+    routes['POST /api/events'] = () => ({ _id: 'ev1' });
+    const user = userEvent.setup();
+    renderAt('/eventos');
+    await user.click(await screen.findByRole('link', { name: /novo evento/i }));
+    await screen.findByRole('heading', { name: /novo evento/i });
+    await user.type(screen.getByLabelText(/nome do evento/i), 'Dia da clínica');
+    fireEvent.change(screen.getByLabelText(/data do evento/i), { target: { value: '2026-10-15' } });
+    // A busca filtra o catálogo antes de marcar.
+    await user.type(screen.getByRole('searchbox', { name: /buscar procedimentos/i }), 'bot');
+    expect(screen.queryByRole('checkbox', { name: 'Peeling' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox', { name: 'Botox' }));
+    expect(await screen.findByText(/selecionados \(1\)/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Combos' }));
+    await user.click(screen.getByRole('checkbox', { name: /combo facial/i }));
+    await user.click(screen.getByRole('checkbox', { name: 'Padrão' }));
+    await user.click(screen.getByRole('button', { name: /^salvar evento/i }));
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({
+      name: 'Dia da clínica', eventDate: '2026-10-15',
+      items: [{ kind: 'procedure', procedureId: 'pr1', sessions: 1 }, { kind: 'combo', comboId: 'c1' }],
+      contractIds: ['k1'],
+    }));
+  });
+});
+
 describe('Acompanhamentos', () => {
   it('does not offer "Solicitar anamnese" on the patient list', async () => {
     renderAt('/pacientes');
@@ -625,8 +658,9 @@ describe('Acompanhamentos', () => {
     await user.selectOptions(within(dialog).getByLabelText('Oferta'), 'event:ev1');
     await user.click(within(dialog).getByRole('button', { name: /iniciar acompanhamento/i }));
     expect(calls.some((call) => call.method === 'POST')).toBe(false);
-    await user.click(await within(dialog).findByRole('checkbox', { name: /combo facial \(pacote fechado\)/i }));
     await user.click(within(dialog).getByRole('checkbox', { name: 'Botox' }));
+    await user.click(within(dialog).getByRole('button', { name: 'Combos' }));
+    await user.click(within(dialog).getByRole('checkbox', { name: /Combo facial/ }));
     await user.click(within(dialog).getByRole('button', { name: /iniciar acompanhamento/i }));
     await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ patientId: 'p1', offerType: 'event', offerId: 'ev1', choice: [{ kind: 'procedure', procedureId: 'pr1' }, { kind: 'combo', comboId: 'c1' }] }));
   });

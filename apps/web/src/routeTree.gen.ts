@@ -22,6 +22,7 @@ import { Route as AppContratosIndexRouteImport } from './routes/_app/contratos/i
 import { Route as AppContratosContractIdRouteImport } from './routes/_app/contratos/$contractId'
 import { Route as AppContratosNovoRouteImport } from './routes/_app/contratos/novo'
 import { Route as AppEventosIndexRouteImport } from './routes/_app/eventos/index'
+import { Route as AppEventosNovoRouteImport } from './routes/_app/eventos/novo'
 import { Route as AppFormulariosAnamneseIndexRouteImport } from './routes/_app/formularios-anamnese/index'
 import { Route as AppFormulariosAnamneseAnamnesisIdRouteImport } from './routes/_app/formularios-anamnese/$anamnesisId'
 import { Route as AppFormulariosAnamneseNovaRouteImport } from './routes/_app/formularios-anamnese/nova'
@@ -104,6 +105,11 @@ const AppContratosNovoRoute = AppContratosNovoRouteImport.update({
 const AppEventosIndexRoute = AppEventosIndexRouteImport.update({
   id: '/eventos/',
   path: '/eventos/',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppEventosNovoRoute = AppEventosNovoRouteImport.update({
+  id: '/eventos/novo',
+  path: '/eventos/novo',
   getParentRoute: () => AppRoute,
 } as any)
 const AppFormulariosAnamneseIndexRoute =
@@ -226,6 +232,7 @@ export interface FileRoutesByFullPath {
   '/formulario/$token': typeof FormularioTokenRoute
   '/contratos/$contractId': typeof AppContratosContractIdRoute
   '/contratos/novo': typeof AppContratosNovoRoute
+  '/eventos/novo': typeof AppEventosNovoRoute
   '/formularios-anamnese/$anamnesisId': typeof AppFormulariosAnamneseAnamnesisIdRoute
   '/formularios-anamnese/nova': typeof AppFormulariosAnamneseNovaRoute
   '/pacientes/novo': typeof AppPacientesNovoRoute
@@ -259,6 +266,7 @@ export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/contratos/$contractId': typeof AppContratosContractIdRoute
   '/contratos/novo': typeof AppContratosNovoRoute
+  '/eventos/novo': typeof AppEventosNovoRoute
   '/formularios-anamnese/$anamnesisId': typeof AppFormulariosAnamneseAnamnesisIdRoute
   '/formularios-anamnese/nova': typeof AppFormulariosAnamneseNovaRoute
   '/pacientes/novo': typeof AppPacientesNovoRoute
@@ -294,6 +302,7 @@ export interface FileRoutesById {
   '/_app/': typeof AppIndexRoute
   '/_app/contratos/$contractId': typeof AppContratosContractIdRoute
   '/_app/contratos/novo': typeof AppContratosNovoRoute
+  '/_app/eventos/novo': typeof AppEventosNovoRoute
   '/_app/formularios-anamnese/$anamnesisId': typeof AppFormulariosAnamneseAnamnesisIdRoute
   '/_app/formularios-anamnese/nova': typeof AppFormulariosAnamneseNovaRoute
   '/_app/pacientes/novo': typeof AppPacientesNovoRoute
@@ -329,6 +338,7 @@ export interface FileRouteTypes {
     | '/formulario/$token'
     | '/contratos/$contractId'
     | '/contratos/novo'
+    | '/eventos/novo'
     | '/formularios-anamnese/$anamnesisId'
     | '/formularios-anamnese/nova'
     | '/pacientes/novo'
@@ -362,6 +372,7 @@ export interface FileRouteTypes {
     | '/'
     | '/contratos/$contractId'
     | '/contratos/novo'
+    | '/eventos/novo'
     | '/formularios-anamnese/$anamnesisId'
     | '/formularios-anamnese/nova'
     | '/pacientes/novo'
@@ -396,6 +407,7 @@ export interface FileRouteTypes {
     | '/_app/'
     | '/_app/contratos/$contractId'
     | '/_app/contratos/novo'
+    | '/_app/eventos/novo'
     | '/_app/formularios-anamnese/$anamnesisId'
     | '/_app/formularios-anamnese/nova'
     | '/_app/pacientes/novo'
@@ -517,6 +529,13 @@ declare module '@tanstack/react-router' {
       path: '/eventos'
       fullPath: '/eventos/'
       preLoaderRoute: typeof AppEventosIndexRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/eventos/novo': {
+      id: '/_app/eventos/novo'
+      path: '/eventos/novo'
+      fullPath: '/eventos/novo'
+      preLoaderRoute: typeof AppEventosNovoRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/formularios-anamnese/': {
@@ -678,6 +697,7 @@ interface AppRouteChildren {
   AppIndexRoute: typeof AppIndexRoute
   AppContratosContractIdRoute: typeof AppContratosContractIdRoute
   AppContratosNovoRoute: typeof AppContratosNovoRoute
+  AppEventosNovoRoute: typeof AppEventosNovoRoute
   AppFormulariosAnamneseAnamnesisIdRoute: typeof AppFormulariosAnamneseAnamnesisIdRoute
   AppFormulariosAnamneseNovaRoute: typeof AppFormulariosAnamneseNovaRoute
   AppPacientesNovoRoute: typeof AppPacientesNovoRoute
@@ -708,6 +728,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppIndexRoute: AppIndexRoute,
   AppContratosContractIdRoute: AppContratosContractIdRoute,
   AppContratosNovoRoute: AppContratosNovoRoute,
+  AppEventosNovoRoute: AppEventosNovoRoute,
   AppFormulariosAnamneseAnamnesisIdRoute:
     AppFormulariosAnamneseAnamnesisIdRoute,
   AppFormulariosAnamneseNovaRoute: AppFormulariosAnamneseNovaRoute,

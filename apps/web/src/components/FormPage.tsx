@@ -7,7 +7,7 @@ import { ApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 type FormPageProps = {
-  backTo: '/pacientes' | '/procedimentos' | '/contratos' | '/planos';
+  backTo: '/pacientes' | '/procedimentos' | '/contratos' | '/planos' | '/eventos';
   backLabel: string;
   backSearch?: Record<string, string>;
   title: string;
