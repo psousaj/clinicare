@@ -2304,6 +2304,20 @@ a.patient-row {
   opacity: 0.65;
 }
 
+.schema-editor-fields {
+  container-type: inline-size;
+}
+.schema-editor-field > * {
+  min-width: 0;
+}
+.schema-editor-field {
+  grid-template-columns: minmax(0, 1fr);
+}
+@container (min-width: 480px) {
+  .schema-editor-field {
+    grid-template-columns: minmax(0, 1fr) 12rem;
+  }
+}
 .schema-editor-field {
   transition: border-color 150ms ease-out, background-color 150ms ease-out;
 }
@@ -2314,9 +2328,13 @@ a.patient-row {
 .schema-editor-reorder {
   margin-bottom: -2px;
 }
+.schema-editor-reorder > [data-slot='button'] {
+  min-width: 44px;
+  min-height: 44px;
+}
 .schema-editor-drag-handle {
   display: inline-flex;
-  min-height: 32px;
+  min-height: 44px;
   align-items: center;
   gap: 4px;
   padding: 0 6px;
@@ -2363,6 +2381,8 @@ a.patient-row {
   z-index: 3;
   top: -13px;
   left: 16px;
+  max-width: calc(100% - 32px);
+  overflow-wrap: anywhere;
   padding: 1px 7px;
   border-radius: 999px;
   background: #26785f;
@@ -2382,7 +2402,8 @@ a.patient-row {
 }
 .schema-editor-visibility > [data-slot='native-select-wrapper'] {
   width: auto;
-  min-width: 150px;
+  min-width: 0;
+  max-width: 100%;
   flex: 1 1 150px;
 }
 .schema-editor-visibility-label {
@@ -2399,6 +2420,7 @@ a.patient-row {
 .schema-editor-visibility-summary,
 .schema-editor-visibility-hint {
   flex: 0 0 100%;
+  overflow-wrap: anywhere;
   color: #74847c;
   font-size: 11px;
 }

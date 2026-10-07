@@ -112,9 +112,9 @@ export function SchemaEditor({ value, onChange }: SchemaEditorProps) {
   };
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-2" onKeyDown={blockEnter}>
-      <section className="grid gap-3 rounded-xl border border-[#e3eae4] bg-white p-4" aria-label="Campos do formulário">
-        <header className="flex items-center justify-between gap-3">
+    <div className="grid min-w-0 items-start gap-4 lg:grid-cols-2" onKeyDown={blockEnter}>
+      <section className="schema-editor-fields grid min-w-0 gap-3 rounded-xl border border-[#e3eae4] bg-white p-4" aria-label="Campos do formulário">
+        <header className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h3 className="m-0 text-sm font-semibold">Campos</h3>
           <p className="m-0 text-xs text-muted-foreground">{fields.length ? `${fields.length} ${fields.length === 1 ? 'campo' : 'campos'} · arraste para ordenar` : 'Nenhum campo ainda'}</p>
@@ -129,10 +129,10 @@ export function SchemaEditor({ value, onChange }: SchemaEditorProps) {
             onDragOver={(event) => { event.preventDefault(); if (draggedKey && draggedKey !== key) setDropTargetKey(key); }}
             onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDropTargetKey(null); }}
             onDrop={(event) => dropOnField(event, key)}
-            className={`schema-editor-field grid gap-3 rounded-lg border border-[#e3eae4] bg-[#f7f8f5] p-3 sm:grid-cols-[1fr_12rem]${draggedKey === key ? ' is-dragged' : ''}${dropTargetKey === key && draggedKey !== key ? ' is-drop-target' : ''}`}
+            className={`schema-editor-field grid min-w-0 gap-3 rounded-lg border border-[#e3eae4] bg-[#f7f8f5] p-3${draggedKey === key ? ' is-dragged' : ''}${dropTargetKey === key && draggedKey !== key ? ' is-drop-target' : ''}`}
           >
             {dropTargetKey === key && draggedKey !== key && <span className="schema-editor-drop-label" aria-live="polite">Soltar antes de “{field.title || key}”</span>}
-            <div className="schema-editor-reorder flex items-center gap-1 sm:col-span-2">
+            <div className="schema-editor-reorder col-span-full flex flex-wrap items-center gap-1">
               <button
                 type="button"
                 draggable
@@ -156,7 +156,7 @@ export function SchemaEditor({ value, onChange }: SchemaEditorProps) {
               </NativeSelect>
             </Label>
             {kindOf(field) === 'notice' && (
-              <div className="grid gap-2 sm:col-span-2">
+              <div className="col-span-full grid gap-2">
                 <Label className="flex-col items-stretch gap-1.5">
                   Texto exibido
                   <span className="text-xs font-normal text-muted-foreground">Quebras de linha separam parágrafos. Use **assim** para negrito.</span>
@@ -171,7 +171,7 @@ export function SchemaEditor({ value, onChange }: SchemaEditorProps) {
               </div>
             )}
             {hasOptions(kindOf(field)) && (
-              <div className="grid gap-2 sm:col-span-2" role="group" aria-label={`Opções de ${field.title || key}`}>
+              <div className="col-span-full grid gap-2" role="group" aria-label={`Opções de ${field.title || key}`}>
                 <span className="text-sm font-medium">Opções</span>
                 {optionsOf(field).map((option, index) => (
                   <div key={index} className="flex items-center gap-2">
@@ -189,9 +189,9 @@ export function SchemaEditor({ value, onChange }: SchemaEditorProps) {
               schema={schema}
               onChange={(visibleWhen) => updateField(key, { visibleWhen })}
             />
-            <div className="flex items-center justify-between gap-3 sm:col-span-2">
-              <span className="text-xs text-muted-foreground">Identificador: <code className="font-mono text-foreground">{key}</code></span>
-              <div className="flex items-center gap-3">
+            <div className="col-span-full flex min-w-0 flex-wrap items-center justify-between gap-3">
+              <span className="min-w-0 text-xs text-muted-foreground [overflow-wrap:anywhere]">Identificador: <code className="font-mono text-foreground">{key}</code></span>
+              <div className="ml-auto flex shrink-0 items-center gap-3">
                 {kindOf(field) !== 'notice' && (
                   <Label className="cursor-pointer text-xs">
                     <Checkbox checked={required.includes(key)} onCheckedChange={(checked) => updateField(key, { required: checked === true })} /> Obrigatório
@@ -204,7 +204,7 @@ export function SchemaEditor({ value, onChange }: SchemaEditorProps) {
         ))}
         {!fields.length && <div className="rounded-lg border border-dashed border-[#d9e2dc] p-6 text-center text-sm text-muted-foreground">Adicione campos para montar seu formulário.</div>}
       </section>
-      <section className="preview-panel grid gap-3 rounded-xl border border-[#e3eae4] bg-white p-4 lg:sticky lg:top-4" aria-label="Prévia do formulário">
+      <section className="preview-panel grid min-w-0 gap-3 rounded-xl border border-[#e3eae4] bg-white p-4 lg:sticky lg:top-4" aria-label="Prévia do formulário">
         <header>
           <h3 className="m-0 text-sm font-semibold">Prévia</h3>
           <p className="m-0 text-xs text-muted-foreground">Preencha para testar como o paciente verá o formulário. Nada é salvo.</p>
@@ -233,7 +233,7 @@ function Preview({ schema, answers, onAnswers, previewRef }: {
         formData={form.widgetAnswers}
         onChange={({ formData }) => form.handleChange(formData)}
       />
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 flex flex-wrap gap-2">
         <Button type="button" size="sm" variant="outline" onClick={() => (previewRef.current?.validateForm() ? toast.success('Preenchimento válido.') : toast.error('Revise os campos destacados.'))}>Testar preenchimento</Button>
         <Button type="button" size="sm" variant="ghost" onClick={() => onAnswers({})}>Limpar</Button>
       </div>
@@ -271,7 +271,7 @@ function VisibilityRule({ fieldKey, field, fields, schema, onChange }: {
   }
 
   return (
-    <div className="schema-editor-visibility sm:col-span-2" role="group" aria-label={`Visibilidade de ${field.title || fieldKey}`}>
+    <div className="schema-editor-visibility col-span-full" role="group" aria-label={`Visibilidade de ${field.title || fieldKey}`}>
       <span className="schema-editor-visibility-label">Quando exibir</span>
       <NativeSelect aria-label={`Pergunta que exibe ${field.title || fieldKey}`} value={sourceKey} onChange={(event) => selectSource(event.target.value)}>
         <NativeSelectOption value="">Sempre mostrar</NativeSelectOption>
