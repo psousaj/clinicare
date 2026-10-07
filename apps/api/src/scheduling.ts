@@ -39,7 +39,7 @@ function unprotect(row: any, tenantId: string, table: string, id: string, column
 }
 
 function appointmentResponse(row: any, items: any[]) {
-  return { id: row.id, _id: row.id, tenantId: row.tenantId, patientId: row.patientId, startsAt: row.startsAt, endsAt: row.endsAt, status: row.status, deletedAt: row.deletedAt, createdAt: row.createdAt, updatedAt: row.updatedAt, notes: unprotect(row, row.tenantId, 'appointments', row.id, 'notes'), items: items.map(idShape) };
+  return { id: row.id, _id: row.id, tenantId: row.tenantId, patientId: row.patientId, startsAt: row.startsAt, endsAt: row.endsAt, status: row.status, noShowReason: row.noShowReason, deletedAt: row.deletedAt, createdAt: row.createdAt, updatedAt: row.updatedAt, notes: unprotect(row, row.tenantId, 'appointments', row.id, 'notes'), items: items.map(idShape) };
 }
 function attendanceShape(row: any) {
   return { id: row.id, _id: row.id, tenantId: row.tenantId, patientId: row.patientId, followupId: row.followupId, followupItemId: row.followupItemId, appointmentId: row.appointmentId, procedureId: row.procedureId, procedureName: row.procedureName, performedAt: row.performedAt, durationMinutes: row.durationMinutes, schemaSnapshot: row.schemaSnapshot, status: row.status, cancellationReason: row.cancellationReason, createdAt: row.createdAt, updatedAt: row.updatedAt };
@@ -147,6 +147,7 @@ export async function updateAppointment(tenantId: string, id: string, input: any
     const existing = (await tx.select().from(appointments).where(and(eq(appointments.tenantId, tenantId), eq(appointments.id, id)))).at(0);
     if (!existing) return null;
     const status = input?.status;
+    if (status === 'no_show' && (typeof input?.reason !== 'string' || !input.reason.trim())) throw invalid('Informe o motivo do não comparecimento.');
     if (status && !['planned', 'confirmed', 'rescheduled', 'cancelled', 'no_show'].includes(status)) throw invalid('Status de agendamento inválido.');
     // Confirmation creates attendances and advances contracted sessions atomically. It
     // must go through /confirm rather than being smuggled into a generic PATCH.
@@ -169,7 +170,7 @@ export async function updateAppointment(tenantId: string, id: string, input: any
         if (!row || item.quantity > row.sessionsTotal - row.sessionsPerformed - await reservationCount(tx, tenantId, item.followupItemId!, id)) throw conflict('Sessões insuficientes para o reagendamento.');
       }
     }
-    await tx.update(appointments).set({ startsAt, endsAt, ...(status ? { status } : {}), updatedAt: new Date() }).where(and(eq(appointments.tenantId, tenantId), eq(appointments.id, id)));
+    await tx.update(appointments).set({ startsAt, endsAt, ...(status ? { status, noShowReason: status === 'no_show' ? input.reason.trim() : null } : {}), updatedAt: new Date() }).where(and(eq(appointments.tenantId, tenantId), eq(appointments.id, id)));
     return readAppointment(tenantId, id, tx);
   });
 }

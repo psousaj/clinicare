@@ -180,6 +180,7 @@ export const appointmentSchema = z.looseObject({
   startsAt: z.string(),
   endsAt: z.string(),
   status: z.string(),
+  noShowReason: z.string().nullish(),
   notes: z.string().nullish(),
   items: z.array(appointmentItemSchema).default([]),
 });
@@ -194,6 +195,7 @@ export const attendancePhotoSchema = z.looseObject({
 export const attendanceSchema = z.looseObject({
   id: z.string(),
   patientId: refId,
+  appointmentId: z.string().nullish(),
   procedureName: z.string(),
   performedAt: z.string(),
   durationMinutes: z.number().nullish(),

@@ -507,8 +507,25 @@ describe('Agenda', () => {
     expect(checkbox).toBeChecked();
     await user.click(checkbox);
     expect(checkbox).not.toBeChecked();
-    await user.click(within(dialog).getByRole('button', { name: /confirmar todos/i }));
+    await user.click(within(dialog).getByRole('button', { name: /confirmar atendimento/i }));
     await waitFor(() => expect(calls.find((call) => call.method === 'POST' && call.url === '/api/appointments/ap1/confirm')?.body).toEqual({ selectedItemIds: [] }));
+  });
+
+  it('asks for payment when confirming an unpaid follow-up session', async () => {
+    routes['GET /api/appointments'] = () => [appointment];
+    routes['GET /api/followups'] = () => [followup];
+    routes['POST /api/appointments/ap1/confirm'] = () => appointment;
+    routes['POST /api/payments'] = () => ({ _id: 'payment1' });
+    const user = userEvent.setup();
+    renderAt('/agenda');
+    await user.click(await screen.findByTitle('Marina Alves · Agendado'));
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText(/Pagamento do acompanhamento pendente/i)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: /continuar para pagamento/i }));
+    await user.type(within(dialog).getByLabelText('Valor recebido do plano'), '5');
+    await user.click(within(dialog).getByRole('button', { name: /registrar e confirmar atendimento/i }));
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST' && call.url === '/api/payments')?.body).toMatchObject({ followupId: 'pl1', amountCents: 500 }));
+    await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url === '/api/appointments/ap1/confirm')).toBe(true));
   });
 });
 

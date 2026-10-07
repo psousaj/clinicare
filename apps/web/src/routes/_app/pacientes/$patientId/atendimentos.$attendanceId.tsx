@@ -57,10 +57,10 @@ function Record({ attendance }: { attendance: Attendance }) {
         onSubmit={(answers) => update.mutate({ data: answers, notes: notes.trim() || null, durationMinutes: duration ? Number(duration) : null })}
         actions={(
           <div className="mt-4 grid gap-4">
-            <Label className="flex-col items-stretch gap-1.5">
+            {attendance.appointmentId && <Label className="flex-col items-stretch gap-1.5">
               Duração (minutos)
               <Input type="number" min={1} max={1440} step={1} value={duration} onChange={(event) => setDuration(event.target.value)} placeholder="Ex.: 60" className="max-w-40" />
-            </Label>
+            </Label>}
             <Label className="flex-col items-stretch gap-1.5">
               Observações do atendimento
               <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={5} placeholder="Evolução, reações, orientações ao paciente…" />

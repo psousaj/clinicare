@@ -246,7 +246,7 @@ export const app = new Hono()
     try { const body = await c.req.json().catch(() => ({})); return c.json(await confirmAppointment(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), Array.isArray(body?.selectedItemIds) ? body.selectedItemIds : undefined)); } catch (error) { return handleError(c, error); }
   })
   .post('/api/appointments/:id/no-show', async (c) => {
-    try { const result = await updateAppointment(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), { status: 'no_show' }); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
+    try { const body = await c.req.json().catch(() => ({})); const result = await updateAppointment(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), { status: 'no_show', reason: body.reason }); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
   })
   .post('/api/appointments/:id/cancel', async (c) => {
     try { const result = await updateAppointment(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), { status: 'cancelled' }); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); }

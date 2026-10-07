@@ -78,7 +78,7 @@ function PatientDetail() {
               {patientFollowups.map((followup) => <FollowupCard key={followup.id} followup={followup} patientId={patientId} />)}
             </section>
             {standaloneCharges.length > 0 && (
-              <section className="panel">
+          <section className="panel patient-history-panel">
                 <div className="panel-header"><div><div className="section-kicker">COBRANÇA</div><h2>Atendimentos avulsos</h2></div></div>
                 {standaloneCharges.map((followup) => <FollowupCard key={followup.id} followup={followup} patientId={patientId} />)}
               </section>

@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { Check, ChevronsUpDown, Search } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -26,11 +27,14 @@ const localTime = (value: string) => { const date = new Date(value); return `${S
 
 export function AppointmentDialog({ open, selection, appointment, patientId, patients, followups, procedures, onClose }: { open: boolean; selection?: Selection | null; appointment?: Appointment | null; patientId?: string; patients: Patient[]; followups: Followup[]; procedures: Procedure[]; onClose: () => void }) {
   const create = useCreateAppointment(), update = useUpdateAppointment(), remove = useDeleteAppointment(), confirm = useConfirmAppointment();
+  const createPayment = useCreatePayment();
   const [date, setDate] = useState<string>(), [start, setStart] = useState<string>(), [end, setEnd] = useState<string>();
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [paymentStep, setPaymentStep] = useState(false), [paymentAmount, setPaymentAmount] = useState(''), [paymentMethod, setPaymentMethod] = useState<'pix' | 'cash' | 'credit_card'>('pix');
   const [confirmDelete, setConfirmDelete] = useState(false);
   useEffect(() => {
     setConfirmDelete(false);
+    setPaymentStep(false); setPaymentAmount('');
     if (!appointment) { setDate(undefined); setStart(undefined); setEnd(undefined); setSelectedItemIds([]); return; }
     setDate(localDate(appointment.startsAt)); setStart(localTime(appointment.startsAt)); setEnd(localTime(appointment.endsAt));
     setSelectedItemIds(appointment.items.filter((item) => item.confirmationStatus !== 'deselected').map((item) => item.id));
@@ -38,6 +42,21 @@ export function AppointmentDialog({ open, selection, appointment, patientId, pat
   const description = appointment
     ? `${new Date(appointment.startsAt).toLocaleString('pt-BR')} – ${new Date(appointment.endsAt).toLocaleTimeString('pt-BR')}`
     : selection ? `${new Date(selection.start).toLocaleString('pt-BR')} – ${new Date(selection.end).toLocaleTimeString('pt-BR')}` : 'Escolha o paciente, o horário e o que será realizado na sessão.';
+  const selectedFollowupIds = appointment ? [...new Set(appointment.items.filter((item) => selectedItemIds.includes(item.id) && item.followupId).map((item) => item.followupId!))] : [];
+  const unpaidFollowups = selectedFollowupIds.map((id) => followups.find((followup) => followup.id === id)).filter((followup): followup is Followup => !!followup).map((followup) => ({ followup, due: Math.max(0, followup.priceCents - followup.payments.reduce((sum, payment) => sum + payment.amountCents, 0)) })).filter(({ due }) => due > 0);
+  const confirmSelected = async () => {
+    if (!appointment) return;
+    const parsedAmount = Number(paymentAmount.replace(',', '.'));
+    if (paymentStep && paymentAmount.trim() && (!Number.isFinite(parsedAmount) || parsedAmount < 0)) throw new Error('Informe um valor válido ou deixe zero para registrar depois.');
+    const amountCents = Math.round(parsedAmount * 100);
+    if (paymentStep && amountCents > 0) {
+      const target = unpaidFollowups[0];
+      if (!target || amountCents > target.due) throw new Error('O valor não pode exceder o saldo do acompanhamento.');
+      await createPayment.mutateAsync({ followupId: target.followup.id, amountCents, method: paymentMethod });
+    }
+    await confirm.mutateAsync({ id: appointment.id, selectedItemIds });
+    onClose();
+  };
   const actions = appointment ? (
     confirmDelete ? <><Button type="button" variant="outline" onClick={() => setConfirmDelete(false)}>Manter</Button><Button type="button" variant="destructive" disabled={remove.isPending} onClick={() => remove.mutateAsync(appointment.id).then(onClose)}>Confirmar exclusão</Button></>
       : <Button type="button" variant="destructive" onClick={() => setConfirmDelete(true)}>Excluir agendamento</Button>
@@ -80,7 +99,9 @@ export function AppointmentDialog({ open, selection, appointment, patientId, pat
             <Field label="Início"><TimePicker value={start} onChange={setStart} /></Field>
             <Field label="Fim"><TimePicker value={end} onChange={setEnd} /></Field>
           </div>
-          <div className="rounded-lg border border-border p-3"><div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Procedimentos agendados</div><ul className="m-0 grid gap-1 text-sm">{appointment.items.map((item) => <li key={item.id} className="flex items-center gap-2"><Checkbox checked={selectedItemIds.includes(item.id)} onCheckedChange={(checked) => setSelectedItemIds((current) => checked === true ? [...new Set([...current, item.id])] : current.filter((id) => id !== item.id))} disabled={item.confirmationStatus === 'confirmed'} aria-label={`Selecionar ${item.procedureName}`} /> <span>{item.procedureName}{item.quantity > 1 ? ` ×${item.quantity}` : ''}</span> <StatusBadge tone={item.followupItemId ? 'neutral' : 'warning'}>{item.followupItemId ? 'Abate o plano' : 'Avulso'}</StatusBadge></li>)}</ul><Button type="button" className="mt-3" disabled={confirm.isPending || appointment.status !== 'planned' && appointment.status !== 'rescheduled'} onClick={() => confirm.mutate({ id: appointment.id, selectedItemIds })}>Confirmar todos</Button></div>
+          <div className="rounded-lg border border-border p-3"><div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Procedimentos agendados</div><ul className="m-0 grid gap-1 text-sm">{appointment.items.map((item) => <li key={item.id} className="flex items-center gap-2"><Checkbox checked={selectedItemIds.includes(item.id)} onCheckedChange={(checked) => setSelectedItemIds((current) => checked === true ? [...new Set([...current, item.id])] : current.filter((id) => id !== item.id))} disabled={item.confirmationStatus === 'confirmed'} aria-label={`Selecionar ${item.procedureName}`} /> <span>{item.procedureName}{item.quantity > 1 ? ` ×${item.quantity}` : ''}</span> <StatusBadge tone={item.followupItemId ? 'neutral' : 'warning'}>{item.followupItemId ? 'Abate o plano' : 'Avulso'}</StatusBadge></li>)}</ul>
+            {unpaidFollowups.length > 0 && <div className="mt-3 grid gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3"><strong className="text-sm">Pagamento do acompanhamento pendente</strong><p className="m-0 text-xs text-muted-foreground">Saldo de {unpaidFollowups[0]!.followup.offerName}: {currency(unpaidFollowups[0]!.due)}. Informe o valor recebido agora ou deixe zero para registrar depois no Financeiro.</p><div className="grid gap-2 sm:grid-cols-2"><Field label="Valor recebido (R$)"><Input aria-label="Valor recebido do plano" inputMode="decimal" value={paymentAmount} onChange={(event) => setPaymentAmount(event.target.value)} placeholder="0,00" /></Field><Field label="Forma de pagamento"><NativeSelect aria-label="Forma de pagamento da confirmação" value={paymentMethod} onChange={(event) => setPaymentMethod(event.target.value as typeof paymentMethod)}><NativeSelectOption value="pix">PIX</NativeSelectOption><NativeSelectOption value="cash">Dinheiro</NativeSelectOption><NativeSelectOption value="credit_card">Cartão de crédito</NativeSelectOption></NativeSelect></Field></div></div>}
+            <div className="mt-3 flex flex-wrap gap-2">{unpaidFollowups.length > 0 && !paymentStep ? <Button type="button" disabled={appointment.status !== 'planned' && appointment.status !== 'rescheduled'} onClick={() => setPaymentStep(true)}>Continuar para pagamento</Button> : <Button type="button" disabled={confirm.isPending || createPayment.isPending || appointment.status !== 'planned' && appointment.status !== 'rescheduled'} onClick={() => void confirmSelected().catch((error: Error) => toast.error(error.message))}>{paymentStep ? 'Registrar e confirmar atendimento' : 'Confirmar atendimento'}</Button>}{paymentStep && <Button type="button" variant="outline" onClick={() => { setPaymentAmount(''); setPaymentStep(false); }}>Voltar</Button>}</div></div>
         </>
       ) : <AppointmentFields selection={selection} lockedPatientId={patientId} patients={patients} followups={followups} procedures={procedures} />}
     </FormDialog>

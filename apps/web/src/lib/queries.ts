@@ -155,7 +155,7 @@ export const useCreateCombo = () => useApiMutation({ mutationFn: (body: unknown)
 export const useCreateFollowup = () =>
   useApiMutation({
     mutationFn: (body: unknown) => post('/api/followups', body),
-    invalidate: everything,
+    invalidate: [...everything, keys.signaturePending],
     success: (result) => {
       const contracts = (result as { contracts?: Array<{ status?: string }> } | null)?.contracts ?? [];
       return contracts.some((contract) => contract.status === 'generating')
@@ -175,7 +175,7 @@ export const useCreatePayment = () => useApiMutation({ mutationFn: (body: unknow
 export const useDeleteAppointment = () =>
   useApiMutation({ mutationFn: (id: string) => api(`/api/appointments/${id}`, { method: 'DELETE', schema: anySchema }), invalidate: [keys.appointments, keys.patients], success: 'Agendamento cancelado.' });
 export const useConfirmAppointment = () => useApiMutation({ mutationFn: ({ id, selectedItemIds }: { id: string; selectedItemIds?: string[] }) => post(`/api/appointments/${id}/confirm`, { selectedItemIds }), invalidate: everything, success: 'Atendimento confirmado.' });
-export const useNoShowAppointment = () => useApiMutation({ mutationFn: (id: string) => post(`/api/appointments/${id}/no-show`, {}), invalidate: [keys.appointments, keys.followups, keys.patients], success: 'Não comparecimento registrado.' });
+export const useNoShowAppointment = () => useApiMutation({ mutationFn: ({ id, reason }: { id: string; reason: string }) => post(`/api/appointments/${id}/no-show`, { reason }), invalidate: [keys.appointments, keys.followups, keys.patients], success: 'Não comparecimento registrado.' });
 export const useCancelAttendance = () => useApiMutation({ mutationFn: ({ id, reason }: { id: string; reason: string }) => api(`/api/attendances/${id}/cancel`, { method: 'PATCH', body: { reason }, schema: anySchema }), invalidate: everything, success: 'Atendimento cancelado.' });
 export const useUpdateAttendance = (id: string) =>
   useApiMutation({ mutationFn: (body: { notes?: string | null; data?: Record<string, unknown>; durationMinutes?: number | null }) => api(`/api/attendances/${id}`, { method: 'PATCH', body, schema: anySchema }), invalidate: [keys.attendance(id), keys.patients], success: 'Acompanhamento salvo.' });

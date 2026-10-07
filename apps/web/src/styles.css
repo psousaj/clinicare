@@ -2243,3 +2243,9 @@ a.patient-row {
   font-size: 14px;
   line-height: 1.6;
 }
+
+.patient-history-panel {
+  max-height: 760px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

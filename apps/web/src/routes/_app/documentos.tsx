@@ -14,7 +14,12 @@ import { signaturePendingQuery } from '@/lib/queries';
 export const Route = createFileRoute('/_app/documentos')({ component: Documents });
 
 function Documents() {
-  const pending = useQuery(signaturePendingQuery);
+  const pending = useQuery({
+    ...signaturePendingQuery,
+    // A geração do contrato e a criação dos participantes acontecem em
+    // background; mantém a fila viva até o processo aparecer.
+    refetchInterval: 4000,
+  });
   const [selected, setSelected] = useState<ProfessionalSignItem | null>(null);
   const mine = (pending.data ?? []).filter((item) => item.role === 'professional' && item.status === 'pending');
   const waitingPatient = (pending.data ?? []).filter((item) => item.role === 'patient' && item.status === 'pending');

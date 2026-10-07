@@ -14,6 +14,7 @@ export const Route = createFileRoute('/_app/financeiro')({ component: Finance })
 function Finance() {
   const followups = useQuery(followupsQuery), patients = useQuery(patientsQuery);
   const [paymentFollowup, setPaymentFollowup] = useState<Followup | null>(null);
+  const [filter, setFilter] = useState<'all' | 'pending' | 'paid'>('all');
   const patientList = patients.data ?? [];
   const entries = followups.data ?? [];
   const received = (entry: Followup) => entry.payments.reduce((sum, payment) => sum + payment.amountCents, 0);
@@ -21,6 +22,7 @@ function Finance() {
   const totalReceived = entries.reduce((sum, entry) => sum + received(entry), 0);
   const totalBalance = entries.reduce((sum, entry) => sum + balance(entry), 0);
   const openEntries = entries.filter((entry) => balance(entry) > 0).length;
+  const filteredEntries = entries.filter((entry) => filter === 'all' || (filter === 'pending' ? balance(entry) > 0 : balance(entry) === 0));
   return (
     <section className="panel">
       <div className="panel-header"><div><div className="section-kicker">PAGAMENTOS E SALDOS</div><h2>Financeiro</h2></div></div>
@@ -32,8 +34,11 @@ function Finance() {
       </div>}
       {followups.isSuccess && entries.length === 0 && <p className="text-sm text-muted-foreground">Nenhum acompanhamento iniciado. Inicie um acompanhamento pela ficha do paciente para acompanhar pagamentos e saldos.</p>}
       {followups.isPending && <p className="text-sm text-muted-foreground">Carregando acompanhamentos…</p>}
+      {followups.isSuccess && <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Filtrar financeiro">
+        {([['all', `Todos (${entries.length})`], ['pending', `Pendentes (${openEntries})`], ['paid', `Pagos (${entries.length - openEntries})`]] as const).map(([value, label]) => <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} className={`rounded-full border px-3 py-1.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${filter === value ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-white text-foreground hover:bg-muted'}`}>{label}</button>)}
+      </div>}
       <div className="grid gap-3">
-        {entries.map((followup) => {
+        {filteredEntries.map((followup) => {
           const paid = received(followup), due = balance(followup), settled = due === 0;
           return <article className="rounded-xl border border-border p-4" key={followup.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -51,6 +56,7 @@ function Finance() {
             {due > 0 && <div className="mt-4 flex justify-end"><button className="text-button" onClick={() => setPaymentFollowup(followup)}>Registrar pagamento</button></div>}
           </article>;
         })}
+        {followups.isSuccess && entries.length > 0 && filteredEntries.length === 0 && <p className="m-0 text-sm text-muted-foreground">Nenhum registro nesta categoria.</p>}
       </div>
       <PaymentDialog followup={paymentFollowup} onClose={() => setPaymentFollowup(null)} />
     </section>

@@ -138,7 +138,7 @@ integration('PostgreSQL scheduling and attendance', () => {
 
   it('marks no-show only after the end and hides cancelled appointments', async () => {
     const f = await fixture(1); const appointment = await (await reserve(f.patientId, f.itemId, new Date(Date.now() - 2 * 86400000))).json() as any;
-    expect((await post(`/api/appointments/${appointment.id}/no-show`, {})).status).toBe(200);
+    expect((await post(`/api/appointments/${appointment.id}/no-show`, { reason: 'Paciente não compareceu' })).status).toBe(200);
     expect((await request('/api/appointments')).json()).resolves.not.toContainEqual(expect.objectContaining({ id: appointment.id }));
   });
 
