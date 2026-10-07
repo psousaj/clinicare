@@ -14,7 +14,7 @@ import { createPayment, deletePayment, listPayments } from './payments';
 import { deleteObject } from './storage';
 import { addAnamnesisNote, answerAppliedAnamnesis, createAnamnesisRequest, createAppliedAnamnesis, deleteAppliedDocument, getAppliedDocument, listAnamnesisNotes, listAppliedDocuments, materializeAppliedDocumentResult, presignAppliedDocument, readAppliedAnamnesis, readPublicAnamnesis, refreshAnamnesisRequest, retryDocumentCleanupJobs, saveAnamnesisDraft, submitPublicAnamnesis } from './clinical';
 import { authHandler, clinicSession, requireClinicSession } from './auth-routes';
-import { getAccount, getProfessionalProfile, updateInitialPasswordChoice, updateProfessionalProfile } from './account-routes';
+import { getAccount, getProfessionalProfile, updateAccount, updateInitialPasswordChoice, updateProfessionalProfile } from './account-routes';
 import { getContractDraftEditor, listContractPlaceholders, presignContractDraft, publishContractDraft, saveContractDraft } from './contract-authoring';
 import { generateFollowupContract, reprocessFollowupContract, retryFollowupContract } from './contract-generation';
 
@@ -61,6 +61,7 @@ export const app = new Hono()
   // abaixo com 404 se viesse primeiro.
   .post('/api/auth/initial-password-choice', requireClinicSession, updateInitialPasswordChoice)
   .get('/api/auth/me', requireClinicSession, getAccount)
+  .patch('/api/auth/me', requireClinicSession, updateAccount)
   .get('/api/auth/professional-profile', requireClinicSession, getProfessionalProfile)
   .put('/api/auth/professional-profile', requireClinicSession, updateProfessionalProfile)
   .on(['POST', 'GET'], '/api/auth/*', (c) => authHandler(c.req.raw))

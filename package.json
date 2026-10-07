@@ -25,6 +25,7 @@
     "db:migrate": "turbo run db:migrate --filter=@clinicare/db",
     "db:seed": "turbo run db:seed --filter=@clinicare/db",
     "provision-tenant": "bun run --cwd apps/api src/admin-commands.ts provision-tenant",
+    "manage": "bun run --cwd apps/api src/manage.ts",
     "reset-clinic-password": "bun run --cwd apps/api src/admin-commands.ts reset-password",
     "change-clinic-email": "bun run --cwd apps/api src/admin-commands.ts change-email",
     "secrets:generate": "bun run scripts/generate-secrets.ts",

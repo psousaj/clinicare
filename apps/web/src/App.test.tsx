@@ -837,6 +837,21 @@ describe('Acompanhamentos', () => {
     expect(await screen.findByLabelText('Link da anamnese')).toHaveValue(`${location.origin}/formulario/tok9`);
   });
 
+  it('shows a single area per contract after reprocessing (cancelled row hidden)', async () => {
+    routes['GET /api/followups'] = () => [pendingFollowup({
+      anamneses: [],
+      contracts: [
+        { id: 'c-old', title: 'Contrato padrão', signedAt: null, status: 'cancelled' },
+        { id: 'c-new', title: 'Contrato padrão', signedAt: null, status: 'pending' },
+      ],
+    })];
+    routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
+    renderAt('/pacientes/p1');
+    const list = await screen.findByRole('list', { name: 'Contratos de Combo pele' });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(1);
+    expect(within(list).getByRole('button', { name: /histórico de assinaturas/i })).toBeInTheDocument();
+  });
+
   it('lists pending and signed contracts below the answered anamneses with shortcuts', async () => {
     routes['GET /api/followups'] = () => [pendingFollowup({
       anamneses: [],

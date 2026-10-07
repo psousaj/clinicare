@@ -24,5 +24,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages/db ./packages/db
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/package.json ./package.json
+# CLI administrativo direto no PATH: `manage tenant list` dentro do container.
+COPY --from=build /app/docker/manage /usr/local/bin/manage
+RUN chmod +x /usr/local/bin/manage
 EXPOSE 3000
 CMD ["bun", "apps/api/dist/index.js"]

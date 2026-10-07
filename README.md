@@ -33,7 +33,17 @@ docker compose down -v
 docker compose up --build
 ```
 
-No primeiro startup, o app cria a conta administrativa inicial usando `BOOTSTRAP_CLINIC_NAME`, `BOOTSTRAP_ADMIN_NAME`, `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD` do ambiente. Configure-as com valores próprios e fortes (em produção, use um gerenciador de secrets). O seed roda em todo startup, mas não altera senha nem sobrescreve uma conta existente; para trocar a senha, use `bun run reset-clinic-password --admin-email email --admin-password senha`.
+No primeiro startup, o app cria a conta administrativa inicial usando `BOOTSTRAP_CLINIC_NAME`, `BOOTSTRAP_ADMIN_NAME`, `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD` do ambiente — as quatro são opcionais e só valem juntas. Configure-as com valores próprios e fortes (em produção, use um gerenciador de secrets). O seed roda em todo startup, mas não altera senha, conta existente nem os nomes editados em Configurações → Clínica e conta; para trocar a senha, use `bun run reset-clinic-password --admin-email email --admin-password senha`. Sem as chaves de bootstrap, provisione a primeira clínica com `bun run provision-tenant --clinic-name "Nome" --admin-name "Nome" --admin-email email --admin-password senha`. De dentro do container (banco vazio, sem env), use o CLI avulso — a senha é pedida no stdin sem eco, nunca vai para o ambiente nem para o histórico do shell:
+
+```bash
+docker compose exec app manage tenant create --name "Minha Clínica"
+# anote o id impresso e crie o admin (use -it para o prompt oculto de senha):
+docker compose exec -it app manage admin create --tenant-id <id> --name "Responsável" --email admin@clinica.com
+docker compose exec app manage tenant list
+docker compose exec app manage admin list
+```
+
+O `manage` está no PATH da imagem (wrapper em `/usr/local/bin/manage` → `dist/manage.js`); dentro do container é só `manage ...`, como `cd`/`pwd`.
 
 Para gerar os segredos próprios do app no formato esperado, rode `bun run secrets:generate` e copie as linhas para `.env`. O comando imprime valores novos sem alterar arquivos; não regenere chaves de uma instalação existente, pois elas são necessárias para ler dados protegidos. Credenciais do PostgreSQL e do Cloudflare R2 devem vir desses serviços, não deste gerador.
 

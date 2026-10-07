@@ -79,12 +79,54 @@ export async function provisionClinic(input: ProvisionClinicInput) {
 
 const BOOTSTRAP_ENV_KEYS = ['BOOTSTRAP_CLINIC_NAME', 'BOOTSTRAP_ADMIN_NAME', 'BOOTSTRAP_ADMIN_EMAIL', 'BOOTSTRAP_ADMIN_PASSWORD'] as const;
 
+export type CreateTenantInput = { name: string };
+export type CreateAdministratorInput = { tenantId: string; administratorName: string; email: string; password: string };
+
+// Criação avulsa de tenant pelo CLI `manage` (banco vazio sem bootstrap, p. ex.).
+export async function createTenant(input: CreateTenantInput) {
+  const name = requireText(input.name, 'Nome da clínica');
+  if (name.length < 2) throw new Error('Nome da clínica deve ter ao menos 2 caracteres.');
+  const [tenant] = await getDatabase().insert(tenants).values({ name, active: true }).returning({ id: tenants.id, name: tenants.name, active: tenants.active });
+  return tenant;
+}
+
+export async function listTenants() {
+  return getDatabase().select({ id: tenants.id, name: tenants.name, active: tenants.active }).from(tenants).orderBy(tenants.name);
+}
+
+// Criação avulsa de administrador pelo CLI `manage`. A senha chega pelo
+// stdin (prompt oculto) ou --password; nunca é lida do ambiente.
+export async function createClinicAdministrator(input: CreateAdministratorInput) {
+  const tenantId = requireText(input.tenantId, 'Tenant');
+  const administratorName = requireText(input.administratorName, 'Nome do administrador');
+  const email = normalizeEmail(requireText(input.email, 'E-mail'));
+  const password = requireText(input.password, 'Senha');
+  if (password.length < 8) throw new Error('A senha deve ter pelo menos 8 caracteres.');
+  if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error('E-mail inválido.');
+  const database = getDatabase();
+  const [tenant] = await database.select({ id: tenants.id }).from(tenants).where(eq(tenants.id, tenantId));
+  if (!tenant) throw new Error('Tenant não encontrado.');
+  const [existing] = await database.select({ id: authUsers.id }).from(authUsers).where(eq(authUsers.email, email));
+  if (existing) throw new Error('E-mail já está em uso.');
+  const user = await createBetterAuthClinicAdministrator({ tenantId, administratorName, email, password });
+  return { id: user.id, name: user.name, email: user.email, tenantId };
+}
+
+export async function listAdministrators(tenantId?: string) {
+  const database = getDatabase();
+  const where = tenantId ? eq(authUsers.tenantId, requireText(tenantId, 'Tenant')) : undefined;
+  const rows = where
+    ? await database.select({ id: authUsers.id, name: authUsers.name, email: authUsers.email, tenantId: authUsers.tenantId }).from(authUsers).where(where).orderBy(authUsers.email)
+    : await database.select({ id: authUsers.id, name: authUsers.name, email: authUsers.email, tenantId: authUsers.tenantId }).from(authUsers).orderBy(authUsers.email);
+  return rows;
+}
+
 export function bootstrapConfigFromEnv(env: Record<string, string | undefined> = process.env): ProvisionClinicInput | null {
   const values = BOOTSTRAP_ENV_KEYS.map((key) => env[key]?.trim() ?? '');
-  if (values.every((value) => !value)) {
-    if (env.NODE_ENV === 'production') throw new Error('Bootstrap administrativo obrigatório: configure BOOTSTRAP_CLINIC_NAME, BOOTSTRAP_ADMIN_NAME, BOOTSTRAP_ADMIN_EMAIL e BOOTSTRAP_ADMIN_PASSWORD.');
-    return null;
-  }
+  // Bootstrap é opcional em qualquer ambiente: sem as quatro chaves, o
+  // servidor sobe sem provisionar ninguém (use `provision-tenant` no CLI
+  // ou cadastre pela primeira conta). Nomes depois mudam em Configurações.
+  if (values.every((value) => !value)) return null;
   if (values.some((value) => !value)) throw new Error('Configure todas as variáveis BOOTSTRAP_* para criar o administrador inicial.');
   const [clinicName, administratorName, email, password] = values;
   return { tenantId: tenantDefaults.id, clinicName: clinicName!, administratorName: administratorName!, email: email!, password: password! };
@@ -93,17 +135,20 @@ export function bootstrapConfigFromEnv(env: Record<string, string | undefined> =
 /** Creates the configured first clinic administrator once; later boots never reset its password. */
 export async function seedConfiguredAdministrator(env: Record<string, string | undefined> = process.env) {
   const config = bootstrapConfigFromEnv(env);
-  if (!config) return null;
+  if (!config) {
+    if (env.NODE_ENV === 'production') console.warn('Nenhuma variável BOOTSTRAP_* configurada; pulando o provisionamento inicial. Use `provision-tenant` se ainda não houver administrador.');
+    return null;
+  }
   const values = validateProvisionInput(config);
   const pool = getDatabasePool();
   const lock = await pool.connect();
   try {
     await lock.query('select pg_advisory_lock(hashtext($1))', ['clinicare:bootstrap-administrator']);
     const database = getDatabase();
+    // Garante o tenant sem tocar no nome: ele já nasce com o nome do seed
+    // (que usa BOOTSTRAP_CLINIC_NAME quando informado) e depois só muda
+    // em Configurações. Renomear aqui a cada boot reverteria a edição do painel.
     await database.insert(tenants).values({ id: tenantDefaults.id, name: values.clinicName, active: true }).onConflictDoNothing({ target: tenants.id });
-    // O nome da clínica logada é o do bootstrap; sem isso, o placeholder
-    // clinic.name continuava renderizando o nome padrão do seed ("Clínicare").
-    await database.update(tenants).set({ name: values.clinicName }).where(eq(tenants.id, tenantDefaults.id));
     const [existingTenantUser] = await database.select().from(authUsers).where(eq(authUsers.tenantId, tenantDefaults.id));
     if (existingTenantUser) {
       if (existingTenantUser.email !== values.email) throw new Error('Já existe um administrador para a clínica inicial; o bootstrap não altera contas existentes.');

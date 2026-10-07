@@ -7,7 +7,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Field } from '@/components/Field';
 import { Button } from '@/components/ui/button';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { professionalProfileQuery, sessionQuery, useSaveProfessionalProfile } from '@/lib/queries';
+import { professionalProfileQuery, accountQuery, sessionQuery, useSaveProfessionalProfile, useUpdateAccount } from '@/lib/queries';
 
 export const Route = createFileRoute('/_app/configuracoes')({ component: Settings });
 
@@ -40,7 +40,9 @@ function Settings() {
   const stampLine = council && number.trim() ? `${council} ${number.trim()}${state ? `/${state}` : ''}` : null;
 
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-[1fr_340px]">
+    <div className="grid items-start gap-4">
+      <ClinicAccountPanel />
+      <div className="grid items-start gap-4 lg:grid-cols-[1fr_340px]">
       <section className="panel grid gap-4">
         <div className="panel-header">
           <div>
@@ -102,6 +104,58 @@ function Settings() {
         )}
         <p className="m-0 text-xs text-muted-foreground">É assim que sua identificação sai impressa no contrato do paciente.</p>
       </aside>
+      </div>
     </div>
+  );
+}
+
+// Clínica e conta: nome da clínica (topo, contratos, identidade pública)
+// e nome do responsável (carimbo, assinaturas, histórico). E-mail e senha
+// continuam gerenciados pelos comandos administrativos; o bootstrap via
+// env só provisiona na primeira criação e não sobrescreve estes nomes.
+function ClinicAccountPanel() {
+  const account = useQuery(accountQuery);
+  const save = useUpdateAccount();
+  const [clinicName, setClinicName] = useState('');
+  const [adminName, setAdminName] = useState('');
+
+  useEffect(() => {
+    if (!account.data) return;
+    setClinicName(account.data.tenant.name ?? '');
+    setAdminName(account.data.user.name ?? '');
+  }, [account.data]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await save.mutateAsync({ name: adminName.trim(), clinicName: clinicName.trim() });
+  }
+
+  return (
+    <section className="panel grid gap-4" aria-label="Clínica e conta">
+      <div className="panel-header">
+        <div>
+          <div className="section-kicker">CLÍNICA E CONTA</div>
+          <h2>Nome da clínica e do responsável</h2>
+        </div>
+      </div>
+      <p className="section-note m-0">
+        Estes nomes aparecem no topo do painel, nos contratos e no carimbo profissional.
+      </p>
+      <QueryError query={account} />
+      {account.isSuccess && (
+        <form className="grid gap-4" onSubmit={(event) => submit(event).catch(() => undefined)}>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Nome da clínica" name="clinicName" required minLength={2} value={clinicName} onChange={(event) => setClinicName(event.target.value)} placeholder="Ex.: Espaço Vida" />
+            <Field label="Nome do responsável" name="adminName" required minLength={2} value={adminName} onChange={(event) => setAdminName(event.target.value)} placeholder="Ex.: Dra. Ana Souza" />
+          </div>
+          <p className="section-note m-0">Acesso: {account.data.user.email ?? '—'} (e-mail e senha não mudam por aqui).</p>
+          <div>
+            <Button type="submit" disabled={save.isPending} className="transition-transform duration-150 ease-out active:scale-[0.97]">
+              {save.isPending ? 'Salvando…' : 'Salvar nomes'}
+            </Button>
+          </div>
+        </form>
+      )}
+    </section>
   );
 }

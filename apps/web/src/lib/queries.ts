@@ -57,6 +57,13 @@ export const useSaveProfessionalProfile = () =>
     invalidate: [keys.professionalProfile],
     success: 'Registro profissional salvo. Novos contratos já saem carimbados.',
   });
+export const useUpdateAccount = () =>
+  useApiMutation({
+    mutationFn: (body: { name?: string; clinicName?: string }) =>
+      api('/api/auth/me', { method: 'PATCH', body, schema: accountSchema }),
+    invalidate: [['account'], keys.session],
+    success: 'Dados da clínica atualizados.',
+  });
 export const signatureHistoryQuery = (followupContractId: string) =>
   queryOptions({ queryKey: keys.signatureHistory(followupContractId), queryFn: () => api(`/api/signature-history?followupContractId=${followupContractId}`, { schema: signatureHistorySchema, fallbackError: 'Não foi possível carregar o histórico de assinaturas.' }) });
 export const appliedAnamnesisQuery = (id: string) =>

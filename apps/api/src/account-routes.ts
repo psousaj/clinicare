@@ -19,6 +19,36 @@ export async function getAccount(c: Context) {
   return c.json({ user: session.user, tenant });
 }
 
+// Renomeia o responsável e/ou a clínica pelo painel (Configurações).
+// E-mail e senha continuam gerenciados pelos comandos administrativos;
+// o bootstrap via env só provisiona na primeira criação e nunca
+// sobrescreve estes nomes depois.
+export async function updateAccount(c: Context) {
+  const session = clinicSession(c);
+  const body = (await c.req.json().catch(() => null)) as { name?: unknown; clinicName?: unknown } | null;
+  if (!body || (body.name === undefined && body.clinicName === undefined)) {
+    return c.json({ error: 'Informe o nome do responsável ou o nome da clínica.' }, 400);
+  }
+  if (body.name !== undefined && (typeof body.name !== 'string' || body.name.trim().length < 2)) {
+    return c.json({ error: 'Nome do responsável deve ter ao menos 2 caracteres.' }, 400);
+  }
+  if (body.clinicName !== undefined && (typeof body.clinicName !== 'string' || body.clinicName.trim().length < 2)) {
+    return c.json({ error: 'Nome da clínica deve ter ao menos 2 caracteres.' }, 400);
+  }
+  const db = getDatabase();
+  if (typeof body.name === 'string') {
+    await db.update(authUsers).set({ name: body.name.trim() }).where(eq(authUsers.id, session.userId));
+  }
+  if (typeof body.clinicName === 'string') {
+    await db.update(tenants).set({ name: body.clinicName.trim() }).where(eq(tenants.id, session.tenantId));
+  }
+  // Re-responde com os dados frescos (o snapshot da sessão ainda tem os nomes antigos).
+  const [user] = await db.select({ id: authUsers.id, name: authUsers.name, email: authUsers.email }).from(authUsers).where(eq(authUsers.id, session.userId));
+  const [tenant] = await db.select({ id: tenants.id, name: tenants.name }).from(tenants).where(eq(tenants.id, session.tenantId));
+  if (!user || !tenant) return c.json({ error: 'Clínica não encontrada.' }, 404);
+  return c.json({ user, tenant });
+}
+
 export async function getProfessionalProfile(c: Context) {
   const session = clinicSession(c);
   const db = getDatabase();

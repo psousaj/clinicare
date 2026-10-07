@@ -20,6 +20,10 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
   const pendingAnamnesis = followup.anamneses.some((form) => form.required && !form.answered);
   const docContracts = followup.contracts.filter((contract) => contract.id && (contract.status === 'generating' || contract.status === 'failed'));
   const reprocessableContracts = followup.contracts.filter((contract) => contract.id && !contract.signedAt && contract.status !== 'signed' && contract.status !== 'cancelled');
+  // Reprocessamento cancela a linha antiga e cria uma substituta: o contrato
+  // continua sendo um só, então linhas canceladas são só auditoria e não
+  // rendem área própria no card.
+  const visibleContracts = followup.contracts.filter((contract) => contract.status !== 'cancelled');
   return (
     <article className="followup-card" data-state={state} aria-label={`${followup.offerName} (${offerLabel[followup.offerType]})`}>
       <header className="followup-card__head">
@@ -89,9 +93,9 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
           </div>
         );
       })}
-      {followup.contracts.length > 0 && (
+      {visibleContracts.length > 0 && (
         <ul className="followup-contracts" aria-label={`Contratos de ${followup.offerName}`}>
-          {followup.contracts.map((contract, index) => (
+          {visibleContracts.map((contract, index) => (
             <li key={contract.id ?? index} id={contract.id ? `followup-contract-${contract.id}` : undefined} className="followup-contract scroll-mt-24">
               <span className="flex flex-wrap items-center gap-2"><FileSignature className="size-3.5" /> {contract.title} · {contract.signedAt ? 'assinado' : 'assinatura pendente'}
                 {contract.status === 'generating' && <StatusBadge tone="warning">Gerando documento</StatusBadge>}

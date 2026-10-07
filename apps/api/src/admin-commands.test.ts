@@ -2,16 +2,13 @@ import { describe, expect, it } from 'bun:test';
 import { bootstrapConfigFromEnv } from './admin-commands';
 
 describe('initial administrator bootstrap configuration', () => {
-  it('is optional outside production when no bootstrap values are configured', () => {
+  it('is optional in any environment when no bootstrap values are configured', () => {
     expect(bootstrapConfigFromEnv({ NODE_ENV: 'development' })).toBeNull();
+    expect(bootstrapConfigFromEnv({ NODE_ENV: 'production' })).toBeNull();
   });
 
   it('requires the full bootstrap configuration when any value is provided', () => {
     expect(() => bootstrapConfigFromEnv({ BOOTSTRAP_ADMIN_EMAIL: 'admin@example.com' })).toThrow('Configure todas as variáveis BOOTSTRAP_*');
-  });
-
-  it('requires bootstrap credentials in production', () => {
-    expect(() => bootstrapConfigFromEnv({ NODE_ENV: 'production' })).toThrow('Bootstrap administrativo obrigatório');
   });
 
   it('uses the configured clinic administrator values without a default password', () => {

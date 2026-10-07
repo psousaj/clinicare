@@ -1,0 +1,3 @@
+#!/bin/sh
+# Atalho no PATH do container: `manage tenant list`, `manage admin create ...`
+exec bun /app/apps/api/dist/manage.js "$@"
