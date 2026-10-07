@@ -119,11 +119,11 @@ _Avoid_: paciente excluído, anonimização automática
 No MVP, não há exclusão ou anonimização automática de dados clínicos, financeiros, contratuais, de atendimentos ou respostas. Uma futura eliminação deve ser uma operação explícita, auditada e compatível com as obrigações legais e de continuidade do cuidado.
 
 **Plano**:
-Oferta de catálogo, distinta do combo, que agrupa procedimentos e contratos. No escopo atual, somente procedimentos podem ser incluídos diretamente em um plano; combos em planos ficam adiados. No MVP, é a única oferta que possui contratos para assinatura. Cada procedimento incluído tem sua própria quantidade de sessões, que respeita o mínimo do procedimento. O plano também pode ter duração e validade próprias. Alterações relevantes criam uma nova versão imutável; desativar o plano impede novas aplicações, mas preserva suas versões. Plano vencido apenas exibe o selo "Vencido" e não bloqueia nada.
-_Avoid_: combo dentro de plano, acompanhamento
+Oferta de catálogo, distinta do combo, que agrupa procedimentos avulsos, combos e contratos. Um combo entra no plano por referência e mantém as quantidades de sessões da própria configuração; o plano não as altera. No MVP, é a única oferta, junto com o evento, que possui contratos para assinatura. Cada procedimento avulso incluído tem sua própria quantidade de sessões, que respeita o mínimo do procedimento. O mesmo procedimento pode aparecer avulso e dentro de um combo do plano, como itens separados; o mesmo procedimento avulso ou o mesmo combo não se repete. O preço do plano é informado pelo profissional e a tela sugere a soma dos itens (preço do procedimento × sessões, mais o preço de cada combo, promocional quando houver), editável a qualquer momento. O plano também pode ter duração e validade próprias. Alterações relevantes criam uma nova versão imutável; desativar o plano impede novas aplicações, mas preserva suas versões. Plano vencido apenas exibe o selo "Vencido" e não bloqueia nada.
+_Avoid_: acompanhamento
 
 **Versão do plano**:
-Estado imutável da composição comercial de um plano em determinado momento, composto somente por procedimentos neste escopo. Inclui o snapshot comercial expandido de cada procedimento, suas quantidades, preço total, os contratos modelo aplicáveis e os schemas e dados necessários para interpretar a oferta sem consultar configurações mutáveis. A relação com contratos referencia somente os contratos modelo exigidos; não congela antecipadamente uma versão publicada. Em cada nova aplicação, a versão publicada corrente de cada contrato modelo é resolvida e então congelada no acompanhamento e nos contratos aplicados. Um plano pode referenciar um contrato modelo ainda sem versão publicada, mas sua aplicação é bloqueada até que exista uma versão publicada válida. Um acompanhamento captura a versão do plano e as versões correntes dos contratos no momento em que é iniciado, não passando a refletir alterações posteriores no plano nem novas publicações de contratos.
+Estado imutável da composição comercial de um plano em determinado momento, composto por procedimentos avulsos e combos. Inclui o snapshot comercial expandido de cada procedimento avulso e, para cada combo, seu nome e os itens do combo congelados naquele momento (procedimentos, quantidades, durações, preços e schemas), além do preço total, os contratos modelo aplicáveis e os schemas e dados necessários para interpretar a oferta sem consultar configurações mutáveis. A relação com contratos referencia somente os contratos modelo exigidos; não congela antecipadamente uma versão publicada. Em cada nova aplicação, a versão publicada corrente de cada contrato modelo é resolvida e então congelada no acompanhamento e nos contratos aplicados. Um plano pode referenciar um contrato modelo ainda sem versão publicada, mas sua aplicação é bloqueada até que exista uma versão publicada válida. Um acompanhamento captura a versão do plano e as versões correntes dos contratos no momento em que é iniciado, não passando a refletir alterações posteriores no plano nem novas publicações de contratos.
 _Avoid_: plano atual, edição retroativa, versão de contrato congelada no catálogo
 
 **Atendimento**:
@@ -250,7 +250,7 @@ Estado operacional de um agendamento, como planejado, confirmado, remarcado, can
 _Avoid_: status da sessão
 
 **Combo**:
-Conjunto comercial pré-configurado de procedimentos que são vendidos juntos. Cada item define a quantidade de sessões incluída, sugerida inicialmente pelo mínimo do procedimento e nunca inferior a ele. Pode ser padrão (sem prazo) ou promocional. O valor integral é a soma de (preço do procedimento × sessões) de cada item; o preço do combo começa nele e só pode ser aumentado, e o preço promocional pode ser reduzido mas nunca passar do preço do combo. Também pode ter vigência e preço próprios. Combos não compõem planos neste escopo. Alterações posteriores são protegidas em acompanhamentos por um snapshot da oferta aplicada; não há versionamento formal do catálogo de combos nesta etapa.
+Conjunto comercial pré-configurado de procedimentos que são vendidos juntos. Cada item define a quantidade de sessões incluída, sugerida inicialmente pelo mínimo do procedimento e nunca inferior a ele. Pode ser padrão (sem prazo) ou promocional. O valor integral é a soma de (preço do procedimento × sessões) de cada item; o preço do combo começa nele e só pode ser aumentado, e o preço promocional pode ser reduzido mas nunca passar do preço do combo. Também pode ter vigência e preço próprios. Um combo pode compor planos como item por referência, sem que o plano altere suas sessões; ao contratar o plano, os itens do combo expandem em itens de acompanhamento por procedimento. Alterações posteriores são protegidas em acompanhamentos por um snapshot da oferta aplicada; não há versionamento formal do catálogo de combos nesta etapa.
 _Avoid_: pacote, tratamento (quando significar a oferta comercial)
 
 **Item de combo**:
@@ -258,7 +258,7 @@ Procedimento incluído em um combo, com quantidade de sessões definida no próp
 _Avoid_: componente, produto do combo
 
 **Item de plano**:
-Procedimento incluído diretamente em um plano, com quantidade de sessões definida no próprio item e não inferior ao mínimo do procedimento; um item que referencia combo usa as quantidades já definidas naquele combo.
+Procedimento avulso ou combo incluído em um plano. O procedimento avulso tem quantidade de sessões definida no próprio item e não inferior ao mínimo do procedimento; o item que referencia combo usa as quantidades já definidas naquele combo, congeladas na versão do plano.
 _Avoid_: componente, produto do plano
 
 **Combo promocional**:
@@ -329,7 +329,7 @@ Integração futura com serviço externo para processar cobranças e receber con
 _Avoid_: registro manual de pagamento
 
 **Contrato exigido**:
-Contrato de um plano ou de um evento, incluindo o contrato padrão e os documentos específicos aplicáveis aos procedimentos incluídos. No MVP, somente planos e eventos possuem contratos, e um plano ou evento sem ao menos um contrato aplicável é inválido. Contratos específicos de combo ficam adiados enquanto combos não puderem compor planos. A contratação pode existir enquanto a assinatura estiver pendente, mas o agendamento e a execução ficam bloqueados até que os contratos obrigatórios estejam assinados.
+Contrato de um plano ou de um evento, incluindo o contrato padrão e os documentos específicos aplicáveis aos procedimentos incluídos. No MVP, somente planos e eventos possuem contratos, e um plano ou evento sem ao menos um contrato aplicável é inválido. O contrato padrão, o contrato específico de um procedimento incluído e o contrato específico de um combo incluído contam como aplicáveis; ao escolher um procedimento ou combo, a tela já marca o contrato dele no plano, e o profissional pode desmarcá-lo, desde que reste ao menos um contrato aplicável. A contratação pode existir enquanto a assinatura estiver pendente, mas o agendamento e a execução ficam bloqueados até que os contratos obrigatórios estejam assinados.
 _Avoid_: contratação
 
 **Anamnese pendente**:

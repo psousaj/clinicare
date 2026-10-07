@@ -22,19 +22,22 @@ async function jobDirs(): Promise<string[]> {
   return (await readdir(tmpdir())).filter((name) => name.startsWith(JOB_DIR_PREFIX));
 }
 
+// Conversões reais com soffice levam segundos e disputam CPU com a suíte; o limite padrão de 5s do runner é menor que o do conversor.
+const conversionIt = (name: string, test: () => Promise<void>) => it(name, test, 30_000);
+
 describe('LibreOffice DOCX to PDF conversion', () => {
-  it('converts a real DOCX to a byte-valid PDF', async () => {
+  conversionIt('converts a real DOCX to a byte-valid PDF', async () => {
     const pdf = await createLibreOfficeConverter().convertDocxToPdf(minimalDocx('Contrato de teste'));
     expect(new TextDecoder().decode(pdf.subarray(0, 5))).toBe('%PDF-');
     expect(pdf.byteLength).toBeGreaterThan(100);
   });
 
-  it('converts a Calibri document without font substitution failure', async () => {
+  conversionIt('converts a Calibri document without font substitution failure', async () => {
     const pdf = await createLibreOfficeConverter().convertDocxToPdf(minimalDocx('Calibri body', 'Calibri'));
     expect(new TextDecoder().decode(pdf.subarray(0, 5))).toBe('%PDF-');
   });
 
-  it('completes parallel conversions without profile lock errors', async () => {
+  conversionIt('completes parallel conversions without profile lock errors', async () => {
     const converter = createLibreOfficeConverter();
     const results = await Promise.all([
       converter.convertDocxToPdf(minimalDocx('Paralelo um')),
@@ -46,7 +49,7 @@ describe('LibreOffice DOCX to PDF conversion', () => {
     }
   });
 
-  it('fails explicitly on corrupted DOCX', async () => {
+  conversionIt('fails explicitly on corrupted DOCX', async () => {
     const before = await jobDirs();
     // DOCX truncado: soffice não gera saída e o conversor falha explícito.
     const valid = minimalDocx('Corrompido');
@@ -65,7 +68,7 @@ describe('LibreOffice DOCX to PDF conversion', () => {
     expect(await jobDirs()).toEqual(before);
   });
 
-  it('leaves no job residue after success', async () => {
+  conversionIt('leaves no job residue after success', async () => {
     const before = await jobDirs();
     await createLibreOfficeConverter().convertDocxToPdf(minimalDocx('Limpeza'));
     expect(await jobDirs()).toEqual(before);

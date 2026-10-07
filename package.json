@@ -18,6 +18,7 @@
     "test": "turbo run test",
     "test:api": "turbo run test --filter=@clinicare/api",
     "test:api:integration": "DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL to run PostgreSQL integration tests} DB_SCHEMA=${DB_SCHEMA:-clinicare_test} bun run --cwd apps/api test:integration",
+    "test:api:env": "cd apps/api && bun --env-file=../../.env.test test --max-concurrency=1",
     "test:smoke": "bun run test:api:integration",
     "test:web": "turbo run test --filter=@clinicare/web",
     "db:generate": "turbo run db:generate --filter=@clinicare/db",

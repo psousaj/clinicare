@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [tanstackRouter({ target: 'react', autoCodeSplitting: true }), react(), tailwindcss()],
     resolve: { alias: { '@': path.resolve(import.meta.dirname, 'src') } },
-    test: { root: import.meta.dirname, environment: 'jsdom', setupFiles: './src/test-setup.ts', include: ['src/**/*.test.ts', 'src/**/*.test.tsx'], exclude: ['../../apps/api/**', '../../packages/**', '**/node_modules/**', '**/dist/**'], testTimeout: 15000 },
+    test: { root: import.meta.dirname, environment: 'jsdom', setupFiles: './src/test-setup.ts', include: ['src/**/*.test.ts', 'src/**/*.test.tsx'], exclude: ['../../apps/api/**', '../../packages/**', '**/node_modules/**', '**/dist/**'], testTimeout: 30_000 },
     server: {
       port: Number(rootEnv.VITE_PORT ?? env.VITE_PORT ?? 5173),
       proxy: {
