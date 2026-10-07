@@ -316,45 +316,6 @@
       "source_location": "L24"
     },
     {
-      "id": "apps_web_src_components_pickers_pickerprops",
-      "label": "PickerProps",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "pickerprops",
-      "source_file": "apps/web/src/components/pickers.tsx",
-      "source_location": "L10"
-    },
-    {
-      "id": "apps_web_src_lib_schemas_combo",
-      "label": "Combo",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "combo",
-      "source_file": "apps/web/src/lib/schemas.ts",
-      "source_location": "L205"
-    },
-    {
-      "id": "apps_web_src_lib_schemas_procedure",
-      "label": "Procedure",
-      "_callable": true,
-      "_callable_class": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "procedure",
-      "source_file": "apps/web/src/lib/schemas.ts",
-      "source_location": "L200"
-    },
-    {
       "id": "apps_api_src_pdf_mutation_pdfplacement",
       "label": "PdfPlacement",
       "_callable": true,
@@ -691,6 +652,19 @@
       "norm_label": "formdialogprops",
       "source_file": "apps/web/src/components/FormDialog.tsx",
       "source_location": "L9"
+    },
+    {
+      "id": "apps_web_src_components_pickers_pickerprops",
+      "label": "PickerProps",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "pickerprops",
+      "source_file": "apps/web/src/components/pickers.tsx",
+      "source_location": "L10"
     },
     {
       "id": "apps_web_src_components_versionsdialog_props",
@@ -1590,6 +1564,19 @@
       "source_location": "L212"
     },
     {
+      "id": "apps_web_src_lib_schemas_combo",
+      "label": "Combo",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 79,
+      "community_name": "dialogs.tsx",
+      "file_type": "code",
+      "norm_label": "combo",
+      "source_file": "apps/web/src/lib/schemas.ts",
+      "source_location": "L205"
+    },
+    {
       "id": "apps_web_src_lib_schemas_plan",
       "label": "Plan",
       "_callable": true,
@@ -1601,6 +1588,19 @@
       "norm_label": "plan",
       "source_file": "apps/web/src/lib/schemas.ts",
       "source_location": "L207"
+    },
+    {
+      "id": "apps_web_src_lib_schemas_procedure",
+      "label": "Procedure",
+      "_callable": true,
+      "_callable_class": true,
+      "_origin": "ast",
+      "community": 79,
+      "community_name": "dialogs.tsx",
+      "file_type": "code",
+      "norm_label": "procedure",
+      "source_file": "apps/web/src/lib/schemas.ts",
+      "source_location": "L200"
     },
     {
       "id": "apps_api_src_admin_commands_provisionclinicinput",
@@ -2240,6 +2240,30 @@
       "source_location": "L38"
     },
     {
+      "id": "apps_web_src_components_comboform_comboformpage",
+      "label": "ComboFormPage()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "react",
+      "file_type": "code",
+      "norm_label": "comboformpage()",
+      "source_file": "apps/web/src/components/ComboForm.tsx",
+      "source_location": "L22"
+    },
+    {
+      "id": "apps_web_src_components_comboform_day",
+      "label": "day()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "react",
+      "file_type": "code",
+      "norm_label": "day()",
+      "source_file": "apps/web/src/components/ComboForm.tsx",
+      "source_location": "L19"
+    },
+    {
       "id": "apps_web_src_components_cpffield_cpffield",
       "label": "CpfField()",
       "_callable": true,
@@ -2250,18 +2274,6 @@
       "norm_label": "cpffield()",
       "source_file": "apps/web/src/components/CpfField.tsx",
       "source_location": "L6"
-    },
-    {
-      "id": "apps_web_src_components_dialogs_appointmentfields",
-      "label": "AppointmentFields()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 2,
-      "community_name": "react",
-      "file_type": "code",
-      "norm_label": "appointmentfields()",
-      "source_file": "apps/web/src/components/dialogs.tsx",
-      "source_location": "L88"
     },
     {
       "id": "apps_web_src_components_editpatientdialog_editpatientdialog",
@@ -2492,6 +2504,42 @@
       "source_location": "L38"
     },
     {
+      "id": "apps_web_src_lib_queries_usecreatecombo",
+      "label": "useCreateCombo()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "react",
+      "file_type": "code",
+      "norm_label": "usecreatecombo()",
+      "source_file": "apps/web/src/lib/queries.ts",
+      "source_location": "L131"
+    },
+    {
+      "id": "apps_web_src_lib_queries_usecreateplan",
+      "label": "useCreatePlan()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "react",
+      "file_type": "code",
+      "norm_label": "usecreateplan()",
+      "source_file": "apps/web/src/lib/queries.ts",
+      "source_location": "L133"
+    },
+    {
+      "id": "apps_web_src_lib_queries_useupdatecombo",
+      "label": "useUpdateCombo()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "react",
+      "file_type": "code",
+      "norm_label": "useupdatecombo()",
+      "source_file": "apps/web/src/lib/queries.ts",
+      "source_location": "L129"
+    },
+    {
       "id": "apps_web_src_lib_queries_useupdatepatient",
       "label": "useUpdatePatient()",
       "_callable": true,
@@ -2502,6 +2550,18 @@
       "norm_label": "useupdatepatient()",
       "source_file": "apps/web/src/lib/queries.ts",
       "source_location": "L70"
+    },
+    {
+      "id": "apps_web_src_lib_queries_useupdateplan",
+      "label": "useUpdatePlan()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "react",
+      "file_type": "code",
+      "norm_label": "useupdateplan()",
+      "source_file": "apps/web/src/lib/queries.ts",
+      "source_location": "L134"
     },
     {
       "id": "apps_web_src_routes_app_pacientes_novo_newpatient",
@@ -2525,7 +2585,7 @@
       "file_type": "code",
       "norm_label": "group()",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L57"
+      "source_location": "L68"
     },
     {
       "id": "apps_web_src_routes_app_planos_novo_newplan",
@@ -2537,7 +2597,7 @@
       "file_type": "code",
       "norm_label": "newplan()",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L18"
+      "source_location": "L19"
     },
     {
       "id": "apps_web_src_routes_app_planos_novo_toggle",
@@ -2549,7 +2609,7 @@
       "file_type": "code",
       "norm_label": "toggle()",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L14"
+      "source_location": "L15"
     },
     {
       "id": "apps_web_src_routes_login_loginpage",
@@ -3078,198 +3138,6 @@
       "norm_label": "reserve()",
       "source_file": "apps/api/src/scheduling.integration.test.ts",
       "source_location": "L52"
-    },
-    {
-      "id": "apps_web_src_components_comboform_comboformpage",
-      "label": "ComboFormPage()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "comboformpage()",
-      "source_file": "apps/web/src/components/ComboForm.tsx",
-      "source_location": "L22"
-    },
-    {
-      "id": "apps_web_src_components_comboform_day",
-      "label": "day()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "day()",
-      "source_file": "apps/web/src/components/ComboForm.tsx",
-      "source_location": "L19"
-    },
-    {
-      "id": "apps_web_src_components_comboform_procedurepicker",
-      "label": "ProcedurePicker()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "procedurepicker()",
-      "source_file": "apps/web/src/components/ComboForm.tsx",
-      "source_location": "L127"
-    },
-    {
-      "id": "apps_web_src_components_pickers_column",
-      "label": "Column()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "column()",
-      "source_file": "apps/web/src/components/pickers.tsx",
-      "source_location": "L61"
-    },
-    {
-      "id": "apps_web_src_components_pickers_datepicker",
-      "label": "DatePicker()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "datepicker()",
-      "source_file": "apps/web/src/components/pickers.tsx",
-      "source_location": "L23"
-    },
-    {
-      "id": "apps_web_src_components_pickers_timepicker",
-      "label": "TimePicker()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "timepicker()",
-      "source_file": "apps/web/src/components/pickers.tsx",
-      "source_location": "L77"
-    },
-    {
-      "id": "apps_web_src_components_pickers_two",
-      "label": "two()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "two()",
-      "source_file": "apps/web/src/components/pickers.tsx",
-      "source_location": "L57"
-    },
-    {
-      "id": "apps_web_src_components_ui_popover_popover",
-      "label": "Popover()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "popover()",
-      "source_file": "apps/web/src/components/ui/popover.tsx",
-      "source_location": "L5"
-    },
-    {
-      "id": "apps_web_src_components_ui_popover_popoveranchor",
-      "label": "PopoverAnchor()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "popoveranchor()",
-      "source_file": "apps/web/src/components/ui/popover.tsx",
-      "source_location": "L39"
-    },
-    {
-      "id": "apps_web_src_components_ui_popover_popovercontent",
-      "label": "PopoverContent()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "popovercontent()",
-      "source_file": "apps/web/src/components/ui/popover.tsx",
-      "source_location": "L17"
-    },
-    {
-      "id": "apps_web_src_components_ui_popover_popoverdescription",
-      "label": "PopoverDescription()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "popoverdescription()",
-      "source_file": "apps/web/src/components/ui/popover.tsx",
-      "source_location": "L65"
-    },
-    {
-      "id": "apps_web_src_components_ui_popover_popoverheader",
-      "label": "PopoverHeader()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "popoverheader()",
-      "source_file": "apps/web/src/components/ui/popover.tsx",
-      "source_location": "L45"
-    },
-    {
-      "id": "apps_web_src_components_ui_popover_popovertitle",
-      "label": "PopoverTitle()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "popovertitle()",
-      "source_file": "apps/web/src/components/ui/popover.tsx",
-      "source_location": "L55"
-    },
-    {
-      "id": "apps_web_src_components_ui_popover_popovertrigger",
-      "label": "PopoverTrigger()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "popovertrigger()",
-      "source_file": "apps/web/src/components/ui/popover.tsx",
-      "source_location": "L11"
-    },
-    {
-      "id": "apps_web_src_lib_queries_usecreatecombo",
-      "label": "useCreateCombo()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "usecreatecombo()",
-      "source_file": "apps/web/src/lib/queries.ts",
-      "source_location": "L131"
-    },
-    {
-      "id": "apps_web_src_lib_queries_useupdatecombo",
-      "label": "useUpdateCombo()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "useupdatecombo()",
-      "source_file": "apps/web/src/lib/queries.ts",
-      "source_location": "L129"
     },
     {
       "id": "apps_api_src_external_validation_loadtrustedrootfiles",
@@ -4952,6 +4820,18 @@
       "source_location": "L16"
     },
     {
+      "id": "apps_web_src_components_comboform_procedurepicker",
+      "label": "ProcedurePicker()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "procedurepicker()",
+      "source_file": "apps/web/src/components/ComboForm.tsx",
+      "source_location": "L127"
+    },
+    {
       "id": "apps_web_src_components_formdialog_formdialog",
       "label": "FormDialog()",
       "_callable": true,
@@ -4974,6 +4854,54 @@
       "norm_label": "handlesubmit()",
       "source_file": "apps/web/src/components/FormDialog.tsx",
       "source_location": "L24"
+    },
+    {
+      "id": "apps_web_src_components_pickers_column",
+      "label": "Column()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "column()",
+      "source_file": "apps/web/src/components/pickers.tsx",
+      "source_location": "L61"
+    },
+    {
+      "id": "apps_web_src_components_pickers_datepicker",
+      "label": "DatePicker()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "datepicker()",
+      "source_file": "apps/web/src/components/pickers.tsx",
+      "source_location": "L23"
+    },
+    {
+      "id": "apps_web_src_components_pickers_timepicker",
+      "label": "TimePicker()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "timepicker()",
+      "source_file": "apps/web/src/components/pickers.tsx",
+      "source_location": "L77"
+    },
+    {
+      "id": "apps_web_src_components_pickers_two",
+      "label": "two()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "two()",
+      "source_file": "apps/web/src/components/pickers.tsx",
+      "source_location": "L57"
     },
     {
       "id": "apps_web_src_components_ui_button_button",
@@ -5130,6 +5058,90 @@
       "norm_label": "dialogtrigger()",
       "source_file": "apps/web/src/components/ui/dialog.tsx",
       "source_location": "L16"
+    },
+    {
+      "id": "apps_web_src_components_ui_popover_popover",
+      "label": "Popover()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "popover()",
+      "source_file": "apps/web/src/components/ui/popover.tsx",
+      "source_location": "L5"
+    },
+    {
+      "id": "apps_web_src_components_ui_popover_popoveranchor",
+      "label": "PopoverAnchor()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "popoveranchor()",
+      "source_file": "apps/web/src/components/ui/popover.tsx",
+      "source_location": "L39"
+    },
+    {
+      "id": "apps_web_src_components_ui_popover_popovercontent",
+      "label": "PopoverContent()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "popovercontent()",
+      "source_file": "apps/web/src/components/ui/popover.tsx",
+      "source_location": "L17"
+    },
+    {
+      "id": "apps_web_src_components_ui_popover_popoverdescription",
+      "label": "PopoverDescription()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "popoverdescription()",
+      "source_file": "apps/web/src/components/ui/popover.tsx",
+      "source_location": "L65"
+    },
+    {
+      "id": "apps_web_src_components_ui_popover_popoverheader",
+      "label": "PopoverHeader()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "popoverheader()",
+      "source_file": "apps/web/src/components/ui/popover.tsx",
+      "source_location": "L45"
+    },
+    {
+      "id": "apps_web_src_components_ui_popover_popovertitle",
+      "label": "PopoverTitle()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "popovertitle()",
+      "source_file": "apps/web/src/components/ui/popover.tsx",
+      "source_location": "L55"
+    },
+    {
+      "id": "apps_web_src_components_ui_popover_popovertrigger",
+      "label": "PopoverTrigger()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "popovertrigger()",
+      "source_file": "apps/web/src/components/ui/popover.tsx",
+      "source_location": "L11"
     },
     {
       "id": "apps_web_src_components_versionsdialog_contractversionshistory",
@@ -7424,18 +7436,6 @@
       "source_location": "L141"
     },
     {
-      "id": "apps_web_src_lib_queries_usecreateplan",
-      "label": "useCreatePlan()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "queries.ts",
-      "file_type": "code",
-      "norm_label": "usecreateplan()",
-      "source_file": "apps/web/src/lib/queries.ts",
-      "source_location": "L133"
-    },
-    {
       "id": "apps_web_src_lib_queries_usecreateprocedure",
       "label": "useCreateProcedure()",
       "_callable": true,
@@ -7530,18 +7530,6 @@
       "norm_label": "usesubmitanamnesis()",
       "source_file": "apps/web/src/lib/queries.ts",
       "source_location": "L175"
-    },
-    {
-      "id": "apps_web_src_lib_queries_useupdateplan",
-      "label": "useUpdatePlan()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 5,
-      "community_name": "queries.ts",
-      "file_type": "code",
-      "norm_label": "useupdateplan()",
-      "source_file": "apps/web/src/lib/queries.ts",
-      "source_location": "L134"
     },
     {
       "id": "apps_web_src_lib_sha256_sha256hex",
@@ -7640,18 +7628,6 @@
       "source_location": "L14"
     },
     {
-      "id": "apps_web_src_components_dialogs_newfollowupdialog",
-      "label": "NewFollowupDialog()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 50,
-      "community_name": "@tanstack/react-router",
-      "file_type": "code",
-      "norm_label": "newfollowupdialog()",
-      "source_file": "apps/web/src/components/dialogs.tsx",
-      "source_location": "L175"
-    },
-    {
       "id": "apps_web_src_components_followupcard_followupcard",
       "label": "FollowupCard()",
       "_callable": true,
@@ -7724,18 +7700,6 @@
       "source_location": "L3"
     },
     {
-      "id": "apps_web_src_components_quickactions_quickactions",
-      "label": "QuickActions()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 50,
-      "community_name": "@tanstack/react-router",
-      "file_type": "code",
-      "norm_label": "quickactions()",
-      "source_file": "apps/web/src/components/QuickActions.tsx",
-      "source_location": "L10"
-    },
-    {
       "id": "apps_web_src_components_statusbadge_statusbadge",
       "label": "StatusBadge()",
       "_callable": true,
@@ -7796,18 +7760,6 @@
       "source_location": "L17"
     },
     {
-      "id": "apps_web_src_lib_format_offerlabel",
-      "label": "offerLabel()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 50,
-      "community_name": "@tanstack/react-router",
-      "file_type": "code",
-      "norm_label": "offerlabel()",
-      "source_file": "apps/web/src/lib/format.ts",
-      "source_location": "L20"
-    },
-    {
       "id": "apps_web_src_lib_format_shortdate",
       "label": "shortDate()",
       "_callable": true,
@@ -7842,18 +7794,6 @@
       "norm_label": "statustone()",
       "source_file": "apps/web/src/lib/format.ts",
       "source_location": "L13"
-    },
-    {
-      "id": "apps_web_src_lib_queries_patienthistoryquery",
-      "label": "patientHistoryQuery()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 50,
-      "community_name": "@tanstack/react-router",
-      "file_type": "code",
-      "norm_label": "patienthistoryquery()",
-      "source_file": "apps/web/src/lib/queries.ts",
-      "source_location": "L45"
     },
     {
       "id": "apps_web_src_lib_queries_relationshipquery",
@@ -8106,18 +8046,6 @@
       "norm_label": "newstandaloneattendance()",
       "source_file": "apps/web/src/routes/_app/pacientes/$patientId/avulso.$procedureId.tsx",
       "source_location": "L10"
-    },
-    {
-      "id": "apps_web_src_routes_app_pacientes_patientid_index_patientdetail",
-      "label": "PatientDetail()",
-      "_callable": true,
-      "_origin": "ast",
-      "community": 50,
-      "community_name": "@tanstack/react-router",
-      "file_type": "code",
-      "norm_label": "patientdetail()",
-      "source_file": "apps/web/src/routes/_app/pacientes/$patientId/index.tsx",
-      "source_location": "L17"
     },
     {
       "id": "apps_web_src_routes_app_pacientes_patientid_novo_atendimento_itemid_newattendance",
@@ -9020,6 +8948,18 @@
       "source_location": "L24"
     },
     {
+      "id": "apps_web_src_components_dialogs_appointmentfields",
+      "label": "AppointmentFields()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 79,
+      "community_name": "dialogs.tsx",
+      "file_type": "code",
+      "norm_label": "appointmentfields()",
+      "source_file": "apps/web/src/components/dialogs.tsx",
+      "source_location": "L88"
+    },
+    {
       "id": "apps_web_src_components_dialogs_localdate",
       "label": "localDate()",
       "_callable": true,
@@ -9056,6 +8996,18 @@
       "source_location": "L18"
     },
     {
+      "id": "apps_web_src_components_dialogs_newfollowupdialog",
+      "label": "NewFollowupDialog()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 79,
+      "community_name": "dialogs.tsx",
+      "file_type": "code",
+      "norm_label": "newfollowupdialog()",
+      "source_file": "apps/web/src/components/dialogs.tsx",
+      "source_location": "L175"
+    },
+    {
       "id": "apps_web_src_components_dialogs_offerfields",
       "label": "OfferFields()",
       "_callable": true,
@@ -9090,6 +9042,18 @@
       "norm_label": "standaloneattendancedialog()",
       "source_file": "apps/web/src/components/dialogs.tsx",
       "source_location": "L257"
+    },
+    {
+      "id": "apps_web_src_components_quickactions_quickactions",
+      "label": "QuickActions()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 79,
+      "community_name": "dialogs.tsx",
+      "file_type": "code",
+      "norm_label": "quickactions()",
+      "source_file": "apps/web/src/components/QuickActions.tsx",
+      "source_location": "L10"
     },
     {
       "id": "apps_web_src_components_ui_native_select_nativeselect",
@@ -9140,6 +9104,18 @@
       "source_location": "L1"
     },
     {
+      "id": "apps_web_src_lib_format_offerlabel",
+      "label": "offerLabel()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 79,
+      "community_name": "dialogs.tsx",
+      "file_type": "code",
+      "norm_label": "offerlabel()",
+      "source_file": "apps/web/src/lib/format.ts",
+      "source_location": "L20"
+    },
+    {
       "id": "apps_web_src_lib_forms_reais",
       "label": "reais()",
       "_callable": true,
@@ -9164,6 +9140,18 @@
       "source_location": "L3"
     },
     {
+      "id": "apps_web_src_lib_queries_patienthistoryquery",
+      "label": "patientHistoryQuery()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 79,
+      "community_name": "dialogs.tsx",
+      "file_type": "code",
+      "norm_label": "patienthistoryquery()",
+      "source_file": "apps/web/src/lib/queries.ts",
+      "source_location": "L45"
+    },
+    {
       "id": "apps_web_src_lib_queries_useupdateappointment",
       "label": "useUpdateAppointment()",
       "_callable": true,
@@ -9186,6 +9174,18 @@
       "norm_label": "useupdateprocedure()",
       "source_file": "apps/web/src/lib/queries.ts",
       "source_location": "L127"
+    },
+    {
+      "id": "apps_web_src_routes_app_pacientes_patientid_index_patientdetail",
+      "label": "PatientDetail()",
+      "_callable": true,
+      "_origin": "ast",
+      "community": 79,
+      "community_name": "dialogs.tsx",
+      "file_type": "code",
+      "norm_label": "patientdetail()",
+      "source_file": "apps/web/src/routes/_app/pacientes/$patientId/index.tsx",
+      "source_location": "L17"
     },
     {
       "id": "apps_web_src_routes_app_procedimentos_index_catalog",
@@ -12349,7 +12349,7 @@
       "file_type": "code",
       "norm_label": "route",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L12"
+      "source_location": "L13"
     },
     {
       "id": "apps_web_src_routes_app_procedimentos_combos_comboid_route",
@@ -12437,6 +12437,17 @@
       "file_type": "code",
       "norm_label": "attendancerecordform.tsx",
       "source_file": "apps/web/src/components/AttendanceRecordForm.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "apps_web_src_components_comboform",
+      "label": "ComboForm.tsx",
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "react",
+      "file_type": "code",
+      "norm_label": "comboform.tsx",
+      "source_file": "apps/web/src/components/ComboForm.tsx",
       "source_location": "L1"
     },
     {
@@ -12572,15 +12583,15 @@
       "source_location": "L1"
     },
     {
-      "id": "apps_web_src_lib_utils",
-      "label": "utils.ts",
+      "id": "apps_web_src_lib_forms_planform",
+      "label": "planForm",
       "_origin": "ast",
       "community": 2,
       "community_name": "react",
       "file_type": "code",
-      "norm_label": "utils.ts",
-      "source_file": "apps/web/src/lib/utils.ts",
-      "source_location": "L1"
+      "norm_label": "planform",
+      "source_file": "apps/web/src/lib/forms.ts",
+      "source_location": "L33"
     },
     {
       "id": "apps_web_src_routes_app_pacientes_novo",
@@ -12603,6 +12614,28 @@
       "norm_label": "planos/novo.tsx",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
       "source_location": "L1"
+    },
+    {
+      "id": "apps_web_src_routes_app_procedimentos_combos_novo",
+      "label": "combos/novo.tsx",
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "react",
+      "file_type": "code",
+      "norm_label": "combos/novo.tsx",
+      "source_file": "apps/web/src/routes/_app/procedimentos/combos/novo.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "apps_web_src_routes_app_procedimentos_combos_novo_route",
+      "label": "Route",
+      "_origin": "ast",
+      "community": 2,
+      "community_name": "react",
+      "file_type": "code",
+      "norm_label": "route",
+      "source_file": "apps/web/src/routes/_app/procedimentos/combos/novo.tsx",
+      "source_location": "L4"
     },
     {
       "id": "apps_web_src_routes_app_procedimentos_novo",
@@ -13682,94 +13715,6 @@
       "norm_label": "vitest",
       "source_file": "apps/web/package.json",
       "source_location": "L53"
-    },
-    {
-      "id": "apps_web_src_components_comboform",
-      "label": "ComboForm.tsx",
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "comboform.tsx",
-      "source_file": "apps/web/src/components/ComboForm.tsx",
-      "source_location": "L1"
-    },
-    {
-      "id": "apps_web_src_components_pickers",
-      "label": "pickers.tsx",
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "pickers.tsx",
-      "source_file": "apps/web/src/components/pickers.tsx",
-      "source_location": "L1"
-    },
-    {
-      "id": "apps_web_src_components_pickers_hours",
-      "label": "hours",
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "hours",
-      "source_file": "apps/web/src/components/pickers.tsx",
-      "source_location": "L58"
-    },
-    {
-      "id": "apps_web_src_components_pickers_minutes",
-      "label": "minutes",
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "minutes",
-      "source_file": "apps/web/src/components/pickers.tsx",
-      "source_location": "L59"
-    },
-    {
-      "id": "apps_web_src_components_ui_popover",
-      "label": "popover.tsx",
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "popover.tsx",
-      "source_file": "apps/web/src/components/ui/popover.tsx",
-      "source_location": "L1"
-    },
-    {
-      "id": "apps_web_src_lib_forms_comboform",
-      "label": "comboForm",
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "comboform",
-      "source_file": "apps/web/src/lib/forms.ts",
-      "source_location": "L25"
-    },
-    {
-      "id": "apps_web_src_routes_app_procedimentos_combos_novo",
-      "label": "combos/novo.tsx",
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "combos/novo.tsx",
-      "source_file": "apps/web/src/routes/_app/procedimentos/combos/novo.tsx",
-      "source_location": "L1"
-    },
-    {
-      "id": "apps_web_src_routes_app_procedimentos_combos_novo_route",
-      "label": "Route",
-      "_origin": "ast",
-      "community": 28,
-      "community_name": "ComboForm.tsx",
-      "file_type": "code",
-      "norm_label": "route",
-      "source_file": "apps/web/src/routes/_app/procedimentos/combos/novo.tsx",
-      "source_location": "L4"
     },
     {
       "id": "apps_api_src_pdf_mutation",
@@ -14913,6 +14858,39 @@
       "source_location": "L1"
     },
     {
+      "id": "apps_web_src_components_pickers",
+      "label": "pickers.tsx",
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "pickers.tsx",
+      "source_file": "apps/web/src/components/pickers.tsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "apps_web_src_components_pickers_hours",
+      "label": "hours",
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "hours",
+      "source_file": "apps/web/src/components/pickers.tsx",
+      "source_location": "L58"
+    },
+    {
+      "id": "apps_web_src_components_pickers_minutes",
+      "label": "minutes",
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "minutes",
+      "source_file": "apps/web/src/components/pickers.tsx",
+      "source_location": "L59"
+    },
+    {
       "id": "apps_web_src_components_ui_button",
       "label": "button.tsx",
       "_origin": "ast",
@@ -14957,6 +14935,17 @@
       "source_location": "L1"
     },
     {
+      "id": "apps_web_src_components_ui_popover",
+      "label": "popover.tsx",
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "popover.tsx",
+      "source_file": "apps/web/src/components/ui/popover.tsx",
+      "source_location": "L1"
+    },
+    {
       "id": "apps_web_src_components_versionsdialog",
       "label": "VersionsDialog.tsx",
       "_origin": "ast",
@@ -14977,6 +14966,17 @@
       "norm_label": "anamnesesquery",
       "source_file": "apps/web/src/lib/queries.ts",
       "source_location": "L31"
+    },
+    {
+      "id": "apps_web_src_lib_utils",
+      "label": "utils.ts",
+      "_origin": "ast",
+      "community": 39,
+      "community_name": "Button",
+      "file_type": "code",
+      "norm_label": "utils.ts",
+      "source_file": "apps/web/src/lib/utils.ts",
+      "source_location": "L1"
     },
     {
       "id": "apps_web_src_lib_versions",
@@ -18530,6 +18530,17 @@
       "source_location": "L35"
     },
     {
+      "id": "apps_web_src_lib_forms_comboform",
+      "label": "comboForm",
+      "_origin": "ast",
+      "community": 79,
+      "community_name": "dialogs.tsx",
+      "file_type": "code",
+      "norm_label": "comboform",
+      "source_file": "apps/web/src/lib/forms.ts",
+      "source_location": "L25"
+    },
+    {
       "id": "apps_web_src_lib_forms_followupform",
       "label": "followupForm",
       "_origin": "ast",
@@ -18594,17 +18605,6 @@
       "norm_label": "paymentform",
       "source_file": "apps/web/src/lib/forms.ts",
       "source_location": "L36"
-    },
-    {
-      "id": "apps_web_src_lib_forms_planform",
-      "label": "planForm",
-      "_origin": "ast",
-      "community": 79,
-      "community_name": "dialogs.tsx",
-      "file_type": "code",
-      "norm_label": "planform",
-      "source_file": "apps/web/src/lib/forms.ts",
-      "source_location": "L33"
     },
     {
       "id": "apps_web_src_lib_forms_procedureform",
@@ -34962,7 +34962,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L66",
+      "source_location": "L77",
       "weight": 1.0
     },
     {
@@ -34974,7 +34974,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L67",
+      "source_location": "L78",
       "weight": 1.0
     },
     {
@@ -34986,7 +34986,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L70",
+      "source_location": "L81",
       "weight": 1.0
     },
     {
@@ -34998,7 +34998,19 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L19",
+      "source_location": "L21",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_web_src_routes_app_planos_novo_newplan",
+      "target": "apps_web_src_lib_queries_useupdateplan",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
+      "source_location": "L22",
       "weight": 1.0
     },
     {
@@ -35010,7 +35022,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L25",
+      "source_location": "L36",
       "weight": 1.0
     },
     {
@@ -35022,7 +35034,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L31",
+      "source_location": "L42",
       "weight": 1.0
     },
     {
@@ -35034,7 +35046,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L39",
+      "source_location": "L50",
       "weight": 1.0
     },
     {
@@ -35046,7 +35058,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L47",
+      "source_location": "L58",
       "weight": 1.0
     },
     {
@@ -35058,7 +35070,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L47",
+      "source_location": "L58",
       "weight": 1.0
     },
     {
@@ -35070,7 +35082,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L49",
+      "source_location": "L60",
       "weight": 1.0
     },
     {
@@ -35082,7 +35094,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L50",
+      "source_location": "L61",
       "weight": 1.0
     },
     {
@@ -56127,7 +56139,7 @@
     },
     {
       "source": "apps_web_src_routes_app_planos_novo",
-      "target": "apps_web_src_lib_queries_contractsquery",
+      "target": "apps_web_src_lib_forms_parseform",
       "relation": "imports",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -56135,6 +56147,42 @@
       "context": "import",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
       "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_web_src_routes_app_planos_novo",
+      "target": "apps_web_src_lib_forms_planform",
+      "relation": "imports",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "import",
+      "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_web_src_routes_app_planos_novo",
+      "target": "apps_web_src_lib_queries_contractsquery",
+      "relation": "imports",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "import",
+      "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
+      "source_location": "L11",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_web_src_routes_app_planos_novo",
+      "target": "apps_web_src_lib_queries_plansquery",
+      "relation": "imports",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "import",
+      "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
+      "source_location": "L11",
       "weight": 1.0
     },
     {
@@ -56146,7 +56194,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L10",
+      "source_location": "L11",
       "weight": 1.0
     },
     {
@@ -56158,7 +56206,19 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L10",
+      "source_location": "L11",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_web_src_routes_app_planos_novo",
+      "target": "apps_web_src_lib_queries_useupdateplan",
+      "relation": "imports",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "import",
+      "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
+      "source_location": "L11",
       "weight": 1.0
     },
     {
@@ -56170,7 +56230,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L4",
+      "source_location": "L5",
       "weight": 1.0
     },
     {
@@ -56182,7 +56242,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L5",
+      "source_location": "L6",
       "weight": 1.0
     },
     {
@@ -56194,7 +56254,7 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L6",
+      "source_location": "L7",
       "weight": 1.0
     },
     {
@@ -56206,36 +56266,12 @@
       "confidence_score": 1.0,
       "context": "import",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L7",
-      "weight": 1.0
-    },
-    {
-      "source": "apps_web_src_routes_app_planos_novo",
-      "target": "apps_web_src_components_ui_input_input",
-      "relation": "imports",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "import",
-      "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
       "source_location": "L8",
       "weight": 1.0
     },
     {
       "source": "apps_web_src_routes_app_planos_novo",
-      "target": "apps_web_src_lib_forms_parseform",
-      "relation": "imports",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "import",
-      "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L9",
-      "weight": 1.0
-    },
-    {
-      "source": "apps_web_src_routes_app_planos_novo",
-      "target": "apps_web_src_lib_forms_planform",
+      "target": "apps_web_src_components_ui_input_input",
       "relation": "imports",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -65119,7 +65155,7 @@
     },
     {
       "source": "apps_web_src_routes_app_planos_novo",
-      "target": "apps_web_src_lib_queries",
+      "target": "apps_web_src_lib_forms",
       "relation": "imports_from",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -65127,6 +65163,18 @@
       "context": "import",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
       "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_web_src_routes_app_planos_novo",
+      "target": "apps_web_src_lib_queries",
+      "relation": "imports_from",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "import",
+      "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
+      "source_location": "L11",
       "weight": 1.0
     },
     {
@@ -65143,7 +65191,7 @@
     },
     {
       "source": "apps_web_src_routes_app_planos_novo",
-      "target": "ref_react",
+      "target": "ref_zod",
       "relation": "imports_from",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -65155,7 +65203,7 @@
     },
     {
       "source": "apps_web_src_routes_app_planos_novo",
-      "target": "apps_web_src_components_field",
+      "target": "ref_react",
       "relation": "imports_from",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -65167,7 +65215,7 @@
     },
     {
       "source": "apps_web_src_routes_app_planos_novo",
-      "target": "apps_web_src_components_formpage",
+      "target": "apps_web_src_components_field",
       "relation": "imports_from",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -65179,7 +65227,7 @@
     },
     {
       "source": "apps_web_src_routes_app_planos_novo",
-      "target": "apps_web_src_components_ui_checkbox",
+      "target": "apps_web_src_components_formpage",
       "relation": "imports_from",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -65191,7 +65239,7 @@
     },
     {
       "source": "apps_web_src_routes_app_planos_novo",
-      "target": "apps_web_src_components_ui_label",
+      "target": "apps_web_src_components_ui_checkbox",
       "relation": "imports_from",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -65203,7 +65251,7 @@
     },
     {
       "source": "apps_web_src_routes_app_planos_novo",
-      "target": "apps_web_src_components_ui_input",
+      "target": "apps_web_src_components_ui_label",
       "relation": "imports_from",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -65215,7 +65263,7 @@
     },
     {
       "source": "apps_web_src_routes_app_planos_novo",
-      "target": "apps_web_src_lib_forms",
+      "target": "apps_web_src_components_ui_input",
       "relation": "imports_from",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -76107,7 +76155,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L12",
+      "source_location": "L13",
       "weight": 1.0
     },
     {
@@ -76118,7 +76166,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L14",
+      "source_location": "L15",
       "weight": 1.0
     },
     {
@@ -76129,7 +76177,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L57",
+      "source_location": "L68",
       "weight": 1.0
     },
     {
@@ -81751,7 +81799,7 @@
       "confidence_score": 0.85,
       "context": "collection",
       "source_file": "apps/web/src/routes/_app/planos/novo.tsx",
-      "source_location": "L12",
+      "source_location": "L13",
       "weight": 1.0
     },
     {

@@ -576,9 +576,9 @@
     "semantic_hash": ""
   },
   "turbo.json": {
-    "mtime": 1791332766.5486267,
-    "seen": 1791332779.5787642,
-    "ast_hash": "2664417f0748694cb17bb61567a1b076",
+    "mtime": 1791334683.0966325,
+    "seen": 1791335291.9625635,
+    "ast_hash": "3d81718dafece8a2df4a68274d5207be",
     "semantic_hash": ""
   },
   "AGENTS.md": {
@@ -606,15 +606,15 @@
     "semantic_hash": ""
   },
   "dev-compose.yml": {
-    "mtime": 1791332667.5326273,
-    "seen": 1791332779.5788262,
-    "ast_hash": "017e86866d1b38746dacd8d58ae7a66f",
+    "mtime": 1791334683.0926325,
+    "seen": 1791335291.9626412,
+    "ast_hash": "0755d83c8e9abf03df64eb61630faf55",
     "semantic_hash": ""
   },
   "docker-compose.yml": {
-    "mtime": 1791332055.4086254,
-    "seen": 1791332357.9940083,
-    "ast_hash": "605709e03e455394a7416efde88d0017",
+    "mtime": 1791334683.0966325,
+    "seen": 1791335291.9626424,
+    "ast_hash": "ca1961457de7c92ed4c3415e423f551a",
     "semantic_hash": ""
   },
   "docs/adr/0001-stack-da-aplicacao.md": {
@@ -924,9 +924,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/contract-generation.ts": {
-    "mtime": 1791324710.1088843,
-    "seen": 1791326340.438627,
-    "ast_hash": "09e7f7d71a27e5c1c9c4ba526c2af3b1",
+    "mtime": 1791334672.6806326,
+    "seen": 1791335291.9587164,
+    "ast_hash": "cbd37a162cd1c14be2106edf25c76dfb",
     "semantic_hash": ""
   },
   "apps/api/src/contract-materialization.test.ts": {
@@ -936,9 +936,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/contract-materialization.ts": {
-    "mtime": 1791324710.1090183,
-    "seen": 1791326340.4386296,
-    "ast_hash": "b0ce0f50dd26ae9ea30d55c24a5ef1e0",
+    "mtime": 1791334659.4086325,
+    "seen": 1791335291.9587429,
+    "ast_hash": "114824f0680949643a62554554ff1b92",
     "semantic_hash": ""
   },
   "apps/api/src/docx-types.d.ts": {
@@ -1056,9 +1056,9 @@
     "semantic_hash": ""
   },
   "docs/adr/0005-autoria-docx-e-materializacao-de-contratos.md": {
-    "mtime": 1791170755.7473698,
-    "seen": 1791326340.4415653,
-    "ast_hash": "409a0fa4a5a889542f034c437bdb31c4",
+    "mtime": 1791334697.4806325,
+    "seen": 1791335291.9627323,
+    "ast_hash": "c93ca503bf5d64dd2d2880922e27f5ef",
     "semantic_hash": ""
   },
   "docs/adr/0006-validacao-externa-govbr.md": {
@@ -1143,6 +1143,18 @@
     "mtime": 1791332235.8646288,
     "seen": 1791332357.992352,
     "ast_hash": "b4cb106a564d1d286fdcc6e9b34c7d76",
+    "semantic_hash": ""
+  },
+  "apps/api/src/docx-pdf.test.ts": {
+    "mtime": 1791335000.9326305,
+    "seen": 1791335291.958745,
+    "ast_hash": "c040635883c115d0d5d9099247ab2fc4",
+    "semantic_hash": ""
+  },
+  "apps/api/src/docx-pdf.ts": {
+    "mtime": 1791334805.772631,
+    "seen": 1791335291.9587464,
+    "ast_hash": "7b458d5d68a30040749d32a741dae23a",
     "semantic_hash": ""
   }
 }

@@ -1,12 +1,12 @@
 # Graph Report - clinicare  (2026-10-06)
 
 ## Corpus Check
-- 212 files · ~148,271 words
+- 212 files · ~148,377 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 11 file(s) not represented in the graph (top: (none) 4, .css 3, .example 1)
 
 ## Summary
-- 1720 nodes · 5258 edges · 83 communities (62 shown, 21 thin omitted)
+- 1720 nodes · 5262 edges · 82 communities (61 shown, 21 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 48 edges (avg confidence: 0.86)
 - Token cost: 0 input · 0 output
 
@@ -42,7 +42,6 @@
 - Implementation Decisions
 - followups.ts
 - devDependencies
-- ComboForm.tsx
 - signatures.ts
 - compilerOptions
 - Spec — Autoria DOCX com ONLYOFFICE e Materialização Paramétrica de Contratos para Assinatura PDF
@@ -114,7 +113,7 @@
 - 2-file cycle: `packages/db/src/index.ts -> packages/db/src/migrate.ts -> packages/db/src/index.ts`
 - 2-file cycle: `packages/db/src/index.ts -> packages/db/src/seed.ts -> packages/db/src/index.ts`
 
-## Communities (83 total, 21 thin omitted)
+## Communities (82 total, 21 thin omitted)
 
 ### Community 0 - "db/src/index.ts"
 Cohesion: 0.15
@@ -125,8 +124,8 @@ Cohesion: 0.12
 Nodes (32): blankReport(), bytesEqual(), certEndpoints(), CertView, checkCrl(), checkOcsp(), checkRevocation(), cmsMessageDigest() (+24 more)
 
 ### Community 2 - "react"
-Cohesion: 0.11
-Nodes (38): AnamnesisFormPage(), submit(), emptySchema, Props, CpfField(), AppointmentFields(), EditPatientDialog(), Field() (+30 more)
+Cohesion: 0.10
+Nodes (45): AnamnesisFormPage(), submit(), emptySchema, Props, ComboFormPage(), day(), CpfField(), EditPatientDialog() (+37 more)
 
 ### Community 3 - "assinatura.$token.tsx"
 Cohesion: 0.09
@@ -138,7 +137,7 @@ Nodes (36): docxMetadata(), getContractDraftEditor(), invalid(), publishContract
 
 ### Community 5 - "queries.ts"
 Cohesion: 0.05
-Nodes (80): contextDescription(), contextLabel(), CONTEXTS, ContractDraftPanel(), ContractFormPage(), ContractMetadata, Props, PendingRequirements() (+72 more)
+Nodes (78): contextDescription(), contextLabel(), CONTEXTS, ContractDraftPanel(), ContractFormPage(), ContractMetadata, Props, PendingRequirements() (+70 more)
 
 ### Community 6 - "catalog.ts"
 Cohesion: 0.11
@@ -220,10 +219,6 @@ Nodes (44): headers(), request(), schema, tenantIds, fixture(), headers(), post(
 Cohesion: 0.20
 Nodes (10): devDependencies, jsdom, @tanstack/router-plugin, @testing-library/jest-dom, @testing-library/react, @testing-library/user-event, @types/react, @types/react-dom (+2 more)
 
-### Community 28 - "ComboForm.tsx"
-Cohesion: 0.15
-Nodes (22): ComboFormPage(), day(), ProcedurePicker(), Column(), DatePicker(), hours, minutes, PickerProps (+14 more)
-
 ### Community 29 - "signatures.ts"
 Cohesion: 0.06
 Nodes (80): loadTrustedRootFiles(), loadTrustedRootsFromEnv(), createIncrementalSignaturePdf(), normalizedPlacementToPdfRect(), PdfPlacement, PdfRect, sha256(), validatePlacement() (+72 more)
@@ -265,8 +260,8 @@ Cohesion: 0.40
 Nodes (5): scripts, build, dev, test, typecheck
 
 ### Community 39 - "Button"
-Cohesion: 0.12
-Nodes (40): AppointmentDetails(), dateLong, Props, Row(), time, FormDialog(), FormDialogProps, Button() (+32 more)
+Cohesion: 0.09
+Nodes (54): AppointmentDetails(), dateLong, Props, Row(), time, ProcedurePicker(), FormDialog(), FormDialogProps (+46 more)
 
 ### Community 40 - "atendimentos.$attendanceId.tsx"
 Cohesion: 0.16
@@ -305,8 +300,8 @@ Cohesion: 0.09
 Nodes (21): 10. Go/no-go para implementação, 1. Conclusão, 2. Decisões de domínio confirmadas, 3. Modelo de domínio e estados, 4. Blueprint relacional inicial, 5. Matriz de invariantes, 6. Fronteiras transacionais, 7. Reaproveitamento do Git (+13 more)
 
 ### Community 50 - "@tanstack/react-router"
-Cohesion: 0.06
-Nodes (72): AttendanceRecordForm(), CalendarView(), ContractSignatureHistory(), NewFollowupDialog(), FollowupCard(), offerLabel, matchesPatient(), PatientRow() (+64 more)
+Cohesion: 0.07
+Nodes (67): AttendanceRecordForm(), CalendarView(), ContractSignatureHistory(), FollowupCard(), offerLabel, matchesPatient(), PatientRow(), Body() (+59 more)
 
 ### Community 51 - "Especificação: migração para PostgreSQL + Drizzle + JSONB"
 Cohesion: 0.13
@@ -357,8 +352,8 @@ Cohesion: 0.40
 Nodes (4): Correções e validação final, Evidências de escopo, Investigação da validação global T7, Resultado inicial
 
 ### Community 79 - "dialogs.tsx"
-Cohesion: 0.10
-Nodes (30): AppointmentDialog(), localDate(), localTime(), minutesBetween(), OfferFields(), PaymentDialog(), PlannedItem, Selection (+22 more)
+Cohesion: 0.08
+Nodes (38): AppointmentDialog(), AppointmentFields(), localDate(), localTime(), minutesBetween(), NewFollowupDialog(), OfferFields(), PaymentDialog() (+30 more)
 
 ### Community 88 - "nova.tsx"
 Cohesion: 0.67
@@ -376,13 +371,13 @@ _Questions this graph is uniquely positioned to answer:_
   _High betweenness centrality (0.041) - this node is a cross-community bridge._
 - **Why does `dependencies` connect `dependencies` to `web/package.json`?**
   _High betweenness centrality (0.013) - this node is a cross-community bridge._
-- **Why does `Button()` connect `Button` to `react`, `assinatura.$token.tsx`, `queries.ts`, `atendimentos.$attendanceId.tsx`, `dialogs.tsx`, `@tanstack/react-router`, `_app.tsx`, `ComboForm.tsx`?**
+- **Why does `Button()` connect `Button` to `react`, `assinatura.$token.tsx`, `queries.ts`, `atendimentos.$attendanceId.tsx`, `dialogs.tsx`, `@tanstack/react-router`, `_app.tsx`?**
   _High betweenness centrality (0.012) - this node is a cross-community bridge._
 - **What connects `name`, `private`, `type` to the rest of the system?**
   _550 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `external-validation.ts` be split into smaller, more focused modules?**
   _Cohesion score 0.12380952380952381 - nodes in this community are weakly interconnected._
 - **Should `react` be split into smaller, more focused modules?**
-  _Cohesion score 0.11131276467029642 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09696969696969697 - nodes in this community are weakly interconnected._
 - **Should `assinatura.$token.tsx` be split into smaller, more focused modules?**
   _Cohesion score 0.0873015873015873 - nodes in this community are weakly interconnected._
