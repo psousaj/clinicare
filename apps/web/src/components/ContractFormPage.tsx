@@ -57,8 +57,8 @@ export function ContractFormPage({ heading, submitLabel, initial = {}, notice, a
   }
 
   return (
-    <form className="contract-form-page grid gap-4" onSubmit={submit} noValidate>
-      <section className="panel contract-settings-panel grid gap-4">
+    <form className={`contract-form-page grid gap-4${contract ? '' : ' contract-creation-form'}`} onSubmit={submit} noValidate>
+      <section className={`panel contract-settings-panel grid gap-4${contract ? '' : ' contract-creation-panel'}`}>
         <div className="panel-header form-page-header">
           <div>
             <Link to="/contratos" className="text-button mb-2"><ArrowLeft size={14} /> Contratos</Link>
@@ -71,21 +71,35 @@ export function ContractFormPage({ heading, submitLabel, initial = {}, notice, a
           </div>
         </div>
         {notice && <div className="contract-notice">{notice}</div>}
-        <div className="contract-metadata-grid grid max-w-3xl gap-4 sm:grid-cols-2">
+        {!contract && <div className="contract-create-intro">
+          <span className="contract-create-kicker">CONFIGURAÇÃO DO DOCUMENTO</span>
+          <h3>Prepare um contrato para assinatura</h3>
+          <p>Comece pelo nome e pela aplicação. Na próxima etapa, você envia o modelo DOCX e escolhe os dados que serão preenchidos automaticamente.</p>
+        </div>}
+        <div className="contract-create-layout">
+        <div className="contract-metadata-grid grid max-w-3xl gap-4">
           <Label className="flex-col items-stretch gap-1.5">
             Nome do contrato
-            <Input value={title} onChange={(event) => setTitle(event.target.value)} required autoFocus={!initial.title} placeholder="Ex.: Contrato padrão de serviços" />
+            <Input value={title} onChange={(event) => setTitle(event.target.value)} required autoFocus={!initial.title} placeholder="Ex.: Termo de prestação de serviços" />
           </Label>
-          <Label className="flex-col items-stretch gap-1.5">
-            Aplicação
-            <NativeSelect value={kind} onChange={(event) => setKind(event.target.value as Contract['kind'])}>
-              <NativeSelectOption value="standard">Padrão (todo acompanhamento)</NativeSelectOption>
-              <NativeSelectOption value="procedure">Específico de procedimento</NativeSelectOption>
-              <NativeSelectOption value="combo">Específico de combo</NativeSelectOption>
-            </NativeSelect>
-          </Label>
+          <div className="contract-kind-field" role="group" aria-labelledby="contract-kind-label">
+            <span id="contract-kind-label" className="contract-kind-label">Onde este contrato será usado?</span>
+            <div className="contract-kind-options">
+              {([
+                ['standard', 'Padrão', 'Em todos os acompanhamentos'],
+                ['procedure', 'Procedimento', 'Quando um procedimento for contratado'],
+                ['combo', 'Combo', 'Quando um combo for contratado'],
+              ] as const).map(([value, label, description]) => (
+                <label key={value} className={`contract-kind-option${kind === value ? ' is-selected' : ''}`}>
+                  <input type="radio" name="contract-kind" value={value} checked={kind === value} onChange={() => setKind(value)} />
+                  <span className="contract-kind-radio" aria-hidden="true" />
+                  <span><strong>{label}</strong><small>{description}</small></span>
+                </label>
+              ))}
+            </div>
+          </div>
           {kind === 'procedure' && (
-            <Label className="flex-col items-stretch gap-1.5 sm:col-span-2">
+            <Label className="flex-col items-stretch gap-1.5">
               Procedimento
               <NativeSelect value={procedureId} onChange={(event) => setProcedureId(event.target.value)}>
                 <NativeSelectOption value="">Selecione…</NativeSelectOption>
@@ -94,7 +108,7 @@ export function ContractFormPage({ heading, submitLabel, initial = {}, notice, a
             </Label>
           )}
           {kind === 'combo' && (
-            <Label className="flex-col items-stretch gap-1.5 sm:col-span-2">
+            <Label className="flex-col items-stretch gap-1.5">
               Combo
               <NativeSelect value={comboId} onChange={(event) => setComboId(event.target.value)}>
                 <NativeSelectOption value="">Selecione…</NativeSelectOption>
@@ -102,6 +116,15 @@ export function ContractFormPage({ heading, submitLabel, initial = {}, notice, a
               </NativeSelect>
             </Label>
           )}
+        </div>
+        {!contract && <aside className="contract-next-step" aria-label="Próximas etapas">
+          <span className="contract-next-step-kicker">DEPOIS DE SALVAR</span>
+          <div className="contract-next-item is-current"><span>1</span><div><strong>Dados básicos</strong><small>Nome e aplicação do contrato</small></div></div>
+          <div className="contract-next-connector" />
+          <div className="contract-next-item"><span>2</span><div><strong>Modelo DOCX</strong><small>Envie o arquivo e configure os campos</small></div></div>
+          <div className="contract-next-connector" />
+          <div className="contract-next-item"><span>3</span><div><strong>Publicação</strong><small>Revise e libere para assinatura</small></div></div>
+        </aside>}
         </div>
       </section>
       {contract && <ContractDraftPanel contract={contract} />}

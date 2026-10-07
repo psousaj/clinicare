@@ -61,7 +61,9 @@ async function createInitialSignatureProcesses(tenantId: string, followupId: str
     const patient = (await tx.select().from(patients).where(and(eq(patients.tenantId, tenantId), eq(patients.id, followup.patientId))))[0];
     const phone = patient ? protectedValue(patient, tenantId, 'phone', patient.id) : null;
     if (!phone) return;
-    const processes = await tx.insert(signatureProcesses).values(applied.filter((c) => c.status !== 'cancelled').map((contract) => ({ tenantId, followupContractId: contract.id }))).returning();
+    const signable = applied.filter((c) => c.status !== 'cancelled');
+    if (!signable.length) return;
+    const processes = await tx.insert(signatureProcesses).values(signable.map((contract) => ({ tenantId, followupContractId: contract.id }))).returning();
     const participants = await tx.insert(signatureParticipants).values(processes.flatMap((process: any) => [
       { id: randomUUID(), tenantId, processId: process.id, role: 'patient', identitySnapshot: { role: 'patient', patientId: patient.id, fullName: patient.fullName, phoneLast4Hash: createHash('sha256').update(phone.slice(-4)).digest('hex') } },
       { id: randomUUID(), tenantId, processId: process.id, role: 'professional', identitySnapshot: { role: 'professional', assignment: 'clinic_representative' } },

@@ -1058,7 +1058,25 @@ export async function getSignatureHistory(tenantId: string, followupContractId: 
     const contract = (await tx.select().from(followupContracts).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.id, followupContractId))))[0];
     if (!contract) throw invalid('Contrato aplicado não encontrado.', 404);
     const process = (await tx.select().from(signatureProcesses).where(and(eq(signatureProcesses.tenantId, tenantId), eq(signatureProcesses.followupContractId, followupContractId))))[0];
-    if (!process) throw invalid('Processo de assinatura não encontrado.', 404);
+    // Contratos DOCX passam por materialização assíncrona ('generating'/'failed') antes
+    // da criação do processo de assinatura. Sem processo ainda não há 404: o painel
+    // recebe um histórico pendente com aviso, no mesmo formato do histórico completo.
+    if (!process) {
+      const pendingStatusLabel: Record<string, string> = { generating: 'Gerando documento', ready: 'Pronto para assinatura', failed: 'Falha na geração' };
+      return {
+        process: { id: contract.id, status: contract.status, statusLabel: pendingStatusLabel[contract.status] ?? signatureStatusPt[contract.status] ?? contract.status, followupContractId: contract.id },
+        contract: {
+          id: contract.id, title: contract.titleSnapshot, version: contract.contractVersion, required: contract.required,
+          status: contract.status, patientSignedAt: contract.patientSignedAt ?? null, professionalSignedAt: contract.professionalSignedAt ?? null,
+        },
+        document: null,
+        participants: [],
+        operations: [],
+        externalAttempts: [],
+        events: [],
+        notice: 'O documento do contrato ainda está sendo gerado a partir do modelo. O histórico de assinaturas ficará disponível assim que a materialização concluir.',
+      };
+    }
     if (viewer.kind === 'public') {
       const own = (await tx.select().from(signatureParticipants).where(and(eq(signatureParticipants.tenantId, tenantId), eq(signatureParticipants.id, (viewer as { participantId: string }).participantId, ), eq(signatureParticipants.processId, process.id))))[0];
       if (!own) throw invalid('Link inválido, expirado ou revogado.', 404);

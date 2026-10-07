@@ -97,12 +97,17 @@ export async function createFollowup(tenantId: string, patientId: string, offerT
     let initialTokens: Record<string, { patient?: any; professional?: any }> = {};
     if (offer.contracts.length) {
       const appliedContracts = await tx.insert(followupContracts).values(offer.contracts.map((contract) => { const id = randomUUID(); const protectedContent = protect(tenantId, id, 'content', contract.content); return { id, tenantId, followupId, contractId: contract.contractId, contractVersion: contract.contractVersion, titleSnapshot: contract.title, ...protectedContent, sourceObjectKey: contract.sourceObjectKey, renderedPdfObjectKey: contract.renderedPdfObjectKey, renderedPdfHash: contract.renderedPdfHash, renderedPdfSize: contract.renderedPdfSize, renderedPdfContentType: contract.renderedPdfContentType, status: contract.sourceDocxObjectKey ? 'generating' : 'pending' }; }) as any).returning();
-      const processes = await tx.insert(signatureProcesses).values(appliedContracts.filter((contract: any) => contract.status === 'pending').map((contract: any) => ({ tenantId, followupContractId: contract.id }))).returning();
-      const participants = await tx.insert(signatureParticipants).values(processes.flatMap((process: any) => [
-        { id: randomUUID(), tenantId, processId: process.id, role: 'patient', identitySnapshot: { role: 'patient', patientId: patient.id, fullName: patient.fullName, phoneLast4Hash: hashToken(patientPhone!.slice(-4)) } },
-        { id: randomUUID(), tenantId, processId: process.id, role: 'professional', identitySnapshot: { role: 'professional', assignment: 'clinic_representative' } },
-      ])).returning();
-      initialTokens = await issueInitialTokens(tx, tenantId, participants);
+      // Contratos DOCX nascem como 'generating' (materialização assíncrona cria os
+      // processos de assinatura depois); sem contratos 'pending' não há o que inserir.
+      const pendingContracts = appliedContracts.filter((contract: any) => contract.status === 'pending');
+      if (pendingContracts.length) {
+        const processes = await tx.insert(signatureProcesses).values(pendingContracts.map((contract: any) => ({ tenantId, followupContractId: contract.id }))).returning();
+        const participants = await tx.insert(signatureParticipants).values(processes.flatMap((process: any) => [
+          { id: randomUUID(), tenantId, processId: process.id, role: 'patient', identitySnapshot: { role: 'patient', patientId: patient.id, fullName: patient.fullName, phoneLast4Hash: hashToken(patientPhone!.slice(-4)) } },
+          { id: randomUUID(), tenantId, processId: process.id, role: 'professional', identitySnapshot: { role: 'professional', assignment: 'clinic_representative' } },
+        ])).returning();
+        initialTokens = await issueInitialTokens(tx, tenantId, participants);
+      }
     }
     if (options.failAfter === 'items') throw new Error('Falha simulada na materialização do acompanhamento.');
     const forms = await offerForms(tenantId, offer, tx);

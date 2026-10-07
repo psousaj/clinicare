@@ -14,12 +14,13 @@ type FormPageProps = {
   submitLabel: string;
   onSubmit: (form: FormData) => Promise<unknown> | unknown;
   narrow?: boolean;
+  className?: string;
   children: ReactNode;
   below?: ReactNode;
 };
 
 // Cadastro em página inteira: cabeçalho com voltar/cancelar/salvar, campos no painel e conteúdo extra (ex.: editor) abaixo.
-export function FormPage({ backTo, backLabel, backSearch, title, submitLabel, onSubmit, narrow, children, below }: FormPageProps) {
+export function FormPage({ backTo, backLabel, backSearch, title, submitLabel, onSubmit, narrow, className, children, below }: FormPageProps) {
   const navigate = useNavigate();
   const [pending, setPending] = useState(false);
 
@@ -39,7 +40,7 @@ export function FormPage({ backTo, backLabel, backSearch, title, submitLabel, on
   }
 
   return (
-    <form className="grid gap-4" onSubmit={handleSubmit}>
+    <form className={cn('grid gap-4', className)} onSubmit={handleSubmit}>
       <section className="panel grid gap-4">
         <div className="panel-header form-page-header">
           <div>
