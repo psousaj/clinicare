@@ -495,6 +495,16 @@ describe('Agenda', () => {
     await waitFor(() => expect(calls.some((call) => call.method === 'PATCH' && call.url === '/api/appointments/ap1')).toBe(true));
   });
 
+  it('does not offer delete for a confirmed calendar appointment', async () => {
+    routes['GET /api/appointments'] = () => [{ ...appointment, status: 'confirmed' }];
+    routes['GET /api/followups'] = () => [followup];
+    const user = userEvent.setup();
+    renderAt('/agenda');
+    await user.click(await screen.findByTitle('Marina Alves · Confirmado'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('button', { name: /excluir agendamento/i })).not.toBeInTheDocument();
+  });
+
   it('sends the currently selected appointment items when confirming', async () => {
     routes['GET /api/appointments'] = () => [appointment];
     routes['GET /api/followups'] = () => [followup];
@@ -817,15 +827,17 @@ describe('Relacionamento do paciente', () => {
     expect(await screen.findByText(/ainda não tem acompanhamentos/)).toBeInTheDocument();
   });
 
-  it('records the attendance duration when registering an attendance', async () => {
+  it('registers one manual followup session without asking for duration', async () => {
     routes['GET /api/followups'] = () => [pendingFollowup({ blocked: false, items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3, sessionsPerformed: 0, sessionSchema: { type: 'object', properties: {} } }] })];
     routes['POST /api/attendances'] = () => ({ _id: 's1' });
     routes['GET /api/attendances/s1'] = () => ({ _id: 's1', patientId: 'p1', procedureName: 'Limpeza de pele', performedAt: '2026-09-29T15:00:00Z', data: {}, schemaSnapshot: { type: 'object', properties: {} }, photos: [] });
     const user = userEvent.setup();
     renderAt('/pacientes/p1/novo-atendimento/it1');
-    await user.type(await screen.findByLabelText('Duração (minutos)'), '75');
+    expect(await screen.findByText(/Este registro baixa uma sessão do acompanhamento/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Duração (minutos)')).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /salvar atendimento/i }));
-    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ durationMinutes: 75 }));
+    await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toMatchObject({ patientId: 'p1', followupItemId: 'it1' }));
+    expect(calls.find((call) => call.method === 'POST')?.body).not.toHaveProperty('durationMinutes');
   });
 });
 

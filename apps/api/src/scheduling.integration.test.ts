@@ -82,6 +82,14 @@ integration('PostgreSQL scheduling and attendance', () => {
     expect((await getDatabase().select().from(attendances).where(eq(attendances.appointmentId, appointment.id)))).toHaveLength(1);
   });
 
+  it('does not allow deleting or cancelling a confirmed appointment', async () => {
+    const f = await fixture(2); const appointment = await (await reserve(f.patientId, f.itemId)).json() as any;
+    expect((await post(`/api/appointments/${appointment.id}/confirm`, {})).status).toBe(200);
+    const response = await request(`/api/appointments/${appointment.id}`, { method: 'DELETE' });
+    expect(response.status).toBe(409);
+    expect((await getDatabase().select().from(appointments).where(eq(appointments.id, appointment.id)))[0]!.status).toBe('confirmed');
+  });
+
   it('deselects an item and releases its reservation', async () => {
     // Followup with 2 different procedures for the same patient
     const patientId = crypto.randomUUID(), proc1 = crypto.randomUUID(), proc2 = crypto.randomUUID(), comboId = crypto.randomUUID();

@@ -232,7 +232,7 @@ export async function previewProfessionalSignature(participantId: string, body: 
 }
 
 export async function confirmProfessionalSignature(participantId: string, body: Record<string, unknown>): Promise<unknown> {
-  return postParticipantPdf(participantId, 'confirm', body).then((response) => response.json());
+  return postParticipantPdf(participantId, 'confirm', { evidence: body }).then((response) => response.json());
 }
 
 export const usePreviewProfessionalSignature = () =>

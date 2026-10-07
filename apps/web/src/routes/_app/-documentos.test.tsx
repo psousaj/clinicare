@@ -88,7 +88,8 @@ describe('representative signature workspace', () => {
     await waitFor(() => expect(calls.some((call) => call.url.endsWith('/confirm'))).toBe(true));
     const preview = calls.find((call) => call.url.endsWith('/preview'))?.body as Record<string, unknown>;
     expect(preview).toMatchObject({ documentId: 'd1', baseRevisionId: 'r1', placement: { pageIndex: 0 }, acceptanceText: 'Confirmo a assinatura visual deste contrato.' });
-    const confirm = calls.find((call) => call.url.endsWith('/confirm'))?.body as Record<string, unknown>;
+    const confirmRequest = calls.find((call) => call.url.endsWith('/confirm'))?.body as { evidence?: Record<string, unknown> };
+    const confirm = confirmRequest.evidence;
     expect(confirm).toMatchObject({ documentId: 'd1', baseRevisionId: 'r1', confirmed: true, previewHash: 'b'.repeat(64) });
     expect(await screen.findByText('Assinatura registrada')).toBeInTheDocument();
   });

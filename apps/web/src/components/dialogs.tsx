@@ -57,7 +57,7 @@ export function AppointmentDialog({ open, selection, appointment, patientId, pat
     await confirm.mutateAsync({ id: appointment.id, selectedItemIds });
     onClose();
   };
-  const actions = appointment ? (
+  const actions = appointment && appointment.status !== 'confirmed' ? (
     confirmDelete ? <><Button type="button" variant="outline" onClick={() => setConfirmDelete(false)}>Manter</Button><Button type="button" variant="destructive" disabled={remove.isPending} onClick={() => remove.mutateAsync(appointment.id).then(onClose)}>Confirmar exclusão</Button></>
       : <Button type="button" variant="destructive" onClick={() => setConfirmDelete(true)}>Excluir agendamento</Button>
   ) : undefined;

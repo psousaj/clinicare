@@ -155,7 +155,7 @@ export async function updateAppointment(tenantId: string, id: string, input: any
     if (status === 'no_show' && existing.endsAt > new Date()) throw conflict('Um agendamento só pode ser marcado como falta depois do horário final.');
     if (status === 'confirmed' && existing.status === 'confirmed') throw conflict('Agendamento já confirmado.');
     if (status === 'confirmed' && !['planned', 'rescheduled'].includes(existing.status)) throw conflict('Somente agendamentos planejados ou remarcados podem ser confirmados.');
-    if (existing.status === 'confirmed' && status && status !== 'cancelled') throw conflict('Agendamentos confirmados só podem ser cancelados.');
+    if (existing.status === 'confirmed' && status === 'cancelled') throw conflict('Atendimentos confirmados não podem ser excluídos ou cancelados.');
     if (['cancelled', 'no_show'].includes(existing.status) && status && status !== existing.status) throw conflict('Agendamento já encerrado.');
     if (status === 'cancelled' && ['cancelled', 'no_show'].includes(existing.status)) throw conflict('Agendamento já encerrado.');
     if (status === 'no_show' && ['cancelled', 'no_show', 'confirmed'].includes(existing.status)) throw conflict('Estado do agendamento não permite marcar falta.');

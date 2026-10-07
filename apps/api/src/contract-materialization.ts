@@ -131,7 +131,22 @@ export function renderDocx(template: Uint8Array, context: MaterializationContext
   assertRequiredContext(context, checked.requiredPlaceholders);
   const zip = new PizZip(template);
   try {
-    const document = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, nullGetter: () => '', delimiters: { start: '{', end: '}' } });
+    const document = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+      nullGetter: () => '',
+      delimiters: { start: '{', end: '}' },
+      // Placeholders são caminhos (`patient.name`), não chaves literais com
+      // ponto. O parser padrão trata o caminho inteiro como uma chave e,
+      // silenciosamente, nullGetter substituía tudo por string vazia.
+      parser: (tag: string) => ({
+        get: (scope: unknown) => {
+          if (tag === '.') return scope;
+          return tag.split('.').reduce<unknown>((value, key) =>
+            value && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined, scope);
+        },
+      }),
+    });
     document.render(values(context));
     const output = document.getZip().generate({ type: 'uint8array', compression: 'DEFLATE' });
     if (output.byteLength === 0) throw invalid('O DOCX renderizado está vazio.');
