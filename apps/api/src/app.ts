@@ -36,7 +36,7 @@ const handleError = (c: Context, error: unknown) => {
   if ([errorCode, causeCode].includes('23503') || [errorCode, causeCode].includes('23514') || [errorCode, causeCode].includes('22P02')) return c.json({ error: 'Dados inválidos ou referência não encontrada.' }, 400);
   if (error instanceof Error && error.message === 'Tenant não encontrado.') return c.json({ error: error.message }, 400);
   if (error instanceof Error && /^(Nome completo é obrigatório\.|Data de nascimento inválida\.|E-mail inválido\.|Telefone inválido\.|CPF deve conter exatamente 11 dígitos\.|Notas inválidas\.)$/.test(error.message)) return c.json({ error: error.message }, 400);
-  if (error instanceof Error && /^(Informe|Escolha|Tipo de contrato|Dados ou|Combo requer|Combo não|Combo sem|A quantidade de sessões|Plano |Evento |Procedimento não|Contrato não|Versão não|Formulário inválido|Motivo do cancelamento|O acompanhamento|O PDF|Intenção de upload|Contrato aplicado|O caminho legado)/i.test(error.message)) return c.json({ error: error.message }, 400);
+  if (error instanceof Error && /^(Informe|Escolha|Tipo de contrato|Dados ou|Combo requer|Combo não|Combo sem|Combo do evento|Procedimento do evento|Procedimento já|A quantidade de sessões|Plano |Evento |Procedimento não|Contrato não|Versão não|Formulário inválido|Motivo do cancelamento|O acompanhamento|O PDF|Intenção de upload|Contrato aplicado|O caminho legado)/i.test(error.message)) return c.json({ error: error.message }, 400);
   if (error instanceof Error && /conflito|versão desatualizada/i.test(error.message)) return c.json({ error: error.message }, 409);
   if (error instanceof Error && /^(DATA_ENCRYPTION_KEY|SEARCH_HMAC_KEY|UPLOAD_SIGNING_KEY)/.test(error.message)) return c.json({ error: error.message }, 503);
   if (error instanceof Error && /R2 is not configured/i.test(error.message)) return c.json({ error: 'R2 não configurado.' }, 503);
@@ -151,9 +151,9 @@ export const app = new Hono()
   .post('/api/followups', async (c) => {
     const tenantId = await catalogTenant(c.req, authTenant(c));
     const body = await c.req.json().catch(() => null);
-    if (!body || !isUuid(body.patientId) || !['combo', 'plan'].includes(body.offerType) || !isUuid(body.offerId)) return fail(c, 'Paciente e um combo ou plano são obrigatórios; procedimento avulso é criado ao agendar ou registrar o atendimento.');
+    if (!body || !isUuid(body.patientId) || !['combo', 'plan', 'event'].includes(body.offerType) || !isUuid(body.offerId)) return fail(c, 'Paciente e um combo, plano ou evento são obrigatórios; procedimento avulso é criado ao agendar ou registrar o atendimento.');
     try {
-      const created = await createFollowup(tenantId, body.patientId, body.offerType, body.offerId, { contractApplicationDate: body.contractApplicationDate });
+      const created = await createFollowup(tenantId, body.patientId, body.offerType, body.offerId, { contractApplicationDate: body.contractApplicationDate, choice: body.choice });
       // Sem cron/worker: dispara a materialização em background sem bloquear o
       // 201. Falha de geração não desfaz o acompanhamento — fica como
       // generating/failed p/ retry no card (com polling até concluir).

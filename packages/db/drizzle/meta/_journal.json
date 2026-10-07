@@ -204,6 +204,13 @@
       "when": 1791410000000,
       "tag": "0028_plan_combo_items",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791420000000,
+      "tag": "0029_event_followups",
+      "breakpoints": true
     }
   ]
 }
