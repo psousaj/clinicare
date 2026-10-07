@@ -596,11 +596,22 @@ describe('Eventos', () => {
     ];
     const user = userEvent.setup();
     renderAt('/eventos');
-    expect(screen.getByText('Nenhum evento selecionado')).toBeInTheDocument();
-    await user.click(await screen.findByRole('button', { name: /dia facial/i }));
-    expect(screen.getByText('Dia facial')).toBeInTheDocument();
+    expect(await screen.findByText('Nenhum evento selecionado')).toBeInTheDocument();
+    const catalog = screen.getByRole('region', { name: 'Eventos cadastrados' });
+    const patients = screen.getByRole('region', { name: 'Pacientes por evento' });
+    expect(catalog.compareDocumentPosition(patients) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(patients).queryByRole('link')).not.toBeInTheDocument();
+    await user.click(within(patients).getByRole('button', { name: /dia facial/i }));
+    expect(within(patients).getByRole('heading', { name: 'Dia facial' })).toBeInTheDocument();
     expect(screen.queryByText('Bruno Lima')).not.toBeInTheDocument();
     expect(screen.getByText('Ana Souza')).toBeInTheDocument();
+    expect(within(catalog).getByText('Dia corporal')).toBeInTheDocument();
+    await user.click(within(patients).getByRole('button', { name: /dia corporal/i }));
+    expect(within(patients).getByRole('link', { name: /Bruno Lima/ })).toHaveAttribute('href', '/pacientes/p2');
+    expect(screen.queryByText('Ana Souza')).not.toBeInTheDocument();
+    await user.click(within(patients).getByRole('button', { name: 'Limpar seleção' }));
+    expect(within(patients).getByText('Nenhum evento selecionado')).toBeInTheDocument();
+    expect(within(patients).queryByRole('link')).not.toBeInTheDocument();
   });
 
   it('creates an event picking menu items through search, tabs and the selected block', async () => {
