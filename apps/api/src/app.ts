@@ -4,7 +4,7 @@ import { cors } from 'hono/cors';
 import { getDatabasePool } from '@clinicare/db';
 import { getTrustedOrigins } from './auth-config';
 import { createPatient, deactivatePatient, getPatient, isUuid, listPatients, updatePatient } from './patients';
-import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, associateAnamnesis, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan, listEvents, saveEvent, presignContractVersionPdf, finalizeContractVersionPdf } from './catalog';
+import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, associateAnamnesis, saveProcedureAnamneses, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan, listEvents, saveEvent, presignContractVersionPdf, finalizeContractVersionPdf } from './catalog';
 import { getRelationalRelationship } from './relational-relationship';
 import { getRelationalHistory } from './relational-history';
 import { createFollowup, getFollowup, listFollowups, cancelFollowup, updateFollowupState } from './followups';
@@ -36,7 +36,7 @@ const handleError = (c: Context, error: unknown) => {
   if ([errorCode, causeCode].includes('23503') || [errorCode, causeCode].includes('23514') || [errorCode, causeCode].includes('22P02')) return c.json({ error: 'Dados inválidos ou referência não encontrada.' }, 400);
   if (error instanceof Error && error.message === 'Tenant não encontrado.') return c.json({ error: error.message }, 400);
   if (error instanceof Error && /^(Nome completo é obrigatório\.|Data de nascimento inválida\.|E-mail inválido\.|Telefone inválido\.|CPF deve conter exatamente 11 dígitos\.|Notas inválidas\.)$/.test(error.message)) return c.json({ error: error.message }, 400);
-  if (error instanceof Error && /^(Informe|Escolha|Tipo de contrato|Dados ou|Combo requer|Combo não|Combo sem|Combo do evento|Procedimento do evento|Procedimento já|A quantidade de sessões|Plano |Evento |Procedimento não|Contrato não|Versão não|Formulário inválido|Motivo do cancelamento|O acompanhamento|O PDF|Intenção de upload|Contrato aplicado|O caminho legado)/i.test(error.message)) return c.json({ error: error.message }, 400);
+  if (error instanceof Error && /^(Informe|Escolha|Tipo de contrato|Dados ou|Combo requer|Combo não|Combo sem|Anamnese |Combo do evento|Procedimento do evento|Procedimento já|Procedimento requer|A quantidade de sessões|Plano |Evento |Procedimento não|Contrato não|Versão não|Formulário inválido|Motivo do cancelamento|O acompanhamento|O PDF|Intenção de upload|Contrato aplicado|O caminho legado)/i.test(error.message)) return c.json({ error: error.message }, 400);
   if (error instanceof Error && /conflito|versão desatualizada/i.test(error.message)) return c.json({ error: error.message }, 409);
   if (error instanceof Error && /^(DATA_ENCRYPTION_KEY|SEARCH_HMAC_KEY|UPLOAD_SIGNING_KEY)/.test(error.message)) return c.json({ error: error.message }, 503);
   if (error instanceof Error && /R2 is not configured/i.test(error.message)) return c.json({ error: 'R2 não configurado.' }, 503);
@@ -122,6 +122,7 @@ export const app = new Hono()
   })
   .get('/api/procedures', async (c) => c.json(await listProcedures(await catalogTenant(c.req, authTenant(c)))))
   .post('/api/procedures', async (c) => { const body = await c.req.json().catch(() => null); if (!body || typeof body.name !== 'string' || body.name.trim().length < 2 || !Number.isInteger(body.durationMinutes) || body.durationMinutes < 1 || !Number.isSafeInteger(body.priceCents ?? 0) || body.priceCents < 0) return fail(c, 'Dados ou formulário de procedimento inválidos.'); return c.json(await createProcedure(await catalogTenant(c.req, authTenant(c)), body), 201); })
+  .put('/api/procedures/:id/anamneses', async (c) => { try { if (!isUuid(c.req.param('id'))) return fail(c, 'Procedimento não encontrado.', 404); const result = await saveProcedureAnamneses(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), (await c.req.json().catch(() => ({})))?.anamnesisIds); return result ? c.json(result) : fail(c, 'Procedimento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
   .put('/api/procedures/:id', async (c) => { const body = await c.req.json().catch(() => null); if (!isRecord(body) || !isUuid(c.req.param('id'))) return fail(c, 'Dados de procedimento inválidos.'); const result = await updateProcedure(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), body); return result ? c.json(result) : fail(c, 'Procedimento não encontrado.', 404); })
   .get('/api/anamneses', async (c) => c.json(await listAnamneses(await catalogTenant(c.req, authTenant(c)))))
   .post('/api/anamneses', async (c) => c.json(await createAnamnesis(await catalogTenant(c.req, authTenant(c)), await c.req.json()), 201))

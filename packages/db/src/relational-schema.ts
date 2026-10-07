@@ -85,6 +85,18 @@ export const eventItems = pgTable('event_items', {
   id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull(), eventId: uuid('event_id').notNull(), kind: text('kind').notNull(), procedureId: uuid('procedure_id'), comboId: uuid('combo_id'), sessions: integer('sessions'),
 }, (t) => [foreignKey({ columns: [t.tenantId, t.eventId], foreignColumns: [events.tenantId, events.id], name: 'event_items_tenant_event_fk' }), foreignKey({ columns: [t.tenantId, t.procedureId], foreignColumns: [procedures.tenantId, procedures.id], name: 'event_items_tenant_procedure_fk' }), foreignKey({ columns: [t.tenantId, t.comboId], foreignColumns: [combos.tenantId, combos.id], name: 'event_items_tenant_combo_fk' }), uniqueIndex('event_items_procedure_unique').on(t.tenantId, t.eventId, t.procedureId).where(sql`${t.procedureId} is not null`), uniqueIndex('event_items_combo_unique').on(t.tenantId, t.eventId, t.comboId).where(sql`${t.comboId} is not null`), check('event_items_kind_valid', sql`${t.kind} in ('procedure', 'combo')`), check('event_items_target_valid', sql`(${t.kind} = 'procedure' and ${t.procedureId} is not null and ${t.comboId} is null and ${t.sessions} >= 1) or (${t.kind} = 'combo' and ${t.comboId} is not null and ${t.procedureId} is null and ${t.sessions} is null)`)]);
 
+export const comboAnamneses = pgTable('combo_anamneses', {
+  tenantId: uuid('tenant_id').notNull(), comboId: uuid('combo_id').notNull(), anamnesisId: uuid('anamnesis_id').notNull(), required: boolean('required').notNull().default(true),
+}, (t) => [primaryKey({ columns: [t.tenantId, t.comboId, t.anamnesisId] }), foreignKey({ columns: [t.tenantId, t.comboId], foreignColumns: [combos.tenantId, combos.id], name: 'combo_anamneses_tenant_combo_fk' }), foreignKey({ columns: [t.tenantId, t.anamnesisId], foreignColumns: [anamneses.tenantId, anamneses.id], name: 'combo_anamneses_tenant_anamnesis_fk' })]);
+
+export const planVersionAnamneses = pgTable('plan_version_anamneses', {
+  tenantId: uuid('tenant_id').notNull(), planVersionId: uuid('plan_version_id').notNull(), anamnesisId: uuid('anamnesis_id').notNull(), required: boolean('required').notNull().default(true),
+}, (t) => [primaryKey({ columns: [t.tenantId, t.planVersionId, t.anamnesisId] }), foreignKey({ columns: [t.tenantId, t.planVersionId], foreignColumns: [planVersions.tenantId, planVersions.id], name: 'plan_version_anamneses_tenant_version_fk' }), foreignKey({ columns: [t.tenantId, t.anamnesisId], foreignColumns: [anamneses.tenantId, anamneses.id], name: 'plan_version_anamneses_tenant_anamnesis_fk' })]);
+
+export const eventAnamneses = pgTable('event_anamneses', {
+  tenantId: uuid('tenant_id').notNull(), eventId: uuid('event_id').notNull(), anamnesisId: uuid('anamnesis_id').notNull(), required: boolean('required').notNull().default(true),
+}, (t) => [primaryKey({ columns: [t.tenantId, t.eventId, t.anamnesisId] }), foreignKey({ columns: [t.tenantId, t.eventId], foreignColumns: [events.tenantId, events.id], name: 'event_anamneses_tenant_event_fk' }), foreignKey({ columns: [t.tenantId, t.anamnesisId], foreignColumns: [anamneses.tenantId, anamneses.id], name: 'event_anamneses_tenant_anamnesis_fk' })]);
+
 export const eventContracts = pgTable('event_contracts', {
   tenantId: uuid('tenant_id').notNull(), eventId: uuid('event_id').notNull(), contractId: uuid('contract_id').notNull(), title: text('title').notNull(),
 }, (t) => [primaryKey({ columns: [t.tenantId, t.eventId, t.contractId] }), foreignKey({ columns: [t.tenantId, t.eventId], foreignColumns: [events.tenantId, events.id], name: 'event_contracts_tenant_event_fk' }), foreignKey({ columns: [t.tenantId, t.contractId], foreignColumns: [contracts.tenantId, contracts.id], name: 'event_contracts_tenant_contract_fk' })]);
@@ -100,6 +112,7 @@ export type RelationalProcedure = typeof procedures.$inferSelect; export type Ne
 export type RelationalProcedureVersion = typeof procedureVersions.$inferSelect;
 export type RelationalAnamnesis = typeof anamneses.$inferSelect; export type RelationalAnamnesisVersion = typeof anamnesisVersions.$inferSelect;
 export type RelationalCombo = typeof combos.$inferSelect; export type RelationalComboItem = typeof comboItems.$inferSelect;
+export type RelationalComboAnamnesis = typeof comboAnamneses.$inferSelect; export type RelationalPlanVersionAnamnesis = typeof planVersionAnamneses.$inferSelect; export type RelationalEventAnamnesis = typeof eventAnamneses.$inferSelect;
 export type RelationalEvent = typeof events.$inferSelect; export type RelationalEventItem = typeof eventItems.$inferSelect; export type RelationalEventContract = typeof eventContracts.$inferSelect;
 export type RelationalContract = typeof contracts.$inferSelect; export type RelationalContractVersion = typeof contractVersions.$inferSelect; export type RelationalAppliedDocument = typeof appliedDocuments.$inferSelect; export type RelationalAppliedDocumentRevision = typeof appliedDocumentRevisions.$inferSelect;
 export const followups = pgTable('followups', {

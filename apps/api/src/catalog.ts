@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
-  anamneses, anamnesisProcedures, anamnesisVersions, combos, comboItems, contracts, contractVersions, contractVersionPdfUploadIntents,
+  anamneses, anamnesisProcedures, anamnesisVersions, comboAnamneses, planVersionAnamneses, eventAnamneses, combos, comboItems, contracts, contractVersions, contractVersionPdfUploadIntents,
   eventContracts, eventItems, events,
   getDatabase, planVersionContracts, planVersionItems, planVersions, plans, procedureVersions, procedures,
 } from '@clinicare/db';
@@ -40,12 +40,34 @@ async function lockPlan(tx: any, tenantId: string, id: string) {
 async function lockEvent(tx: any, tenantId: string, id: string) {
   await tx.execute(sql`select id from events where tenant_id = ${tenantId} and id = ${id} for update`);
 }
+// Anamneses vinculadas na própria oferta (procedimento, combo, versão de plano ou evento), como os contratos.
+async function checkAnamnesisIds(tx: any, tenantId: string, anamnesisIds: unknown, label: string) {
+  if (!Array.isArray(anamnesisIds) || anamnesisIds.some((id) => typeof id !== 'string')) throw new Error(`${label} requer uma lista válida de anamneses.`);
+  const unique = [...new Set(anamnesisIds)];
+  const rows = unique.length ? await tx.select().from(anamneses).where(and(eq(anamneses.tenantId, tenantId), inArray(anamneses.id, unique))) : [];
+  if (rows.length !== unique.length || rows.some((row: any) => !row.active)) throw new Error('Anamnese não encontrada ou inativa.');
+  return unique;
+}
 const validCivilDate = (value: unknown): value is string => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(new Date(`${value}T00:00:00Z`).getTime()) && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+
 
 export async function listProcedures(tenantId: string) {
   const db = getDatabase(); const rows = await db.select().from(procedures).where(eq(procedures.tenantId, tenantId)).orderBy(desc(procedures.createdAt));
   const versions = await db.select().from(procedureVersions).where(eq(procedureVersions.tenantId, tenantId));
-  return rows.map((row) => ({ ...id(row), versions: versions.filter((v) => v.procedureId === row.id).sort((a, b) => a.version - b.version).map((v) => ({ _id: v.id, id: v.id, version: v.version, sessionSchema: v.sessionSchema, createdAt: v.createdAt })), sessionSchema: row.sessionSchema }));
+  const links = await db.select().from(anamnesisProcedures).where(eq(anamnesisProcedures.tenantId, tenantId));
+  return rows.map((row) => ({ ...id(row), anamnesisIds: links.filter((link) => link.procedureId === row.id).map((link) => link.anamnesisId), versions: versions.filter((v) => v.procedureId === row.id).sort((a, b) => a.version - b.version).map((v) => ({ _id: v.id, id: v.id, version: v.version, sessionSchema: v.sessionSchema, createdAt: v.createdAt })), sessionSchema: row.sessionSchema }));
+}
+export async function saveProcedureAnamneses(tenantId: string, procedureId: string, anamnesisIds: unknown) {
+  const db = getDatabase();
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select id from procedures where tenant_id = ${tenantId} and id = ${procedureId} for update`);
+    const [existing] = await tx.select().from(procedures).where(and(eq(procedures.tenantId, tenantId), eq(procedures.id, procedureId)));
+    if (!existing) return null;
+    const unique = await checkAnamnesisIds(tx, tenantId, anamnesisIds, 'Procedimento');
+    await tx.delete(anamnesisProcedures).where(and(eq(anamnesisProcedures.tenantId, tenantId), eq(anamnesisProcedures.procedureId, procedureId)));
+    if (unique.length) await tx.insert(anamnesisProcedures).values(unique.map((anamnesisId) => ({ tenantId, anamnesisId, procedureId, required: true })));
+    return { ...id(existing), anamnesisIds: unique };
+  });
 }
 export async function createProcedure(tenantId: string, input: any) {
   const schema = input.sessionSchema ?? { type: 'object', properties: {} }; if (!schemaOk(schema)) throw new Error('Dados ou formulário de procedimento inválidos.');
@@ -74,7 +96,8 @@ export async function updateAnamnesis(tenantId: string, anamnesisId: string, inp
 export async function addAnamnesisVersion(tenantId: string, anamnesisId: string, input: any) { const db = getDatabase(); return db.transaction(async (tx) => { await lockAnamnesis(tx, tenantId, anamnesisId); const [row] = await tx.select().from(anamneses).where(and(eq(anamneses.tenantId, tenantId), eq(anamneses.id, anamnesisId))); if (!row) return null; const stale = conflict(input.expectedVersion, row.currentVersion); if (stale) throw stale; const source = input.restoreVersion ? (await tx.select().from(anamnesisVersions).where(and(eq(anamnesisVersions.tenantId, tenantId), eq(anamnesisVersions.anamnesisId, anamnesisId), eq(anamnesisVersions.version, input.restoreVersion))))[0] : null; if (input.restoreVersion && !source) throw new Error('Versão não encontrada.'); const schema = source?.schema ?? input.schema; if (!schemaOk(schema)) throw new Error('Formulário inválido.'); const version = row.currentVersion + 1; const [created] = await tx.insert(anamnesisVersions).values({ tenantId, anamnesisId, version, schema, origin: source ? 'restored' : 'edited', restoredFromVersion: source?.version ?? null }).returning(); await tx.update(anamneses).set({ currentVersion: version, updatedAt: new Date() }).where(and(eq(anamneses.tenantId, tenantId), eq(anamneses.id, anamnesisId))); return { ...id(created), schema: created.schema }; }); }
 export async function associateAnamnesis(tenantId: string, anamnesisId: string, procedureList: any[]) { const db = getDatabase(); return db.transaction(async (tx) => { const [row] = await tx.select().from(anamneses).where(and(eq(anamneses.tenantId, tenantId), eq(anamneses.id, anamnesisId))); if (!row) return null; await tx.delete(anamnesisProcedures).where(and(eq(anamnesisProcedures.tenantId, tenantId), eq(anamnesisProcedures.anamnesisId, anamnesisId))); if (procedureList.length) await tx.insert(anamnesisProcedures).values(procedureList.map((p) => ({ tenantId, anamnesisId, procedureId: p.procedureId, required: p.required !== false }))); return anamnesisResponse(tenantId, row, tx); }); }
 
-async function comboResponse(tenantId: string, row: any, executor = getDatabase()) { const items = await executor.select().from(comboItems).where(and(eq(comboItems.tenantId, tenantId), eq(comboItems.comboId, row.id))); const ps = await proceduresFor(executor, tenantId, items.map((x: any) => x.procedureId)); return { ...id(row), items: items.map((item: any) => ({ ...id(item), procedureId: id(ps.find((p: any) => p.id === item.procedureId)!), sessions: item.sessions, sessionsOverride: item.sessions })) }; }
+async function comboAnamnesisIds(executor: any, tenantId: string, comboId: string) { return (await executor.select({ anamnesisId: comboAnamneses.anamnesisId }).from(comboAnamneses).where(and(eq(comboAnamneses.tenantId, tenantId), eq(comboAnamneses.comboId, comboId)))).map((row: any) => row.anamnesisId); }
+async function comboResponse(tenantId: string, row: any, executor = getDatabase()) { const items = await executor.select().from(comboItems).where(and(eq(comboItems.tenantId, tenantId), eq(comboItems.comboId, row.id))); const ps = await proceduresFor(executor, tenantId, items.map((x: any) => x.procedureId)); const anamnesisIds = await comboAnamnesisIds(executor, tenantId, row.id); return { ...id(row), anamnesisIds, items: items.map((item: any) => ({ ...id(item), procedureId: id(ps.find((p: any) => p.id === item.procedureId)!), sessions: item.sessions, sessionsOverride: item.sessions })) }; }
 export async function listCombos(tenantId: string) { const rows = await getDatabase().select().from(combos).where(eq(combos.tenantId, tenantId)).orderBy(desc(combos.createdAt)); return Promise.all(rows.map((r) => comboResponse(tenantId, r))); }
 function comboValid(input: any) {
   if (typeof input.name !== 'string' || !Array.isArray(input.items) || input.items.length === 0 || !input.items.every((x: any) => typeof x.procedureId === 'string' && Number.isInteger(x.sessions) && x.sessions >= 1)) return false;
@@ -82,7 +105,7 @@ function comboValid(input: any) {
   const until = input.validUntil == null ? null : new Date(input.validUntil);
   return (!from || !Number.isNaN(from.getTime())) && (!until || !Number.isNaN(until.getTime())) && (!from || !until || until >= from);
 }
-export async function saveCombo(tenantId: string, comboId: string | null, input: any) { if (!comboValid(input)) throw new Error('Combo requer nome, preço e procedimentos com número de sessões válido.'); const db = getDatabase(); const row = await db.transaction(async (tx) => { const existing = comboId ? (await tx.select().from(combos).where(and(eq(combos.tenantId, tenantId), eq(combos.id, comboId))))[0] : null; if (comboId && !existing) return null; const rowValues: any = { tenantId, name: input.name?.trim() ?? existing?.name, description: input.description ?? existing?.description ?? null, priceCents: input.priceCents ?? existing?.priceCents, promotionalPriceCents: input.promotionalPriceCents ?? existing?.promotionalPriceCents ?? null, validFrom: input.validFrom ? new Date(input.validFrom) : existing?.validFrom ?? null, validUntil: input.validUntil ? new Date(input.validUntil) : existing?.validUntil ?? null, active: input.active ?? existing?.active ?? true, requireNewAnamnesis: input.requireNewAnamnesis ?? existing?.requireNewAnamnesis ?? false, updatedAt: new Date() }; const [created] = existing ? await tx.update(combos).set(rowValues).where(and(eq(combos.tenantId, tenantId), eq(combos.id, comboId!))).returning() : await tx.insert(combos).values(rowValues).returning(); const target = existing ? comboId! : created.id; await tx.delete(comboItems).where(and(eq(comboItems.tenantId, tenantId), eq(comboItems.comboId, target))); await tx.insert(comboItems).values(input.items.map((x: any) => ({ tenantId, comboId: target, procedureId: x.procedureId, sessions: x.sessions, priceOverrideCents: x.priceOverrideCents ?? null }))); return created; }); return row ? comboResponse(tenantId, row) : null; }
+export async function saveCombo(tenantId: string, comboId: string | null, input: any) { if (!comboValid(input)) throw new Error('Combo requer nome, preço e procedimentos com número de sessões válido.'); const db = getDatabase(); const row = await db.transaction(async (tx) => { const existing = comboId ? (await tx.select().from(combos).where(and(eq(combos.tenantId, tenantId), eq(combos.id, comboId))))[0] : null; if (comboId && !existing) return null; const rowValues: any = { tenantId, name: input.name?.trim() ?? existing?.name, description: input.description ?? existing?.description ?? null, priceCents: input.priceCents ?? existing?.priceCents, promotionalPriceCents: input.promotionalPriceCents ?? existing?.promotionalPriceCents ?? null, validFrom: input.validFrom ? new Date(input.validFrom) : existing?.validFrom ?? null, validUntil: input.validUntil ? new Date(input.validUntil) : existing?.validUntil ?? null, active: input.active ?? existing?.active ?? true, requireNewAnamnesis: input.requireNewAnamnesis ?? existing?.requireNewAnamnesis ?? false, updatedAt: new Date() }; const [created] = existing ? await tx.update(combos).set(rowValues).where(and(eq(combos.tenantId, tenantId), eq(combos.id, comboId!))).returning() : await tx.insert(combos).values(rowValues).returning(); const target = existing ? comboId! : created.id; await tx.delete(comboItems).where(and(eq(comboItems.tenantId, tenantId), eq(comboItems.comboId, target))); await tx.insert(comboItems).values(input.items.map((x: any) => ({ tenantId, comboId: target, procedureId: x.procedureId, sessions: x.sessions, priceOverrideCents: x.priceOverrideCents ?? null }))); if (input.anamnesisIds !== undefined) { const unique = await checkAnamnesisIds(tx, tenantId, input.anamnesisIds, 'Combo'); await tx.delete(comboAnamneses).where(and(eq(comboAnamneses.tenantId, tenantId), eq(comboAnamneses.comboId, target))); if (unique.length) await tx.insert(comboAnamneses).values(unique.map((anamnesisId) => ({ tenantId, comboId: target, anamnesisId, required: true }))); } return created; }); return row ? comboResponse(tenantId, row) : null; }
 
 export async function presignContractVersionPdf(tenantId: string, contractId: string, contentType: string, contentHash: string, size: number) {
   if (!validPdfMetadata(contentType, contentHash, size)) throw new Error('O PDF renderizado deve usar o tipo application/pdf e metadados válidos.');
@@ -138,7 +161,7 @@ export async function saveContract(tenantId: string, contractId: string | null, 
     const values: any = { tenantId, title, kind: kind ?? existing?.kind ?? 'standard', procedureId: (kind ?? existing?.kind) === 'procedure' ? input.procedureId ?? existing?.procedureId : null, comboId: (kind ?? existing?.kind) === 'combo' ? input.comboId ?? existing?.comboId : null, active: input.active ?? existing?.active ?? true, updatedAt: new Date() }; const [row] = existing ? await tx.update(contracts).set(values).where(and(eq(contracts.tenantId, tenantId), eq(contracts.id, contractId!))).returning() : await tx.insert(contracts).values({ ...values, currentVersion: 0 }).returning(); return row; }); return row ? contractResponse(tenantId, row) : null; }
 export async function addContractVersion(_tenantId: string, _contractId: string, _input: any): Promise<never> { throw legacyContractGone(); }
 
-async function planResponse(tenantId: string, row: any, executor = getDatabase()) { const v = (await executor.select().from(planVersions).where(and(eq(planVersions.tenantId, tenantId), eq(planVersions.planId, row.id), eq(planVersions.version, row.currentVersion))))[0]; if (!v) return { ...id(row), priceCents: 0, items: [], contractIds: [] }; const [items, cs] = await Promise.all([executor.select().from(planVersionItems).where(and(eq(planVersionItems.tenantId, tenantId), eq(planVersionItems.planVersionId, v.id))), executor.select().from(planVersionContracts).where(and(eq(planVersionContracts.tenantId, tenantId), eq(planVersionContracts.planVersionId, v.id)))]); return { ...id(row), priceCents: v.priceCents, durationDays: v.durationDays, validityDays: v.validityDays, requireNewAnamnesis: v.requireNewAnamnesis, items: items.map((x: any) => x.offerType === 'combo' ? { offerType: 'combo', offerId: x.comboId, comboName: x.comboName, items: x.comboSnapshot?.items ?? [], priceCents: x.priceCents } : { offerType: 'procedure', offerId: x.procedureId, sessions: x.sessions, procedureName: x.procedureName, durationMinutes: x.durationMinutes, priceCents: x.priceCents, sessionSchema: x.sessionSchema }), contractIds: cs.map((x: any) => x.contractId), versions: [{ id: v.id, version: v.version, priceCents: v.priceCents, createdAt: v.createdAt }] }; }
+async function planResponse(tenantId: string, row: any, executor = getDatabase()) { const v = (await executor.select().from(planVersions).where(and(eq(planVersions.tenantId, tenantId), eq(planVersions.planId, row.id), eq(planVersions.version, row.currentVersion))))[0]; if (!v) return { ...id(row), priceCents: 0, items: [], contractIds: [], anamnesisIds: [] }; const [items, cs, fs] = await Promise.all([executor.select().from(planVersionItems).where(and(eq(planVersionItems.tenantId, tenantId), eq(planVersionItems.planVersionId, v.id))), executor.select().from(planVersionContracts).where(and(eq(planVersionContracts.tenantId, tenantId), eq(planVersionContracts.planVersionId, v.id))), executor.select().from(planVersionAnamneses).where(and(eq(planVersionAnamneses.tenantId, tenantId), eq(planVersionAnamneses.planVersionId, v.id)))]); return { ...id(row), priceCents: v.priceCents, durationDays: v.durationDays, validityDays: v.validityDays, requireNewAnamnesis: v.requireNewAnamnesis, items: items.map((x: any) => x.offerType === 'combo' ? { offerType: 'combo', offerId: x.comboId, comboName: x.comboName, items: x.comboSnapshot?.items ?? [], priceCents: x.priceCents } : { offerType: 'procedure', offerId: x.procedureId, sessions: x.sessions, procedureName: x.procedureName, durationMinutes: x.durationMinutes, priceCents: x.priceCents, sessionSchema: x.sessionSchema }), contractIds: cs.map((x: any) => x.contractId), anamnesisIds: fs.map((x: any) => x.anamnesisId), versions: [{ id: v.id, version: v.version, priceCents: v.priceCents, createdAt: v.createdAt }] }; }
 export async function listPlans(tenantId: string) { const rows = await getDatabase().select().from(plans).where(and(eq(plans.tenantId, tenantId), eq(plans.active, true))).orderBy(desc(plans.createdAt)); return Promise.all(rows.map((r) => planResponse(tenantId, r))); }
 export async function savePlan(tenantId: string, planId: string | null, input: any) {
   const db = getDatabase();
@@ -146,7 +169,7 @@ export async function savePlan(tenantId: string, planId: string | null, input: a
     const existing = planId ? (await tx.select().from(plans).where(and(eq(plans.tenantId, tenantId), eq(plans.id, planId))))[0] : null;
     if (planId && !existing) return null;
     if (existing) { await lockPlan(tx, tenantId, existing.id); if (input.expectedVersion !== undefined) { const stale = conflict(input.expectedVersion, existing.currentVersion); if (stale) throw stale; } }
-    const offerChange = ['items', 'priceCents', 'durationDays', 'validityDays', 'contractIds', 'requireNewAnamnesis'].some((key) => input[key] !== undefined);
+    const offerChange = ['items', 'priceCents', 'durationDays', 'validityDays', 'contractIds', 'anamnesisIds', 'requireNewAnamnesis'].some((key) => input[key] !== undefined);
     const values: any = { tenantId, name: input.name?.trim() ?? existing?.name, description: input.description ?? existing?.description ?? null, active: input.active ?? existing?.active ?? true, updatedAt: new Date() };
     if (existing && !offerChange) { const [updated] = await tx.update(plans).set(values).where(and(eq(plans.tenantId, tenantId), eq(plans.id, planId!))).returning(); return updated; }
     if (!Array.isArray(input.items) || !input.items.length || input.items.some((x: any) => !x || typeof x.offerId !== 'string' || (x.offerType !== 'procedure' && x.offerType !== 'combo') || (x.offerType === 'procedure' && (!Number.isInteger(x.sessions) || x.sessions < 1)))) throw new Error('Plano aceita procedimentos e combos com dados válidos.');
@@ -177,15 +200,24 @@ export async function savePlan(tenantId: string, planId: string | null, input: a
       const p = ps.find((a: any) => a.id === x.offerId)!; if (x.sessions < (p.baseSessions ?? 1)) throw new Error('A quantidade de sessões do plano não pode ser menor que a base do procedimento.'); return { tenantId, planVersionId: v.id, offerType: 'procedure', procedureId: p.id, sessions: x.sessions, procedureName: p.name, durationMinutes: p.durationMinutes, priceCents: p.priceCents, sessionSchema: p.sessionSchema, comboId: null, comboName: null, comboSnapshot: null };
     }));
     const cvs = await tx.select().from(contractVersions).where(and(eq(contractVersions.tenantId, tenantId), inArray(contractVersions.contractId, input.contractIds))); await tx.insert(planVersionContracts).values(input.contractIds.map((contractId: string) => { const c = cs.find((x) => x.id === contractId)!; const cv = latest(cvs.filter((x) => x.contractId === contractId)); return { tenantId, planVersionId: v.id, contractId, contractVersion: cv?.version ?? null, title: c.title, sourceObjectKey: cv?.sourceObjectKey ?? cv?.sourceDocxObjectKey ?? null }; }));
+    let submittedAnamnesisIds: string[] = [];
+    if (input.anamnesisIds !== undefined) {
+      submittedAnamnesisIds = await checkAnamnesisIds(tx, tenantId, input.anamnesisIds, 'Plano');
+    } else if (existing) {
+      const [previous] = await tx.select().from(planVersions).where(and(eq(planVersions.tenantId, tenantId), eq(planVersions.planId, row.id), eq(planVersions.version, existing.currentVersion)));
+      if (previous) submittedAnamnesisIds = (await tx.select({ anamnesisId: planVersionAnamneses.anamnesisId }).from(planVersionAnamneses).where(and(eq(planVersionAnamneses.tenantId, tenantId), eq(planVersionAnamneses.planVersionId, previous.id)))).map((link: any) => link.anamnesisId);
+    }
+    if (submittedAnamnesisIds.length) await tx.insert(planVersionAnamneses).values(submittedAnamnesisIds.map((anamnesisId) => ({ tenantId, planVersionId: v.id, anamnesisId, required: true })));
     await tx.update(plans).set({ currentVersion: version, updatedAt: new Date() }).where(and(eq(plans.tenantId, tenantId), eq(plans.id, row.id))); return { ...row, currentVersion: version };
   });
   return row ? planResponse(tenantId, row) : null;
 }
 
 async function eventResponse(tenantId: string, row: any, executor = getDatabase()) {
-  const [items, cs] = await Promise.all([
+  const [items, cs, fs] = await Promise.all([
     executor.select().from(eventItems).where(and(eq(eventItems.tenantId, tenantId), eq(eventItems.eventId, row.id))),
     executor.select().from(eventContracts).where(and(eq(eventContracts.tenantId, tenantId), eq(eventContracts.eventId, row.id))),
+    executor.select().from(eventAnamneses).where(and(eq(eventAnamneses.tenantId, tenantId), eq(eventAnamneses.eventId, row.id))),
   ]);
   return {
     ...id(row),
@@ -194,6 +226,7 @@ async function eventResponse(tenantId: string, row: any, executor = getDatabase(
       ? { kind: 'procedure', procedureId: x.procedureId, sessions: x.sessions }
       : { kind: 'combo', comboId: x.comboId }),
     contractIds: cs.map((x: any) => x.contractId),
+    anamnesisIds: fs.map((x: any) => x.anamnesisId),
   };
 }
 export async function listEvents(tenantId: string) {
@@ -206,7 +239,7 @@ export async function saveEvent(tenantId: string, eventId: string | null, input:
     const existing = eventId ? (await tx.select().from(events).where(and(eq(events.tenantId, tenantId), eq(events.id, eventId))))[0] : null;
     if (eventId && !existing) return null;
     if (existing) await lockEvent(tx, tenantId, existing.id);
-    const offerChange = ['items', 'contractIds'].some((key) => input[key] !== undefined);
+    const offerChange = ['items', 'contractIds', 'anamnesisIds'].some((key) => input[key] !== undefined);
     const name = input.name !== undefined ? String(input.name).trim() : existing?.name;
     if (!name || name.length < 2) throw new Error('Evento requer nome com ao menos 2 caracteres.');
     const eventDate = input.eventDate !== undefined ? input.eventDate : existing?.eventDate;
@@ -256,7 +289,7 @@ export async function saveEvent(tenantId: string, eventId: string | null, input:
       : await tx.insert(events).values(values).returning();
     const target = existing ? eventId! : created.id;
     await tx.delete(eventItems).where(and(eq(eventItems.tenantId, tenantId), eq(eventItems.eventId, target)));
-    await tx.delete(eventContracts).where(and(eq(eventContracts.tenantId, tenantId), eq(eventContracts.eventId, target)));
+    await tx.delete(eventContracts).where(and(eq(eventContracts.tenantId, tenantId), eq(eventContracts.eventId, target)));    if (input.anamnesisIds !== undefined) { const unique = await checkAnamnesisIds(tx, tenantId, input.anamnesisIds, 'Evento'); await tx.delete(eventAnamneses).where(and(eq(eventAnamneses.tenantId, tenantId), eq(eventAnamneses.eventId, target))); if (unique.length) await tx.insert(eventAnamneses).values(unique.map((anamnesisId) => ({ tenantId, eventId: target, anamnesisId, required: true }))); }
     await tx.insert(eventItems).values(items.map((x: any) => x.kind === 'procedure'
       ? { tenantId, eventId: target, kind: 'procedure', procedureId: x.procedureId, comboId: null, sessions: x.sessions }
       : { tenantId, eventId: target, kind: 'combo', procedureId: null, comboId: x.comboId, sessions: null }));

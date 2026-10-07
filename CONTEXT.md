@@ -350,7 +350,7 @@ Impressão técnica observável do ambiente de navegador/dispositivo no momento 
 _Avoid_: biometria, hash do contrato, identidade do dispositivo, fingerprint completo
 
 **Formulário de anamnese**:
-Modelo de formulário clínico configurável que o profissional associa aos procedimentos selecionados e que o paciente pode responder por um link. Um formulário de anamnese pode ser associado a vários procedimentos. Na interface, o catálogo desses modelos é chamado de “Formulários de anamnese”.
+Modelo de formulário clínico configurável que o profissional vincula na edição de cada oferta (procedimento, combo, plano ou evento) e que o paciente pode responder por um link. Na inscrição, o acompanhamento exige a união das anamneses da oferta com as dos procedimentos que a compõem. Na interface, o catálogo desses modelos é chamado de “Formulários de anamnese”.
 _Avoid_: anamnese (quando significar o modelo do catálogo), questionário (quando se tratar de coleta clínica do paciente)
 
 **Anamnese aplicada**:

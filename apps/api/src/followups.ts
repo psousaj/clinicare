@@ -2,7 +2,7 @@ import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { paymentResponse } from './payments';
 import {
-  anamneses, anamnesisProcedures, anamnesisVersions, appliedAnamneses, combos, comboItems, eventContracts, eventItems, events,
+  anamneses, anamnesisProcedures, anamnesisVersions, appliedAnamneses, comboAnamneses, combos, comboItems, eventAnamneses, eventContracts, eventItems, events, planVersionAnamneses,
   contracts, contractVersions, followupContracts, followupItems, followupSnapshots, followups,
   getDatabase, patients, plans, planVersionContracts, planVersionItems, planVersions, procedures,
   payments, signatureEvents, signatureProcesses, signatureParticipants, signatureTokens,
@@ -20,7 +20,7 @@ const validCivilDate = (value: unknown): value is string => value == null || (ty
 
 type Offer = {
   name: string; priceCents: number; validUntil: Date | null; planVersionId: string | null;
-  requireNewAnamnesis: boolean; eventId?: string | null; eventDate?: string | null;
+  requireNewAnamnesis: boolean; comboId?: string | null; eventId?: string | null; eventDate?: string | null;
   items: Array<{ procedureId: string; procedureName: string; sessionsTotal: number; durationMinutes: number; priceCents: number; sessionSchema: unknown; comboId?: string | null; comboName?: string | null; packagePriceCents?: number | null }>;
   snapshot: { kind: 'combo' | 'plan' | 'event'; sourceVersion: number | null; payload: unknown };
   contracts: Array<{ contractId: string; contractVersion: number; title: string; content: string | null; sourceObjectKey: string | null; sourceDocxObjectKey: string | null; contextConfiguration: unknown; allowedPlaceholders: unknown; requiredPlaceholders: unknown; renderedPdfObjectKey: string | null; renderedPdfHash: string | null; renderedPdfSize: number | null; renderedPdfContentType: string | null }>;
@@ -113,7 +113,7 @@ async function resolveOffer(tenantId: string, offerType: 'combo' | 'plan' | 'eve
     const procedureRows = itemRows.length ? await executor.select().from(procedures).where(and(eq(procedures.tenantId, tenantId), inArray(procedures.id, itemRows.map((x: any) => x.procedureId)))) : [];
     if (!itemRows.length || procedureRows.length !== itemRows.length) throw invalid('Combo sem procedimentos disponíveis.');
     const items = itemRows.map((item: any) => { const procedure: any = procedureRows.find((p: any) => p.id === item.procedureId)!; return { procedureId: procedure.id, procedureName: procedure.name, sessionsTotal: item.sessions, durationMinutes: procedure.durationMinutes, priceCents: item.priceOverrideCents ?? procedure.priceCents, sessionSchema: procedure.sessionSchema }; });
-    return { name: combo.name, priceCents: combo.promotionalPriceCents ?? combo.priceCents, validUntil: combo.validUntil, planVersionId: null, requireNewAnamnesis: combo.requireNewAnamnesis, items, snapshot: { kind: 'combo', sourceVersion: null, payload: { ...idShape(combo), items } }, contracts: [] };
+    return { name: combo.name, priceCents: combo.promotionalPriceCents ?? combo.priceCents, validUntil: combo.validUntil, planVersionId: null, comboId: offerId, requireNewAnamnesis: combo.requireNewAnamnesis, items, snapshot: { kind: 'combo', sourceVersion: null, payload: { ...idShape(combo), items } }, contracts: [] };
   }
   await executor.execute(sql`select id from plans where tenant_id = ${tenantId} and id = ${offerId} for share`);
   const plan = (await executor.select().from(plans).where(and(eq(plans.tenantId, tenantId), eq(plans.id, offerId), eq(plans.active, true))))[0];
@@ -138,9 +138,14 @@ async function resolveOffer(tenantId: string, offerType: 'combo' | 'plan' | 'eve
   };
 }
 
+// Anamneses da inscrição: união das vinculadas na própria oferta (combo, versão de plano ou evento) com as dos procedimentos — igual aos contratos.
 async function offerForms(tenantId: string, offer: Offer, executor: any) {
+  const owned: string[] = [];
+  if (offer.comboId) owned.push(...(await executor.select({ anamnesisId: comboAnamneses.anamnesisId }).from(comboAnamneses).where(and(eq(comboAnamneses.tenantId, tenantId), eq(comboAnamneses.comboId, offer.comboId), eq(comboAnamneses.required, true)))).map((row: any) => row.anamnesisId));
+  if (offer.planVersionId) owned.push(...(await executor.select({ anamnesisId: planVersionAnamneses.anamnesisId }).from(planVersionAnamneses).where(and(eq(planVersionAnamneses.tenantId, tenantId), eq(planVersionAnamneses.planVersionId, offer.planVersionId), eq(planVersionAnamneses.required, true)))).map((row: any) => row.anamnesisId));
+  if (offer.eventId) owned.push(...(await executor.select({ anamnesisId: eventAnamneses.anamnesisId }).from(eventAnamneses).where(and(eq(eventAnamneses.tenantId, tenantId), eq(eventAnamneses.eventId, offer.eventId), eq(eventAnamneses.required, true)))).map((row: any) => row.anamnesisId));
   const links = offer.items.length ? await executor.select().from(anamnesisProcedures).where(and(eq(anamnesisProcedures.tenantId, tenantId), inArray(anamnesisProcedures.procedureId, offer.items.map((x) => x.procedureId)), eq(anamnesisProcedures.required, true))) : [];
-  const ids = [...new Set(links.map((x: any) => x.anamnesisId))];
+  const ids = [...new Set([...owned, ...links.map((x: any) => x.anamnesisId)])];
   const forms = ids.length ? await executor.select().from(anamneses).where(and(eq(anamneses.tenantId, tenantId), inArray(anamneses.id, ids as string[]), eq(anamneses.active, true)) as any) : [];
   const versions = ids.length ? await executor.select().from(anamnesisVersions).where(and(eq(anamnesisVersions.tenantId, tenantId), inArray(anamnesisVersions.anamnesisId, ids as string[])) as any) : [];
   return forms.map((form: any) => ({ form, version: latest(versions.filter((v: any) => v.anamnesisId === form.id)) })).filter((x: any) => x.version);
