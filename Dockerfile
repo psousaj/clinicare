@@ -24,8 +24,5 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages/db ./packages/db
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/package.json ./package.json
-COPY docker-entrypoint.sh ./docker-entrypoint.sh
-RUN chmod +x ./docker-entrypoint.sh
 EXPOSE 3000
-ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["bun", "apps/api/dist/index.js"]
