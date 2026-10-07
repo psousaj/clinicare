@@ -4,7 +4,7 @@ import { cors } from 'hono/cors';
 import { getDatabasePool } from '@clinicare/db';
 import { getTrustedOrigins } from './auth-config';
 import { createPatient, deactivatePatient, getPatient, isUuid, listPatients, updatePatient } from './patients';
-import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, associateAnamnesis, saveProcedureAnamneses, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan, listEvents, saveEvent, presignContractVersionPdf, finalizeContractVersionPdf } from './catalog';
+import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, saveProcedureAnamneses, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan, listEvents, saveEvent, presignContractVersionPdf, finalizeContractVersionPdf } from './catalog';
 import { getRelationalRelationship } from './relational-relationship';
 import { getRelationalHistory } from './relational-history';
 import { createFollowup, getFollowup, listFollowups, cancelFollowup, updateFollowupState } from './followups';
@@ -128,7 +128,6 @@ export const app = new Hono()
   .post('/api/anamneses', async (c) => c.json(await createAnamnesis(await catalogTenant(c.req, authTenant(c)), await c.req.json()), 201))
   .patch('/api/anamneses/:id', async (c) => { const result = await updateAnamnesis(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Formulário de anamnese não encontrado.', 404); })
   .post('/api/anamneses/:id/versions', async (c) => { const result = await addAnamnesisVersion(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result, 201) : fail(c, 'Formulário de anamnese não encontrado.', 404); })
-  .put('/api/anamneses/:id/associations', async (c) => { const body = await c.req.json(); const result = await associateAnamnesis(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), body?.procedures ?? []); return result ? c.json(result) : fail(c, 'Anamnese não encontrada.', 404); })
   .get('/api/combos', async (c) => c.json(await listCombos(await catalogTenant(c.req, authTenant(c)))))
   .post('/api/combos', async (c) => c.json(await saveCombo(await catalogTenant(c.req, authTenant(c)), null, await c.req.json()), 201))
   .put('/api/combos/:id', async (c) => { const result = await saveCombo(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Combo não encontrado.', 404); })

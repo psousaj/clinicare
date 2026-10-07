@@ -3,6 +3,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { CalendarDays, ClipboardList, FileText, Layers3, Stethoscope } from 'lucide-react';
+import { AnamnesisPicker, InheritedAnamneses } from '@/components/AnamnesisPicker';
+import { toggleId } from '@/lib/utils';
 import { Field } from '@/components/Field';
 import { FormPage } from '@/components/FormPage';
 import { PlanOfferPicker } from '@/components/PlanOfferPicker';
@@ -12,7 +14,8 @@ import { Label } from '@/components/ui/label';
 import { currency } from '@/lib/format';
 import { parseForm, planForm } from '@/lib/forms';
 import { linkedContractIds, minSessionsOf, sessionsFor, suggestedPriceCents } from '@/lib/planOffers';
-import { combosQuery, contractsQuery, plansQuery, proceduresQuery, useCreatePlan, useUpdatePlan } from '@/lib/queries';
+import { anamnesesQuery, combosQuery, contractsQuery, plansQuery, proceduresQuery, useCreatePlan, useUpdatePlan } from '@/lib/queries';
+import type { Anamnesis, Combo, Procedure } from '@/lib/schemas';
 
 export const Route = createFileRoute('/_app/planos/novo')({ validateSearch: z.object({ planId: z.string().optional() }), component: NewPlan });
 
@@ -25,11 +28,13 @@ function NewPlan() {
   const create = useCreatePlan();
   const update = useUpdatePlan();
   const proceduresData = useQuery(proceduresQuery).data, combosData = useQuery(combosQuery).data, contractsData = useQuery(contractsQuery).data;
+  const forms = useQuery(anamnesesQuery).data ?? [];
   const procedures = useMemo(() => proceduresData ?? [], [proceduresData]);
   const combos = useMemo(() => combosData ?? [], [combosData]);
   const contracts = useMemo(() => (contractsData ?? []).filter((contract) => contract.active !== false), [contractsData]);
   const existing = useQuery({ ...plansQuery, enabled: Boolean(planId) }).data?.find((plan) => plan.id === planId);
   const [pickedProcedureIds, setProcedureIds] = useState<string[]>([]), [pickedComboIds, setComboIds] = useState<string[]>([]);
+  const [pickedAnamnesisIds, setPickedAnamnesisIds] = useState<string[]>([]);
   const [procedureSessions, setProcedureSessions] = useState<Record<string, string>>({});
   // Marcações manuais de contrato; sem marcação manual vale a sugestão (contratos dos itens escolhidos).
   const [contractOverrides, setContractOverrides] = useState<Record<string, boolean>>({});
@@ -57,6 +62,7 @@ function NewPlan() {
     const existingProcedures = existing.items.filter((item) => item.offerType === 'procedure');
     setProcedureIds(existingProcedures.map((item) => item.offerId));
     setComboIds(existing.items.filter((item) => item.offerType === 'combo').map((item) => item.offerId));
+    setPickedAnamnesisIds([...(existing.anamnesisIds ?? [])]);
     setProcedureSessions(Object.fromEntries(existingProcedures.map((item) => [item.offerId, String(item.sessions)])));
     setRequireNewAnamnesis(existing.requireNewAnamnesis === true);
     setPrice((existing.priceCents / 100).toFixed(2));
@@ -91,7 +97,7 @@ function NewPlan() {
         ];
         if (!items.length) throw new Error('Escolha ao menos um procedimento ou combo para o plano.');
         if (!contractIds.length) throw new Error('Selecione ao menos um contrato aplicável ao plano.');
-        return planId ? update.mutateAsync({ id: planId, ...data, priceCents, items, contractIds, requireNewAnamnesis }) : create.mutateAsync({ ...data, priceCents, items, contractIds, requireNewAnamnesis });
+        return planId ? update.mutateAsync({ id: planId, ...data, priceCents, items, contractIds, anamnesisIds: pickedAnamnesisIds, requireNewAnamnesis }) : create.mutateAsync({ ...data, priceCents, items, contractIds, anamnesisIds: pickedAnamnesisIds, requireNewAnamnesis });
       }}
     >
       <div className="plan-intro"><span className="plan-intro-mark"><Layers3 size={19} /></span><div><p>Monte uma oferta completa</p><span>Defina o valor e reúna os procedimentos, combos e documentos que fazem parte deste plano.</span></div></div>
@@ -154,6 +160,11 @@ function NewPlan() {
           </div>
         </div>
         <Label className="plan-anamnesis cursor-pointer"><Checkbox checked={requireNewAnamnesis} onCheckedChange={(value) => setRequireNewAnamnesis(value === true)} /><span><strong>Solicitar nova anamnese</strong><small>Mesmo que a última ainda esteja dentro do prazo de validade.</small></span></Label>
+      </section>
+      <section className="plan-section">
+        <SectionHeading icon={<ClipboardList size={17} />} title="Anamneses exigidas" detail="Vinculadas neste plano, além das exigidas pelos procedimentos incluídos." count={`${pickedAnamnesisIds.length} vinculada${pickedAnamnesisIds.length === 1 ? '' : 's'}`} />
+        <AnamnesisPicker forms={forms} pickedIds={pickedAnamnesisIds} onToggle={(id, on) => setPickedAnamnesisIds((list) => toggleId(list, id, on))} />
+        <InheritedAnamneses procedures={procedures} combos={combos} forms={forms} procedureIds={procedureIds} comboIds={comboIds} pickedIds={pickedAnamnesisIds} />
       </section>
     </FormPage>
   );

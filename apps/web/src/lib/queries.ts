@@ -100,11 +100,16 @@ export const useCreateProcedure = () => useApiMutation({ mutationFn: (body: unkn
 export const useCreateAnamnesis = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/anamneses', body), invalidate: [keys.anamneses], success: 'Formulário de anamnese criado.' });
 export const useRestoreAnamnesis = () =>
   useApiMutation({ mutationFn: ({ id, version }: { id: string; version: number }) => post(`/api/anamneses/${id}/versions`, { restoreVersion: version }), invalidate: [keys.anamneses], success: (_, { version }) => `Rollback feito: nova versão criada a partir da v${version}.` });
+export const useSaveProcedureAnamneses = () =>
+  useApiMutation({
+    mutationFn: ({ id, anamnesisIds }: { id: string; anamnesisIds: string[] }) => api(`/api/procedures/${id}/anamneses`, { method: 'PUT', body: { anamnesisIds }, schema: anySchema }),
+    invalidate: [keys.procedures],
+    success: 'Anamneses vinculadas ao procedimento.',
+  });
 export const useUpdateAnamnesis = () =>
   useApiMutation({
-    mutationFn: async ({ id, title, schema, validityMonths, procedureIds }: { id: string; title?: string; schema?: Record<string, unknown>; validityMonths?: number; procedureIds?: string[] }) => {
+    mutationFn: async ({ id, title, schema, validityMonths }: { id: string; title?: string; schema?: Record<string, unknown>; validityMonths?: number }) => {
       if (title !== undefined) await api(`/api/anamneses/${id}`, { method: 'PATCH', body: { title, validityMonths }, schema: anySchema });
-      if (procedureIds) await api(`/api/anamneses/${id}/associations`, { method: 'PUT', body: { procedures: procedureIds.map((procedureId) => ({ procedureId, required: true })) }, schema: anySchema });
       if (schema) await post(`/api/anamneses/${id}/versions`, { schema });
     },
     invalidate: [keys.anamneses],

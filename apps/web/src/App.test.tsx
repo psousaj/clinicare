@@ -596,6 +596,7 @@ describe('Eventos', () => {
     ];
     routes['GET /api/combos'] = () => [{ _id: 'c1', name: 'Combo facial', priceCents: 5000, active: true, items: [] }];
     routes['GET /api/contracts'] = () => [{ _id: 'k1', title: 'Padrão', kind: 'standard', active: true, versions: [] }];
+    routes['GET /api/anamneses'] = () => [{ _id: 'a1', title: 'Pré', validityMonths: 12, procedureIds: [], versions: [] }];
     routes['GET /api/events'] = () => [];
     routes['POST /api/events'] = () => ({ _id: 'ev1' });
     const user = userEvent.setup();
@@ -612,12 +613,74 @@ describe('Eventos', () => {
     await user.click(screen.getByRole('button', { name: 'Combos' }));
     await user.click(screen.getByRole('checkbox', { name: /combo facial/i }));
     await user.click(screen.getByRole('checkbox', { name: 'Padrão' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Pré' }));
     await user.click(screen.getByRole('button', { name: /^salvar evento/i }));
     await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({
       name: 'Dia da clínica', eventDate: '2026-10-15',
       items: [{ kind: 'procedure', procedureId: 'pr1', sessions: 1 }, { kind: 'combo', comboId: 'c1' }],
-      contractIds: ['k1'],
+      contractIds: ['k1'], anamnesisIds: ['a1'],
     }));
+  });
+});
+
+describe('Offer-owned anamneses', () => {
+  const forms = () => [
+    { _id: 'a1', title: 'Pré-operatória', validityMonths: 12, procedureIds: [], versions: [] },
+    { _id: 'a2', title: 'Alergias', validityMonths: 12, procedureIds: [], versions: [] },
+  ];
+
+  it('links forms from the procedure screen through its own endpoint', async () => {
+    routes['GET /api/procedures'] = () => [];
+    routes['GET /api/anamneses'] = forms;
+    routes['POST /api/procedures'] = () => ({ _id: 'pr1' });
+    routes['PUT /api/procedures/pr1/anamneses'] = () => ({ _id: 'pr1', anamnesisIds: ['a1'] });
+    const user = userEvent.setup();
+    renderAt('/procedimentos/novo');
+    await user.type(await screen.findByLabelText(/^Nome/), 'Botox');
+    await user.click(screen.getByRole('checkbox', { name: 'Pré-operatória' }));
+    await user.click(screen.getByRole('button', { name: /salvar procedimento/i }));
+    await waitFor(() => expect(calls.find((call) => call.url === '/api/procedures/pr1/anamneses')?.body).toEqual({ anamnesisIds: ['a1'] }));
+  });
+
+  it('sends the plan-owned forms and shows the ones inherited from procedures', async () => {
+    const limpeza = { _id: 'pr1', name: 'Limpeza de pele', baseSessions: 1, priceCents: 15000, anamnesisIds: ['a2'], versions: [] };
+    routes['GET /api/procedures'] = () => [limpeza];
+    routes['GET /api/anamneses'] = forms;
+    routes['GET /api/contracts'] = () => [{ _id: 'c1', title: 'Contrato padrão', kind: 'standard', active: true, versions: [] }];
+    routes['POST /api/plans'] = () => ({ _id: 'pl1' });
+    const user = userEvent.setup();
+    renderAt('/planos/novo');
+    await user.type(await screen.findByLabelText('Nome do plano'), 'Plano Pele');
+    await user.click(await screen.findByRole('checkbox', { name: /limpeza de pele/i }));
+    expect(await screen.findByText(/também exigidas pelos procedimentos/i)).toHaveTextContent('Alergias (via Limpeza de pele)');
+    await user.click(screen.getByRole('checkbox', { name: 'Pré-operatória' }));
+    await user.click(await screen.findByRole('checkbox', { name: /contrato padrão/i }));
+    await user.click(screen.getByRole('button', { name: /salvar plano/i }));
+    await waitFor(() => expect(calls.find((call) => call.url === '/api/plans')?.body).toMatchObject({ anamnesisIds: ['a1'] }));
+  });
+
+  it('sends the combo-owned forms', async () => {
+    routes['GET /api/procedures'] = () => [{ _id: 'pr1', name: 'Limpeza de pele', baseSessions: 1, durationMinutes: 60, active: true, priceCents: 15000, versions: [] }];
+    routes['GET /api/anamneses'] = forms;
+    routes['POST /api/combos'] = () => ({ _id: 'c1' });
+    const user = userEvent.setup();
+    renderAt('/procedimentos/combos/novo');
+    await user.type(await screen.findByLabelText(/^Nome/), 'Combo facial');
+    await user.click(screen.getByRole('button', { name: /adicionar procedimento/i }));
+    await user.click(await screen.findByRole('button', { name: /Limpeza de pele/ }));
+    await user.click(screen.getByRole('checkbox', { name: 'Pré-operatória' }));
+    await user.click(screen.getByRole('button', { name: /salvar combo/i }));
+    await waitFor(() => expect(calls.find((call) => call.url === '/api/combos')?.body).toMatchObject({ anamnesisIds: ['a1'] }));
+  });
+
+  it('no longer asks on the anamnesis form which procedures require it', async () => {
+    routes['GET /api/anamneses'] = () => [{ _id: 'a1', title: 'Facial', validityMonths: 12, procedureIds: ['pr1'], versions: [{ version: 1, schema: { type: 'object', properties: {} }, origin: 'created', createdAt: '2026-01-01T10:00:00Z' }] }];
+    routes['GET /api/procedures'] = () => [{ _id: 'pr1', name: 'Limpeza', priceCents: 100, versions: [] }];
+    const user = userEvent.setup();
+    renderAt('/formularios-anamnese/a1');
+    await screen.findByDisplayValue('Facial');
+    expect(screen.queryByRole('group', { name: /procedimentos que exigem/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/vínculo com procedimentos, combos, planos e eventos/i)).toBeInTheDocument();
   });
 });
 

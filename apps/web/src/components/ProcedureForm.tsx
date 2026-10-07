@@ -1,22 +1,27 @@
 import { useState } from 'react';
 import { Field } from '@/components/Field';
 import { FormPage } from '@/components/FormPage';
+import { AnamnesisPicker } from '@/components/AnamnesisPicker';
 import { SchemaEditor } from '@/components/SchemaEditor';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { validateFormSchema } from '@/lib/fieldKinds';
+import { toggleId } from '@/lib/utils';
 import { parseForm, procedureForm } from '@/lib/forms';
-import { useCreateProcedure, useUpdateProcedure } from '@/lib/queries';
+import { anamnesesQuery, useCreateProcedure, useSaveProcedureAnamneses, useUpdateProcedure } from '@/lib/queries';
+import { useQuery } from '@tanstack/react-query';
 import type { Procedure } from '@/lib/schemas';
 
 const emptySchema: Record<string, unknown> = { type: 'object', properties: {} };
 
 // Cadastro e edição de procedimento na mesma página; a edição preserva as versões dos campos da sessão.
 export function ProcedureFormPage({ procedure }: { procedure?: Procedure }) {
-  const create = useCreateProcedure(), update = useUpdateProcedure();
+  const create = useCreateProcedure(), update = useUpdateProcedure(), saveAnamneses = useSaveProcedureAnamneses();
+  const forms = useQuery(anamnesesQuery).data ?? [];
   const [schema, setSchema] = useState<Record<string, unknown>>((procedure?.sessionSchema as Record<string, unknown> | undefined) ?? emptySchema);
   const [requireNewAnamnesis, setRequireNewAnamnesis] = useState(procedure?.requireNewAnamnesis ?? false);
   const [active, setActive] = useState(procedure?.active ?? true);
+  const [anamnesisIds, setAnamnesisIds] = useState<string[]>(procedure?.anamnesisIds ?? []);
   const version = procedure?.versions?.at(-1)?.version;
   return (
     <FormPage
@@ -24,12 +29,14 @@ export function ProcedureFormPage({ procedure }: { procedure?: Procedure }) {
       backLabel="Catálogo"
       title={procedure ? `Editar · ${procedure.name}` : 'Novo procedimento'}
       submitLabel={procedure ? 'Salvar alterações' : 'Salvar procedimento'}
-      onSubmit={(form) => {
+      onSubmit={async (form) => {
         const problem = validateFormSchema(schema, { requireFields: false });
         if (problem) throw new Error(problem);
         const { price, ...data } = parseForm(procedureForm, form);
         const body = { ...data, priceCents: price, sessionSchema: schema, requireNewAnamnesis };
-        return procedure ? update.mutateAsync({ ...body, id: procedure.id, active }) : create.mutateAsync(body);
+        const saved = procedure ? await update.mutateAsync({ ...body, id: procedure.id, active }) : await create.mutateAsync(body);
+        const targetId = procedure?.id ?? (saved as { id: string }).id;
+        if ([...anamnesisIds].sort().join() !== [...(procedure?.anamnesisIds ?? [])].sort().join()) await saveAnamneses.mutateAsync({ id: targetId, anamnesisIds });
       }}
       below={(
         <section className="panel grid gap-3">
@@ -57,6 +64,11 @@ export function ProcedureFormPage({ procedure }: { procedure?: Procedure }) {
         <Checkbox checked={requireNewAnamnesis} onCheckedChange={(value) => setRequireNewAnamnesis(value === true)} />
         Exigir nova anamnese a cada acompanhamento, mesmo que a última ainda esteja válida
       </Label>
+      <section className="grid gap-2">
+        <div><div className="section-kicker">ANAMNESES</div><h3 className="m-0 text-sm font-semibold">Formulários exigidos</h3>
+        <p className="m-0 text-xs text-muted-foreground">Vinculados neste procedimento; valem no avulso e em todo combo, plano ou evento que o incluir.</p></div>
+        <AnamnesisPicker forms={forms} pickedIds={anamnesisIds} onToggle={(id, on) => setAnamnesisIds((list) => toggleId(list, id, on))} />
+      </section>
       {procedure && (
         <Label className="cursor-pointer">
           <Checkbox checked={active} onCheckedChange={(value) => setActive(value === true)} />

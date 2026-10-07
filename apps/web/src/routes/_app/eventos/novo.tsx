@@ -5,17 +5,16 @@ import { useEffect, useState } from 'react';
 import { CalendarDays, FileText, PartyPopper } from 'lucide-react';
 import { Field } from '@/components/Field';
 import { FormPage } from '@/components/FormPage';
+import { AnamnesisPicker, InheritedAnamneses } from '@/components/AnamnesisPicker';
+import { toggleId } from '@/lib/utils';
 import { PlanOfferPicker } from '@/components/PlanOfferPicker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { minSessionsOf, sessionsFor } from '@/lib/planOffers';
-import { combosQuery, contractsQuery, eventsQuery, proceduresQuery, useSaveEvent } from '@/lib/queries';
+import { anamnesesQuery, combosQuery, contractsQuery, eventsQuery, proceduresQuery, useSaveEvent } from '@/lib/queries';
+import type { Anamnesis, Combo, EventOffer, Procedure } from '@/lib/schemas';
 
 export const Route = createFileRoute('/_app/eventos/novo')({ validateSearch: z.object({ eventId: z.string().optional() }), component: NewEvent });
-
-function toggle(list: string[], id: string, on: boolean) {
-  return on ? [...list.filter((item) => item !== id), id] : list.filter((item) => item !== id);
-}
 
 // Dia da clínica com cardápio: nome, data civil, procedimentos/combos (combo entra fechado) e contratos exigidos.
 // O valor não aparece aqui de propósito — só nasce da baixa do que for realizado.
@@ -26,8 +25,10 @@ function NewEvent() {
   const combos = (useQuery(combosQuery).data ?? []).filter((combo) => combo.active !== false);
   const contracts = (useQuery(contractsQuery).data ?? []).filter((contract) => contract.active !== false);
   const existing = useQuery(eventsQuery).data?.find((event) => event.id === eventId);
+  const forms = useQuery(anamnesesQuery).data ?? [];
   const [procedureIds, setProcedureIds] = useState<string[]>([]);
   const [comboIds, setComboIds] = useState<string[]>([]);
+  const [pickedAnamnesisIds, setPickedAnamnesisIds] = useState<string[]>([]);
   const [procedureSessions, setProcedureSessions] = useState<Record<string, string>>({});
   const [contractIds, setContractIds] = useState<string[]>([]);
 
@@ -36,6 +37,7 @@ function NewEvent() {
     setProcedureIds(existing.items.filter((item) => item.kind === 'procedure').map((item) => item.procedureId));
     setComboIds(existing.items.filter((item) => item.kind === 'combo').map((item) => item.comboId));
     setProcedureSessions(Object.fromEntries(existing.items.filter((item) => item.kind === 'procedure').map((item) => [item.procedureId, String(item.sessions)])));
+    setPickedAnamnesisIds([...(existing.anamnesisIds ?? [])]);
     setContractIds([...existing.contractIds]);
   }, [existing]);
 
@@ -57,7 +59,7 @@ function NewEvent() {
           ...chosen.map((procedure) => ({ kind: 'procedure' as const, procedureId: procedure.id, sessions: sessionsFor(procedure, procedureSessions) })),
           ...comboIds.map((comboId) => ({ kind: 'combo' as const, comboId })),
         ];
-        await save.mutateAsync({ id: eventId, name, eventDate, items, contractIds });
+        await save.mutateAsync({ id: eventId, name, eventDate, items, contractIds, anamnesisIds: pickedAnamnesisIds });
       }}
     >
       <div className="plan-intro"><span className="plan-intro-mark"><PartyPopper size={19} /></span><div><p>Monte o dia da clínica</p><span>Cada paciente escolhe do cardápio; o valor só nasce da baixa do que foi realizado. Combo entra fechado.</span></div></div>
@@ -74,12 +76,17 @@ function NewEvent() {
           comboIds={comboIds}
           sessions={procedureSessions}
           onToggleProcedure={(id, on) => {
-            setProcedureIds((list) => toggle(list, id, on));
+            setProcedureIds((list) => toggleId(list, id, on));
             if (on) setProcedureSessions((current) => ({ ...current, [id]: current[id] ?? String(minSessionsOf(procedures.find((procedure) => procedure.id === id)!)) }));
           }}
-          onToggleCombo={(id, on) => setComboIds((list) => toggle(list, id, on))}
+          onToggleCombo={(id, on) => setComboIds((list) => toggleId(list, id, on))}
           onSessionsChange={(id, value) => setProcedureSessions((current) => ({ ...current, [id]: value }))}
         />
+      </section>
+      <section className="plan-section">
+        <div className="plan-section-heading"><span className="plan-section-icon"><FileText size={17} /></span><div><h3>Anamneses exigidas</h3><p>Vinculadas neste evento, além das exigidas pelos procedimentos do cardápio.</p></div><span className="plan-count">{pickedAnamnesisIds.length} vinculada{pickedAnamnesisIds.length === 1 ? '' : 's'}</span></div>
+        <AnamnesisPicker forms={forms} pickedIds={pickedAnamnesisIds} onToggle={(id, on) => setPickedAnamnesisIds((list) => toggleId(list, id, on))} />
+        <InheritedAnamneses procedures={procedures} combos={combos} forms={forms} procedureIds={procedureIds} comboIds={comboIds} pickedIds={pickedAnamnesisIds} />
       </section>
       <section className="plan-section">
         <div className="plan-section-heading"><span className="plan-section-icon"><FileText size={17} /></span><div><h3>Contratos exigidos</h3><p>A escolha de cada paciente vai para estes contratos na inscrição.</p></div><span className="plan-count">{contractIds.length} contrato{contractIds.length === 1 ? '' : 's'}</span></div>
@@ -89,7 +96,7 @@ function NewEvent() {
             {contracts.map((contract) => (
               <div key={contract.id} className={contractIds.includes(contract.id) ? 'plan-choice is-selected' : 'plan-choice'}>
                 <Label className="plan-choice-main cursor-pointer">
-                  <Checkbox checked={contractIds.includes(contract.id)} onCheckedChange={(value) => setContractIds((list) => toggle(list, contract.id, value === true))} />
+                  <Checkbox checked={contractIds.includes(contract.id)} onCheckedChange={(value) => setContractIds((list) => toggleId(list, contract.id, value === true))} />
                   {contract.title}
                 </Label>
               </div>

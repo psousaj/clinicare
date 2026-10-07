@@ -23,6 +23,7 @@ export const procedureSchema = z.looseObject({
   priceCents: z.number(),
   active: z.boolean().optional(),
   requireNewAnamnesis: z.boolean().optional(),
+  anamnesisIds: z.array(z.string()).default([]),
   sessionSchema: jsonSchema.optional(),
   versions: z.array(z.looseObject({ version: z.number() })).optional(),
 });
@@ -89,6 +90,7 @@ export const comboSchema = z.looseObject({
   validFrom: z.string().nullish(),
   validUntil: z.string().nullish(),
   requireNewAnamnesis: z.boolean().optional(),
+  anamnesisIds: z.array(z.string()).default([]),
   items: z.array(z.looseObject({ procedureId: refId.optional(), sessions: z.number().nullish(), sessionsOverride: z.number().nullish() })),
 });
 export const planProcedureItemSchema = z.looseObject({ offerType: z.literal('procedure'), offerId: z.string(), sessions: z.number().int().min(1).default(1) });
@@ -109,6 +111,7 @@ export const planSchema = z.looseObject({
   validityDays: z.number().nullish(),
   items: z.array(z.discriminatedUnion('offerType', [planProcedureItemSchema, planComboItemSchema])),
   contractIds: z.array(refId).default([]),
+  anamnesisIds: z.array(refId).default([]),
   requireNewAnamnesis: z.boolean().optional(),
 });
 export const eventSchema = z.looseObject({
@@ -122,6 +125,7 @@ export const eventSchema = z.looseObject({
     z.looseObject({ kind: z.literal('combo'), comboId: z.string() }),
   ])),
   contractIds: z.array(refId).default([]),
+  anamnesisIds: z.array(refId).default([]),
 });
 export const followupItemSchema = z.looseObject({
   id: z.string(),

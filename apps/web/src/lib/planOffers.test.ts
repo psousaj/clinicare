@@ -4,7 +4,7 @@ import type { Combo, Contract, Procedure } from './schemas';
 import { PAGE_SIZE, linkedContractIds, matchesName, paginate, suggestedPriceCents } from './planOffers';
 
 const procedure = (id: string, priceCents: number, baseSessions?: number) => ({ id, name: id, priceCents, baseSessions }) as Procedure;
-const combo = (id: string, priceCents: number, promotionalPriceCents?: number) => ({ id, name: id, priceCents, promotionalPriceCents, items: [] }) as Combo;
+const combo = (id: string, priceCents: number, promotionalPriceCents?: number) => ({ id, name: id, priceCents, promotionalPriceCents, anamnesisIds: [], items: [] }) as Combo;
 const contract = (id: string, kind: Contract['kind'], target?: { procedureId?: string; comboId?: string }) => ({ id, title: id, kind, active: true, ...target }) as Contract;
 
 describe('plan offer helpers', () => {

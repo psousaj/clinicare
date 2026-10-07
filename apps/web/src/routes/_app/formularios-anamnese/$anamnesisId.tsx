@@ -35,7 +35,6 @@ function Editor({ anamnesis }: { anamnesis: Anamnesis }) {
        initialDescription={anamnesis.description}
       initialSchema={current.schema as Record<string, unknown>}
       initialValidityMonths={anamnesis.validityMonths}
-      initialProcedureIds={anamnesis.procedureIds}
       saving={update.isPending}
       actions={<VersionsButton anamnesis={anamnesis} />}
       notice={(
@@ -43,11 +42,11 @@ function Editor({ anamnesis }: { anamnesis: Anamnesis }) {
           Editando a <strong>v{current.version}</strong> ({originLabel(current).toLowerCase()}). Alterações nos campos geram a <strong>v{current.version + 1}</strong>; as versões anteriores e as respostas já enviadas não mudam.
         </p>
       )}
-       onSave={async ({ title, description, schema, validityMonths, procedureIds }) => {
-         const settingsChanged = title !== anamnesis.title || description !== (anamnesis.description ?? null) || validityMonths !== anamnesis.validityMonths || [...procedureIds].sort().join() !== [...anamnesis.procedureIds].sort().join();
-        const schemaChanged = !sameSchema(schema, current.schema as Record<string, unknown>);
-        if (!settingsChanged && !schemaChanged) return toast.info('Nenhuma alteração para salvar.');
-         await update.mutateAsync({ id: anamnesis.id, ...(settingsChanged && { title, description, validityMonths, procedureIds }), schema: schemaChanged ? schema : undefined });
+       onSave={async ({ title, description, schema, validityMonths }) => {
+         const settingsChanged = title !== anamnesis.title || description !== (anamnesis.description ?? null) || validityMonths !== anamnesis.validityMonths;
+         const schemaChanged = !sameSchema(schema, current.schema as Record<string, unknown>);
+         if (!settingsChanged && !schemaChanged) return toast.info('Nenhuma alteração para salvar.');
+         await update.mutateAsync({ id: anamnesis.id, ...(settingsChanged && { title, description, validityMonths }), schema: schemaChanged ? schema : undefined });
         await navigate({ to: '/formularios-anamnese' });
       }}
     />

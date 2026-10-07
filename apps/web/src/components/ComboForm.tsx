@@ -12,8 +12,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { comboForm, parseForm } from '@/lib/forms';
+import { toggleId } from '@/lib/utils';
 import { currency } from '@/lib/format';
-import { proceduresQuery, useCreateCombo, useUpdateCombo } from '@/lib/queries';
+import { anamnesesQuery, proceduresQuery, useCreateCombo, useUpdateCombo } from '@/lib/queries';
+import { AnamnesisPicker } from '@/components/AnamnesisPicker';
 import type { Combo, Procedure } from '@/lib/schemas';
 
 const day = (value?: string | null) => value?.slice(0, 10);
@@ -22,11 +24,13 @@ const day = (value?: string | null) => value?.slice(0, 10);
 export function ComboFormPage({ combo }: { combo?: Combo }) {
   const create = useCreateCombo(), update = useUpdateCombo();
   const procedures = (useQuery(proceduresQuery).data ?? []);
+  const forms = (useQuery(anamnesesQuery).data ?? []);
   const [promotional, setPromotional] = useState(combo?.promotionalPriceCents != null);
   const [requireNewAnamnesis, setRequireNewAnamnesis] = useState(combo?.requireNewAnamnesis ?? false);
   const [active, setActive] = useState(combo?.active ?? true);
   const [validFrom, setValidFrom] = useState(day(combo?.validFrom)), [validUntil, setValidUntil] = useState(day(combo?.validUntil));
   const [selected, setSelected] = useState<Record<string, string>>(() => Object.fromEntries((combo?.items ?? []).flatMap((item) => (item.procedureId ? [[item.procedureId, String(item.sessions ?? item.sessionsOverride ?? 1)]] : []))));
+  const [anamnesisIds, setAnamnesisIds] = useState<string[]>(combo?.anamnesisIds ?? []);
   const [price, setPrice] = useState<string | null>(combo ? (combo.priceCents / 100).toFixed(2) : null);
   const integralCents = Object.entries(selected).reduce((total, [id, sessions]) => {
     const procedure = procedures.find((candidate) => candidate.id === id);
@@ -52,7 +56,7 @@ export function ComboFormPage({ combo }: { combo?: Combo }) {
         if (price < integralCents) throw new Error(`O preço do combo não pode ser menor que o valor integral (${currency(integralCents)}).`);
         if (promotional && promo !== null && promo > price) throw new Error('O preço promocional não pode ser maior que o preço do combo.');
         if (promotional && (promo === null || !validUntil)) throw new Error('Combo promocional exige preço promocional e validade.');
-        const body = { ...data, priceCents: price, items, requireNewAnamnesis, promotionalPriceCents: promotional ? promo : null, validFrom: promotional ? validFrom : null, validUntil: promotional ? validUntil : null };
+        const body = { ...data, priceCents: price, items, requireNewAnamnesis, anamnesisIds, promotionalPriceCents: promotional ? promo : null, validFrom: promotional ? validFrom : null, validUntil: promotional ? validUntil : null };
         return combo ? update.mutateAsync({ ...body, id: combo.id, active }) : create.mutateAsync(body);
       }}
     >
@@ -113,6 +117,11 @@ export function ComboFormPage({ combo }: { combo?: Combo }) {
         <Checkbox checked={requireNewAnamnesis} onCheckedChange={(value) => setRequireNewAnamnesis(value === true)} />
         Exigir nova anamnese a cada acompanhamento, mesmo que a última ainda esteja válida
       </Label>
+      <section className="grid gap-2">
+        <div><div className="section-kicker">ANAMNESES</div><h3 className="m-0 text-sm font-semibold">Formulários exigidos</h3>
+        <p className="m-0 text-xs text-muted-foreground">Vinculados neste combo, além dos formulários de cada procedimento incluído.</p></div>
+        <AnamnesisPicker forms={forms} pickedIds={anamnesisIds} onToggle={(id, on) => setAnamnesisIds((list) => toggleId(list, id, on))} />
+      </section>
       {combo && (
         <Label className="cursor-pointer">
           <Checkbox checked={active} onCheckedChange={(value) => setActive(value === true)} />
