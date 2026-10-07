@@ -42,9 +42,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/index.ts": {
-    "mtime": 1791374402.3676634,
-    "seen": 1791374744.9107857,
-    "ast_hash": "b9f0176549fe8286d29ffd7b85bc41ae",
+    "mtime": 1791375138.7770307,
+    "seen": 1791376588.136484,
+    "ast_hash": "d29546b81de240925aeaee0806011ee3",
     "semantic_hash": ""
   },
   "apps/api/src/relationship.ts": {
@@ -72,15 +72,15 @@
     "semantic_hash": ""
   },
   "apps/web/package.json": {
-    "mtime": 1791374402.3716748,
-    "seen": 1791374744.9108305,
-    "ast_hash": "c38fd91f9ce090a8dafcbc1b71bcf280",
+    "mtime": 1791376175.0573308,
+    "seen": 1791376588.1385999,
+    "ast_hash": "2c6193424bfb6e701fdd382f5a64586d",
     "semantic_hash": ""
   },
   "apps/web/src/App.test.tsx": {
-    "mtime": 1791374402.3716748,
-    "seen": 1791374744.9108322,
-    "ast_hash": "a82529bf890ff6b7144013d4f96df394",
+    "mtime": 1791376109.8461645,
+    "seen": 1791376588.1386025,
+    "ast_hash": "0c0a31d2d8a3282e8d083c5b31f38712",
     "semantic_hash": ""
   },
   "apps/web/src/components/AnamnesisFormPage.tsx": {
@@ -366,15 +366,15 @@
     "semantic_hash": ""
   },
   "apps/web/src/routes/__root.tsx": {
-    "mtime": 1790711738.1156201,
-    "seen": 1791374744.9109285,
-    "ast_hash": "df6d2c76a7dffa6baab4439e50624bb3",
+    "mtime": 1791376451.078002,
+    "seen": 1791376588.1444168,
+    "ast_hash": "536281425f78a748b99501f4f8b0058c",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app.tsx": {
-    "mtime": 1791374402.3837085,
-    "seen": 1791374744.91093,
-    "ast_hash": "f8c2b0e27af00ca6f1267d163655adbb",
+    "mtime": 1791376109.8461645,
+    "seen": 1791376588.14442,
+    "ast_hash": "1871692fc51e07ffd2f87d2a632c9656",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/agenda.tsx": {
@@ -534,15 +534,15 @@
     "semantic_hash": ""
   },
   "apps/web/tsconfig.json": {
-    "mtime": 1790701464.1660147,
-    "seen": 1791374744.9109814,
-    "ast_hash": "890df2cd87ce5574fb9cb220d09734fb",
+    "mtime": 1791376177.7974536,
+    "seen": 1791376588.1481977,
+    "ast_hash": "b9f938f603efe74e5f5b1b8d261d3702",
     "semantic_hash": ""
   },
   "apps/web/vite.config.ts": {
-    "mtime": 1790712367.899092,
-    "seen": 1791374744.9109828,
-    "ast_hash": "35b8205ec5805cd181b8b6d1146ed2ef",
+    "mtime": 1791376140.3708994,
+    "seen": 1791376588.1482005,
+    "ast_hash": "cb79bf66e3ffceac07d1b46a7cb04e09",
     "semantic_hash": ""
   },
   "package.json": {
@@ -576,9 +576,9 @@
     "semantic_hash": ""
   },
   "turbo.json": {
-    "mtime": 1791374402.4318438,
-    "seen": 1791374744.9110172,
-    "ast_hash": "3d81718dafece8a2df4a68274d5207be",
+    "mtime": 1791375263.9343598,
+    "seen": 1791376588.1499617,
+    "ast_hash": "4a8f7accfc93d4ea64417307342d291c",
     "semantic_hash": ""
   },
   "AGENTS.md": {
@@ -612,9 +612,9 @@
     "semantic_hash": ""
   },
   "docker-compose.yml": {
-    "mtime": 1791374402.3957424,
-    "seen": 1791374744.9110265,
-    "ast_hash": "ca1961457de7c92ed4c3415e423f551a",
+    "mtime": 1791375145.3126862,
+    "seen": 1791376588.1502762,
+    "ast_hash": "593933ae455994ea1e5b2512291cc709",
     "semantic_hash": ""
   },
   "docs/adr/0001-stack-da-aplicacao.md": {
@@ -1227,6 +1227,18 @@
     "mtime": 1791374402.3877196,
     "seen": 1791374744.91095,
     "ast_hash": "ff3ea550d5413d13140c8487531344bf",
+    "semantic_hash": ""
+  },
+  "apps/web/src/components/PageLoadingIndicator.test.tsx": {
+    "mtime": 1791376451.078002,
+    "seen": 1791376588.1402612,
+    "ast_hash": "9bb01a962b6f7c735def38a7ed7a0a0f",
+    "semantic_hash": ""
+  },
+  "apps/web/src/components/PageLoadingIndicator.tsx": {
+    "mtime": 1791376451.078002,
+    "seen": 1791376588.1402664,
+    "ast_hash": "caf44f8dfd7e50ffadd554a38de9a23f",
     "semantic_hash": ""
   }
 }
