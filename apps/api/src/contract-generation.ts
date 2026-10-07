@@ -25,13 +25,19 @@ function contextForVersion(full: MaterializationContext, version: any): Material
   return result;
 }
 
+// Plano lista cada procedimento. Evento lista a escolha do paciente: procedimento avulso pelo nome e combo escolhido uma única vez pelo nome do pacote.
+export function contractedNames(offerType: string, items: Array<{ procedureName: string; comboName?: string | null }>) {
+  if (offerType !== 'event') return items.map((item) => item.procedureName);
+  return [...new Set(items.map((item) => item.comboName ?? item.procedureName))];
+}
+
 async function buildContext(tenantId: string, followupId: string, professionalUserId?: string): Promise<MaterializationContext> {
   const db = getDatabase();
   const followup = (await db.select().from(followups).where(and(eq(followups.tenantId, tenantId), eq(followups.id, followupId))))[0];
   if (!followup) throw invalid('Acompanhamento não encontrado.', 404);
   const patient = (await db.select().from(patients).where(and(eq(patients.tenantId, tenantId), eq(patients.id, followup.patientId))))[0];
   if (!patient) throw invalid('Paciente não encontrado.', 404);
-  const items = await db.select({ procedureName: followupItems.procedureName }).from(followupItems).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.followupId, followupId)));
+  const items = await db.select({ procedureName: followupItems.procedureName, comboName: followupItems.comboName }).from(followupItems).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.followupId, followupId)));
   if (!professionalUserId) throw invalid('Profissional habilitado é obrigatório para materializar o contrato.');
   const user = (await db.select().from(authUsers).where(and(eq(authUsers.tenantId, tenantId), eq(authUsers.id, professionalUserId))))[0];
   const professional = user ? (await db.select().from(professionals).where(and(eq(professionals.tenantId, tenantId), eq(professionals.userId, user.id), eq(professionals.active, true))))[0] : null;
@@ -44,7 +50,7 @@ async function buildContext(tenantId: string, followupId: string, professionalUs
     professional: { name: user.name, registration: `${professional.registrationType} ${professional.registrationNumber}${professional.registrationState ? `/${professional.registrationState}` : ''}` },
     clinic: { name: tenant?.name ?? '' },
     application: { date: formatCivilDate(followup.contractApplicationDate) },
-    plan: { procedures: items.map((item) => `☒ ${item.procedureName}`) },
+    plan: { procedures: contractedNames(followup.offerType, items).map((name) => `☒ ${name}`) },
   } as MaterializationContext;
 }
 

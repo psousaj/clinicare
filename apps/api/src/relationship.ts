@@ -10,9 +10,11 @@ export function buildRelationship(followups: any[], attendances: any[], payments
     const paidCents = paidBy.get(String(followup._id)) ?? 0;
     const sessionsTotal = sum(followup.items.map((item: any) => item.sessionsTotal));
     const sessionsPerformed = sum(followup.items.map((item: any) => item.sessionsPerformed ?? 0));
-    const performedValue = sessionsTotal ? Math.round((followup.priceCents * sessionsPerformed) / sessionsTotal) : 0;
+    // Evento não tem preço contratado: priceCents já é o valor realizado (baixado), sem proporção por sessões.
+    const isEvent = followup.offerType === 'event';
+    const performedValue = isEvent ? followup.priceCents : sessionsTotal ? Math.round((followup.priceCents * sessionsPerformed) / sessionsTotal) : 0;
     return {
-      id: String(followup._id), offerName: followup.offerName, priceCents: followup.priceCents, paidCents,
+      id: String(followup._id), offerName: followup.offerName, priceCents: followup.priceCents, isEvent, paidCents,
       pendingCents: Math.max(0, followup.priceCents - paidCents), dueForPerformedCents: Math.max(0, performedValue - paidCents), sessionsTotal, sessionsPerformed,
     };
   });
@@ -44,7 +46,7 @@ export function buildRelationship(followups: any[], attendances: any[], payments
   }
 
   const paidCents = sum(followupRows.map((row) => row.paidCents));
-  const contractedCents = sum(followupRows.map((row) => row.priceCents));
+  const contractedCents = sum(followupRows.filter((row) => !row.isEvent).map((row) => row.priceCents));
   return {
     totals: {
       followups: followups.length, attendancesPerformed: attendances.length, attendancesContracted: sum(followupRows.map((row) => row.sessionsTotal)),
