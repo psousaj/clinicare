@@ -798,7 +798,9 @@ describe('Acompanhamentos', () => {
     routes['GET /api/followups'] = () => [pendingFollowup({ offerType: 'event', offerName: 'Dia da clínica', priceCents: 2500, blocked: false, anamneses: [] })];
     routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
     renderAt('/pacientes/p1');
-    expect(await screen.findByText(/Dia da clínica · realizado R\$\s?25,00/)).toBeInTheDocument();
+    const card = await screen.findByRole('article', { name: /dia da clínica \(evento\)/i });
+    expect(within(card).getByText('Dia da clínica')).toBeInTheDocument();
+    expect(within(card).getByText(/realizado R\$\s?25,00/)).toBeInTheDocument();
   });
 
   it('cancels an unused event item from the followup card', async () => {

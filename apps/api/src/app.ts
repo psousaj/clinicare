@@ -16,7 +16,7 @@ import { addAnamnesisNote, answerAppliedAnamnesis, createAnamnesisRequest, creat
 import { authHandler, clinicSession, requireClinicSession } from './auth-routes';
 import { getAccount, getProfessionalProfile, updateInitialPasswordChoice, updateProfessionalProfile } from './account-routes';
 import { getContractDraftEditor, listContractPlaceholders, presignContractDraft, publishContractDraft, saveContractDraft } from './contract-authoring';
-import { generateFollowupContract, retryFollowupContract } from './contract-generation';
+import { generateFollowupContract, reprocessFollowupContract, retryFollowupContract } from './contract-generation';
 
 const fail = (c: Context, message: string, status: 400 | 401 | 403 | 404 | 409 | 410 | 429 | 503 = 400) => c.json({ error: message }, status);
 const isRecord = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -141,7 +141,7 @@ export const app = new Hono()
   .post('/api/contracts/:id/draft/presign', async (c) => { try { return c.json(await presignContractDraft(await catalogTenant(c.req, authTenant(c)), c.req.param('id'))); } catch (error) { return handleError(c, error); } })
   .get('/api/contracts/:id/draft/editor', async (c) => { try { const result = await getContractDraftEditor(await catalogTenant(c.req, authTenant(c)), c.req.param('id')); return result ? c.json(result) : fail(c, 'Contrato não encontrado.', 404); } catch (error) { return handleError(c, error); } })
   .put('/api/contracts/:id/draft', async (c) => { try { return c.json(await saveContractDraft(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json())); } catch (error) { return handleError(c, error); } })
-  .post('/api/contracts/:id/publish', async (c) => { try { return c.json(await publishContractDraft(await catalogTenant(c.req, authTenant(c)), c.req.param('id')), 201); } catch (error) { return handleError(c, error); } })
+  .post('/api/contracts/:id/publish', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); let professionalUserId: string | undefined; try { professionalUserId = clinicSession(c).userId; } catch { professionalUserId = undefined; } return c.json(await publishContractDraft(tenantId, c.req.param('id'), professionalUserId), 201); } catch (error) { return handleError(c, error); } })
   .get('/api/plans', async (c) => c.json(await listPlans(await catalogTenant(c.req, authTenant(c)))))
   .post('/api/plans', async (c) => c.json(await savePlan(await catalogTenant(c.req, authTenant(c)), null, await c.req.json()), 201))
   .put('/api/plans/:id', async (c) => { const result = await savePlan(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Plano não encontrado.', 404); })
@@ -181,6 +181,7 @@ export const app = new Hono()
   })
   .post('/api/followup-contracts/:id/generate', async (c) => { try { return c.json(await generateFollowupContract(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), clinicSession(c).userId)); } catch (error) { return handleError(c, error); } })
   .post('/api/followup-contracts/:id/retry', async (c) => { try { return c.json(await retryFollowupContract(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), clinicSession(c).userId)); } catch (error) { return handleError(c, error); } })
+  .post('/api/followup-contracts/:id/reprocess', async (c) => { try { return c.json(await reprocessFollowupContract(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), clinicSession(c).userId)); } catch (error) { return handleError(c, error); } })
   .get('/api/signature-pending', async (c) => { try { return c.json(await listPendingSignatures(await catalogTenant(c.req, authTenant(c)))); } catch (error) { return handleError(c, error); } })
   .get('/public/signatures/:token', async (c) => { try { return c.json(await readSignatureToken(c.req.param('token')!)); } catch (error) { return handleError(c, error); } })
   .post('/public/signatures/:token/verify-phone', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await verifySignaturePhone(c.req.param('token')!, body.phoneLast4)); } catch (error) { return handleError(c, error); } })

@@ -3,6 +3,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { FileSignature, Hourglass } from 'lucide-react';
 import { useState } from 'react';
 import { ProfessionalSignDialog, type ProfessionalSignItem } from '@/components/ProfessionalSignDialog';
+import { ContractReprocessButton } from '@/components/FollowupCard';
 import { QueryError } from '@/components/QueryState';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -34,12 +35,15 @@ function Documents() {
           <div className="procedure-row" key={item.participantId}>
             <FileSignature size={18} />
             <span className="procedure-info"><strong>{item.title}</strong><small>{item.patient.fullName}{item.blocking ? ' · bloqueia a liberação do plano' : ''}</small></span>
-            <Button
-              size="sm"
-              onClick={() => setSelected({ participantId: item.participantId, followupContractId: item.contractId, title: item.title, patientName: item.patient.fullName })}
-            >
-              Revisar e assinar
-            </Button>
+            <span className="flex items-center gap-2">
+              <ContractReprocessButton followupContractId={item.contractId} title={item.title} />
+              <Button
+                size="sm"
+                onClick={() => setSelected({ participantId: item.participantId, followupContractId: item.contractId, title: item.title, patientName: item.patient.fullName })}
+              >
+                Revisar e assinar
+              </Button>
+            </span>
           </div>
         ))}
       </section>
@@ -52,6 +56,7 @@ function Documents() {
             <span className="procedure-info"><strong>{item.title}</strong><small>{item.patient.fullName}</small></span>
             <span className="flex items-center gap-2">
               {item.blocking && <StatusBadge tone="warning">Bloqueia liberação</StatusBadge>}
+              <ContractReprocessButton followupContractId={item.contractId} title={item.title} />
               <Link className="text-button" to="/pacientes/$patientId" params={{ patientId: item.patient.id }}>Abrir paciente</Link>
             </span>
           </div>

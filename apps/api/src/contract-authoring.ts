@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { and, desc, eq, sql } from 'drizzle-orm';
-import { contracts, contractVersions, getDatabase } from '@clinicare/db';
+import { and, desc, eq, inArray, sql } from 'drizzle-orm';
+import { buildProtectedAad, contracts, contractVersions, encryptValue, followupContracts, followups, getDatabase, signatureEvents, signatureParticipants, signatureProcesses } from '@clinicare/db';
 import {
   DOCX_CONTENT_TYPE,
   PLACEHOLDERS,
@@ -9,6 +9,7 @@ import {
   validateDocxPlaceholders,
 } from './contract-materialization';
 import { copyVerifiedObject, downloadObjectBytes, downloadUrl, uploadUrlForDocument, verifyObject } from './storage';
+import { generateFollowupContract, replaceUnsignedAppliedContract } from './contract-generation';
 
 const invalid = (message: string, status = 400) => Object.assign(new Error(message), { status });
 const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
@@ -59,9 +60,52 @@ export async function saveContractDraft(tenantId: string, contractId: string, in
   return { contractId, objectKey: input.objectKey, hash: metadata.contentHash, size: metadata.size, discoveredPlaceholders: inspectDocxPlaceholders(bytes) };
 }
 
-export async function publishContractDraft(tenantId: string, contractId: string) {
+// Publicar propaga a nova versão aos contratos aplicados ainda sem nenhuma
+// assinatura: sem R0, atualiza a versão na linha; com R0 (ready/pending),
+// cancela a linha antiga (R0 preservado como histórico) e cria uma linha
+// substituta em geração. Com assinatura, o documento permanece congelado.
+export async function propagatePublishedVersion(tx: any, tenantId: string, contractId: string, version: any, title: string) {
+  if (!version?.sourceDocxObjectKey) return;
+  const stale: any[] = await tx.select().from(followupContracts).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.contractId, contractId), sql`${followupContracts.contractVersion} < ${version.version}`, sql`${followupContracts.status} in ('generating','failed','ready','pending')`, sql`${followupContracts.patientSignedAt} is null`, sql`${followupContracts.professionalSignedAt} is null`));
+  if (!stale.length) return;
+  const followupIds: string[] = [...new Set<string>(stale.map((row: any) => String(row.followupId)))];
+  const liveFollowups: any[] = followupIds.length ? await tx.select({ id: followups.id }).from(followups).where(and(eq(followups.tenantId, tenantId), inArray(followups.id, followupIds), sql`${followups.status} not in ('cancelled','completed')`)) : [];
+  const live = new Set(liveFollowups.map((row: any) => row.id));
+  let candidates: any[] = stale.filter((row: any) => live.has(row.followupId));
+  if (!candidates.length) return;
+  const processes: any[] = candidates.length ? await tx.select({ id: signatureProcesses.id, contractId: signatureProcesses.followupContractId }).from(signatureProcesses).where(and(eq(signatureProcesses.tenantId, tenantId), inArray(signatureProcesses.followupContractId, candidates.map((row: any) => row.id)))) : [];
+  const processOf = new Map<string, any>(processes.map((item: any) => [String(item.contractId), item] as [string, any]));
+  if (processes.length) {
+    const signed: any[] = await tx.select({ processId: signatureParticipants.processId }).from(signatureParticipants).where(and(eq(signatureParticipants.tenantId, tenantId), inArray(signatureParticipants.processId, processes.map((item: any) => item.id)), eq(signatureParticipants.status, 'signed')));
+    const signedProcesses = new Set(signed.map((item: any) => item.processId));
+    // Qualquer assinatura (mesmo parcial) congela o contrato aplicado.
+    candidates = candidates.filter((row: any) => {
+      const process = processOf.get(String(row.id));
+      return !process || !signedProcesses.has(process.id);
+    });
+    if (!candidates.length) return;
+  }
+  for (const row of candidates.filter((row: any) => !row.renderedPdfObjectKey && (row.status === 'generating' || row.status === 'failed') && !row.materializedDocxObjectKey && !processOf.has(String(row.id)))) {
+    const protectedContent = version.content == null
+      ? { contentCiphertext: null, contentNonce: null, contentKeyVersion: null }
+      : (() => { const encrypted = encryptValue(version.content, buildProtectedAad(tenantId, 'followup_contracts', row.id, 'content')); return { contentCiphertext: encrypted.ciphertext, contentNonce: encrypted.nonce, contentKeyVersion: encrypted.keyVersion }; })();
+    await tx.update(followupContracts).set({
+      contractVersion: version.version, titleSnapshot: title, ...protectedContent,
+      sourceObjectKey: version.sourceObjectKey ?? null,
+      materializationContextCiphertext: null, materializationContextNonce: null, materializationContextKeyVersion: null, materializationContextDigest: null,
+      materializedDocxObjectKey: null, materializedDocxHash: null, materializedDocxSize: null,
+      status: 'generating', generationError: null,
+    }).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.id, row.id), sql`${followupContracts.renderedPdfObjectKey} is null`));
+  }
+  for (const row of candidates.filter((row: any) => row.renderedPdfObjectKey && (row.status === 'ready' || row.status === 'pending'))) {
+    await replaceUnsignedAppliedContract(tx, tenantId, row, version, title);
+  }
+}
+
+export async function publishContractDraft(tenantId: string, contractId: string, professionalUserId?: string) {
   const db = getDatabase();
-  return db.transaction(async (tx) => {
+  let isNew = false;
+  const result = await db.transaction(async (tx) => {
     await tx.execute(sql`select id from contracts where tenant_id = ${tenantId} and id = ${contractId} for update`);
     const contract = (await tx.select().from(contracts).where(and(eq(contracts.tenantId, tenantId), eq(contracts.id, contractId))))[0];
     if (!contract) return null;
@@ -81,8 +125,24 @@ export async function publishContractDraft(tenantId: string, contractId: string)
       origin: 'created', content: null, sourceObjectKey: null,
     }).returning();
     await tx.update(contracts).set({ currentVersion: version, updatedAt: new Date() }).where(and(eq(contracts.tenantId, tenantId), eq(contracts.id, contractId)));
+    await propagatePublishedVersion(tx, tenantId, contractId, created, contract.title);
+    isNew = true;
     return created;
   });
+  if (isNew && professionalUserId) {
+    // Sem cron/worker: re-renderiza em background os contratos aplicados que
+    // voltaram para geração (mesmo padrão do POST /api/followups).
+    const pending = await db.select({ id: followupContracts.id }).from(followupContracts).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.contractId, contractId), eq(followupContracts.status, 'generating')));
+    if (pending.length) {
+      void (async () => {
+        for (const row of pending) {
+          try { await generateFollowupContract(tenantId, row.id, professionalUserId); }
+          catch { /* mantém generating/failed com generationError p/ retry manual */ }
+        }
+      })().catch(() => undefined);
+    }
+  }
+  return result;
 }
 
 export async function listContractPlaceholders() {

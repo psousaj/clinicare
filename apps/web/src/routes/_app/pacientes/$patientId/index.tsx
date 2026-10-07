@@ -64,20 +64,24 @@ function PatientDetail() {
         <QueryError query={history} />
       </section>
       {history.data && (
+        <section className="panel">
+          <div className="panel-header"><h2>Acompanhamentos</h2></div>
+          {unlinkedMatchingPlan.length > 0 && (
+            <p role="alert" className="m-0 mb-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+              {unlinkedMatchingPlan.length} {unlinkedMatchingPlan.length === 1 ? 'atendimento avulso' : 'atendimentos avulsos'} com {unlinkedMatchingPlan.length === 1 ? 'nome' : 'nomes'} igual ao do plano ({[...new Set(unlinkedMatchingPlan.map((entry) => entry.title.replace(/ (realizado|cancelado)$/, '')))].join(', ')}) — {unlinkedMatchingPlan.length === 1 ? 'não abate' : 'não abatem'} as sessões contratadas. Para abater, marque a sessão dentro do acompanhamento — no agendamento ou em “Registrar atendimento”. O que for avulso nunca abate.
+            </p>
+          )}
+          {patientFollowups.length === 0 && <p className="text-sm text-muted-foreground">Inicie um acompanhamento para registrar sessões.</p>}
+          <div className="followup-grid">
+            {patientFollowups.map((followup) => <FollowupCard key={followup.id} followup={followup} patientId={patientId} />)}
+          </div>
+        </section>
+      )}
+      {history.data && (
         <div className="grid items-start gap-4 lg:grid-cols-2">
           <div className="grid gap-4">
             <PendingRequirements followups={allFollowups} patientId={patientId} />
-            <ContractSummary followups={patientFollowups} />            <section className="panel">
-              <div className="panel-header"><h2>Acompanhamentos</h2></div>
-              {unlinkedMatchingPlan.length > 0 && (
-                <p role="alert" className="m-0 mb-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
-                  {unlinkedMatchingPlan.length} {unlinkedMatchingPlan.length === 1 ? 'atendimento avulso' : 'atendimentos avulsos'} com {unlinkedMatchingPlan.length === 1 ? 'nome' : 'nomes'} igual ao do plano ({[...new Set(unlinkedMatchingPlan.map((entry) => entry.title.replace(/ (realizado|cancelado)$/, '')))].join(', ')}) — {unlinkedMatchingPlan.length === 1 ? 'não abate' : 'não abatem'} as sessões contratadas. Para abater, marque a sessão dentro do acompanhamento — no agendamento ou em “Registrar atendimento”. O que for avulso nunca abate.
-                </p>
-              )}
-              {patientFollowups.length === 0 && <p className="text-sm text-muted-foreground">Inicie um acompanhamento para registrar sessões.</p>}
-              {patientFollowups.map((followup) => <FollowupCard key={followup.id} followup={followup} patientId={patientId} />)}
-            </section>
-            {standaloneCharges.length > 0 && (
+            <ContractSummary followups={patientFollowups} />            {standaloneCharges.length > 0 && (
           <section className="panel patient-history-panel">
                 <div className="panel-header"><div><div className="section-kicker">COBRANÇA</div><h2>Atendimentos avulsos</h2></div></div>
                 {standaloneCharges.map((followup) => <FollowupCard key={followup.id} followup={followup} patientId={patientId} />)}

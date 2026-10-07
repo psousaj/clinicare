@@ -2,7 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
   appliedDocuments, appliedDocumentRevisions, authUsers, buildPatientAad, buildProtectedAad, contractVersions, decryptValue, encryptValue, followupContracts, followupItems, followups,
-  getDatabase, patients, professionals, signatureParticipants, signatureProcesses, signatureTokens,
+  getDatabase, patients, professionals, signatureEvents, signatureParticipants, signatureProcesses, signatureTokens,
 } from '@clinicare/db';
 import { getFollowup } from './followups';
 import { decryptMaterializationContext, encryptMaterializationContext, renderDocx, type MaterializationContext } from './contract-materialization';
@@ -61,15 +61,18 @@ async function createInitialSignatureProcesses(tenantId: string, followupId: str
     const followup = (await tx.select().from(followups).where(and(eq(followups.tenantId, tenantId), eq(followups.id, followupId))))[0];
     if (!followup || followup.status === 'cancelled') return;
     const applied = await tx.select().from(followupContracts).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.followupId, followupId)));
-    if (!applied.length || applied.some((contract) => !['ready', 'pending', 'signed'].includes(contract.status))) return;
-    const existing = await tx.select({ id: signatureProcesses.id }).from(signatureProcesses).innerJoin(followupContracts, eq(signatureProcesses.followupContractId, followupContracts.id)).where(and(eq(signatureProcesses.tenantId, tenantId), eq(followupContracts.followupId, followupId)));
-    if (existing.length === applied.length) return;
+    // Linhas canceladas (ex.: R0 substituído por reprocessamento) são histórico
+    // e não bloqueiam nem ganham processo de assinatura.
+    const signable = applied.filter((contract) => contract.status !== 'cancelled');
+    if (!signable.length || signable.some((contract) => !['ready', 'pending', 'signed'].includes(contract.status))) return;
+    const existing = await tx.select({ contractId: signatureProcesses.followupContractId }).from(signatureProcesses).innerJoin(followupContracts, eq(signatureProcesses.followupContractId, followupContracts.id)).where(and(eq(signatureProcesses.tenantId, tenantId), eq(followupContracts.followupId, followupId)));
+    const withProcess = new Set(existing.map((row) => row.contractId));
+    const missing = signable.filter((contract) => !withProcess.has(contract.id));
+    if (!missing.length) return;
     const patient = (await tx.select().from(patients).where(and(eq(patients.tenantId, tenantId), eq(patients.id, followup.patientId))))[0];
     const phone = patient ? protectedValue(patient, tenantId, 'phone', patient.id) : null;
     if (!phone) return;
-    const signable = applied.filter((c) => c.status !== 'cancelled');
-    if (!signable.length) return;
-    const processes = await tx.insert(signatureProcesses).values(signable.map((contract) => ({ tenantId, followupContractId: contract.id }))).returning();
+    const processes = await tx.insert(signatureProcesses).values(missing.map((contract) => ({ tenantId, followupContractId: contract.id }))).returning();
     const participants = await tx.insert(signatureParticipants).values(processes.flatMap((process: any) => [
       { id: randomUUID(), tenantId, processId: process.id, role: 'patient', identitySnapshot: { role: 'patient', patientId: patient.id, fullName: patient.fullName, phoneLast4Hash: createHash('sha256').update(phone.slice(-4)).digest('hex') } },
       { id: randomUUID(), tenantId, processId: process.id, role: 'professional', identitySnapshot: { role: 'professional', assignment: 'clinic_representative' } },
@@ -148,5 +151,64 @@ export async function retryFollowupContract(tenantId: string, followupContractId
   if (!row) return null;
   if (row.status === 'cancelled') throw invalid('Acompanhamento cancelado não pode ser regenerado.', 409);
   return generateFollowupContract(tenantId, followupContractId, professionalUserId);
+}
+
+// Substitui um contrato aplicado com R0 ainda sem nenhuma assinatura: cancela
+// a linha antiga (R0 preservado como histórico, processo cancelado com evento
+// de auditoria) e cria uma substituta em geração na mesma versão. A geração
+// reconstrói o contexto do zero, com os dados atuais do paciente.
+export async function replaceUnsignedAppliedContract(tx: any, tenantId: string, row: any, version: any, title: string, reason = 'Nova versão publicada; contrato substituído automaticamente.') {
+  const processes: any[] = await tx.select({ id: signatureProcesses.id }).from(signatureProcesses).where(and(eq(signatureProcesses.tenantId, tenantId), eq(signatureProcesses.followupContractId, row.id)));
+  for (const process of processes) {
+    await tx.update(signatureProcesses).set({ status: 'cancelled', updatedAt: new Date() }).where(and(eq(signatureProcesses.tenantId, tenantId), eq(signatureProcesses.id, process.id), eq(signatureProcesses.status, 'pending')));
+    const parts: any[] = await tx.select({ id: signatureParticipants.id }).from(signatureParticipants).where(and(eq(signatureParticipants.tenantId, tenantId), eq(signatureParticipants.processId, process.id)));
+    for (const part of parts) {
+      await tx.insert(signatureEvents).values({ tenantId, participantId: part.id, type: 'cancelled', metadata: { processId: process.id, followupContractId: row.id, reason, actor: { role: 'clinic' } } });
+    }
+  }
+  await tx.update(followupContracts).set({ status: 'cancelled' }).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.id, row.id), sql`${followupContracts.status} in ('ready','pending')`));
+  const replacementId = randomUUID();
+  const protectedContent = version.content == null
+    ? { contentCiphertext: null, contentNonce: null, contentKeyVersion: null }
+    : (() => { const encrypted = encryptValue(version.content, buildProtectedAad(tenantId, 'followup_contracts', replacementId, 'content')); return { contentCiphertext: encrypted.ciphertext, contentNonce: encrypted.nonce, contentKeyVersion: encrypted.keyVersion }; })();
+  await tx.insert(followupContracts).values({
+    id: replacementId, tenantId, followupId: row.followupId, contractId: row.contractId, contractVersion: version.version,
+    titleSnapshot: title, ...protectedContent, sourceObjectKey: version.sourceObjectKey ?? null,
+    required: row.required ?? true, status: 'generating', generationError: null,
+  });
+  return replacementId;
+}
+
+// Reprocessamento manual do PDF: volta o contrato sem assinatura para geração
+// com o contexto reconstruído dos dados atuais (paciente, profissional,
+// clínica) e gera na hora. Com R0, substitui a linha preservando o histórico.
+export async function reprocessFollowupContract(tenantId: string, followupContractId: string, professionalUserId?: string) {
+  const db = getDatabase();
+  const targetId = await db.transaction(async (tx) => {
+    await tx.execute(sql`select id from followup_contracts where tenant_id = ${tenantId} and id = ${followupContractId} for update`);
+    const row = (await tx.select().from(followupContracts).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.id, followupContractId))))[0];
+    if (!row) throw invalid('Contrato aplicado não encontrado.', 404);
+    if (row.status === 'signed' || row.patientSignedAt || row.professionalSignedAt) throw invalid('Contrato já possui assinatura e não pode ser reprocessado.', 409);
+    if (row.status === 'cancelled') throw invalid('Contrato cancelado não pode ser reprocessado.', 409);
+    const followup = (await tx.select().from(followups).where(and(eq(followups.tenantId, tenantId), eq(followups.id, row.followupId))))[0];
+    if (!followup || followup.status === 'cancelled' || followup.status === 'completed') throw invalid('Acompanhamento encerrado não pode ter contratos reprocessados.', 409);
+    const processes: any[] = await tx.select({ id: signatureProcesses.id }).from(signatureProcesses).where(and(eq(signatureProcesses.tenantId, tenantId), eq(signatureProcesses.followupContractId, row.id)));
+    if (processes.length) {
+      const signed: any[] = await tx.select({ id: signatureParticipants.id }).from(signatureParticipants).where(and(eq(signatureParticipants.tenantId, tenantId), inArray(signatureParticipants.processId, processes.map((process: any) => process.id)), eq(signatureParticipants.status, 'signed')));
+      if (signed.length) throw invalid('Contrato já possui assinatura e não pode ser reprocessado.', 409);
+    }
+    if (row.renderedPdfObjectKey) {
+      const version = (await tx.select().from(contractVersions).where(and(eq(contractVersions.tenantId, tenantId), eq(contractVersions.contractId, row.contractId), eq(contractVersions.version, row.contractVersion))))[0];
+      if (!version) throw invalid('Versão do contrato não encontrada.', 409);
+      return replaceUnsignedAppliedContract(tx, tenantId, row, version, row.titleSnapshot, 'Reprocessamento manual; contrato substituído com os dados atuais.');
+    }
+    await tx.update(followupContracts).set({
+      materializationContextCiphertext: null, materializationContextNonce: null, materializationContextKeyVersion: null, materializationContextDigest: null,
+      materializedDocxObjectKey: null, materializedDocxHash: null, materializedDocxSize: null,
+      status: 'generating', generationError: null,
+    }).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.id, row.id), sql`${followupContracts.renderedPdfObjectKey} is null`));
+    return row.id;
+  });
+  return generateFollowupContract(tenantId, targetId, professionalUserId);
 }
 async function dbRows(tenantId: string, id: string) { return getDatabase().select().from(followupContracts).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.id, id))); }

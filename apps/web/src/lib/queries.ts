@@ -176,6 +176,15 @@ export const useCancelFollowupItem = () =>
     invalidate: [keys.followups, keys.appointments, keys.patients],
     success: 'Item fora do que será realizado.',
   });
+// Cancelamento do acompanhamento inteiro (motivo obrigatório no backend).
+// Libera nova contratação da mesma oferta e cancela processos de assinatura
+// pendentes, preservando o histórico.
+export const useCancelFollowup = () =>
+  useApiMutation({
+    mutationFn: ({ followupId, reason }: { followupId: string; reason: string }) => post(`/api/followups/${followupId}/cancel`, { reason }),
+    invalidate: [keys.followups, keys.signaturePending, keys.appointments, keys.patients],
+    success: 'Acompanhamento cancelado.',
+  });
 export const useCreatePlan = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/plans', body), invalidate: [keys.plans], success: 'Plano cadastrado.' });
 export const useUpdatePlan = () => useApiMutation({ mutationFn: ({ id, ...body }: { id: string; active?: boolean; expectedVersion?: number } & Record<string, unknown>) => api(`/api/plans/${id}`, { method: 'PUT', body, schema: anySchema }), invalidate: [keys.plans], success: 'Plano atualizado.' });
 export const useSaveEvent = () =>
@@ -231,6 +240,16 @@ export const useGenerateFollowupContract = () =>
     mutationFn: (followupContractId: string) => post(`/api/followup-contracts/${followupContractId}/generate`, {}, anySchema),
     invalidate: [keys.followups, ['signature-history']],
     success: 'Documento do contrato gerado.',
+  });
+// Reprocessamento manual do R0 com os dados atuais (paciente, profissional,
+// clínica): vale para contratos ainda sem nenhuma assinatura, com ou sem R0.
+// Com R0, a linha antiga é cancelada (histórico preservado) e a substituta é
+// gerada; sem R0, o snapshot é descartado e a geração reconstrói do zero.
+export const useReprocessFollowupContract = () =>
+  useApiMutation({
+    mutationFn: (followupContractId: string) => post(`/api/followup-contracts/${followupContractId}/reprocess`, {}, anySchema),
+    invalidate: [keys.followups, keys.signaturePending, ['signature-history']],
+    success: 'PDF do contrato reprocessado com os dados atuais.',
   });
 // Cerimônia do representante da clínica (lado profissional): prévia e
 // confirmação usam os endpoints autenticados do painel, com o mesmo corpo de

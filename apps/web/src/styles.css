@@ -664,6 +664,131 @@ nav {
   color: var(--muted);
 }
 
+/* ----- Followup Card ----- */
+
+.followup-card {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 16px 12px 20px;
+  overflow: hidden;
+}
+
+.followup-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--green);
+}
+
+.followup-card[data-state="idle"]::before {
+  background: #d97706;
+}
+
+.followup-card[data-state="completed"]::before {
+  background: #9ca3af;
+}
+
+.followup-card[data-state="cancelled"]::before {
+  background: #d1d5db;
+}
+
+.followup-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 12px;
+}
+
+.followup-card__title {
+  flex: 1;
+  min-width: 200px;
+  display: grid;
+  gap: 2px;
+}
+
+.followup-card__title strong {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.followup-card__meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.followup-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.followup-alert {
+  margin: 0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 13px;
+  background: #fef3e2;
+  border: 1px solid #f5dfb8;
+  color: #7c4a03;
+}
+
+.followup-card__note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.followup-contracts {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.followup-contract {
+  display: grid;
+  gap: 8px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.followup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.followup-actions__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 2px;
+}
+
+.followup-actions__spacer {
+  flex: 1;
+}
+
+.followup-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+}
+
 /* ----- Text Button ----- */
 
 .text-button {
@@ -682,6 +807,14 @@ nav {
   color: var(--deep);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+.text-button--danger {
+  color: #b3261e;
+}
+
+.text-button--danger:hover {
+  color: #7a1a14;
 }
 
 /* ----- Modal ----- */

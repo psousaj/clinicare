@@ -101,6 +101,9 @@ export async function seedConfiguredAdministrator(env: Record<string, string | u
     await lock.query('select pg_advisory_lock(hashtext($1))', ['clinicare:bootstrap-administrator']);
     const database = getDatabase();
     await database.insert(tenants).values({ id: tenantDefaults.id, name: values.clinicName, active: true }).onConflictDoNothing({ target: tenants.id });
+    // O nome da clínica logada é o do bootstrap; sem isso, o placeholder
+    // clinic.name continuava renderizando o nome padrão do seed ("Clínicare").
+    await database.update(tenants).set({ name: values.clinicName }).where(eq(tenants.id, tenantDefaults.id));
     const [existingTenantUser] = await database.select().from(authUsers).where(eq(authUsers.tenantId, tenantDefaults.id));
     if (existingTenantUser) {
       if (existingTenantUser.email !== values.email) throw new Error('Já existe um administrador para a clínica inicial; o bootstrap não altera contas existentes.');
