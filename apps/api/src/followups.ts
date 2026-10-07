@@ -55,13 +55,19 @@ async function resolveOffer(tenantId: string, offerType: 'combo' | 'plan', offer
   if (!version) throw notFound('Versão do plano não encontrada.');
   const itemRows = await executor.select().from(planVersionItems).where(and(eq(planVersionItems.tenantId, tenantId), eq(planVersionItems.planVersionId, version.id)));
   if (!itemRows.length) throw invalid('Plano sem procedimentos disponíveis.');
+  // Itens de combo expandem em itens de acompanhamento por procedimento (flat); a origem fica no snapshot da versão.
+  const comboItemsOf = (item: any): any[] => item.comboSnapshot?.items ?? [];
+  if (itemRows.some((item: any) => item.offerType === 'combo' && !comboItemsOf(item).length)) throw invalid('Plano sem procedimentos disponíveis.');
+  const expandedItems = itemRows.flatMap((item: any) => item.offerType === 'combo'
+    ? comboItemsOf(item).map((comboItem) => ({ procedureId: comboItem.procedureId, procedureName: comboItem.procedureName, sessionsTotal: comboItem.sessions, durationMinutes: comboItem.durationMinutes, priceCents: comboItem.priceCents, sessionSchema: comboItem.sessionSchema }))
+    : [{ procedureId: item.procedureId, procedureName: item.procedureName, sessionsTotal: item.sessions, durationMinutes: item.durationMinutes, priceCents: item.priceCents, sessionSchema: item.sessionSchema }]);
   const contractRows = await executor.select().from(planVersionContracts).where(and(eq(planVersionContracts.tenantId, tenantId), eq(planVersionContracts.planVersionId, version.id))).orderBy(planVersionContracts.contractId);
   if (!contractRows.length) throw invalid('Plano sem contrato aplicável.');
   const contractIds = contractRows.map((row: any) => row.contractId);
   const contractContentRows = contractIds.length ? await executor.select().from(contractVersions).where(and(eq(contractVersions.tenantId, tenantId), inArray(contractVersions.contractId, contractIds), sql`${contractVersions.version} = (select max(cv.version) from contract_versions cv where cv.tenant_id = ${tenantId} and cv.contract_id = ${contractVersions.contractId})`)).orderBy(desc(contractVersions.version)) : [];
   return {
     name: plan.name, priceCents: version.priceCents, validUntil: version.validityDays ? new Date(Date.now() + version.validityDays * 86400000) : null,
-    planVersionId: version.id, requireNewAnamnesis: version.requireNewAnamnesis, items: itemRows.map((item: any) => ({ procedureId: item.procedureId, procedureName: item.procedureName, sessionsTotal: item.sessions, durationMinutes: item.durationMinutes, priceCents: item.priceCents, sessionSchema: item.sessionSchema })),
+    planVersionId: version.id, requireNewAnamnesis: version.requireNewAnamnesis, items: expandedItems,
     snapshot: { kind: 'plan', sourceVersion: version.version, payload: { ...idShape(plan), version: { ...idShape(version), items: itemRows }, contracts: contractRows } },
     contracts: contractRows.map((contract: any) => { const version = contractContentRows.find((row: any) => row.contractId === contract.contractId); if (!version || (!version.sourceDocxObjectKey && !validRenderedPdf(version))) throw invalid('A versão publicada do contrato não possui fonte DOCX ou PDF verificável.'); return { contractId: contract.contractId, contractVersion: version.version, title: contract.title, content: version.content ?? null, sourceObjectKey: contract.sourceObjectKey ?? version.sourceObjectKey ?? null, sourceDocxObjectKey: version.sourceDocxObjectKey ?? null, contextConfiguration: version.contextConfiguration, allowedPlaceholders: version.allowedPlaceholders, requiredPlaceholders: version.requiredPlaceholders, renderedPdfObjectKey: version.renderedPdfObjectKey ?? null, renderedPdfHash: version.renderedPdfHash ?? null, renderedPdfSize: version.renderedPdfSize ?? null, renderedPdfContentType: version.renderedPdfContentType ?? null }; }),
   };

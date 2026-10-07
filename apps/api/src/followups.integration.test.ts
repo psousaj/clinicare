@@ -106,6 +106,53 @@ integration('PostgreSQL followups', () => {
     expect((await app.request(`/api/followups/${crypto.randomUUID()}`, { headers })).status).toBe(404);
   });
 
+  it('expands combos inside a plan into flat followup items keeping the combo origin in the snapshot', async () => {
+    const db = getDatabase(); const patientId = crypto.randomUUID(); const soloId = crypto.randomUUID(); const comboProcId = crypto.randomUUID(); const comboId = crypto.randomUUID(); const planId = crypto.randomUUID(); const versionId = crypto.randomUUID(); const contractId = crypto.randomUUID(); const anamnesisId = crypto.randomUUID();
+    const schema = { type: 'object', properties: {} };
+    const phone = encryptValue('11987654321', buildPatientAad(tenantId, patientId, 'phone', 1));
+    await db.insert(patients).values({ id: patientId, tenantId, fullName: 'Plano com combo', phoneCiphertext: phone.ciphertext, phoneNonce: phone.nonce, phoneKeyVersion: 1 });
+    await db.insert(procedures).values([{ id: soloId, tenantId, name: 'Avulso do plano', durationMinutes: 30, priceCents: 100, sessionSchema: schema }, { id: comboProcId, tenantId, name: 'Procedimento do combo', durationMinutes: 45, priceCents: 200, sessionSchema: schema }]);
+    await db.insert(combos).values({ id: comboId, tenantId, name: 'Combo do plano', priceCents: 400 });
+    await db.insert(comboItems).values({ tenantId, comboId, procedureId: comboProcId, sessions: 3 });
+    await db.insert(anamneses).values({ id: anamnesisId, tenantId, title: 'Anamnese do combo' });
+    await db.insert(anamnesisVersions).values({ tenantId, anamnesisId, version: 1, schema });
+    await db.insert(anamnesisProcedures).values({ tenantId, anamnesisId, procedureId: comboProcId, required: true });
+    await db.insert(plans).values({ id: planId, tenantId, name: 'Plano com combo' });
+    await db.insert(planVersions).values({ id: versionId, tenantId, planId, version: 1, priceCents: 900 });
+    await db.insert(planVersionItems).values([
+      { tenantId, planVersionId: versionId, offerType: 'procedure', procedureId: soloId, sessions: 2, procedureName: 'Avulso do plano', durationMinutes: 30, priceCents: 100, sessionSchema: schema },
+      { tenantId, planVersionId: versionId, offerType: 'procedure', procedureId: comboProcId, sessions: 1, procedureName: 'Procedimento do combo', durationMinutes: 45, priceCents: 200, sessionSchema: schema },
+      { tenantId, planVersionId: versionId, offerType: 'combo', comboId, comboName: 'Combo do plano', priceCents: 400, comboSnapshot: { items: [{ procedureId: comboProcId, procedureName: 'Procedimento do combo', sessions: 3, durationMinutes: 45, priceCents: 200, sessionSchema: schema }] } },
+    ]);
+    await db.insert(contracts).values({ id: contractId, tenantId, title: 'Contrato do plano', kind: 'standard' });
+    await db.insert(contractVersions).values({ tenantId, contractId, version: 1, content: 'terms', renderedPdfObjectKey: crypto.randomUUID(), renderedPdfHash: 'a'.repeat(64), renderedPdfSize: 123, renderedPdfContentType: 'application/pdf' });
+    await db.insert(planVersionContracts).values({ tenantId, planVersionId: versionId, contractId, title: 'Contrato do plano' });
+    const response = await post('/api/followups', { patientId, offerType: 'plan', offerId: planId });
+    expect(response.status).toBe(201);
+    const created = await response.json() as any;
+    expect(created.items.map((item: any) => `${item.procedureName}:${item.sessionsTotal}`).sort()).toEqual(['Avulso do plano:2', 'Procedimento do combo:1', 'Procedimento do combo:3']);
+    expect(await db.select().from(followupContracts).where(eq(followupContracts.followupId, created.id))).toHaveLength(1);
+    const snapshot = (await db.select().from(followupSnapshots).where(eq(followupSnapshots.followupId, created.id)))[0]!;
+    const snapshotItems = (snapshot.payload as any).version.items;
+    expect(snapshotItems.find((item: any) => item.offerType === 'combo').comboName).toBe('Combo do plano');
+    expect(created.anamneses.map((form: any) => form.title)).toEqual(['Anamnese do combo']);
+  });
+
+  it('rejects a plan version whose combo item has an empty snapshot', async () => {
+    const db = getDatabase(); const patientId = crypto.randomUUID(); const comboId = crypto.randomUUID(); const planId = crypto.randomUUID(); const versionId = crypto.randomUUID(); const contractId = crypto.randomUUID();
+    const phone = encryptValue('11987654321', buildPatientAad(tenantId, patientId, 'phone', 1));
+    await db.insert(patients).values({ id: patientId, tenantId, fullName: 'Plano combo vazio', phoneCiphertext: phone.ciphertext, phoneNonce: phone.nonce, phoneKeyVersion: 1 });
+    await db.insert(combos).values({ id: comboId, tenantId, name: 'Combo vazio', priceCents: 100 });
+    await db.insert(plans).values({ id: planId, tenantId, name: 'Plano combo vazio' });
+    await db.insert(planVersions).values({ id: versionId, tenantId, planId, version: 1, priceCents: 100 });
+    await db.insert(planVersionItems).values({ tenantId, planVersionId: versionId, offerType: 'combo', comboId, comboName: 'Combo vazio', priceCents: 100, comboSnapshot: { items: [] } });
+    await db.insert(contracts).values({ id: contractId, tenantId, title: 'Contrato vazio', kind: 'standard' });
+    await db.insert(planVersionContracts).values({ tenantId, planVersionId: versionId, contractId, title: 'Contrato vazio' });
+    const response = await post('/api/followups', { patientId, offerType: 'plan', offerId: planId });
+    expect(response.status).toBe(400);
+    expect(await db.select().from(followups).where(eq(followups.patientId, patientId))).toHaveLength(0);
+  });
+
   it('enforces offer identity, timestamps, and applied patient identity at the database boundary', async () => {
     const db = getDatabase(); const patientId = crypto.randomUUID(); const otherPatientId = crypto.randomUUID(); const procedureId = crypto.randomUUID(); const comboId = crypto.randomUUID(); const otherComboId = crypto.randomUUID(); const anamnesisId = crypto.randomUUID();
     await db.insert(patients).values([{ id: patientId, tenantId, fullName: 'Paciente FK' }, { id: otherPatientId, tenantId, fullName: 'Outro paciente FK' }]);
