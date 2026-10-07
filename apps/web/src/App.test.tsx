@@ -420,6 +420,32 @@ describe('Anamnesis edit and versions', () => {
     await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ restoreVersion: 1 }));
   });
 
+  it('uses full-width title, description and validity fields', async () => {
+    renderAt('/formularios-anamnese/nova');
+    const name = await screen.findByLabelText(/nome do formulário/i);
+    const description = screen.getByLabelText(/descrição para o paciente/i);
+    const validity = screen.getByLabelText(/validade \(meses\)/i);
+    for (const field of [name, description, validity]) expect(field.closest('label')).not.toHaveClass('max-w-xl', 'max-w-2xl', 'max-w-3xl');
+    expect(validity).not.toHaveClass('max-w-52');
+  });
+
+  it('previews the form as the patient sees it without saving', async () => {
+    const user = userEvent.setup();
+    renderAt('/formularios-anamnese/nova');
+    await user.type(await screen.findByLabelText(/nome do formulário/i), 'Anamnese facial');
+    await user.type(screen.getByLabelText(/descrição para o paciente/i), 'Conte seu histórico.');
+    await user.click(await screen.findByRole('button', { name: /adicionar campo/i }));
+    await user.click(screen.getByRole('button', { name: /pré-visualizar/i }));
+    const preview = await screen.findByRole('dialog', { name: /pré-visualização/i });
+    expect(within(preview).getByRole('heading', { name: 'Anamnese facial' })).toBeInTheDocument();
+    expect(within(preview).getByText('Conte seu histórico.')).toBeInTheDocument();
+    expect(within(preview).getByText(/equipe da clínica a conhecer seu histórico/)).toBeInTheDocument();
+    expect(within(preview).getByText('Campo 1')).toBeInTheDocument();
+    expect(calls.some((call) => call.method === 'POST')).toBe(false);
+    await user.click(within(preview).getByRole('button', { name: /fechar/i }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: /pré-visualização/i })).not.toBeInTheDocument());
+  });
+
   it('has a usable preview: typing fills the field and Limpar resets it', async () => {
     const user = userEvent.setup();
     renderAt('/formularios-anamnese/nova');
