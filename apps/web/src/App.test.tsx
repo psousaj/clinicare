@@ -589,17 +589,17 @@ const pendingFollowup = (extra: Record<string, unknown> = {}) => ({
 });
 
 describe('Eventos', () => {
-  it('filters events by enrolled patient name', async () => {
+  it('lists enrolled patients after selecting an event badge', async () => {
     routes['GET /api/events'] = () => [
       { _id: 'ev1', name: 'Dia facial', eventDate: '2026-10-15', items: [], contractIds: [], anamnesisIds: [], enrolledPatients: [{ id: 'p1', fullName: 'Ana Souza' }] },
       { _id: 'ev2', name: 'Dia corporal', eventDate: '2026-10-16', items: [], contractIds: [], anamnesisIds: [], enrolledPatients: [{ id: 'p2', fullName: 'Bruno Lima' }] },
     ];
     const user = userEvent.setup();
     renderAt('/eventos');
-    const filter = await screen.findByRole('textbox', { name: /filtrar pacientes inscritos/i });
-    await user.type(filter, 'ana');
+    expect(screen.getByText('Nenhum evento selecionado')).toBeInTheDocument();
+    await user.click(await screen.findByRole('button', { name: /dia facial/i }));
     expect(screen.getByText('Dia facial')).toBeInTheDocument();
-    expect(screen.queryByText('Dia corporal')).not.toBeInTheDocument();
+    expect(screen.queryByText('Bruno Lima')).not.toBeInTheDocument();
     expect(screen.getByText('Ana Souza')).toBeInTheDocument();
   });
 

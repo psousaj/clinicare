@@ -36,9 +36,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/app.ts": {
-    "mtime": 1791391382.2686987,
-    "seen": 1791392377.1259093,
-    "ast_hash": "ac71e75ec13c13537b8a42b75f42dbcd",
+    "mtime": 1791400446.0885377,
+    "seen": 1791401329.9471478,
+    "ast_hash": "3d851e31a4033acf707c5dcb1221d46b",
     "semantic_hash": ""
   },
   "apps/api/src/index.ts": {
@@ -78,15 +78,15 @@
     "semantic_hash": ""
   },
   "apps/web/src/App.test.tsx": {
-    "mtime": 1791392083.2391071,
-    "seen": 1791392377.1297991,
-    "ast_hash": "7c4a8aec7dfc1154beb8e152c0b025e9",
+    "mtime": 1791401279.8263342,
+    "seen": 1791401329.9514768,
+    "ast_hash": "28f2ef2c3609b254c907ef94982c3165",
     "semantic_hash": ""
   },
   "apps/web/src/components/AnamnesisFormPage.tsx": {
-    "mtime": 1791374402.3716748,
-    "seen": 1791374744.9108338,
-    "ast_hash": "8ce60580e251c49a7f749b367ab26fd5",
+    "mtime": 1791401246.2936084,
+    "seen": 1791401329.951479,
+    "ast_hash": "b598d5594cbfa9e2dcf50fb2ffd89826",
     "semantic_hash": ""
   },
   "apps/web/src/components/AppointmentDetails.tsx": {
@@ -114,9 +114,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/ComboForm.tsx": {
-    "mtime": 1790769506.0103455,
-    "seen": 1791374744.9108427,
-    "ast_hash": "c81cf9a6e837a5ef8b4978676e180cde",
+    "mtime": 1791395668.1934986,
+    "seen": 1791401329.9518013,
+    "ast_hash": "57ad85f5dde995e7fbee743a3e7a8a86",
     "semantic_hash": ""
   },
   "apps/web/src/components/ContractFormPage.tsx": {
@@ -132,9 +132,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/FollowupCard.tsx": {
-    "mtime": 1791392074.6701756,
-    "seen": 1791392377.130765,
-    "ast_hash": "f8870b5f2b469e8c2c77e78678eb667b",
+    "mtime": 1791400990.2397308,
+    "seen": 1791401329.9523187,
+    "ast_hash": "bf8c830d317a550af16f6f43461f732e",
     "semantic_hash": ""
   },
   "apps/web/src/components/FormDialog.tsx": {
@@ -144,9 +144,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/FormPage.tsx": {
-    "mtime": 1791374402.375686,
-    "seen": 1791374744.9108596,
-    "ast_hash": "43097b5674387a04516b403e836eb2a2",
+    "mtime": 1791393316.471022,
+    "seen": 1791401329.952393,
+    "ast_hash": "711f1274a2376a47e9361bbfe11866ba",
     "semantic_hash": ""
   },
   "apps/web/src/components/PatientRow.tsx": {
@@ -168,9 +168,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/ProcedureForm.tsx": {
-    "mtime": 1790769506.0103455,
-    "seen": 1791374744.9108655,
-    "ast_hash": "21a13c195577df5112b82f3d2dc71828",
+    "mtime": 1791396762.4628222,
+    "seen": 1791401329.9528387,
+    "ast_hash": "28642a41f4b03f6e3b59c9b4cfe7efd6",
     "semantic_hash": ""
   },
   "apps/web/src/components/QueryState.tsx": {
@@ -180,9 +180,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/QuickActions.tsx": {
-    "mtime": 1791392074.6701756,
-    "seen": 1791392377.1316707,
-    "ast_hash": "06b4bee66d286f245915d81403895436",
+    "mtime": 1791398399.1246548,
+    "seen": 1791401329.9530075,
+    "ast_hash": "50fe8b71e6302af087ca52f7fef9d626",
     "semantic_hash": ""
   },
   "apps/web/src/components/SchemaEditor.tsx": {
@@ -210,9 +210,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/dialogs.tsx": {
-    "mtime": 1791392074.6701756,
-    "seen": 1791392377.1321044,
-    "ast_hash": "0dab00c7b5a20c13e9ec34805376a974",
+    "mtime": 1791400462.0148485,
+    "seen": 1791401329.954252,
+    "ast_hash": "02b7a826e53cf469d2c85221f268d645",
     "semantic_hash": ""
   },
   "apps/web/src/components/pickers.tsx": {
@@ -318,9 +318,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/lib/queries.ts": {
-    "mtime": 1791392074.6701756,
-    "seen": 1791392377.133567,
-    "ast_hash": "ac868c56e6d9ba725656847db1bc01ff",
+    "mtime": 1791400460.1013405,
+    "seen": 1791401329.956377,
+    "ast_hash": "489d64fd3c1b31941e60a8ad4453f6d8",
     "semantic_hash": ""
   },
   "apps/web/src/lib/schemaUi.tsx": {
@@ -330,15 +330,15 @@
     "semantic_hash": ""
   },
   "apps/web/src/lib/schemas.ts": {
-    "mtime": 1791392074.6701756,
-    "seen": 1791392377.1337364,
-    "ast_hash": "2d3470b9b646efd2e08ad47e82e9dff2",
+    "mtime": 1791401273.6288528,
+    "seen": 1791401329.9565241,
+    "ast_hash": "c53823404e2ab2779d49baaa8f87c1f3",
     "semantic_hash": ""
   },
   "apps/web/src/lib/utils.ts": {
-    "mtime": 1790711738.1116204,
-    "seen": 1791374744.9109197,
-    "ast_hash": "8595c2f874aa1ff8c7cc28df2999f354",
+    "mtime": 1791395657.7462447,
+    "seen": 1791401329.956786,
+    "ast_hash": "07ba58ff45ea92e0e8069c6923dada43",
     "semantic_hash": ""
   },
   "apps/web/src/lib/versions.ts": {
@@ -354,9 +354,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/routeTree.gen.ts": {
-    "mtime": 1791392074.6701756,
-    "seen": 1791392377.1341727,
-    "ast_hash": "817a0c3c97810948cff59a2b83f3283d",
+    "mtime": 1791393316.6913228,
+    "seen": 1791401329.956931,
+    "ast_hash": "1580610a49c71a3b429e7f1fdb786156",
     "semantic_hash": ""
   },
   "apps/web/src/router.tsx": {
@@ -408,9 +408,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/formularios-anamnese/$anamnesisId.tsx": {
-    "mtime": 1791374402.3837085,
-    "seen": 1791374744.9109435,
-    "ast_hash": "c3fadfe454b4b80c2fc8e80c143f2686",
+    "mtime": 1791395309.5452259,
+    "seen": 1791401329.9581006,
+    "ast_hash": "376e2cc3f0c91dbe7f6aad71080f4fe5",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/formularios-anamnese/index.tsx": {
@@ -450,9 +450,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/pacientes/$patientId/index.tsx": {
-    "mtime": 1791392074.6701756,
-    "seen": 1791392377.1357808,
-    "ast_hash": "5adce4d6a9840ea00d2b271fa7a7571c",
+    "mtime": 1791400478.2574642,
+    "seen": 1791401329.9592898,
+    "ast_hash": "a8cd3e9cd9bf7707b698ee6589db109a",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/pacientes/$patientId/novo-atendimento.$itemId.tsx": {
@@ -486,9 +486,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/planos/novo.tsx": {
-    "mtime": 1791385121.9556966,
-    "seen": 1791385377.8082836,
-    "ast_hash": "32ceaae830aca706381289d8a0d21ae4",
+    "mtime": 1791395684.6242802,
+    "seen": 1791401329.9600384,
+    "ast_hash": "f74cda8d1b4092c998c374c0dba665f2",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/procedimentos/$procedureId.tsx": {
@@ -588,9 +588,9 @@
     "semantic_hash": ""
   },
   "CONTEXT.md": {
-    "mtime": 1791392074.6661835,
-    "seen": 1791392377.138338,
-    "ast_hash": "8e2a721a872c910dd39ffc30a9033bbe",
+    "mtime": 1791400479.7084253,
+    "seen": 1791401329.9625638,
+    "ast_hash": "a1fe1034540812d35a9900aa9aa1f001",
     "semantic_hash": ""
   },
   "README.md": {
@@ -654,9 +654,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/catalog.ts": {
-    "mtime": 1791384321.552058,
-    "seen": 1791385377.798131,
-    "ast_hash": "691c50d21c70bd02f498dfbb46b34b67",
+    "mtime": 1791401273.6288528,
+    "seen": 1791401329.947608,
+    "ast_hash": "5358e825c1eb9dc6e944b6ff512c1aaf",
     "semantic_hash": ""
   },
   "apps/api/src/clinical.integration.test.ts": {
@@ -678,9 +678,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/followups.ts": {
-    "mtime": 1791391382.271679,
-    "seen": 1791392377.1278162,
-    "ast_hash": "9fd3c875d574c6be454db03c9f98ceb3",
+    "mtime": 1791400439.721868,
+    "seen": 1791401329.949629,
+    "ast_hash": "fd4ed467dfe1019c20e2bfebabb2cb43",
     "semantic_hash": ""
   },
   "apps/api/src/health.integration.test.ts": {
@@ -732,9 +732,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/scheduling.ts": {
-    "mtime": 1791391580.834692,
-    "seen": 1791392377.1287987,
-    "ast_hash": "26edec2316b1583dac9caa6c1e94ccf0",
+    "mtime": 1791400450.801467,
+    "seen": 1791401329.9505236,
+    "ast_hash": "134ddf2969b324c774a9326d64142d54",
     "semantic_hash": ""
   },
   "apps/api/src/signatures.integration.test.ts": {
@@ -768,9 +768,9 @@
     "semantic_hash": ""
   },
   "packages/db/drizzle/meta/_journal.json": {
-    "mtime": 1791391382.271679,
-    "seen": 1791392377.1372569,
-    "ast_hash": "73cfa565190bebe518af2cd5588e65fb",
+    "mtime": 1791400421.9773426,
+    "seen": 1791401329.9613173,
+    "ast_hash": "5342ecc0dc0a58388352548df98c093c",
     "semantic_hash": ""
   },
   "packages/db/src/crypto.test.ts": {
@@ -810,9 +810,9 @@
     "semantic_hash": ""
   },
   "packages/db/src/relational-schema.ts": {
-    "mtime": 1791391382.2763746,
-    "seen": 1791392377.1379979,
-    "ast_hash": "6b795ab3ebfb555ddf010bb270d3f515",
+    "mtime": 1791400419.6500978,
+    "seen": 1791401329.9621348,
+    "ast_hash": "cd9a8f95106ea6daeb5c786c63c12364",
     "semantic_hash": ""
   },
   "packages/db/src/seed.ts": {
@@ -1248,15 +1248,15 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/PlanOfferPicker.tsx": {
-    "mtime": 1791385121.9571579,
-    "seen": 1791385377.8027663,
-    "ast_hash": "31027599ffb1a1cd44a1ce8fa606bb34",
+    "mtime": 1791393051.5674734,
+    "seen": 1791401329.9528358,
+    "ast_hash": "a400e533c553d99aa6560d054185e40a",
     "semantic_hash": ""
   },
   "apps/web/src/lib/planOffers.test.ts": {
-    "mtime": 1791384718.2615557,
-    "seen": 1791385377.805069,
-    "ast_hash": "cc281d3580a04fc22cca1a666a08ef2b",
+    "mtime": 1791395022.508343,
+    "seen": 1791401329.9563007,
+    "ast_hash": "c0f7ddd9053cc08eb57081b399e62b64",
     "semantic_hash": ""
   },
   "apps/web/src/lib/planOffers.ts": {
@@ -1278,27 +1278,45 @@
     "semantic_hash": ""
   },
   "apps/api/src/event-execution.integration.test.ts": {
-    "mtime": 1791391606.189909,
-    "seen": 1791392377.1270895,
-    "ast_hash": "36da77b0e6d99287707d2354868410db",
+    "mtime": 1791398545.9003158,
+    "seen": 1791401329.949011,
+    "ast_hash": "7bd69e229fc8709094cc794a2802c0ba",
     "semantic_hash": ""
   },
   "apps/api/src/event-financials.integration.test.ts": {
-    "mtime": 1791391676.8695073,
-    "seen": 1791392377.1270921,
-    "ast_hash": "d816491c875b5e9060393633f1e11c95",
+    "mtime": 1791398500.3797927,
+    "seen": 1791401329.9490151,
+    "ast_hash": "ed62edcf80829b6a61f789b103ad7258",
     "semantic_hash": ""
   },
   "apps/api/src/event-followups.integration.test.ts": {
-    "mtime": 1791385632.865438,
-    "seen": 1791392377.127094,
-    "ast_hash": "e07ea68e6c69efe428fab4e21a5dab0c",
+    "mtime": 1791401001.0668669,
+    "seen": 1791401329.9490178,
+    "ast_hash": "d91bcf1d3d00aedd3f9a349e28ce49af",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/eventos/index.tsx": {
-    "mtime": 1791391836.5694215,
-    "seen": 1791392377.134974,
-    "ast_hash": "20065b020aa66af1e064050af3e2dca1",
+    "mtime": 1791401276.5447474,
+    "seen": 1791401329.9579823,
+    "ast_hash": "924849fcfc0243c2d23f341072fedb06",
+    "semantic_hash": ""
+  },
+  "apps/api/src/anamnesis-links.integration.test.ts": {
+    "mtime": 1791398545.9003158,
+    "seen": 1791401329.9470735,
+    "ast_hash": "4e28dedef2fee7f95924db9b5c7ebcd9",
+    "semantic_hash": ""
+  },
+  "apps/web/src/components/AnamnesisPicker.tsx": {
+    "mtime": 1791395657.773944,
+    "seen": 1791401329.9514818,
+    "ast_hash": "f7a14c02be6a9afdc47915a3501e1c4d",
+    "semantic_hash": ""
+  },
+  "apps/web/src/routes/_app/eventos/novo.tsx": {
+    "mtime": 1791395684.626505,
+    "seen": 1791401329.957986,
+    "ast_hash": "032f5172cedc1268115bc8bbd82e8e2b",
     "semantic_hash": ""
   }
 }
