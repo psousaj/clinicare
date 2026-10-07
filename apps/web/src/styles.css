@@ -127,6 +127,12 @@ button {
   flex: 1;
 }
 
+.profile-copy {
+  display: grid;
+  gap: 3px;
+  flex: 1;
+}
+
 .clinic-label strong,
 .profile-copy strong {
   font-size: 12px;
@@ -2302,6 +2308,33 @@ a.patient-row {
 .boolean-choice-option:has(input:disabled) {
   cursor: not-allowed;
   opacity: 0.65;
+}
+
+.page-loading-indicator {
+  position: fixed;
+  z-index: 100;
+  inset: 0 0 auto;
+  height: 3px;
+  overflow: hidden;
+  pointer-events: none;
+  background: #e8f2ed;
+}
+.page-loading-indicator > span {
+  display: block;
+  width: 40%;
+  height: 100%;
+  background: #26785f;
+  animation: page-loading-progress 1.2s ease-in-out infinite;
+}
+@keyframes page-loading-progress {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(350%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-loading-indicator > span {
+    width: 100%;
+    animation: none;
+  }
 }
 
 .schema-editor-fields {

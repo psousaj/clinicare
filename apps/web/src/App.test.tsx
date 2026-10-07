@@ -49,13 +49,12 @@ describe('Clinic dashboard', () => {
     expect(await screen.findByRole('heading', { name: 'Entrar na sua clínica' })).toBeInTheDocument();
   });
 
-  it('shows prototype mode, patient entry point and recently attended patients from the API (_id → id)', async () => {
+  it('shows patient entry point and recently attended patients from the API (_id → id)', async () => {
     routes['GET /api/attendances'] = () => [
       { _id: 's2', patientId: { _id: 'p1', fullName: 'Marina Alves' }, procedureName: 'Peeling', performedAt: '2026-09-29T15:00:00Z', schemaSnapshot: {}, photos: [] },
       { _id: 's1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, procedureName: 'Limpeza de pele', performedAt: '2026-09-01T15:00:00Z', schemaSnapshot: {}, photos: [] },
     ];
     renderAt('/');
-    expect((await screen.findAllByText(/PROTÓTIPO · DADOS FICTÍCIOS/i)).length).toBeGreaterThan(0);
     expect(await screen.findByRole('link', { name: /novo paciente/i })).toHaveAttribute('href', '/pacientes/novo');
     expect(await screen.findByText(/Gestão de pacientes, procedimentos e cuidados/i)).toBeInTheDocument();
     const row = await screen.findByRole('link', { name: /Marina Alves/ });

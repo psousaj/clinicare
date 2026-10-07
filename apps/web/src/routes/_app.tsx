@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, redirect, useRouterState } from '@tanstack/react-router';
-import { Activity, CalendarDays, ChevronDown, ChevronRight, CircleHelp, ClipboardList, FileSignature, FileText, Layers, LayoutDashboard, Plus, Settings2, Sparkles, UsersRound, WalletCards, X } from 'lucide-react';
+import { Activity, CalendarDays, ChevronDown, ChevronRight, ClipboardList, FileSignature, FileText, Layers, LayoutDashboard, Plus, Settings2, Sparkles, UsersRound, WalletCards, X } from 'lucide-react';
 import { useState } from 'react';
 import { QuickActions } from '@/components/QuickActions';
 import { Button } from '@/components/ui/button';
@@ -63,10 +63,6 @@ function NavigationPanelContent({ onNavigate, mobile = false }: { onNavigate: ()
       </nav>
       <div className="sidebar-bottom">
         <Link to="/configuracoes" className="nav-link" activeProps={{ className: 'active' }} onClick={onNavigate}><Settings2 size={18} /><span>Configurações</span></Link>
-        <div className="help-card">
-          <span className="help-icon"><CircleHelp size={17} /></span>
-          <div><strong>Ambiente de teste</strong><small>Use apenas dados fictícios</small></div>
-        </div>
         <div className="profile-row">
           <div className="profile-avatar">{initials(userName)}</div>
           <div className="profile-copy"><strong>{userName}</strong><small>{tenantName}</small></div>
@@ -102,14 +98,12 @@ function AppLayout() {
           <header className="topbar">
             <div className="breadcrumb">{account.data?.tenant.name ?? '…'} <ChevronRight size={14} /> <strong>{current.label}</strong></div>
             <div className="topbar-right">
-              <span className="prototype-tag">PROTÓTIPO · DADOS FICTÍCIOS</span>
               <span className="date-chip"><CalendarDays size={15} /> {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'full' }).format(new Date())}</span>
             </div>
           </header>
           <div className="content-wrap">
             <section className="welcome-row">
               <div>
-                <div className="eyebrow"><span className="eyebrow-line" /> AMBIENTE DE DEMONSTRAÇÃO</div>
                 <h1>{current.title}</h1>
                 <p className="welcome-subtitle">Gestão de pacientes, procedimentos e cuidados.</p>
               </div>
@@ -119,7 +113,6 @@ function AppLayout() {
             <Outlet />
             <footer className="page-footer">
               <span>Clínicare <span className="brand-dot">.</span> Gestão feita com cuidado.</span>
-              <span>Protótipo · Dados fictícios</span>
             </footer>
           </div>
         </main>

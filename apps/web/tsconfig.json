@@ -18,7 +18,8 @@
     "strict": true,
     "types": [
       "vite/client",
-      "vitest/globals"
+      "vitest/globals",
+      "node"
     ],
     "paths": {
       "@/*": [
