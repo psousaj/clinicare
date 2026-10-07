@@ -91,6 +91,14 @@ export const comboSchema = z.looseObject({
   requireNewAnamnesis: z.boolean().optional(),
   items: z.array(z.looseObject({ procedureId: refId.optional(), sessions: z.number().nullish(), sessionsOverride: z.number().nullish() })),
 });
+export const planProcedureItemSchema = z.looseObject({ offerType: z.literal('procedure'), offerId: z.string(), sessions: z.number().int().min(1).default(1) });
+export const planComboItemSchema = z.looseObject({
+  offerType: z.literal('combo'),
+  offerId: z.string(),
+  comboName: z.string().nullish(),
+  priceCents: z.number().nullish(),
+  items: z.array(z.looseObject({ procedureId: z.string().nullish(), procedureName: z.string().nullish(), sessions: z.number().nullish() })).default([]),
+});
 export const planSchema = z.looseObject({
   id: z.string(),
   name: z.string(),
@@ -99,7 +107,7 @@ export const planSchema = z.looseObject({
   active: z.boolean().optional(),
   durationDays: z.number().nullish(),
   validityDays: z.number().nullish(),
-  items: z.array(z.looseObject({ offerType: z.literal('procedure'), offerId: z.string(), sessions: z.number().int().min(1).default(1) })),
+  items: z.array(z.discriminatedUnion('offerType', [planProcedureItemSchema, planComboItemSchema])),
   contractIds: z.array(refId).default([]),
   requireNewAnamnesis: z.boolean().optional(),
 });
