@@ -126,6 +126,7 @@ export const eventSchema = z.looseObject({
   ])),
   contractIds: z.array(refId).default([]),
   anamnesisIds: z.array(refId).default([]),
+  enrolledPatients: z.array(z.object({ id: z.string(), fullName: z.string() })).default([]),
 });
 export const followupItemSchema = z.looseObject({
   id: z.string(),

@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, sql } from 'drizzle-orm';
 import {
   anamneses, anamnesisProcedures, anamnesisVersions, comboAnamneses, planVersionAnamneses, eventAnamneses, combos, comboItems, contracts, contractVersions, contractVersionPdfUploadIntents,
-  eventContracts, eventItems, events,
+  eventContracts, eventItems, events, followups, patients,
   getDatabase, planVersionContracts, planVersionItems, planVersions, plans, procedureVersions, procedures,
 } from '@clinicare/db';
 import { uploadUrlForPdf, verifyPdfObject } from './storage';
@@ -213,10 +213,13 @@ export async function savePlan(tenantId: string, planId: string | null, input: a
 }
 
 async function eventResponse(tenantId: string, row: any, executor = getDatabase()) {
-  const [items, cs, fs] = await Promise.all([
+  const [items, cs, fs, enrolledPatients] = await Promise.all([
     executor.select().from(eventItems).where(and(eq(eventItems.tenantId, tenantId), eq(eventItems.eventId, row.id))),
     executor.select().from(eventContracts).where(and(eq(eventContracts.tenantId, tenantId), eq(eventContracts.eventId, row.id))),
     executor.select().from(eventAnamneses).where(and(eq(eventAnamneses.tenantId, tenantId), eq(eventAnamneses.eventId, row.id))),
+    executor.select({ id: patients.id, fullName: patients.fullName }).from(followups)
+      .innerJoin(patients, and(eq(patients.tenantId, followups.tenantId), eq(patients.id, followups.patientId)))
+      .where(and(eq(followups.tenantId, tenantId), eq(followups.eventId, row.id))).orderBy(patients.fullName),
   ]);
   return {
     ...id(row),
@@ -226,6 +229,7 @@ async function eventResponse(tenantId: string, row: any, executor = getDatabase(
       : { kind: 'combo', comboId: x.comboId }),
     contractIds: cs.map((x: any) => x.contractId),
     anamnesisIds: fs.map((x: any) => x.anamnesisId),
+    enrolledPatients,
   };
 }
 export async function listEvents(tenantId: string) {
