@@ -14,6 +14,9 @@ RUN bun run build:api
 FROM oven/bun:1.2 AS runtime
 WORKDIR /app
 ENV NODE_ENV=production PORT=3000 MIGRATIONS_FOLDER=/app/apps/api/drizzle
+# Conversão DOCX->PDF sob demanda via LibreOffice headless + fontes
+# metricamente compatíveis com o Word (Calibri/Cambria não andam no layout).
+RUN apt-get update && apt-get install -y --no-install-recommends libreoffice-writer fonts-crosextra-carlito fonts-crosextra-caladea fonts-liberation && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/apps/web/dist ./apps/web/dist
 COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/packages/db/drizzle ./apps/api/drizzle

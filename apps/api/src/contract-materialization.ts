@@ -150,23 +150,3 @@ export function encryptMaterializationContext(tenantId: string, contractId: stri
 export function decryptMaterializationContext(tenantId: string, contractId: string, value: { ciphertext: string; nonce: string; keyVersion: number }): MaterializationContext {
   return JSON.parse(decryptValue(value, buildProtectedAad(tenantId, 'followup_contracts', contractId, 'materialization_context'))) as MaterializationContext;
 }
-
-export type OnlyOfficeConverter = { convertDocxToPdf(docxUrl: string): Promise<Uint8Array> };
-export type OnlyOfficeEditorConfig = { documentType: 'word'; document: { fileType: 'docx'; key: string; title: string; url: string }; editorConfig: { mode: 'edit'; callbackUrl: string; lang: string } };
-export function createOnlyOfficeEditorConfig(input: { documentKey: string; documentUrl: string; title: string; callbackUrl: string }): OnlyOfficeEditorConfig {
-  if (!input.documentKey || !input.documentUrl || !input.callbackUrl) throw new Error('ONLYOFFICE editor configuration is incomplete.');
-  return { documentType: 'word', document: { fileType: 'docx', key: input.documentKey, title: input.title, url: input.documentUrl }, editorConfig: { mode: 'edit', callbackUrl: input.callbackUrl, lang: 'pt-BR' } };
-}
-export function createOnlyOfficeConverter(baseUrl = process.env.ONLYOFFICE_CONVERTER_URL): OnlyOfficeConverter {
-  if (!baseUrl) throw new Error('ONLYOFFICE_CONVERTER_URL is required.');
-  const endpoint = new URL('/converter', baseUrl).toString();
-  return {
-    async convertDocxToPdf(docxUrl) {
-      const response = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(30_000), body: JSON.stringify({ async: false, filetype: 'docx', outputtype: 'pdf', url: docxUrl }) });
-      if (!response.ok) throw new Error(`ONLYOFFICE conversion failed with status ${response.status}.`);
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      if (bytes.length < 5 || new TextDecoder().decode(bytes.slice(0, 5)) !== '%PDF-') throw new Error('ONLYOFFICE returned an invalid PDF.');
-      return bytes;
-    },
-  };
-}

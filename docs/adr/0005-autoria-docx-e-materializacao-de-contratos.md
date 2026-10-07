@@ -34,3 +34,12 @@ Havia a necessidade de suportar edição no padrão Office, placeholders paramé
 - Retries de falha de geração são idempotentes por contrato aplicado e nunca sobrescrevem um `R0` já existente.
 - Acompanhamento cancelado durante a geração descarta a promoção para assinatura e preserva artefatos como histórico.
 - Contratos aplicados nunca voltam ao editor DOCX. Correções de texto exigem nova publicação no modelo e substituição explícita dos contratos do acompanhamento.
+
+## Emenda — 2026-10-07 (Issue #32: LibreOffice headless sob demanda, ONLYOFFICE aposentado)
+
+Substitui as referências a ONLYOFFICE acima; o restante do ADR permanece válido.
+
+- **Autoria oficial:** Word desktop ou LibreOffice Writer. O profissional edita o `.docx` localmente e o importa no dashboard apenas para posicionar placeholders (`{patient.name}` etc.) e publicar a versão. Não há editor DOCX embarcado no sistema.
+- **Conversão `materialized.docx` → `R0.pdf`:** LibreOffice headless (`soffice`) invocado sob demanda pelo backend via argv (sem shell), com perfil `UserInstallation` e diretório de job isolados por conversão (paralelismo sem lock), timeout com kill e cleanup em `finally`. A imagem de runtime instala `libreoffice-writer --no-install-recommends` + `fonts-crosextra-carlito`, `fonts-crosextra-caladea` e `fonts-liberation` para fidelidade com Calibri/Cambria.
+- **ONLYOFFICE removido:** sem serviço `onlyoffice` no `dev-compose.yml`, sem `ONLYOFFICE_*` nos composes/envs, sem conversor HTTP no código. Com isso, a Issue #31 (JWT do Document Server) fica moot: sem Document Server, não há JWT para autenticar.
+- Pipeline preservado: validação de placeholders, snapshot cifrado de contexto, `R0`, revisões incrementais e assinatura seguem intactos; falha de conversão marca o contrato aplicado como `failed` com `generationError`, sem 500 genérico.

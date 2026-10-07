@@ -17,19 +17,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 15
-  # ONLYOFFICE Docs Community Edition: autoria DOCX e conversão de DOCX materializado para PDF.
-  onlyoffice:
-    image: onlyoffice/documentserver:latest
-    restart: unless-stopped
-    ports:
-      - "${ONLYOFFICE_PORT:-8080}:80"
-    environment:
-      JWT_ENABLED: "false"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/healthcheck"]
-      interval: 10s
-      timeout: 5s
-      retries: 15
   # Emulador AWS local (S3 compatível, substitui o R2 em dev): http://localhost:4566
   ministack:
     image: ministackorg/ministack

@@ -5,8 +5,9 @@ import {
   getDatabase, patients, professionals, signatureParticipants, signatureProcesses, signatureTokens,
 } from '@clinicare/db';
 import { getFollowup } from './followups';
-import { createOnlyOfficeConverter, decryptMaterializationContext, encryptMaterializationContext, renderDocx, type MaterializationContext } from './contract-materialization';
-import { deleteObject, downloadObjectBytes, downloadUrl, uploadObjectBytes, verifyObject } from './storage';
+import { decryptMaterializationContext, encryptMaterializationContext, renderDocx, type MaterializationContext } from './contract-materialization';
+import { createLibreOfficeConverter } from './docx-pdf';
+import { deleteObject, downloadObjectBytes, uploadObjectBytes, verifyObject } from './storage';
 
 const invalid = (message: string, status = 400) => Object.assign(new Error(message), { status });
 const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -104,14 +105,12 @@ export async function generateFollowupContract(tenantId: string, followupContrac
     generatedObjectKeys.push(docxKey);
     await uploadObjectBytes(docxKey, rendered, DOCX);
     if (!await verifyObject(docxKey, hash(rendered), rendered.byteLength, DOCX)) throw new Error('Materialized DOCX failed storage verification.');
-    const converter = createOnlyOfficeConverter();
-    const docxUrl = await downloadUrl(docxKey);
-    if (!docxUrl) throw new Error('R2 is not configured.');
-    const pdf = await converter.convertDocxToPdf(docxUrl);
+    const converter = createLibreOfficeConverter();
+    const pdf = await converter.convertDocxToPdf(rendered);
     const pdfKey = randomUUID();
     generatedObjectKeys.push(pdfKey);
     await uploadObjectBytes(pdfKey, pdf, PDF);
-    if (pdf.byteLength < 5 || new TextDecoder().decode(pdf.slice(0, 5)) !== '%PDF-') throw new Error('ONLYOFFICE returned an invalid PDF.');
+    if (pdf.byteLength < 5 || new TextDecoder().decode(pdf.slice(0, 5)) !== '%PDF-') throw new Error('LibreOffice returned an invalid PDF.');
     const pdfHash = hash(pdf);
     if (!await verifyObject(pdfKey, pdfHash, pdf.byteLength, PDF)) throw new Error('R0 PDF failed storage verification.');
     const docxHash = hash(rendered);
