@@ -341,6 +341,22 @@ describe('Contract edit and versions', () => {
     expect(screen.getByRole('button', { name: /publicar v2/i })).toBeInTheDocument();
   });
 
+  it('hashes and uploads a DOCX draft without depending on crypto.subtle', async () => {
+    routes['GET /api/contracts'] = () => [contract()];
+    routes['GET /api/contracts/placeholders'] = () => ['patient.name'];
+    routes['POST /api/contracts/c1/draft/presign'] = () => ({ objectKey: 'object-1', uploadUrl: 'https://storage.example/upload' });
+    routes['PUT https://storage.example/upload'] = () => ({});
+    routes['PUT /api/contracts/c1/draft'] = () => ({});
+    const user = userEvent.setup();
+    renderAt('/contratos/c1');
+    await user.upload(await screen.findByLabelText('Arquivo .docx'), new File(['docx fixture'], 'contract.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }));
+    await user.click(await screen.findByRole('button', { name: /salvar draft/i }));
+    await waitFor(() => expect(calls.find((call) => call.url === '/api/contracts/c1/draft' && call.method === 'PUT')?.body).toMatchObject({
+      objectKey: 'object-1', contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 12,
+    }));
+    expect((calls.find((call) => call.url === '/api/contracts/c1/draft' && call.method === 'PUT')?.body as { contentHash: string }).contentHash).toMatch(/^[a-f0-9]{64}$/);
+  });
+
   it('lists published versions as read-only history', async () => {
     routes['GET /api/contracts'] = () => [contract()];
     const user = userEvent.setup();

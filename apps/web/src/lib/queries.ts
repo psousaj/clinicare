@@ -2,6 +2,7 @@ import { queryOptions, useMutation, useQueryClient, type QueryKey } from '@tanst
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { api } from './api';
+import { sha256Hex } from './sha256';
 import { anamnesisSchema, anySchema, appointmentSchema, contractSchema, createdSchema, comboSchema, planSchema, patientHistorySchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicFormSchema, requestSchema, attendanceSchema, signatureHistorySchema, signaturePendingSchema } from './schemas';
 
 export const keys = {
@@ -68,6 +69,8 @@ const everything = [keys.patients, keys.procedures, keys.anamneses, keys.contrac
 export const useCreatePatient = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/patients', body), invalidate: patientRefresh, success: 'Paciente cadastrado.' });
 export const useUpdatePatient = (id: string) =>
   useApiMutation({ mutationFn: (body: unknown) => api(`/api/patients/${id}`, { method: 'PUT', body, schema: anySchema }), invalidate: [keys.patients, keys.history(id), keys.relationship(id)], success: 'Dados do paciente atualizados.' });
+export const useDeletePatient = () =>
+  useApiMutation({ mutationFn: (id: string) => api(`/api/patients/${id}`, { method: 'DELETE', schema: anySchema }), invalidate: [keys.patients], success: 'Paciente excluído.' });
 export const useCreateProcedure = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/procedures', body), invalidate: [keys.procedures], success: 'Procedimento cadastrado.' });
 export const useCreateAnamnesis = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/anamneses', body), invalidate: [keys.anamneses], success: 'Formulário de anamnese criado.' });
 export const useRestoreAnamnesis = () =>
@@ -82,6 +85,8 @@ export const useUpdateAnamnesis = () =>
     invalidate: [keys.anamneses],
     success: 'Formulário de anamnese atualizado.',
   });
+export const useDeleteAnamnesis = () =>
+  useApiMutation({ mutationFn: (id: string) => api(`/api/anamneses/${id}`, { method: 'PATCH', body: { active: false }, schema: anySchema }), invalidate: [keys.anamneses], success: 'Formulário excluído.' });
 export const useCreateContract = () => useApiMutation({ mutationFn: (body: { title: string; kind: string; procedureId?: string | null; comboId?: string | null }) => post('/api/contracts', body), invalidate: [keys.contracts], success: 'Contrato criado. Agora envie o draft DOCX.' });
 export const useUpdateContract = () =>
   useApiMutation({
@@ -90,8 +95,9 @@ export const useUpdateContract = () =>
     invalidate: [keys.contracts, keys.followups],
     success: 'Contrato atualizado.',
   });
+export const useDeleteContract = () =>
+  useApiMutation({ mutationFn: (id: string) => api(`/api/contracts/${id}`, { method: 'PATCH', body: { active: false }, schema: anySchema }), invalidate: [keys.contracts, keys.followups], success: 'Contrato excluído.' });
 export const contractPlaceholdersQuery = queryOptions({ queryKey: ['contract-placeholders'] as const, queryFn: () => api('/api/contracts/placeholders', { schema: z.array(z.string()), fallbackError: 'Não foi possível carregar os placeholders.' }) });
-const sha256Hex = async (file: File) => { const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer()); return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(''); };
 export const useSaveContractDraft = () =>
   useApiMutation({
     mutationFn: async ({ id, file, contexts, allowedPlaceholders, requiredPlaceholders }: { id: string; file: File; contexts: Record<string, { enabled: boolean; required: boolean }>; allowedPlaceholders: string[]; requiredPlaceholders: string[] }) => {
@@ -126,6 +132,8 @@ export const useCreateCombo = () => useApiMutation({ mutationFn: (body: unknown)
 export const useCreateFollowup = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/followups', body), invalidate: everything, success: 'Acompanhamento iniciado.' });
 export const useCreatePlan = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/plans', body), invalidate: [keys.plans], success: 'Plano cadastrado.' });
 export const useUpdatePlan = () => useApiMutation({ mutationFn: ({ id, ...body }: { id: string; active?: boolean; expectedVersion?: number } & Record<string, unknown>) => api(`/api/plans/${id}`, { method: 'PUT', body, schema: anySchema }), invalidate: [keys.plans], success: 'Plano atualizado.' });
+export const useDeletePlan = () =>
+  useApiMutation({ mutationFn: (id: string) => api(`/api/plans/${id}`, { method: 'PUT', body: { active: false }, schema: anySchema }), invalidate: [keys.plans], success: 'Plano excluído.' });
 export const useAnswerAnamnesis = () =>
   useApiMutation({ mutationFn: ({ id, answers }: { id: string; answers: Record<string, unknown> }) => post(`/api/patient-anamneses/${id}/answers`, { answers }), invalidate: [keys.followups, keys.patients], success: 'Anamnese registrada.' });
 export const useCreateAppointment = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/appointments', body), invalidate: [keys.appointments, keys.patients], success: 'Agendamento criado.' });
@@ -141,8 +149,7 @@ export const useUpdateAttendance = (id: string) =>
 export const useAddAttendancePhoto = (id: string) =>
   useApiMutation({
     mutationFn: async ({ file, phase, notes }: { file: File; phase: 'before' | 'during' | 'after'; notes: string }) => {
-      const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
-      const contentHash = `sha256:${Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')}`;
+      const contentHash = `sha256:${await sha256Hex(file)}`;
       const presign = await post('/api/uploads/presign', { attendanceId: id, contentType: file.type, size: file.size, contentHash }, z.looseObject({ uploadUrl: z.string(), objectKey: z.string(), uploadToken: z.string() }));
       const upload = await fetch(presign.uploadUrl, { method: 'PUT', headers: { 'content-type': file.type }, body: file });
       if (!upload.ok) throw new Error('Não foi possível enviar a imagem.');

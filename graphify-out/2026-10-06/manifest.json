@@ -36,9 +36,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/app.ts": {
-    "mtime": 1791329659.488626,
-    "seen": 1791329687.019456,
-    "ast_hash": "063aff737ca5375689cc91f3c02759f8",
+    "mtime": 1791332532.300389,
+    "seen": 1791332779.574907,
+    "ast_hash": "9cc27a7fb9d1837ebd1dfdde0f7d5bac",
     "semantic_hash": ""
   },
   "apps/api/src/index.ts": {
@@ -54,9 +54,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/storage.ts": {
-    "mtime": 1791324710.113925,
-    "seen": 1791326340.4388902,
-    "ast_hash": "5e4b1f25bafd33b6b3827ae092889d92",
+    "mtime": 1791332614.6687627,
+    "seen": 1791332779.5758815,
+    "ast_hash": "a999ee0d448d6289a5cf95e0e8ea319f",
     "semantic_hash": ""
   },
   "apps/api/tsconfig.json": {
@@ -72,15 +72,15 @@
     "semantic_hash": ""
   },
   "apps/web/package.json": {
-    "mtime": 1791161434.953129,
-    "seen": 1791326340.4389365,
-    "ast_hash": "ccc64cdd545fa658ced58e467910d9a2",
+    "mtime": 1791332220.0034006,
+    "seen": 1791332357.9910564,
+    "ast_hash": "c38fd91f9ce090a8dafcbc1b71bcf280",
     "semantic_hash": ""
   },
   "apps/web/src/App.test.tsx": {
-    "mtime": 1791329609.9486263,
-    "seen": 1791329687.0204263,
-    "ast_hash": "0b05c0b51a9892d9de695f0af0829526",
+    "mtime": 1791332289.7526293,
+    "seen": 1791332357.9910579,
+    "ast_hash": "06271591ceaad737f2d18cc5462b00b5",
     "semantic_hash": ""
   },
   "apps/web/src/components/AnamnesisFormPage.tsx": {
@@ -120,9 +120,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/ContractFormPage.tsx": {
-    "mtime": 1791329281.3486285,
-    "seen": 1791329467.98474,
-    "ast_hash": "b95cdfad75732efe7ce4f0c245ee0555",
+    "mtime": 1791330019.8926291,
+    "seen": 1791332357.9912467,
+    "ast_hash": "7c50bb947c3b587a05ef0128a6a464b8",
     "semantic_hash": ""
   },
   "apps/web/src/components/Field.tsx": {
@@ -204,9 +204,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/VersionsDialog.tsx": {
-    "mtime": 1790716054.9079962,
-    "seen": 1790901634.9667811,
-    "ast_hash": "47e3ca229049fbda041ba0f4c618cdfe",
+    "mtime": 1791329824.6046324,
+    "seen": 1791329922.622373,
+    "ast_hash": "39730416a268c0f5edfb0585eefa8b81",
     "semantic_hash": ""
   },
   "apps/web/src/components/dialogs.tsx": {
@@ -318,9 +318,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/lib/queries.ts": {
-    "mtime": 1791329286.7166286,
-    "seen": 1791329467.9856782,
-    "ast_hash": "6ad4c81e84a8cc7438ec2be77357e7b9",
+    "mtime": 1791332742.2566264,
+    "seen": 1791332779.577182,
+    "ast_hash": "4f9c7ec5ab3272aa9ce6559b03360c92",
     "semantic_hash": ""
   },
   "apps/web/src/lib/schemaUi.tsx": {
@@ -330,9 +330,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/lib/schemas.ts": {
-    "mtime": 1791329286.7166286,
-    "seen": 1791329467.9857047,
-    "ast_hash": "18bdd7f5062d3117f480065f56973c32",
+    "mtime": 1791329687.9566262,
+    "seen": 1791329922.6229432,
+    "ast_hash": "cc19a4b8c3ed2aa6b5cf28219a3cf8bb",
     "semantic_hash": ""
   },
   "apps/web/src/lib/utils.ts": {
@@ -384,21 +384,21 @@
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/contratos/$contractId.tsx": {
-    "mtime": 1790716054.9107273,
-    "seen": 1790901634.9668233,
-    "ast_hash": "6cb4e9e89b639f911d6e9e9c3962fb07",
+    "mtime": 1791329767.7486289,
+    "seen": 1791329922.6232045,
+    "ast_hash": "f581e8205f139fce575c00236d8ce064",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/contratos/index.tsx": {
-    "mtime": 1791329277.0926285,
-    "seen": 1791329467.9859583,
-    "ast_hash": "c90407ca2fa83f58e8081d7d61f8e210",
+    "mtime": 1791332742.2606263,
+    "seen": 1791332779.5775363,
+    "ast_hash": "e024cac1788900aa84c1ec9c61aaacf8",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/contratos/novo.tsx": {
-    "mtime": 1790716054.9107888,
-    "seen": 1790901634.966826,
-    "ast_hash": "17d587e4cefaf1b4b8cb54e76d9fe20c",
+    "mtime": 1791329756.880631,
+    "seen": 1791329922.6232073,
+    "ast_hash": "c30c229736b327f5dc1e20a546a3f5b8",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/financeiro.tsx": {
@@ -414,9 +414,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/formularios-anamnese/index.tsx": {
-    "mtime": 1790716054.9110498,
-    "seen": 1790901634.9668305,
-    "ast_hash": "c9cd2549639ea2f38bcd66b8a243e2e1",
+    "mtime": 1791332742.2606263,
+    "seen": 1791332779.5776248,
+    "ast_hash": "80636f83496e4e27d21916114b12f15b",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/formularios-anamnese/nova.tsx": {
@@ -468,21 +468,21 @@
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/pacientes/index.tsx": {
-    "mtime": 1790716054.9115782,
-    "seen": 1790901634.9668462,
-    "ast_hash": "edd16f6cdad5bdec63d5068b3b1fc92a",
+    "mtime": 1791332749.4846265,
+    "seen": 1791332779.577877,
+    "ast_hash": "02d6e373d977484c985e5f73c4cfce43",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/pacientes/novo.tsx": {
-    "mtime": 1791329609.9486263,
-    "seen": 1791329687.0223467,
-    "ast_hash": "9cca7be93ca3b283300499ed95a0d6a5",
+    "mtime": 1791329879.7681704,
+    "seen": 1791329922.623629,
+    "ast_hash": "a8a6fde7f629e878c039702c8aa5006a",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/planos/index.tsx": {
-    "mtime": 1791006482.7246983,
-    "seen": 1791035698.5396795,
-    "ast_hash": "26554f1dc8e553fb5515afb9bb92041b",
+    "mtime": 1791332753.8846264,
+    "seen": 1791332779.5779078,
+    "ast_hash": "b5aa30fbb451b0b1d56474c0a524b756",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/planos/novo.tsx": {
@@ -546,8 +546,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1791328729.1086245,
-    "seen": 1791328750.837144,
+    "mtime": 1791330576.3246276,
+    "seen": 1791332357.9934132,
     "ast_hash": "84047878cd097b8980ea2a320547424d",
     "semantic_hash": ""
   },
@@ -576,9 +576,9 @@
     "semantic_hash": ""
   },
   "turbo.json": {
-    "mtime": 1791326985.1549811,
-    "seen": 1791327057.3427105,
-    "ast_hash": "51d993176d6a573b0f113464714893e6",
+    "mtime": 1791332766.5486267,
+    "seen": 1791332779.5787642,
+    "ast_hash": "2664417f0748694cb17bb61567a1b076",
     "semantic_hash": ""
   },
   "AGENTS.md": {
@@ -594,9 +594,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1791328729.1086245,
-    "seen": 1791328750.8376553,
-    "ast_hash": "a8e146b1f0e89dd9041ec55b8d233938",
+    "mtime": 1791332737.1366262,
+    "seen": 1791332779.5788026,
+    "ast_hash": "35ed1eeb794c73600fe5cf98a5454207",
     "semantic_hash": ""
   },
   "apps/web/index.html": {
@@ -606,15 +606,15 @@
     "semantic_hash": ""
   },
   "dev-compose.yml": {
-    "mtime": 1791326028.560624,
-    "seen": 1791326340.4414375,
-    "ast_hash": "c5ef27787a7957e0db5c670e09305b0d",
+    "mtime": 1791332667.5326273,
+    "seen": 1791332779.5788262,
+    "ast_hash": "017e86866d1b38746dacd8d58ae7a66f",
     "semantic_hash": ""
   },
   "docker-compose.yml": {
-    "mtime": 1791326985.1549811,
-    "seen": 1791327057.3427896,
-    "ast_hash": "c953647f3d6088cba380db16776af147",
+    "mtime": 1791332055.4086254,
+    "seen": 1791332357.9940083,
+    "ast_hash": "605709e03e455394a7416efde88d0017",
     "semantic_hash": ""
   },
   "docs/adr/0001-stack-da-aplicacao.md": {
@@ -654,9 +654,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/catalog.ts": {
-    "mtime": 1791329626.0206263,
-    "seen": 1791329687.0195816,
-    "ast_hash": "ec33a1387639797e210be2b1ed2dab0e",
+    "mtime": 1791332762.4926264,
+    "seen": 1791332779.5750542,
+    "ast_hash": "5525af599febb4977cd075915fc9cc26",
     "semantic_hash": ""
   },
   "apps/api/src/clinical.integration.test.ts": {
@@ -690,9 +690,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/patients.integration.test.ts": {
-    "mtime": 1791329578.6926267,
-    "seen": 1791329687.0199838,
-    "ast_hash": "ed46197461697be955ef58c7690e5af8",
+    "mtime": 1791332532.300389,
+    "seen": 1791332779.5755045,
+    "ast_hash": "9f39734616a449a630bf54cdc3a72e88",
     "semantic_hash": ""
   },
   "apps/api/src/patients.ts": {
@@ -1110,9 +1110,39 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/EditPatientDialog.tsx": {
-    "mtime": 1791329299.224629,
-    "seen": 1791329467.9847932,
-    "ast_hash": "e44ec18b1e578a397bb578650dcac6e9",
+    "mtime": 1791329879.7681704,
+    "seen": 1791329922.6220288,
+    "ast_hash": "9027c525d77ea52c8ab10ee92b15879a",
+    "semantic_hash": ""
+  },
+  "apps/web/src/components/CpfField.tsx": {
+    "mtime": 1791329879.7681704,
+    "seen": 1791329922.6220264,
+    "ast_hash": "6a4bbc5107b49ba04391d38f7d394c23",
+    "semantic_hash": ""
+  },
+  "apps/api/src/storage-config.test.ts": {
+    "mtime": 1791332640.740628,
+    "seen": 1791332779.5758789,
+    "ast_hash": "5b709d4404eb41cb2ca36e504b8e609c",
+    "semantic_hash": ""
+  },
+  "apps/api/src/storage-config.ts": {
+    "mtime": 1791332614.664629,
+    "seen": 1791332779.5758805,
+    "ast_hash": "e6498004ccd7e90a9fb058887707a042",
+    "semantic_hash": ""
+  },
+  "apps/web/src/lib/sha256.test.ts": {
+    "mtime": 1791332235.8698072,
+    "seen": 1791332357.9923508,
+    "ast_hash": "321d9104a2c498c6ac215f531d466f23",
+    "semantic_hash": ""
+  },
+  "apps/web/src/lib/sha256.ts": {
+    "mtime": 1791332235.8646288,
+    "seen": 1791332357.992352,
+    "ast_hash": "b4cb106a564d1d286fdcc6e9b34c7d76",
     "semantic_hash": ""
   }
 }

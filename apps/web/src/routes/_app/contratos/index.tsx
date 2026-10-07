@@ -1,17 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { FileText, Pencil } from 'lucide-react';
+import { FileText, Pencil, Trash2 } from 'lucide-react';
 import { QueryError } from '@/components/QueryState';
 import { StatusBadge } from '@/components/StatusBadge';
 import { ContractVersionsButton } from '@/components/VersionsDialog';
 import { Button } from '@/components/ui/button';
-import { combosQuery, contractsQuery, proceduresQuery } from '@/lib/queries';
+import { combosQuery, contractsQuery, proceduresQuery, useDeleteContract } from '@/lib/queries';
 import type { Contract } from '@/lib/schemas';
 
 export const Route = createFileRoute('/_app/contratos/')({ component: Contracts });
 
 function Contracts() {
   const contracts = useQuery(contractsQuery);
+  const remove = useDeleteContract();
   const procedures = useQuery(proceduresQuery).data ?? [];
   const combos = useQuery(combosQuery).data ?? [];
   const scope = (contract: Contract) => {
@@ -35,6 +36,7 @@ function Contracts() {
             {!contract.active && <StatusBadge tone="neutral">Inativo</StatusBadge>}
             <div className="row-actions flex gap-2">
               <Button variant="outline" size="sm" asChild><Link to="/contratos/$contractId" params={{ contractId: contract.id }}><Pencil /> Editar</Link></Button>
+              <Button variant="ghost" size="sm" className="text-destructive" disabled={remove.isPending} onClick={() => { if (window.confirm('Excluir este contrato?')) remove.mutate(contract.id); }} aria-label={`Excluir ${contract.title}`}><Trash2 /></Button>
               <ContractVersionsButton contract={contract} />
             </div>
           </div>

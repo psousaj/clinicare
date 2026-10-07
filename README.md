@@ -45,10 +45,12 @@ Requer Bun 1.2+, Node 22.12+/24 (o `mise.toml` fixa o Node 24; rode `mise instal
 
 ```bash
 bun run infra:up      # infra:down para parar, infra:reset para apagar volumes
-cp apps/api/.env.example apps/api/.env   # descomente o bloco "Dev" para usar o ministack
+cp .env.example .env
 bun install
 bun run dev
 ```
+
+No `.env` local, `MINISTACK_ENDPOINT` seleciona o emulador e usa as credenciais `MINISTACK_*`; sem essa variável, a API usa a configuração `R2_*` do Cloudflare. O Compose de produção não recebe variáveis `MINISTACK_*`.
 
 | Serviço | URL | Uso |
 | --- | --- | --- |

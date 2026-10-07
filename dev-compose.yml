@@ -46,6 +46,8 @@ services:
   # Cria o bucket de dev e encerra
   ministack-init:
     image: curlimages/curl:latest
+    environment:
+      MINISTACK_BUCKET: ${MINISTACK_BUCKET:-clinicare-dev}
     depends_on:
       ministack:
         condition: service_healthy
@@ -54,7 +56,7 @@ services:
     command:
       - |
         for i in $$(seq 1 30); do
-          curl -sf -X PUT http://ministack:4566/clinicare-dev && echo "bucket clinicare-dev pronto" && exit 0
+          curl -sf -X PUT http://ministack:4566/$${MINISTACK_BUCKET} && echo "bucket $${MINISTACK_BUCKET} pronto" && exit 0
           sleep 1
         done
         echo "falha ao criar bucket" >&2; exit 1

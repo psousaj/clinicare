@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { Layers, Pencil } from 'lucide-react';
-import { useUpdatePlan } from '@/lib/queries';
+import { Layers, Pencil, Trash2 } from 'lucide-react';
+import { useDeletePlan } from '@/lib/queries';
 import { QueryError } from '@/components/QueryState';
 import { Button } from '@/components/ui/button';
 import { currency } from '@/lib/format';
@@ -11,7 +11,7 @@ export const Route = createFileRoute('/_app/planos/')({ component: Plans });
 
 function Plans() {
   const plans = useQuery(plansQuery);
-  const updatePlan = useUpdatePlan();
+  const remove = useDeletePlan();
   return (
     <section className="panel">
       <div className="panel-header"><h2>Planos</h2><Button asChild><Link to="/planos/novo">＋ Novo plano</Link></Button></div>
@@ -29,7 +29,8 @@ function Plans() {
             </small>
           </span>
           <strong>{currency(plan.priceCents)}</strong>
-          <Button variant="outline" size="sm" disabled={updatePlan.isPending} onClick={() => updatePlan.mutate({ id: plan.id, active: plan.active === false })}>{plan.active === false ? 'Ativar' : 'Desativar'}</Button>
+          <Button variant="ghost" size="sm" asChild aria-label={`Editar ${plan.name}`}><Link to="/planos/novo" search={{ planId: plan.id }}><Pencil /></Link></Button>
+          <Button variant="ghost" size="sm" className="text-destructive" disabled={remove.isPending} onClick={() => { if (window.confirm('Excluir este plano?')) remove.mutate(plan.id); }} aria-label={`Excluir ${plan.name}`}><Trash2 /></Button>
         </div>
       ))}
     </section>

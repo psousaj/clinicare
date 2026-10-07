@@ -74,6 +74,12 @@ integration('patient API with PostgreSQL', () => {
     }
   });
 
+  it('returns a validation error instead of 500 for malformed CPF', async () => {
+    const response = await post(clinics[0]!, { fullName: 'CPF inválido', cpf: '123' });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: 'CPF deve conter exatamente 11 dígitos.' });
+  });
+
   it('isolates tenants, validates tenant headers, and allows reuse after soft delete', async () => {
     const [clinicA, clinicB] = clinics;
     const created = await post(clinicA!, { fullName: 'Isolated', email: 'reuse@example.com', phone: '5511999992222', cpf: '111.222.333-44' });
