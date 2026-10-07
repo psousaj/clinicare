@@ -10,7 +10,6 @@ import { DatePicker, TimePicker } from '@/components/pickers';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { PlanOfferPicker } from '@/components/PlanOfferPicker';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { appointmentForm, followupForm, parseForm, paymentForm } from '@/lib/forms';
 import { useConfirmAppointment, useCreateAppointment, useCreateFollowup, useCreatePayment, useDeleteAppointment, useUpdateAppointment } from '@/lib/queries';
@@ -120,7 +119,7 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
   const minutesOfItem = (item: { procedureId?: string | null; durationMinutes?: number | null }) => item.durationMinutes ?? minutesOf(item.procedureId);
   const patientFollowups = followups.filter((followup) => followup.patientId === patientId);
   const blockedStandalone = new Set(patientFollowups.filter((followup) => followup.offerType === 'procedure' && followup.blocked).flatMap((followup) => followup.items.map((item) => item.procedureId)));
-  const mine = patientFollowups.filter((followup) => followup.offerType !== 'procedure').map((followup) => ({ ...followup, items: followup.items.filter((item) => item.sessionsPerformed < item.sessionsTotal) })).filter((followup) => followup.items.length > 0);
+  const mine = patientFollowups.filter((followup) => followup.offerType !== 'procedure').map((followup) => ({ ...followup, items: followup.items.filter((item) => !item.cancelledAt && item.sessionsPerformed < item.sessionsTotal) })).filter((followup) => followup.items.length > 0);
   const contractedProcedureIds = new Set(mine.flatMap((followup) => followup.items.map((item) => item.procedureId).filter(Boolean)));
   const avulsos = procedures.filter((procedure) => procedure.active !== false && procedure.standalone !== false);
   const pending = patientFollowups.filter((followup) => followup.blocked).flatMap((followup) => followup.anamneses.filter((form) => form.required && !form.answered).map((form) => form.title));
@@ -240,7 +239,7 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
 }
 
 // Escolha uma oferta do catálogo (combo ou plano) para iniciar o acompanhamento do paciente.
-export function NewFollowupDialog({ open, patientId, patients, combos, plans, events = [], procedures = [], onClose }: { open: boolean; patientId?: string; patients: Patient[]; combos: Combo[]; plans: Plan[]; events?: EventOffer[]; procedures?: Procedure[]; onClose: () => void }) {
+export function NewFollowupDialog({ open, patientId, patients, combos, plans, events = [], onClose }: { open: boolean; patientId?: string; patients: Patient[]; combos: Combo[]; plans: Plan[]; events?: EventOffer[]; onClose: () => void }) {
   const create = useCreateFollowup();
   const navigate = useNavigate();
   return (
@@ -253,18 +252,16 @@ export function NewFollowupDialog({ open, patientId, patients, combos, plans, ev
       onSubmit={async (form) => {
         const { patientId: patient, offer } = parseForm(followupForm, form);
         const [offerType, offerId] = offer.split(':');
-        const choice = offerType === 'event' ? form.getAll('choice').map(String).map((key) => { const [kind, id] = key.split(':'); return kind === 'combo' ? { kind, comboId: id } : { kind, procedureId: id }; }) : undefined;
-        if (offerType === 'event' && !choice?.length) throw new Error('Escolha ao menos um item do cardápio do evento.');
-        await create.mutateAsync({ patientId: patient, offerType, offerId, ...(choice ? { choice } : {}) });
+        await create.mutateAsync({ patientId: patient, offerType, offerId });
         if (!patientId) await navigate({ to: '/pacientes/$patientId', params: { patientId: patient } });
       }}
     >
-      <OfferFields lockedPatientId={patientId} patients={patients} combos={combos} plans={plans} events={events} procedures={procedures} />
+      <OfferFields lockedPatientId={patientId} patients={patients} combos={combos} plans={plans} events={events} />
     </FormDialog>
   );
 }
 
-function OfferFields({ lockedPatientId, patients, combos, plans, events, procedures }: { lockedPatientId?: string; patients: Patient[]; combos: Combo[]; plans: Plan[]; events: EventOffer[]; procedures: Procedure[] }) {
+function OfferFields({ lockedPatientId, patients, combos, plans, events }: { lockedPatientId?: string; patients: Patient[]; combos: Combo[]; plans: Plan[]; events: EventOffer[] }) {
   const [offer, setOffer] = useState('');
   const [type, id] = offer.split(':');
   const price = type === 'combo' ? (combos.find((item) => item.id === id)?.promotionalPriceCents ?? combos.find((item) => item.id === id)?.priceCents) : type === 'plan' ? plans.find((item) => item.id === id)?.priceCents : undefined;
@@ -291,36 +288,8 @@ function OfferFields({ lockedPatientId, patients, combos, plans, events, procedu
         </NativeSelect>
       </Field>
       {price !== undefined && <p className="m-0 text-sm text-muted-foreground">Valor: <strong className="text-foreground">{currency(price)}</strong></p>}
-      {type === 'event' && <EventChoice key={id} event={events.find((item) => item.id === id)} procedures={procedures} combos={combos} />}
+      {type === 'event' && <p className="m-0 text-xs text-muted-foreground">Entra com o cardápio inteiro do dia; ajuste o que não for fazer pelo card de acompanhamento do paciente.</p>}
     </>
-  );
-}
-
-// Escolha do paciente no cardápio do evento. Não é preço contratado: o valor só nasce da baixa do que for realizado.
-function EventChoice({ event, procedures, combos }: { event?: EventOffer; procedures: Procedure[]; combos: Combo[] }) {
-  const menuProcedures = (event?.items ?? []).filter((item) => item.kind === 'procedure').map((item) => item.procedureId);
-  const menuCombos = (event?.items ?? []).filter((item) => item.kind === 'combo').map((item) => item.comboId);
-  const [procedureIds, setProcedureIds] = useState<string[]>([]);
-  const [comboIds, setComboIds] = useState<string[]>([]);
-  if (!event) return null;
-  const toggleList = (list: string[], setter: (next: string[]) => void, id: string, on: boolean) => setter(on ? [...list.filter((entry) => entry !== id), id] : list.filter((entry) => entry !== id));
-  return (
-    <fieldset className="grid gap-1">
-      <PlanOfferPicker
-        procedures={procedures.filter((procedure) => menuProcedures.includes(procedure.id))}
-        combos={combos.filter((combo) => menuCombos.includes(combo.id))}
-        procedureIds={procedureIds}
-        comboIds={comboIds}
-        sessions={{}}
-        sessionsEditable={false}
-        onToggleProcedure={(id, on) => toggleList(procedureIds, setProcedureIds, id, on)}
-        onToggleCombo={(id, on) => toggleList(comboIds, setComboIds, id, on)}
-        onSessionsChange={() => undefined}
-      />
-      {procedureIds.map((id) => <input key={`procedure:${id}`} type="hidden" name="choice" value={`procedure:${id}`} />)}
-      {comboIds.map((id) => <input key={`combo:${id}`} type="hidden" name="choice" value={`combo:${id}`} />)}
-      <small className="text-xs text-muted-foreground">A escolha vai para o contrato. O valor só é cobrado pelo que o profissional der baixa.</small>
-    </fieldset>
   );
 }
 

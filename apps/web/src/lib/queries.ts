@@ -170,6 +170,12 @@ export const useCreateFollowup = () =>
         : 'Acompanhamento iniciado.';
     },
   });
+export const useCancelFollowupItem = () =>
+  useApiMutation({
+    mutationFn: ({ followupId, itemId }: { followupId: string; itemId: string }) => post(`/api/followups/${followupId}/items/${itemId}/cancel`, {}),
+    invalidate: [keys.followups, keys.appointments, keys.patients],
+    success: 'Item fora do que será realizado.',
+  });
 export const useCreatePlan = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/plans', body), invalidate: [keys.plans], success: 'Plano cadastrado.' });
 export const useUpdatePlan = () => useApiMutation({ mutationFn: ({ id, ...body }: { id: string; active?: boolean; expectedVersion?: number } & Record<string, unknown>) => api(`/api/plans/${id}`, { method: 'PUT', body, schema: anySchema }), invalidate: [keys.plans], success: 'Plano atualizado.' });
 export const useSaveEvent = () =>

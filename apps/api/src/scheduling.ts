@@ -111,6 +111,7 @@ export async function createAppointment(tenantId: string, input: any) {
           .innerJoin(followups, and(eq(followups.tenantId, followupItems.tenantId), eq(followups.id, followupItems.followupId)))
           .where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.id, entry.followupItemId), eq(followups.patientId, input.patientId)))).at(0);
         if (!item || item.followup.status !== 'active') throw notFound('Procedimento não pertence a um acompanhamento ativo deste paciente.');
+        if (item.item.cancelledAt) throw conflict(`${item.item.procedureName}: não será realizado neste evento.`);
         assertEventDay(item.followup, startsAt);
         const reserved = await reservationCount(tx, tenantId, item.item.id);
         if (quantity > item.item.sessionsTotal - item.item.sessionsPerformed - reserved) throw conflict(`${item.item.procedureName}: sessões insuficientes para reservar.`);
@@ -207,6 +208,7 @@ export async function updateAppointment(tenantId: string, id: string, input: any
         const row = (await tx.select().from(followupItems).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.id, item.followupItemId!)))).at(0);
         const owner = row ? (await tx.select().from(followups).where(and(eq(followups.tenantId, tenantId), eq(followups.id, row.followupId)))).at(0) : null;
         if (owner) assertEventDay(owner, startsAt);
+        if (row?.cancelledAt) throw conflict(`${row.procedureName}: não será realizado neste evento.`);
         if (!row || item.quantity > row.sessionsTotal - row.sessionsPerformed - await reservationCount(tx, tenantId, item.followupItemId!, id)) throw conflict('Sessões insuficientes para o reagendamento.');
       }
     }
@@ -278,6 +280,7 @@ async function perform(tx: any, tenantId: string, appointmentId: string | null, 
   for (const item of chosen) {
     const current = item.followupItemId ? (await tx.select({ item: followupItems, followup: followups }).from(followupItems).innerJoin(followups, and(eq(followups.tenantId, followupItems.tenantId), eq(followups.id, followupItems.followupId))).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.id, item.followupItemId), eq(followups.patientId, directPatientId)))).at(0) : null;
     if (item.followupItemId && (!current || current.followup.status !== 'active')) throw notFound('Procedimento não pertence ao paciente deste atendimento.');
+    if (current?.item.cancelledAt) throw conflict(`${current.item.procedureName}: não será realizado neste evento.`);
     if (current) assertEventDay(current.followup, input?.performedAt ? new Date(input.performedAt) : new Date());
     const repetitions = item.quantity ?? 1;
     for (let occurrence = 0; occurrence < repetitions; occurrence++) {

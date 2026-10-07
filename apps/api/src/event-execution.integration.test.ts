@@ -29,7 +29,7 @@ integration('PostgreSQL event same-day execution and realized value', () => {
   });
 
   /** Avulso A (R$1,00 ×1), avulso B (R$2,00 ×2) e combo (2×P3 + 1×P4, pacote promocional R$2,50). */
-  async function enrolled(options: { eventDate?: string; choice?: 'all' | 'solo' | 'combo' } = {}) {
+  async function enrolled(options: { eventDate?: string } = {}) {
     const db = getDatabase();
     const ids = { a: crypto.randomUUID(), b: crypto.randomUUID(), p3: crypto.randomUUID(), p4: crypto.randomUUID(), combo: crypto.randomUUID(), contract: crypto.randomUUID(), patient: crypto.randomUUID() };
     const phone = encryptValue('11987654321', buildPatientAad(tenantId, ids.patient, 'phone', 1));
@@ -45,12 +45,7 @@ integration('PostgreSQL event same-day execution and realized value', () => {
     await db.insert(contracts).values({ id: ids.contract, tenantId, title: `Contrato ${ids.contract}`, kind: 'standard' });
     await db.insert(contractVersions).values({ tenantId, contractId: ids.contract, version: 1, content: 'terms', renderedPdfObjectKey: crypto.randomUUID(), renderedPdfHash: 'a'.repeat(64), renderedPdfSize: 123, renderedPdfContentType: 'application/pdf' });
     const event = await (await api('/api/events', 'POST', { name: 'Dia', eventDate: options.eventDate ?? clinicDate(), items: [{ kind: 'procedure', procedureId: ids.a, sessions: 1 }, { kind: 'procedure', procedureId: ids.b, sessions: 2 }, { kind: 'combo', comboId: ids.combo }], contractIds: [ids.contract] })).json() as any;
-    const mode = options.choice ?? 'all';
-    const choice = [
-      ...(mode !== 'combo' ? [{ kind: 'procedure', procedureId: ids.a }, { kind: 'procedure', procedureId: ids.b }] : []),
-      ...(mode !== 'solo' ? [{ kind: 'combo', comboId: ids.combo }] : []),
-    ];
-    const created = await (await api('/api/followups', 'POST', { patientId: ids.patient, offerType: 'event', offerId: event.id, choice })).json() as any;
+    const created = await (await api('/api/followups', 'POST', { patientId: ids.patient, offerType: 'event', offerId: event.id })).json() as any;
     // A assinatura do paciente (que ativa o acompanhamento) é exercitada em suas próprias suítes; aqui a execução parte de um evento já ativo.
     await db.update(followups).set({ status: 'active' }).where(eq(followups.id, created.id));
     const item = (procedureId: string) => created.items.find((row: any) => row.procedureId === procedureId).id as string;
@@ -62,7 +57,7 @@ integration('PostgreSQL event same-day execution and realized value', () => {
     api('/api/appointments', 'POST', { patientId, startsAt: startsAt.toISOString(), endsAt: new Date(startsAt.getTime() + 8 * 3600000).toISOString(), items });
 
   it('bills only what was confirmed: unconfirmed choices are worth zero and each confirmed session adds its price', async () => {
-    const f = await enrolled({ choice: 'solo' });
+    const f = await enrolled();
     expect(await realized(f.followupId)).toBe(0);
     const appointment = await (await book(f.patient, [{ followupItemId: f.item(f.a) }, { followupItemId: f.item(f.b), quantity: 2 }])).json() as any;
     const aItem = appointment.items.find((row: any) => row.procedureId === f.a);
@@ -74,17 +69,16 @@ integration('PostgreSQL event same-day execution and realized value', () => {
   });
 
   it('confirms a chosen combo atomically and bills the package price once', async () => {
-    const f = await enrolled({ choice: 'combo' });
+    const f = await enrolled();
     const appointment = await (await book(f.patient, [{ followupItemId: f.item(f.p3), quantity: 2 }, { followupItemId: f.item(f.p4) }])).json() as any;
     expect((await api(`/api/appointments/${appointment.id}/confirm`, 'POST', {})).status).toBe(200);
     expect(await realized(f.followupId)).toBe(250);
     const rows = await getDatabase().select().from(followupItems).where(eq(followupItems.followupId, f.followupId));
-    expect(rows.every((row) => row.sessionsPerformed === row.sessionsTotal)).toBe(true);
-    expect((await getDatabase().select().from(followups).where(eq(followups.id, f.followupId)))[0]!.status).toBe('completed');
+    expect(rows.filter((row) => row.comboId === f.combo).every((row) => row.sessionsPerformed === row.sessionsTotal)).toBe(true);
   });
 
   it('refuses a partial combo confirmation and leaves nothing changed', async () => {
-    const f = await enrolled({ choice: 'combo' });
+    const f = await enrolled();
     const appointment = await (await book(f.patient, [{ followupItemId: f.item(f.p3), quantity: 2 }, { followupItemId: f.item(f.p4) }])).json() as any;
     const only = appointment.items.find((row: any) => row.procedureId === f.p3);
     expect((await api(`/api/appointments/${appointment.id}/confirm`, 'POST', { selectedItemIds: [only.id] })).status).toBe(409);
@@ -101,7 +95,7 @@ integration('PostgreSQL event same-day execution and realized value', () => {
   });
 
   it('refuses to schedule or perform an event followup outside the event day', async () => {
-    const f = await enrolled({ eventDate: clinicDate(3), choice: 'solo' });
+    const f = await enrolled({ eventDate: clinicDate(3) });
     expect((await book(f.patient, [{ followupItemId: f.item(f.a) }])).status).toBe(409);
     expect((await api('/api/attendances', 'POST', { patientId: f.patient, followupItemId: f.item(f.a) })).status).toBe(409);
     const day = await book(f.patient, [{ followupItemId: f.item(f.a) }], new Date(Date.now() + 3 * 86400000));
@@ -111,7 +105,7 @@ integration('PostgreSQL event same-day execution and realized value', () => {
   });
 
   it('records a walk-in attendance on the event day and reverts the value when it is cancelled', async () => {
-    const f = await enrolled({ choice: 'solo' });
+    const f = await enrolled();
     const created = await api('/api/attendances', 'POST', { patientId: f.patient, followupItemId: f.item(f.a) });
     expect(created.status).toBe(201);
     expect(await realized(f.followupId)).toBe(100);

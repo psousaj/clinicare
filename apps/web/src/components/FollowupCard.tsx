@@ -4,7 +4,7 @@ import { ContractSignatureHistory } from '@/components/ContractSignatureHistory'
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { currency } from '@/lib/format';
-import { useGenerateFollowupContract } from '@/lib/queries';
+import { useCancelFollowupItem, useGenerateFollowupContract } from '@/lib/queries';
 import type { Followup } from '@/lib/schemas';
 
 const offerLabel = { procedure: 'Avulso', combo: 'Combo', plan: 'Plano', event: 'Evento' } as const;
@@ -12,6 +12,7 @@ const offerLabel = { procedure: 'Avulso', combo: 'Combo', plan: 'Plano', event: 
 // Acompanhamento do paciente: itens com progresso, contratos exigidos e situação para agendar.
 export function FollowupCard({ followup, patientId }: { followup: Followup; patientId: string }) {
   const expired = !!followup.validUntil && new Date(followup.validUntil) < new Date();
+  const cancelItem = useCancelFollowupItem();
   return (
     <div className="followup-card mb-3 grid gap-1 rounded-lg border border-border p-3 last:mb-0">
       <div className="flex flex-wrap items-center gap-2">
@@ -22,20 +23,45 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
         {followup.blocked && <StatusBadge tone="warning">Anamnese pendente</StatusBadge>}
       </div>
       {followup.validUntil && !expired && <small className="text-xs text-muted-foreground">Válido até {new Date(followup.validUntil).toLocaleDateString('pt-BR')}</small>}
+      {followup.offerType === 'event' && <p className="m-0 text-xs text-muted-foreground">O cardápio inteiro entra no acompanhamento. Deixe de realizar o que não for feito no dia.</p>}
       {followup.items.map((item) => {
         const done = item.sessionsPerformed >= item.sessionsTotal;
+        const skipped = !!item.cancelledAt;
+        const sessionsLabel = followup.offerType === 'event' ? 'sessões do dia' : followup.offerType === 'procedure' ? 'sessões' : 'sessões do plano';
         return (
           <div className="procedure-row" key={item.id}>
             <span className="procedure-info grid gap-1">
-              <span>{item.procedureName}</span>
+              <span>{item.procedureName}{item.comboName ? ` · ${item.comboName}` : ''}</span>
               <span className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span className="h-1.5 w-24 overflow-hidden rounded-full bg-accent"><span className="block h-full rounded-full bg-primary" style={{ width: `${Math.min(100, (item.sessionsPerformed / item.sessionsTotal) * 100)}%` }} /></span>
-                {item.sessionsPerformed}/{item.sessionsTotal} {followup.offerType === 'procedure' ? 'sessões' : 'sessões do plano'}
+                {item.sessionsPerformed}/{item.sessionsTotal} {sessionsLabel}
               </span>
             </span>
-            {done
-              ? <span className="text-xs font-medium text-primary">Concluído</span>
-              : <Link className="text-button" to="/pacientes/$patientId/novo-atendimento/$itemId" params={{ patientId, itemId: item.id }}>Registrar atendimento</Link>}
+            {skipped
+              ? <span className="text-xs font-medium text-muted-foreground">Não realizado</span>
+              : done
+                ? <span className="text-xs font-medium text-primary">Concluído</span>
+                : (
+                  <span className="flex flex-wrap items-center justify-end gap-2">
+                    <Link className="text-button" to="/pacientes/$patientId/novo-atendimento/$itemId" params={{ patientId, itemId: item.id }}>Registrar atendimento</Link>
+                    {followup.offerType === 'event' && (
+                      <button
+                        type="button"
+                        className="text-button"
+                        disabled={cancelItem.isPending}
+                        aria-label={`Não realizar ${item.procedureName}`}
+                        onClick={() => {
+                          const message = item.comboId
+                            ? `Não realizar o combo ${item.comboName}? O pacote inteiro sai do que será feito neste evento.`
+                            : `Não realizar ${item.procedureName} neste evento?`;
+                          if (window.confirm(message)) cancelItem.mutate({ followupId: followup.id, itemId: item.id });
+                        }}
+                      >
+                        Não realizar
+                      </button>
+                    )}
+                  </span>
+                )}
           </div>
         );
       })}

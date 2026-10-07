@@ -45,7 +45,7 @@ integration('PostgreSQL event financials', () => {
     await db.insert(contracts).values({ id: ids.contract, tenantId, title: `Contrato ${ids.contract}`, kind: 'standard' });
     await db.insert(contractVersions).values({ tenantId, contractId: ids.contract, version: 1, content: 'terms', renderedPdfObjectKey: crypto.randomUUID(), renderedPdfHash: 'a'.repeat(64), renderedPdfSize: 123, renderedPdfContentType: 'application/pdf' });
     const event = await (await api('/api/events', 'POST', { name: 'Dia', eventDate: today(), items: [{ kind: 'procedure', procedureId: ids.a, sessions: 1 }, { kind: 'procedure', procedureId: ids.b, sessions: 1 }], contractIds: [ids.contract] })).json() as any;
-    const created = await (await api('/api/followups', 'POST', { patientId: ids.patient, offerType: 'event', offerId: event.id, choice: [{ kind: 'procedure', procedureId: ids.a }, { kind: 'procedure', procedureId: ids.b }] })).json() as any;
+    const created = await (await api('/api/followups', 'POST', { patientId: ids.patient, offerType: 'event', offerId: event.id })).json() as any;
     const item = (procedureId: string) => created.items.find((row: any) => row.procedureId === procedureId).id as string;
     return { ...ids, followupId: created.id as string, item };
   }

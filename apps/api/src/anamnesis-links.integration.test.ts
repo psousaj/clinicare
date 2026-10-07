@@ -101,7 +101,7 @@ integration('offer-owned anamnesis links with PostgreSQL', () => {
 
     // Evento: explícita do evento + herdada do procedimento.
     const event = await (await request(a!, '/api/events', 'POST', { name: 'Evento união', eventDate: '2026-11-02', items: [{ kind: 'procedure', procedureId: p.id, sessions: 1 }], contractIds: [c.id], anamnesisIds: [viaOffer.id] })).json() as any;
-    const eventFollowup = await (await request(a!, '/api/followups', 'POST', { patientId: await patient(a!), offerType: 'event', offerId: event.id, choice: [{ kind: 'procedure', procedureId: p.id }] })).json() as any;
+    const eventFollowup = await (await request(a!, '/api/followups', 'POST', { patientId: await patient(a!), offerType: 'event', offerId: event.id })).json() as any;
     expect(eventFollowup.anamneses.map((row: any) => row.title).sort()).toEqual(['Form via oferta', 'Form via procedimento']);
     expect(await db.select().from(appliedAnamneses).where(and(eq(appliedAnamneses.tenantId, a!), eq(appliedAnamneses.followupId, eventFollowup.id)))).toHaveLength(2);
   });

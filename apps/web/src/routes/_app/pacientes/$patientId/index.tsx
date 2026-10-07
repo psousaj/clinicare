@@ -74,7 +74,7 @@ function PatientDetail() {
                   {unlinkedMatchingPlan.length} {unlinkedMatchingPlan.length === 1 ? 'atendimento avulso' : 'atendimentos avulsos'} com {unlinkedMatchingPlan.length === 1 ? 'nome' : 'nomes'} igual ao do plano ({[...new Set(unlinkedMatchingPlan.map((entry) => entry.title.replace(/ (realizado|cancelado)$/, '')))].join(', ')}) — {unlinkedMatchingPlan.length === 1 ? 'não abate' : 'não abatem'} as sessões contratadas. Para abater, marque a sessão dentro do acompanhamento — no agendamento ou em “Registrar atendimento”. O que for avulso nunca abate.
                 </p>
               )}
-              {patientFollowups.length === 0 && <p className="text-sm text-muted-foreground">Inicie um acompanhamento para escolher os procedimentos e registrar sessões.</p>}
+              {patientFollowups.length === 0 && <p className="text-sm text-muted-foreground">Inicie um acompanhamento para registrar sessões.</p>}
               {patientFollowups.map((followup) => <FollowupCard key={followup.id} followup={followup} patientId={patientId} />)}
             </section>
             {standaloneCharges.length > 0 && (
@@ -143,7 +143,7 @@ function PatientDetail() {
           </div>
         </div>
       )}
-      <NewFollowupDialog open={dialog === 'followup'} patientId={patientId} patients={patients.data ?? []} combos={combos.data ?? []} plans={plans.data ?? []} events={events.data ?? []} procedures={procedures.data ?? []} onClose={() => setDialog(null)} />
+      <NewFollowupDialog open={dialog === 'followup'} patientId={patientId} patients={patients.data ?? []} combos={combos.data ?? []} plans={plans.data ?? []} events={events.data ?? []} onClose={() => setDialog(null)} />
       {patient && <EditPatientDialog open={dialog === 'edit'} onOpenChange={(open) => setDialog(open ? 'edit' : null)} patient={patient} />}
       <StandaloneAttendanceDialog open={dialog === 'standalone'} patientId={patientId} procedures={procedures.data ?? []} onClose={() => setDialog(null)} />
       <AppointmentDialog open={dialog === 'appointment'} patientId={patientId} patients={patients.data ?? []} followups={followups.data ?? []} procedures={procedures.data ?? []} onClose={() => setDialog(null)} />

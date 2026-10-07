@@ -137,6 +137,7 @@ export const followupItemSchema = z.looseObject({
   sessionSchema: jsonSchema.nullish(),
   comboId: z.string().nullish(),
   comboName: z.string().nullish(),
+  cancelledAt: z.string().nullish(),
 });
 export const followupAnamnesisSchema = z.looseObject({
   id: z.string(),

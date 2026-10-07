@@ -7,7 +7,7 @@ import { createPatient, deactivatePatient, getPatient, isUuid, listPatients, upd
 import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, saveProcedureAnamneses, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan, listEvents, saveEvent, presignContractVersionPdf, finalizeContractVersionPdf } from './catalog';
 import { getRelationalRelationship } from './relational-relationship';
 import { getRelationalHistory } from './relational-history';
-import { createFollowup, getFollowup, listFollowups, cancelFollowup, updateFollowupState } from './followups';
+import { createFollowup, getFollowup, listFollowups, cancelFollowup, cancelFollowupItem, updateFollowupState } from './followups';
 import { cancelExternalAttempt, cancelExternalAttemptAsClinicRepresentative, confirmExternalReturn, confirmExternalReturnAsClinicRepresentative, downloadExternalExport, downloadExternalExportAsClinicRepresentative, exportExternalRevision, exportExternalRevisionAsClinicRepresentative, getSignatureHistory, importExternalReturn, importExternalReturnAsClinicRepresentative, listPendingSignatures, previewSignature, previewSignatureAsClinicRepresentative, readSignatureHistoryByToken, readSignaturePdf, readSignaturePdfForParticipant, readSignatureRevisionPdf, readSignatureToken, refreshSignatureToken, signAsClinicRepresentative, signWithToken, verifySignaturePhone } from './signatures';
 import { addAttendancePhoto, cancelAttendance, confirmAppointment, createAppointment, createAttendance, deleteAppointment, getAttendance, listAppointments, listAttendances, presignAttendancePhoto, removeAttendancePhoto, updateAppointment, updateAttendance } from './scheduling';
 import { createPayment, deletePayment, listPayments } from './payments';
@@ -153,7 +153,7 @@ export const app = new Hono()
     const body = await c.req.json().catch(() => null);
     if (!body || !isUuid(body.patientId) || !['combo', 'plan', 'event'].includes(body.offerType) || !isUuid(body.offerId)) return fail(c, 'Paciente e um combo, plano ou evento são obrigatórios; procedimento avulso é criado ao agendar ou registrar o atendimento.');
     try {
-      const created = await createFollowup(tenantId, body.patientId, body.offerType, body.offerId, { contractApplicationDate: body.contractApplicationDate, choice: body.choice });
+      const created = await createFollowup(tenantId, body.patientId, body.offerType, body.offerId, { contractApplicationDate: body.contractApplicationDate });
       // Sem cron/worker: dispara a materialização em background sem bloquear o
       // 201. Falha de geração não desfaz o acompanhamento — fica como
       // generating/failed p/ retry no card (com polling até concluir).
@@ -205,6 +205,11 @@ export const app = new Hono()
   .get('/api/signature-participants/:id/pdf', requireClinicSession, async (c) => { try { const bytes = await readSignaturePdfForParticipant(c.req.param('id')!, clinicSession(c)); return new Response(bytes.buffer as ArrayBuffer, { headers: { 'content-type': 'application/pdf', 'cache-control': 'private, no-store' } }); } catch (error) { return handleError(c, error); } })
   .post('/api/signature-participants/:id/confirm', requireClinicSession, async (c) => { try { const body = await c.req.json().catch(() => ({})); const actor = clinicSession(c); return c.json(await signAsClinicRepresentative(c.req.param('id')!, body.evidence, actor, { ip: observedClientIp(c) })); } catch (error) { return handleError(c, error); } })
   .post('/api/signature-participants/:id/refresh', async (c) => { if (!isUuid(c.req.param('id'))) return fail(c, 'Participante inválido.'); try { return c.json(await refreshSignatureToken(await catalogTenant(c.req, authTenant(c)), c.req.param('id'))); } catch (error) { return handleError(c, error); } })
+  .post('/api/followups/:id/items/:itemId/cancel', async (c) => {
+    const tenantId = await catalogTenant(c.req, authTenant(c));
+    if (!isUuid(c.req.param('id')) || !isUuid(c.req.param('itemId'))) return fail(c, 'Acompanhamento inválido.');
+    try { const result = await cancelFollowupItem(tenantId, c.req.param('id'), c.req.param('itemId')); return result ? c.json(result) : fail(c, 'Acompanhamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
+  })
   .post('/api/followups/:id/cancel', async (c) => {
     const tenantId = await catalogTenant(c.req, authTenant(c));
     if (!isUuid(c.req.param('id'))) return fail(c, 'Acompanhamento inválido.');
