@@ -1643,6 +1643,61 @@ nav {
   .patient-row {
     gap: 8px;
   }
+  /* Linhas de documento/contrato/anamnese: empilha as ações abaixo do
+     título no mobile. Sem wrap, os botões (whitespace-nowrap) estouravam
+     a viewport de 390px (ex.: /documentos chegava a 441px). */
+  .procedure-row {
+    flex-wrap: wrap;
+    row-gap: 10px;
+  }
+  .procedure-row > svg {
+    flex: 0 0 auto;
+  }
+  .procedure-info {
+    flex: 1 1 0%;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .procedure-row > .flex {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .procedure-row > .flex > a,
+  .procedure-row > .flex > button {
+    flex: 1 1 auto;
+    justify-content: center;
+    text-align: center;
+    white-space: normal;
+  }
+  .contract-row .row-actions {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .contract-row .row-actions > a,
+  .contract-row .row-actions > button {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+  .contract-row .row-actions > button:has(> svg:only-child) {
+    flex: 0 0 auto;
+  }
+  /* Diálogo de assinatura do representante: empilha Limpar/Prévia e
+     Cancelar/Confirmar em largura total (só CSS, sem tocar no markup).
+     A fileira de páginas do contrato mantém os chips lado a lado. */
+  [data-slot='dialog-content']:has(canvas[aria-label='Área para desenhar a assinatura']) div.flex.flex-wrap:not([aria-label]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  [data-slot='dialog-content']:has(canvas[aria-label='Área para desenhar a assinatura']) div.flex.flex-wrap:not([aria-label]) > * {
+    width: 100%;
+  }
+  /* Placeholder longo + toggle "Obrigatório" nunca estouram em telas ~360px. */
+  .contract-placeholder-row {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
   .panel {
     padding: 16px 12px 16px;
     min-height: 0;
