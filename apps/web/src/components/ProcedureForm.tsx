@@ -39,17 +39,27 @@ export function ProcedureFormPage({ procedure }: { procedure?: Procedure }) {
         if ([...anamnesisIds].sort().join() !== [...(procedure?.anamnesisIds ?? [])].sort().join()) await saveAnamneses.mutateAsync({ id: targetId, anamnesisIds });
       }}
       below={(
-        <section className="panel grid gap-3">
-          <div>
-            <div className="section-kicker">SESSÃO</div>
-            <h3 className="m-0 text-sm font-semibold">Campos da sessão</h3>
-            <p className="m-0 text-xs text-muted-foreground">
-              Informações registradas a cada sessão realizada deste procedimento.
-              {procedure && ` Ao alterar os campos, uma nova versão (v${(version ?? 1) + 1}) é criada; atendimentos já registrados mantêm a versão em que foram feitos.`}
-            </p>
-          </div>
-          <SchemaEditor value={schema} onChange={setSchema} />
-        </section>
+        <>
+          <section className="panel grid gap-3">
+            <div>
+              <div className="section-kicker">ANAMNESES</div>
+              <h3 className="m-0 text-sm font-semibold">Formulários exigidos</h3>
+              <p className="m-0 text-xs text-muted-foreground">Vinculados neste procedimento; valem no avulso e em todo combo, plano ou evento que o incluir.</p>
+            </div>
+            <AnamnesisPicker forms={forms} pickedIds={anamnesisIds} onToggle={(id, on) => setAnamnesisIds((list) => toggleId(list, id, on))} />
+          </section>
+          <section className="panel grid gap-3">
+            <div>
+              <div className="section-kicker">SESSÃO</div>
+              <h3 className="m-0 text-sm font-semibold">Campos da sessão</h3>
+              <p className="m-0 text-xs text-muted-foreground">
+                Informações registradas a cada sessão realizada deste procedimento.
+                {procedure && ` Ao alterar os campos, uma nova versão (v${(version ?? 1) + 1}) é criada; atendimentos já registrados mantêm a versão em que foram feitos.`}
+              </p>
+            </div>
+            <SchemaEditor value={schema} onChange={setSchema} />
+          </section>
+        </>
       )}
     >
       <Field label="Nome" name="name" required autoFocus defaultValue={procedure?.name} className="max-w-xl" />
@@ -64,11 +74,6 @@ export function ProcedureFormPage({ procedure }: { procedure?: Procedure }) {
         <Checkbox checked={requireNewAnamnesis} onCheckedChange={(value) => setRequireNewAnamnesis(value === true)} />
         Exigir nova anamnese a cada acompanhamento, mesmo que a última ainda esteja válida
       </Label>
-      <section className="grid gap-2">
-        <div><div className="section-kicker">ANAMNESES</div><h3 className="m-0 text-sm font-semibold">Formulários exigidos</h3>
-        <p className="m-0 text-xs text-muted-foreground">Vinculados neste procedimento; valem no avulso e em todo combo, plano ou evento que o incluir.</p></div>
-        <AnamnesisPicker forms={forms} pickedIds={anamnesisIds} onToggle={(id, on) => setAnamnesisIds((list) => toggleId(list, id, on))} />
-      </section>
       {procedure && (
         <Label className="cursor-pointer">
           <Checkbox checked={active} onCheckedChange={(value) => setActive(value === true)} />
