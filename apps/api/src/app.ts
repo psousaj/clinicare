@@ -17,13 +17,12 @@ import { authHandler, clinicSession, requireClinicSession } from './auth-routes'
 import { getAccount, getDefaultSignature, getProfessionalProfile, updateAccount, updateDefaultSignature, updateInitialPasswordChoice, updateProfessionalProfile } from './account-routes';
 import { getContractDraftEditor, listContractPlaceholders, presignContractDraft, publishContractDraft, saveContractDraft } from './contract-authoring';
 import { generateFollowupContract, reprocessFollowupContract, retryFollowupContract } from './contract-generation';
+import { observedClientIp as resolveObservedClientIp } from './request-ip';
 
 const fail = (c: Context, message: string, status: 400 | 401 | 403 | 404 | 409 | 410 | 429 | 503 = 400) => c.json({ error: message }, status);
 const isRecord = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);
 const expiry = (days: number) => new Date(Date.now() + days * 86400000);
-const observedClientIp = (c: Context) => process.env.TRUSTED_PROXY === 'true'
-  ? c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? c.req.header('cf-connecting-ip') ?? undefined
-  : undefined;
+const observedClientIp = (c: Context) => resolveObservedClientIp(c.req.raw, c.env);
 const handleError = (c: Context, error: unknown) => {
   const explicitStatus = error && typeof error === 'object' && 'status' in error ? (error as { status: number }).status : undefined;
   if (explicitStatus && [400, 401, 403, 404, 409, 410, 429, 503].includes(explicitStatus) && error instanceof Error) {
