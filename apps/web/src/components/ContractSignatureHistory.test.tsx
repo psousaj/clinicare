@@ -16,7 +16,7 @@ const historyResponse = () => ({
     ],
   },
   participants: [
-    { id: 'pp1', role: 'patient', roleLabel: 'Paciente', status: 'signed', statusLabel: 'Assinada', signedAt: '2026-10-06T10:00:00.000Z', identity: { fullName: 'Paciente Teste' }, methods: [] },
+    { id: 'pp1', role: 'patient', roleLabel: 'Paciente', status: 'signed', statusLabel: 'Assinada', signedAt: '2026-10-06T10:00:00.000Z' as string | null, identity: { fullName: 'Paciente Teste' }, methods: [] },
     { id: 'pp2', role: 'professional', roleLabel: 'Representante da clínica', status: 'pending', statusLabel: 'Pendente', signedAt: null, identity: { role: 'professional' }, methods: [] },
   ],
   operations: [],
@@ -49,10 +49,9 @@ describe('ContractSignatureHistory', () => {
 
   it('shows the patient link action without expanding and copies the link', async () => {
     const pending = historyResponse();
-    pending.participants = [
-      { id: 'pp1', role: 'patient', roleLabel: 'Paciente', status: 'pending', statusLabel: 'Pendente', signedAt: null, identity: {}, methods: [] },
-      { id: 'pp2', role: 'professional', roleLabel: 'Representante da clínica', status: 'pending', statusLabel: 'Pendente', signedAt: null, identity: {}, methods: [] },
-    ];
+    pending.participants[0].status = 'pending';
+    pending.participants[0].statusLabel = 'Pendente';
+    pending.participants[0].signedAt = null;
     const writeText = vi.fn(async () => undefined);
     // Instala o mock imediatamente antes do clique: algo no setup do
     // user-event/render substitui navigator.clipboard no meio do caminho.

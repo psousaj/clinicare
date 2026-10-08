@@ -678,9 +678,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/followups.ts": {
-    "mtime": 1791442622.3313475,
-    "seen": 1791442660.0643332,
-    "ast_hash": "297701edad34a436c2ad8be6b56342ef",
+    "mtime": 1791442899.419347,
+    "seen": 1791443875.6999907,
+    "ast_hash": "1e8271a7ca0467fe2a5260d09f793b15",
     "semantic_hash": ""
   },
   "apps/api/src/health.integration.test.ts": {
@@ -744,9 +744,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/signatures.ts": {
-    "mtime": 1791442622.3313475,
-    "seen": 1791442660.0648835,
-    "ast_hash": "02c9ed090d23937f368d6d24fd9a9603",
+    "mtime": 1791442899.419347,
+    "seen": 1791443875.7005546,
+    "ast_hash": "05b49fefaf4bc7a855dd3656012bcb94",
     "semantic_hash": ""
   },
   "packages/db/drizzle.config.ts": {
@@ -1014,9 +1014,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/ContractSignatureHistory.test.tsx": {
-    "mtime": 1791417563.379347,
-    "seen": 1791422442.5997524,
-    "ast_hash": "407d601eab444c43f219bfe9dab600cb",
+    "mtime": 1791443845.1673448,
+    "seen": 1791443875.700969,
+    "ast_hash": "2dac3fd02bfc50ac1d7c486cc8eecfe4",
     "semantic_hash": ""
   },
   "apps/web/src/components/ContractSignatureHistory.tsx": {
@@ -1038,9 +1038,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/routes/assinatura.$token.tsx": {
-    "mtime": 1791442798.8233469,
-    "seen": 1791442858.659043,
-    "ast_hash": "4b0de02b62bf0f5b1ca40153cc4b6c57",
+    "mtime": 1791443051.3313468,
+    "seen": 1791443875.703694,
+    "ast_hash": "83abafd44849d0c07d868d262ffb3039",
     "semantic_hash": ""
   },
   "packages/db/src/database-config.test.ts": {
@@ -1194,9 +1194,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/lib/signatureStamp.ts": {
-    "mtime": 1791343671.6486306,
-    "seen": 1791422442.599863,
-    "ast_hash": "0a11f9f253e80d105ec6a4508c677948",
+    "mtime": 1791443355.047344,
+    "seen": 1791443875.7025568,
+    "ast_hash": "082326fbe4eaf190a233f92afe812b4d",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/-documentos.test.tsx": {
@@ -1368,15 +1368,15 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/signing/StampPreview.tsx": {
-    "mtime": 1791425317.8313472,
-    "seen": 1791425433.3600812,
-    "ast_hash": "3a32236bd89e47a71e6e70acb043441d",
+    "mtime": 1791443214.575347,
+    "seen": 1791443875.701694,
+    "ast_hash": "77927cf6aa340d8ea894feeadc69bc18",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx": {
-    "mtime": 1791442701.3233483,
-    "seen": 1791442858.6583188,
-    "ast_hash": "12ee1efe5d6265335fe0cad075df5eb7",
+    "mtime": 1791443221.047347,
+    "seen": 1791443875.7029297,
+    "ast_hash": "5e48faa24de3ebb3fdb42dc97da8ba4a",
     "semantic_hash": ""
   },
   "apps/web/src/components/ui/tabs.tsx": {
@@ -1386,9 +1386,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/signing/PreviewPdf.tsx": {
-    "mtime": 1791441495.2673464,
-    "seen": 1791442660.0660667,
-    "ast_hash": "49676c9fd4b8522f53873a02d9ad3261",
+    "mtime": 1791443476.5473268,
+    "seen": 1791443875.7016377,
+    "ast_hash": "751aa6dd323cc2d87e98f0e93ebffd38",
     "semantic_hash": ""
   }
 }

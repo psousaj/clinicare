@@ -1,7 +1,7 @@
 # Graph Report - clinicare  (2026-10-08)
 
 ## Corpus Check
-- 262 files · ~191,715 words
+- 262 files · ~191,756 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 15 file(s) not represented in the graph (top: (none) 7, .css 4, .example 1)
 
@@ -468,7 +468,7 @@ Nodes (3): fixtures(), headers(), request()
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `Solution` connect `Spec — Autoria DOCX com ONLYOFFICE e Materialização Paramétrica de Contratos para Assinatura PDF` to `encryptValue`?**
-  _High betweenness centrality (0.277) - this node is a cross-community bridge._
+  _High betweenness centrality (0.276) - this node is a cross-community bridge._
 - **Why does `patient()` connect `encryptValue` to `getDatabase`, `followups.ts`, `Spec — Autoria DOCX com ONLYOFFICE e Materialização Paramétrica de Contratos para Assinatura PDF`?**
   _High betweenness centrality (0.276) - this node is a cross-community bridge._
 - **Why does `ContractVersion` connect `Spec — Autoria DOCX com ONLYOFFICE e Materialização Paramétrica de Contratos para Assinatura PDF` to `queries.ts`?**
