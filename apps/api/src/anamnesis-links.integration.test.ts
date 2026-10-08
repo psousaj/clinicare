@@ -92,15 +92,17 @@ integration('offer-owned anamnesis links with PostgreSQL', () => {
     const combo = await (await request(a!, '/api/combos', 'POST', { name: 'Combo união', priceCents: 100, items: [{ procedureId: p.id, sessions: 1 }], anamnesisIds: [viaOffer.id, viaProcedure.id] })).json() as any;
     const comboFollowup = await (await request(a!, '/api/followups', 'POST', { patientId: await patient(a!), offerType: 'combo', offerId: combo.id })).json() as any;
     expect(comboFollowup.anamneses.map((row: any) => row.title).sort()).toEqual(['Form via oferta', 'Form via procedimento']);
+    expect(await db.select().from(appliedAnamneses).where(and(eq(appliedAnamneses.tenantId, a!), eq(appliedAnamneses.followupId, comboFollowup.id)))).toHaveLength(2);
 
-    // Plano: explícita da versão + herdada do procedimento.
+    // Plano: explícita da versão + herdada do procedimento; sem duplicar a presente nos dois lados.
     const c = await contract(a!);
-    const plan = await (await request(a!, '/api/plans', 'POST', { name: 'Plano união', priceCents: 100, items: [{ offerType: 'procedure', offerId: p.id, sessions: 1 }], contractIds: [c.id], anamnesisIds: [viaOffer.id] })).json() as any;
+    const plan = await (await request(a!, '/api/plans', 'POST', { name: 'Plano união', priceCents: 100, items: [{ offerType: 'procedure', offerId: p.id, sessions: 1 }], contractIds: [c.id], anamnesisIds: [viaOffer.id, viaProcedure.id] })).json() as any;
     const planFollowup = await (await request(a!, '/api/followups', 'POST', { patientId: await patient(a!), offerType: 'plan', offerId: plan.id })).json() as any;
     expect(planFollowup.anamneses.map((row: any) => row.title).sort()).toEqual(['Form via oferta', 'Form via procedimento']);
+    expect(await db.select().from(appliedAnamneses).where(and(eq(appliedAnamneses.tenantId, a!), eq(appliedAnamneses.followupId, planFollowup.id)))).toHaveLength(2);
 
-    // Evento: explícita do evento + herdada do procedimento.
-    const event = await (await request(a!, '/api/events', 'POST', { name: 'Evento união', eventDate: '2026-11-02', items: [{ kind: 'procedure', procedureId: p.id, sessions: 1 }], contractIds: [c.id], anamnesisIds: [viaOffer.id] })).json() as any;
+    // Evento: explícita do evento + herdada do procedimento; sem duplicar a presente nos dois lados.
+    const event = await (await request(a!, '/api/events', 'POST', { name: 'Evento união', eventDate: '2026-11-02', items: [{ kind: 'procedure', procedureId: p.id, sessions: 1 }], contractIds: [c.id], anamnesisIds: [viaOffer.id, viaProcedure.id] })).json() as any;
     const eventFollowup = await (await request(a!, '/api/followups', 'POST', { patientId: await patient(a!), offerType: 'event', offerId: event.id })).json() as any;
     expect(eventFollowup.anamneses.map((row: any) => row.title).sort()).toEqual(['Form via oferta', 'Form via procedimento']);
     expect(await db.select().from(appliedAnamneses).where(and(eq(appliedAnamneses.tenantId, a!), eq(appliedAnamneses.followupId, eventFollowup.id)))).toHaveLength(2);
