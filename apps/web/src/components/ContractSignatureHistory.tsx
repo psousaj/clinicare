@@ -79,7 +79,7 @@ export function ContractSignatureHistory({ followupContractId, title, signedAt, 
           <ContractGenerateButton followupContractId={followupContractId} failed={status === 'failed'} />
         )}
         {reprocessable && <ContractReprocessButton followupContractId={followupContractId} title={title} />}
-        <Button type="button" variant="link" size="sm" className="contract-history-toggle" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+        <Button type="button" variant="outline" size="sm" className="contract-history-toggle !border-[#5f6b65] !bg-[#5f6b65] !text-white hover:!border-[#52605a] hover:!bg-[#52605a] hover:!text-white" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
           <History className="size-3.5" /> {open ? 'Ocultar histórico de assinaturas' : 'Histórico de assinaturas'}
         </Button>
       </div>
