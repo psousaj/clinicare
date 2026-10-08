@@ -74,7 +74,7 @@ describe('patient signature workspace', () => {
     expect(await screen.findByLabelText('Área para desenhar sua assinatura')).toBeInTheDocument();
     await user.click((await screen.findAllByRole('button', { name: 'Continuar' }))[0]!);
     // Confirmação com prévia automática (passo 3 de 3).
-    await waitFor(() => expect(screen.getByTitle('Prévia do PDF candidato')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText('Página 1 de 2 da prévia')).toBeInTheDocument());
     await user.click(screen.getByRole('checkbox', { name: /li e concordo/i }));
     await user.click((await screen.findAllByRole('button', { name: 'Assinar documento' }))[0]!);
 
@@ -104,7 +104,29 @@ describe('patient signature workspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
     expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();
     await user.click((await screen.findAllByRole('button', { name: 'Continuar' }))[0]!);
-    await waitFor(() => expect(screen.getByTitle('Prévia do PDF candidato')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText('Página 1 de 2 da prévia')).toBeInTheDocument());
+  });
+
+  it('keeps the PDF mounted when dragging the signature box and never auto-loads a hidden preview', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Contrato de teste' })).toBeInTheDocument();
+    expect(await screen.findByText(/Página 1 de 2/)).toBeInTheDocument();
+    await user.click((await screen.findAllByRole('button', { name: 'Continuar para assinatura' }))[0]!);
+    await user.click((await screen.findAllByRole('button', { name: 'Continuar' }))[0]!);
+    await waitFor(() => expect(screen.getByLabelText('Página 1 de 2 da prévia')).toBeInTheDocument());
+    // O blob candidato não pode ser carregado num iframe escondido: no mobile
+    // isso dispara o download do PDF sozinho.
+    expect(screen.queryByTitle('Prévia do PDF candidato')).not.toBeInTheDocument();
+    const slider = await screen.findByRole('slider', { name: 'Posição da assinatura' });
+    fireEvent.pointerDown(slider, { clientX: 100, clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 140, clientY: 130 });
+    fireEvent.pointerUp(window);
+    // Arrastar a caixinha invalida a evidência, mas a prévia interativa
+    // continua montada para reposicionar antes de confirmar.
+    expect(await screen.findByLabelText('Página 1 de 2 da prévia')).toBeInTheDocument();
+    expect(await screen.findByRole('slider', { name: 'Posição da assinatura' })).toBeInTheDocument();
   });
 
   it('renders the PDF again when returning from signing to reading', async () => {
@@ -149,7 +171,7 @@ describe('patient signature workspace', () => {
     expect(await screen.findByText(/Página 1 de 2/)).toBeInTheDocument();
     await user.click((await screen.findAllByRole('button', { name: 'Continuar para assinatura' }))[0]!);
     await user.click((await screen.findAllByRole('button', { name: 'Continuar' }))[0]!);
-    await waitFor(() => expect(screen.getByTitle('Prévia do PDF candidato')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText('Página 1 de 2 da prévia')).toBeInTheDocument());
     await user.click(screen.getByRole('checkbox', { name: /li e concordo/i }));
     await user.click((await screen.findAllByRole('button', { name: 'Assinar documento' }))[0]!);
 

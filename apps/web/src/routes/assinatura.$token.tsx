@@ -461,13 +461,8 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
                 <div className="flex items-center justify-between gap-3 border-b border-[#e9ede8] bg-[#f7f8f5] px-3.5 py-3">
                   <p className="m-0 text-sm font-semibold text-[#25312d]">Prévia do documento final</p>
                 </div>
-                {previewBusy && <p className="m-0 p-4 text-sm text-[#40524a]" role="status">Gerando a prévia do documento assinado…</p>}
-                {previewUrl && (
-                  <>
-                    <iframe title="Prévia do PDF candidato" src={previewUrl} className="sr-only" aria-hidden="true" />
-                    <PreviewPdf url={signature.document!.url} placement={placement} onPlacementChange={handlePlacementChange} />
-                  </>
-                )}
+                {previewBusy && !previewUrl && <p className="m-0 p-4 text-sm text-[#40524a]" role="status">Gerando a prévia do documento assinado…</p>}
+                <PreviewPdf url={signature.document!.url} placement={placement} onPlacementChange={handlePlacementChange} />
               </div>
               <p className="m-0 flex items-center gap-2 text-sm text-[#5b6b64]">
                 <svg aria-hidden="true" viewBox="0 0 20 20" className="size-4 flex-none text-[#26785f]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 7 3.5 9.5 6 12M14 7l2.5 2.5L14 12M11.5 5l-3 10" /></svg>
@@ -596,7 +591,7 @@ function PreviewPdf({ url, placement, onPlacementChange }: { url: string; placem
     <div ref={viewerRef} className="max-h-[min(58vh,620px)] overflow-y-auto overscroll-contain bg-[#f2f4f1] px-3 py-4 sm:px-8 sm:py-6 md:min-h-0 md:flex-1 md:max-h-none">
       <div className="mx-auto grid max-w-[720px] gap-4">
         {Array.from({ length: pageCount }, (_, index) => (
-          <div key={index} ref={(page) => { pageRefs.current[index] = page; }} data-preview-page className="relative overflow-hidden rounded-md bg-white shadow-[0_0_0_1px_rgba(20,40,30,0.05),0_2px_8px_-2px_rgba(20,40,30,0.12)]">
+          <div key={index} ref={(page) => { pageRefs.current[index] = page; }} data-preview-page className="relative overflow-visible rounded-md bg-white shadow-[0_0_0_1px_rgba(20,40,30,0.05),0_2px_8px_-2px_rgba(20,40,30,0.12)]">
             <canvas ref={(canvas) => { canvasRefs.current[index] = canvas; }} className="block h-auto w-full" aria-label={`Página ${index + 1} de ${pageCount} da prévia`} />
             {index === placement.pageIndex && <DraggableSignature placement={placement} onPlacementChange={onPlacementChange} />}
           </div>
@@ -615,6 +610,12 @@ function DraggableSignature({ placement, onPlacementChange }: { placement: Relat
     const page = event.currentTarget.closest('[data-preview-page]');
     if (!page) return;
     const rect = page.getBoundingClientRect();
+    // Keep the target outside the async pointerup handler. React may clear
+    // the synthetic event's currentTarget after pointerdown, and the
+    // signature overlay can also be re-rendered while it is being dragged.
+    const target = event.currentTarget;
+    target.setPointerCapture?.(event.pointerId);
+    document.body.style.userSelect = 'none';
     const startState: Interaction = { mode, corner, pointerX: event.clientX, pointerY: event.clientY, x: placement.x, y: placement.y, width: placement.width, height: placement.height, pageWidth: rect.width, pageHeight: rect.height };
     const move = (moveEvent: PointerEvent) => {
       const dx = (moveEvent.clientX - startState.pointerX) / startState.pageWidth;
@@ -633,9 +634,20 @@ function DraggableSignature({ placement, onPlacementChange }: { placement: Relat
       const y = top ? Math.min(1 - height, Math.max(0, startState.y + dy)) : Math.min(1 - height, Math.max(0, startState.y));
       onPlacementChange({ x, y, width, height });
     };
-    const stop = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', stop); };
+    const stop = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', stop);
+      window.removeEventListener('pointercancel', stop);
+      try {
+        if (target.hasPointerCapture?.(event.pointerId)) target.releasePointerCapture?.(event.pointerId);
+      } catch {
+        // The overlay may have been unmounted before pointerup.
+      }
+      document.body.style.userSelect = '';
+    };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', stop, { once: true });
+    window.addEventListener('pointercancel', stop, { once: true });
   }
 
   return (
