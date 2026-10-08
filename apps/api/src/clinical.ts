@@ -21,6 +21,11 @@ const unprotect = (tenantId: string, table: string, id: string, column: string, 
   return JSON.parse(value);
 };
 const noteValue = (tenantId: string, id: string, row: any) => decryptValue({ ciphertext: row.contentCiphertext, nonce: row.contentNonce, keyVersion: row.contentKeyVersion }, buildProtectedAad(tenantId, 'applied_anamnesis_notes', id, 'content'));
+const cancelledError = (message = 'Acompanhamento cancelado.') => Object.assign(new Error(message), { status: 409 });
+async function followupCancelled(executor: any, tenantId: string, followupId: string) {
+  const row = (await executor.select({ status: followups.status }).from(followups).where(and(eq(followups.tenantId, tenantId), eq(followups.id, followupId))))[0];
+  return row?.status === 'cancelled';
+}
 const appliedShape = (row: any) => ({
   id: row.id, _id: row.id, tenantId: row.tenantId, patientId: row.patientId, followupId: row.followupId,
   anamnesisId: row.anamnesisId, version: row.version, title: row.titleSnapshot, titleSnapshot: row.titleSnapshot,
@@ -38,6 +43,7 @@ export async function createAppliedAnamnesis(tenantId: string, input: any) {
     const form = (await tx.select().from(anamneses).where(and(eq(anamneses.tenantId, tenantId), eq(anamneses.id, input.anamnesisId))))[0];
     const version = form && (await tx.select().from(anamnesisVersions).where(and(eq(anamnesisVersions.tenantId, tenantId), eq(anamnesisVersions.anamnesisId, form.id), eq(anamnesisVersions.version, form.currentVersion))))[0];
     if (!patient || !followup || !form || !version) throw invalid('Paciente, acompanhamento ou anamnese não encontrados.', 404);
+    if (followup.status === 'cancelled') throw cancelledError();
     const [row] = await tx.insert(appliedAnamneses).values({ tenantId, patientId: input.patientId, followupId: input.followupId, anamnesisId: form.id, version: version.version, titleSnapshot: form.title, schemaSnapshot: version.schema, validityMonths: form.validityMonths ?? 12, required: input.required !== false }).returning();
     return appliedShape(row);
   });
@@ -51,6 +57,10 @@ const publicShape = (row: any, branding: { clinicName: string; professionalName:
 const clearDraft = { draftCiphertext: null, draftNonce: null, draftKeyVersion: null };
 
 export async function createAnamnesisRequest(tenantId: string, appliedId: string) {
+  const db = getDatabase();
+  const applied = (await db.select({ followupId: appliedAnamneses.followupId }).from(appliedAnamneses).where(and(eq(appliedAnamneses.tenantId, tenantId), eq(appliedAnamneses.id, appliedId))))[0];
+  if (!applied) throw invalid('Anamnese aplicada não encontrada.', 404);
+  if (await followupCancelled(db, tenantId, applied.followupId)) throw cancelledError();
   const token = randomBytes(32).toString('base64url');
   const [row] = await getDatabase().update(appliedAnamneses).set({ requestTokenHash: hashToken(token), requestExpiresAt: expiry(7), ...clearDraft }).where(and(eq(appliedAnamneses.tenantId, tenantId), eq(appliedAnamneses.id, appliedId), isNull(appliedAnamneses.submittedAt))).returning();
   if (!row) throw invalid('Anamnese aplicada não encontrada.', 404);
@@ -61,6 +71,7 @@ export async function readPublicAnamnesis(token: string) {
   const db = getDatabase();
   const row = await byToken(db, token);
   if (!row) return null;
+  if (await followupCancelled(db, row.tenantId, row.followupId)) return null;
   const tenant = (await db.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, row.tenantId)))[0];
   const form = (await db.select({ description: anamneses.description }).from(anamneses).where(and(eq(anamneses.tenantId, row.tenantId), eq(anamneses.id, row.anamnesisId))))[0];
   const professional = (await db.select({ name: authUsers.name, registrationType: professionals.registrationType, registrationNumber: professionals.registrationNumber, registrationState: professionals.registrationState }).from(professionals).innerJoin(authUsers, eq(authUsers.id, professionals.userId)).where(and(eq(professionals.tenantId, row.tenantId), eq(professionals.active, true))))[0];
@@ -76,6 +87,7 @@ export async function saveAnamnesisDraft(token: string, draft: unknown) {
   return db.transaction(async (tx) => {
     const row = await byToken(tx, token);
     if (!row || row.submittedAt) return false;
+    if (await followupCancelled(tx, row.tenantId, row.followupId)) return false;
     await tx.update(appliedAnamneses).set(protect(row.tenantId, 'applied_anamneses', row.id, 'draft', draft)).where(and(eq(appliedAnamneses.tenantId, row.tenantId), eq(appliedAnamneses.id, row.id), isNull(appliedAnamneses.submittedAt)));
     return true;
   });
@@ -86,6 +98,7 @@ export async function submitPublicAnamnesis(token: string, answers: unknown) {
   return db.transaction(async (tx) => {
     const candidate = await byToken(tx, token);
     if (!candidate || candidate.submittedAt) return null;
+    if (await followupCancelled(tx, candidate.tenantId, candidate.followupId)) return null;
     await tx.execute(sql`select id from applied_anamneses where tenant_id = ${candidate.tenantId} and id = ${candidate.id} for update`);
     const row = (await tx.select().from(appliedAnamneses).where(and(eq(appliedAnamneses.tenantId, candidate.tenantId), eq(appliedAnamneses.id, candidate.id), isNull(appliedAnamneses.submittedAt))))[0];
     if (!row) return null;
@@ -100,6 +113,7 @@ async function submitApplied(tenantId: string, appliedId: string, answers: unkno
     await tx.execute(sql`select id from applied_anamneses where tenant_id = ${tenantId} and id = ${appliedId} for update`);
     const row = (await tx.select().from(appliedAnamneses).where(and(eq(appliedAnamneses.tenantId, tenantId), eq(appliedAnamneses.id, appliedId), isNull(appliedAnamneses.submittedAt))))[0];
     if (!row) return null;
+    if (await followupCancelled(tx, tenantId, row.followupId)) throw cancelledError();
     return (await tx.update(appliedAnamneses).set({ ...protect(tenantId, 'applied_anamneses', appliedId, 'answers', answers), ...clearDraft, submittedAt: new Date(), validUntil: validUntilFor(row) }).where(and(eq(appliedAnamneses.tenantId, tenantId), eq(appliedAnamneses.id, appliedId), isNull(appliedAnamneses.submittedAt))).returning())[0];
   });
 }

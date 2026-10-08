@@ -42,6 +42,31 @@ integration('clinical relational workflows', () => {
     expect((await post(tenantId, `/api/anamnesis-responses/${f.appliedId}/notes`, { content: 'nota' })).status).toBe(201);
   });
   it('isolates clinical records and rejects notes before answer', async () => { const f = await fixture(); expect((await request(otherTenantId, `/api/patient-anamneses/${f.appliedId}`)).status).toBe(404); expect((await post(tenantId, `/api/anamnesis-responses/${f.appliedId}/notes`, { content: 'prematura' })).status).toBe(404); });
+  it('freezes applied anamneses on followup cancellation while preserving history', async () => {
+    const f = await fixture();
+    const link = await (await post(tenantId, '/api/anamnesis-requests', { patientAnamnesisId: f.appliedId })).json() as any;
+    const token = link.url.split('/').at(-1);
+    expect((await post(tenantId, `/api/followups/${f.followupId}/cancel`, { reason: 'Solicitado pelo paciente' })).status).toBe(200);
+    expect((await request(tenantId, `/public/anamnesis/${token}`)).status).toBe(404);
+    expect((await request(tenantId, `/public/anamnesis/${token}/draft`, { method: 'PUT', body: JSON.stringify({ draft: { a: 1 } }) })).status).toBe(404);
+    expect((await post(tenantId, `/public/anamnesis/${token}/submit`, { answers: { a: 2 } })).status).toBe(409);
+    expect((await post(tenantId, '/api/anamnesis-requests', { patientAnamnesisId: f.appliedId })).status).toBe(409);
+    expect((await post(tenantId, `/api/patient-anamneses/${f.appliedId}/answers`, { answers: { a: 3 } })).status).toBe(409);
+    const history = await (await request(tenantId, `/api/patient-anamneses/${f.appliedId}`)).json() as any;
+    expect(history.id).toBe(f.appliedId);
+    const stored = (await getDatabase().select().from(appliedAnamneses).where(eq(appliedAnamneses.id, f.appliedId)))[0]!;
+    expect(stored.submittedAt).toBeNull();
+  });
+  it('preserves answers and notes created before cancellation', async () => {
+    const f = await fixture();
+    const link = await (await post(tenantId, '/api/anamnesis-requests', { patientAnamnesisId: f.appliedId })).json() as any;
+    const token = link.url.split('/').at(-1);
+    expect((await post(tenantId, `/public/anamnesis/${token}/submit`, { answers: { a: 1 } })).status).toBe(201);
+    expect((await post(tenantId, `/api/anamnesis-responses/${f.appliedId}/notes`, { content: 'nota prévia' })).status).toBe(201);
+    expect((await post(tenantId, `/api/followups/${f.followupId}/cancel`, { reason: 'Solicitado pelo paciente' })).status).toBe(200);
+    expect(((await (await request(tenantId, `/api/patient-anamneses/${f.appliedId}`)).json()) as any).answers).toMatchObject({ a: 1 });
+    expect((await (await request(tenantId, `/api/anamnesis-responses/${f.appliedId}/notes`)).json() as any[]).length).toBeGreaterThanOrEqual(1);
+  });
   it('rejects applied-document uploads without a valid rendered PDF hash and size', async () => { const f = await fixture(); const contract = (await getDatabase().select().from(followupContracts).where(eq(followupContracts.followupId, f.followupId)))[0]!; const response = await post(tenantId, `/api/followup-contracts/${contract.id}/documents/presign`, { contentType: 'application/pdf', contentHash: 'sha256:test', size: 123 }); expect(response.status).toBe(400); });
   it('materializes only the immutable contract PDF and rejects client-selected metadata', async () => { const f = await fixture(); const contract = (await getDatabase().select().from(followupContracts).where(eq(followupContracts.followupId, f.followupId)))[0]!; const rejected = await post(tenantId, `/api/followup-contracts/${contract.id}/documents/presign`, { contentType: 'application/pdf', contentHash: 'b'.repeat(64), size: 999 }); expect(rejected.status).toBe(400); if (!storage) { const materialized = await post(tenantId, `/api/followup-contracts/${contract.id}/documents`, { uploadIntentId: crypto.randomUUID(), contentType: 'application/pdf', contentHash: 'b'.repeat(64), size: 999 }); expect(materialized.status).toBe(503); } });
   it('deletes a document and all immutable revisions through the aggregate boundary', async () => { const db = getDatabase(); const f = await fixture(); const contract = (await db.select().from(followupContracts).where(eq(followupContracts.followupId, f.followupId)))[0]!; const documentId = crypto.randomUUID(); const revisionId = crypto.randomUUID(); await db.execute(sql`select set_config('app.constructing_applied_document', 'on', false)`); await db.insert(appliedDocuments).values({ id: documentId, tenantId, followupContractId: contract.id, originalObjectKey: crypto.randomUUID(), originalHash: 'a'.repeat(64), originalSize: 123 }); await db.insert(appliedDocumentRevisions).values({ id: revisionId, tenantId, documentId, version: 1, objectKey: crypto.randomUUID(), contentHash: 'a'.repeat(64), contentSize: 123 }); await db.execute(sql`select set_config('app.constructing_applied_document', 'on', false)`); await db.update(appliedDocuments).set({ currentRevisionId: revisionId }).where(and(eq(appliedDocuments.tenantId, tenantId), eq(appliedDocuments.id, documentId))); await db.execute(sql`select set_config('app.constructing_applied_document', 'off', false)`); if (!storage) { const response = await request(tenantId, `/api/applied-documents/${documentId}`, { method: 'DELETE' }); expect(response.status).toBe(503); expect(await db.select().from(appliedDocuments).where(eq(appliedDocuments.id, documentId))).toHaveLength(0); expect(await db.select().from(appliedDocumentRevisions).where(eq(appliedDocumentRevisions.documentId, documentId))).toHaveLength(0); expect(await db.select().from(documentCleanupJobs).where(eq(documentCleanupJobs.documentId, documentId))).toMatchObject([{ status: 'failed', attempts: 1 }]); } else { const response = await request(tenantId, `/api/applied-documents/${documentId}`, { method: 'DELETE' }); expect(response.status).toBe(200); expect(await db.select().from(appliedDocumentRevisions).where(eq(appliedDocumentRevisions.documentId, documentId))).toHaveLength(0); expect(await db.select().from(documentCleanupJobs).where(eq(documentCleanupJobs.documentId, documentId))).toMatchObject([{ status: 'completed' }]); } });
