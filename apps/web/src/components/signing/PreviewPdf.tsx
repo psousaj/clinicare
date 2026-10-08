@@ -72,7 +72,9 @@ export function PreviewPdf({
     if (!page || !viewer) return;
     const timer = window.setTimeout(() => {
       const signatureTop = page.offsetTop + page.clientHeight * placement.y;
-      viewer.scrollTo({ top: Math.max(0, signatureTop - viewer.clientHeight / 2), behavior: 'smooth' });
+      if (typeof viewer.scrollTo === 'function') {
+        viewer.scrollTo({ top: Math.max(0, signatureTop - viewer.clientHeight / 2), behavior: 'smooth' });
+      }
     }, 80);
     return () => window.clearTimeout(timer);
   }, [pageCount, placement.pageIndex]);
