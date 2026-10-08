@@ -16,5 +16,5 @@ console.log(`API rodando na porta ${resolvedPort}`);
 export default {
   port: resolvedPort,
   hostname: '0.0.0.0',
-  fetch: (request: Request, server: { requestIP?: (request: Request) => { address?: unknown } | null }) => app.fetch(request, { server }),
+  fetch: app.fetch,
 };

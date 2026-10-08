@@ -4,18 +4,17 @@ import { observedClientIp } from './request-ip';
 const request = (headers?: HeadersInit) => new Request('http://localhost/public/signatures/token', { headers });
 
 describe('observedClientIp', () => {
-  it('uses the direct server connection when no trusted proxy is configured', () => {
-    const ip = observedClientIp(request(), { server: { requestIP: () => ({ address: '203.0.113.10' }) } });
-    expect(ip).toBe('203.0.113.10');
+  it('prioritizes the Cloudflare source header', () => {
+    expect(observedClientIp(request({ 'cf-connecting-ip': '198.51.100.8', 'x-forwarded-for': '198.51.100.7' }))).toBe('198.51.100.8');
   });
 
-  it('ignores forwarded headers and uses only the direct connection', () => {
-    const server = { server: { requestIP: () => ({ address: '10.0.0.4' }) } };
-    expect(observedClientIp(request({ 'x-forwarded-for': '198.51.100.7', 'cf-connecting-ip': '198.51.100.8' }), server)).toBe('10.0.0.4');
+  it('supports standard proxy source headers and RFC 7239 Forwarded', () => {
+    expect(observedClientIp(request({ 'true-client-ip': '198.51.100.9' }))).toBe('198.51.100.9');
+    expect(observedClientIp(request({ 'x-forwarded-for': 'not-an-ip, 203.0.113.10' }))).toBe('203.0.113.10');
+    expect(observedClientIp(request({ forwarded: 'for="[2001:db8::1]";proto=https' }))).toBe('2001:db8::1');
   });
 
-  it('records no invented address when the runtime does not provide one', () => {
-    expect(observedClientIp(request(), { server: { requestIP: () => null } })).toBeUndefined();
-    expect(observedClientIp(request(), { server: { requestIP: () => ({ address: 'not-an-ip' }) } })).toBeUndefined();
+  it('returns empty when no valid source header is present', () => {
+    expect(observedClientIp(request({ 'x-forwarded-for': 'not-an-ip' }))).toBeUndefined();
   });
 });
