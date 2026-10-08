@@ -592,7 +592,18 @@ function RepresentativeSignPage() {
           <h1 className="m-0 text-[28px] font-extrabold leading-tight tracking-tight text-[#1f2a26] sm:text-[32px]">Assinar como representante</h1>
           <p className="m-0 text-base text-[#4a5a53]">{patientName || 'Paciente'} · {title}</p>
         </div>
-        <SigningSteps stepIndex={Math.min(stepIndex, steps.length - 1)} steps={steps} />
+        <SigningSteps
+          stepIndex={Math.min(stepIndex, steps.length - 1)}
+          steps={steps}
+          onBackStep={(index) => {
+            if (index === 0) {
+              setMessage(null);
+              setPendingId(null);
+              setStep('sign');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+          }}
+        />
         <p className="sr-only" role="status">
           Passo {Math.min(stepIndex + 1, steps.length)} de {steps.length}: {steps[Math.min(stepIndex, steps.length - 1)]?.label}
         </p>

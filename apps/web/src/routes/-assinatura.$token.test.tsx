@@ -122,6 +122,19 @@ describe('patient signature workspace', () => {
     expect(screen.getByText(/Página 1 de 2/)).toBeInTheDocument();
   });
 
+  it('allows only backward navigation from the signing breadcrumb', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText(/Página 1 de 2/)).toBeInTheDocument();
+    await user.click((await screen.findAllByRole('button', { name: 'Continuar para assinatura' }))[0]!);
+    expect(await screen.findByRole('button', { name: 'Voltar para Revisar' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Voltar para Concluir' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Voltar para Revisar' }));
+    expect(await screen.findByRole('region', { name: 'Leitura do documento' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Voltar para Assinar' })).not.toBeInTheDocument();
+  });
+
   it('notifies the patient and suggests reloading on a stale-document conflict', async () => {
     globalThis.fetch = vi.fn(async (url: string) => {
       if (url === '/public/signatures/test-token') return { ok: true, status: 200, json: async () => signatureResponse() };

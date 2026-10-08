@@ -5,6 +5,7 @@ import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-d
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { SignaturePadField, type SignaturePadHandle } from '@/components/signing/SignaturePadField';
+import { SigningSteps } from '@/components/signing/SignChecklist';
 import { ApiError, api } from '@/lib/api';
 import { anySchema } from '@/lib/schemas';
 import { collectFingerprint } from '@/lib/fingerprint';
@@ -239,6 +240,14 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  function goBackToStep(target: Step) {
+    setHint(null);
+    setMessage(null);
+    autoPreviewTried.current = false;
+    setStep(target);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   async function runPreview(): Promise<{ idempotencyKey: string; fingerprint: unknown; previewHash: string; placement: RelativePlacement } | null> {
     if (!image) return null;
     setPreviewBusy(true);
@@ -352,19 +361,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
             <p className="m-0 text-base text-[#4a5a53]">Leia o documento abaixo e assine ao final. Leva menos de 2 minutos.</p>
             {signature.hasExternalSignatures && <p className="m-0 rounded-xl bg-[#eef5f1] px-3 py-2 text-sm font-medium text-[#194d40]" role="note">Este documento já contém assinatura externa validada. A sua entra no rodapé, sem cobrir as assinaturas anteriores.</p>}
           </div>
-          <ol className="m-0 flex list-none items-center gap-2 p-0" aria-label="Progresso da assinatura">
-            {steps.map((item, index) => {
-              const done = index < stepIndex;
-              const current = index === stepIndex;
-              return (
-                <li key={item.id} className="flex min-w-0 flex-1 items-center gap-2 last:flex-none" aria-current={current ? 'step' : undefined}>
-                  <span className={`grid size-7 flex-none place-items-center rounded-full text-[13px] font-bold transition-colors duration-200 ${done || current ? 'bg-[#26785f] text-white' : 'bg-white text-[#85908b] ring-1 ring-inset ring-[#d5ddd7]'}`} aria-hidden="true">{done ? '✓' : index + 1}</span>
-                  <span className={`flex-none text-sm ${current ? 'font-bold text-[#1f2a26]' : done ? 'font-semibold text-[#26785f]' : 'text-[#85908b]'}`}>{item.label}</span>
-                  {index < steps.length - 1 && <span className={`mx-1 h-0.5 min-w-3 flex-1 rounded-full ${done ? 'bg-[#26785f]' : 'bg-[#e3e9e4]'}`} aria-hidden="true" />}
-                </li>
-              );
-            })}
-          </ol>
+          <SigningSteps stepIndex={stepIndex} steps={steps} onBackStep={(index) => goBackToStep(steps[index]!.id)} />
         </header>
         <p className="sr-only" role="status">Passo {stepIndex + 1} de 3: {steps[stepIndex]?.label}</p>
 

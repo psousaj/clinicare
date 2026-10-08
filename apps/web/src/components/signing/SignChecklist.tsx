@@ -47,7 +47,7 @@ export function SignChecklist({ items, pendingId }: { items: ChecklistItem[]; pe
   );
 }
 
-export function SigningSteps({ stepIndex, steps }: { stepIndex: number; steps: Array<{ id: string; label: string }> }) {
+export function SigningSteps({ stepIndex, steps, onBackStep }: { stepIndex: number; steps: Array<{ id: string; label: string }>; onBackStep?: (index: number) => void }) {
   return (
     <ol className="m-0 flex list-none items-center gap-2 p-0" aria-label="Progresso da assinatura">
       {steps.map((item, index) => {
@@ -67,13 +67,24 @@ export function SigningSteps({ stepIndex, steps }: { stepIndex: number; steps: A
             >
               {done ? '✓' : index + 1}
             </span>
-            <span
-              className={`flex-none text-sm ${
-                current ? 'font-bold text-[#1f2a26]' : done ? 'font-semibold text-[#26785f]' : 'text-[#85908b]'
-              }`}
-            >
-              {item.label}
-            </span>
+            {index < stepIndex && onBackStep ? (
+              <button
+                type="button"
+                className="flex-none border-0 bg-transparent p-0 text-sm font-semibold text-[#26785f] underline decoration-[#26785f]/30 underline-offset-4 hover:decoration-[#26785f]"
+                aria-label={`Voltar para ${item.label}`}
+                onClick={() => onBackStep(index)}
+              >
+                {item.label}
+              </button>
+            ) : (
+              <span
+                className={`flex-none text-sm ${
+                  current ? 'font-bold text-[#1f2a26]' : done ? 'font-semibold text-[#26785f]' : 'text-[#85908b]'
+                }`}
+              >
+                {item.label}
+              </span>
+            )}
             {index < steps.length - 1 && (
               <span className={`mx-1 h-0.5 min-w-3 flex-1 rounded-full ${done ? 'bg-[#26785f]' : 'bg-[#e3e9e4]'}`} aria-hidden="true" />
             )}
