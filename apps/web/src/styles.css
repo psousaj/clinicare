@@ -690,19 +690,7 @@ nav {
   position: absolute;
   inset: 0 auto 0 0;
   width: 4px;
-  background: var(--green);
-}
-
-.followup-card[data-state="idle"]::before {
-  background: #d97706;
-}
-
-.followup-card[data-state="completed"]::before {
-  background: #9ca3af;
-}
-
-.followup-card[data-state="cancelled"]::before {
-  background: #d1d5db;
+  background: var(--ink);
 }
 
 .followup-card + .followup-card {
