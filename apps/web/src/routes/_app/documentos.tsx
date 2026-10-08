@@ -3,7 +3,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { FileSignature, Hourglass } from 'lucide-react';
 import { useState } from 'react';
 import { ProfessionalSignDialog, type ProfessionalSignItem } from '@/components/ProfessionalSignDialog';
-import { ContractReprocessButton } from '@/components/FollowupCard';
+import { ContractReprocessButton } from '@/components/ContractSignatureHistory';
 import { QueryError } from '@/components/QueryState';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';

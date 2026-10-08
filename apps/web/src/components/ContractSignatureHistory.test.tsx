@@ -46,4 +46,35 @@ describe('ContractSignatureHistory', () => {
     const request = (fetch as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
     expect(request).toContain('/api/signature-history?followupContractId=c1');
   });
+
+  it('shows the patient link action without expanding and copies the link', async () => {
+    const pending = historyResponse();
+    pending.participants = [
+      { id: 'pp1', role: 'patient', roleLabel: 'Paciente', status: 'pending', statusLabel: 'Pendente', signedAt: null, identity: {}, methods: [] },
+      { id: 'pp2', role: 'professional', roleLabel: 'Representante da clínica', status: 'pending', statusLabel: 'Pendente', signedAt: null, identity: {}, methods: [] },
+    ];
+    const writeText = vi.fn(async () => undefined);
+    // Instala o mock imediatamente antes do clique: algo no setup do
+    // user-event/render substitui navigator.clipboard no meio do caminho.
+    const installClipboard = () => Object.defineProperty(window.navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const calls: Array<{ url: string; init?: RequestInit }> = [];
+    globalThis.fetch = vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      if (url.includes('/refresh')) return { ok: true, status: 200, json: async () => ({ participantId: 'pp1', token: 'tok123' }) };
+      return { ok: true, status: 200, json: async () => pending };
+    }) as unknown as typeof fetch;
+    const user = userEvent.setup();
+    render(<QueryClientProvider client={new QueryClient()}><ContractSignatureHistory followupContractId="c1" title="Contrato Teste" /></QueryClientProvider>);
+
+    // Sem abrir o histórico: rótulo, nome, status e ação de copiar já visíveis.
+    expect(screen.getByText('Contrato')).toBeInTheDocument();
+    const copy = await screen.findByRole('button', { name: /copiar link de assinatura/i });
+    expect(calls[0]?.url).toContain('/api/signature-history?followupContractId=c1');
+    installClipboard();
+
+    await user.click(copy);
+    expect(await screen.findByRole('textbox', { name: 'Link de assinatura' })).toHaveValue(`${location.origin}/assinatura/tok123`);
+    expect(writeText).toHaveBeenCalledWith(`${location.origin}/assinatura/tok123`);
+    expect(screen.getByRole('button', { name: /copiado!/i })).toBeInTheDocument();
+  });
 });

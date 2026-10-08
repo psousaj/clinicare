@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { dateTime } from '@/lib/format';
+import { copyTextToClipboard } from '@/lib/clipboard';
 import { useRequestAnamnesis } from '@/lib/queries';
 import type { Followup } from '@/lib/schemas';
 
@@ -20,7 +21,9 @@ export function PendingRequirements({ followups, patientId }: { followups: Follo
   async function copyLink(id: string) {
     const url = await request.mutateAsync(id);
     setLink(url);
-    await navigator.clipboard.writeText(url).then(() => toast.success('Link copiado — envie ao paciente.'), () => toast.info('Copie o link exibido abaixo.'));
+    await copyTextToClipboard(url).then(
+      (ok) => ok ? toast.success('Link copiado — é só colar no navegador.') : toast.info('Não copiou sozinho — selecione e copie o link abaixo.'),
+    );
   }
 
   return (

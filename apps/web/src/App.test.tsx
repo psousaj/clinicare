@@ -852,6 +852,30 @@ describe('Acompanhamentos', () => {
     expect(within(list).getByRole('button', { name: /histórico de assinaturas/i })).toBeInTheDocument();
   });
 
+  it('disables attendance registration while the followup is idle', async () => {
+    routes['GET /api/followups'] = () => [pendingFollowup({ offerType: 'plan', status: 'idle', anamneses: [], contracts: [] })];
+    routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
+    renderAt('/pacientes/p1');
+    const button = await screen.findByRole('button', { name: /registrar atendimento/i });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('title', 'Disponível após a assinatura do paciente.');
+  });
+
+  it('cancels the followup through a modal with a required reason', async () => {
+    routes['GET /api/followups'] = () => [pendingFollowup({ anamneses: [], contracts: [] })];
+    routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
+    routes['POST /api/followups/at1/cancel'] = () => ({ _id: 'at1' });
+    const user = userEvent.setup();
+    renderAt('/pacientes/p1');
+    await user.click(await screen.findByRole('button', { name: /cancelar acompanhamento/i }));
+    const dialog = await screen.findByRole('dialog', { name: /cancelar acompanhamento/i });
+    expect(within(dialog).getByRole('button', { name: /confirmar cancelamento/i })).toBeDisabled();
+    await user.type(within(dialog).getByLabelText(/motivo do cancelamento/i), 'paciente desistiu');
+    await user.click(within(dialog).getByRole('button', { name: /confirmar cancelamento/i }));
+    await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url === '/api/followups/at1/cancel')).toBe(true));
+    expect(calls.find((call) => call.method === 'POST' && call.url === '/api/followups/at1/cancel')?.body).toEqual({ reason: 'paciente desistiu' });
+  });
+
   it('lists pending and signed contracts below the answered anamneses with shortcuts', async () => {
     routes['GET /api/followups'] = () => [pendingFollowup({
       anamneses: [],

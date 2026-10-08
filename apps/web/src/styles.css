@@ -765,6 +765,130 @@ nav {
   color: var(--muted);
 }
 
+.followup-contract--pending {
+  border-style: solid;
+  border-color: #f5dfb8;
+  border-left: 3px solid #7a5610;
+  background: #fffdf8;
+}
+
+.contract-block {
+  display: grid;
+  gap: 8px;
+}
+
+.contract-block > .section-kicker {
+  margin: 0;
+}
+
+.contract-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.contract-title {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.contract-title strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.contract-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.followup-actions--end {
+  justify-content: flex-end;
+}
+
+.contract-block .signature-link-field {
+  width: 100%;
+  animation: signature-link-in 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes signature-link-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contract-block .signature-link-field {
+    animation: none;
+  }
+}
+
+.signature-history {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  background: #fff;
+}
+
+.signature-history__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.signature-history__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.signature-history__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.signature-history__row--card {
+  justify-content: space-between;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.signature-history__revision {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+}
+
+.signature-history__notice {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
 .followup-actions {
   display: flex;
   flex-wrap: wrap;
