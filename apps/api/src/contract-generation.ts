@@ -150,6 +150,8 @@ export async function retryFollowupContract(tenantId: string, followupContractId
   const row = (await dbRows(tenantId, followupContractId))[0];
   if (!row) return null;
   if (row.status === 'cancelled') throw invalid('Acompanhamento cancelado não pode ser regenerado.', 409);
+  const followup = (await getDatabase().select({ status: followups.status }).from(followups).where(and(eq(followups.tenantId, tenantId), eq(followups.id, row.followupId))))[0];
+  if (followup?.status === 'cancelled') throw invalid('Acompanhamento cancelado não pode ser regenerado.', 409);
   return generateFollowupContract(tenantId, followupContractId, professionalUserId);
 }
 

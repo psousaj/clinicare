@@ -67,6 +67,27 @@ integration('PostgreSQL followups', () => {
     expect((await post('/api/followups', { patientId, offerType: 'combo', offerId: comboId })).status).toBe(201);
   });
 
+  it('cancels generating contracts without a signature process and rejects retry', async () => {
+    const db = getDatabase(); const patientId = crypto.randomUUID(); const procedureId = crypto.randomUUID(); const comboId = crypto.randomUUID(); const contractId = crypto.randomUUID();
+    await db.insert(patients).values({ id: patientId, tenantId, fullName: 'Cancel geração' });
+    await db.insert(procedures).values({ id: procedureId, tenantId, name: 'Procedimento geração', durationMinutes: 30, priceCents: 100, sessionSchema: { type: 'object', properties: {} } });
+    await db.insert(combos).values({ id: comboId, tenantId, name: 'Combo geração', priceCents: 100 }); await db.insert(comboItems).values({ tenantId, comboId, procedureId, sessions: 1 });
+    const created = await (await post('/api/followups', { patientId, offerType: 'combo', offerId: comboId })).json() as any;
+    await db.insert(contracts).values({ id: contractId, tenantId, title: 'Contrato geração', kind: 'standard' });
+    await db.insert(contractVersions).values({ tenantId, contractId, version: 1, content: 'terms' });
+    const generatingId = crypto.randomUUID();
+    await db.insert(followupContracts).values({ id: generatingId, tenantId, followupId: created.id, contractId, contractVersion: 1, titleSnapshot: 'Contrato geração', status: 'generating' });
+    expect((await app.request(`/api/followups/${created.id}/cancel`, { method: 'POST', headers, body: JSON.stringify({ reason: 'Solicitado pelo paciente' }) })).status).toBe(200);
+    const stored = (await db.select().from(followupContracts).where(eq(followupContracts.id, generatingId)))[0]!;
+    expect(stored.status).toBe('cancelled');
+    expect(await db.select().from(signatureProcesses).where(eq(signatureProcesses.followupContractId, generatingId))).toHaveLength(0);
+    expect((await app.request(`/api/followup-contracts/${generatingId}/retry`, { method: 'POST', headers })).status).toBe(409);
+    expect((await app.request(`/api/followup-contracts/${generatingId}/reprocess`, { method: 'POST', headers })).status).toBe(409);
+    expect((await app.request(`/api/followup-contracts/${generatingId}/generate`, { method: 'POST', headers })).status).toBe(200);
+    expect((await db.select().from(followupContracts).where(eq(followupContracts.id, generatingId)))[0]!.status).toBe('cancelled');
+    expect(await db.select().from(signatureProcesses).where(eq(signatureProcesses.followupContractId, generatingId))).toHaveLength(0);
+  });
+
   it('isolates tenant lookups and rejects invalid state transitions', async () => {
     const db = getDatabase(); const patientId = crypto.randomUUID(); const procedureId = crypto.randomUUID(); const comboId = crypto.randomUUID();
     await db.insert(patients).values({ id: patientId, tenantId, fullName: 'Isolamento' });

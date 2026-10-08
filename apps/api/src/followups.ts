@@ -246,6 +246,9 @@ export async function updateFollowupState(tenantId: string, followupId: string, 
         }
       }
     }
+    if (status === 'cancelled') {
+      await tx.update(followupContracts).set({ status: 'cancelled' }).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.followupId, followupId), sql`${followupContracts.status} <> 'cancelled'`));
+    }
     return getFollowup(tenantId, followupId, tx);
   });
 }
