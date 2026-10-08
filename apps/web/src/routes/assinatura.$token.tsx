@@ -130,6 +130,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
   }, []);
 
   useEffect(() => {
+    if (step !== 'read') return;
     let cancelled = false;
     async function loadPdf() {
       try {
@@ -173,7 +174,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
     }
     void renderAll();
     return () => { cancelled = true; };
-  }, [pageGeometries]);
+  }, [pageGeometries, step]);
 
   useEffect(() => {
     if (pageCount === 0) return;

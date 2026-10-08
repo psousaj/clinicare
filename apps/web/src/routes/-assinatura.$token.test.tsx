@@ -20,6 +20,8 @@ const renderPage = () => {
   render(<QueryClientProvider client={createQueryClient()}><RouterProvider router={router} /></QueryClientProvider>);
 };
 
+const { renderPdfPage } = vi.hoisted(() => ({ renderPdfPage: vi.fn(() => ({ promise: Promise.resolve() })) }));
+
 vi.mock('pdfjs-dist', () => ({
   GlobalWorkerOptions: { workerSrc: '' },
   getDocument: () => ({
@@ -27,7 +29,7 @@ vi.mock('pdfjs-dist', () => ({
       numPages: 2,
       getPage: async () => ({
         getViewport: () => ({ width: 612, height: 792 }),
-        render: () => ({ promise: Promise.resolve() }),
+         render: renderPdfPage,
       }),
     }),
   }),
@@ -45,6 +47,7 @@ vi.mock('signature_pad', () => ({
 describe('patient signature workspace', () => {
   beforeEach(() => {
     cleanup();
+    renderPdfPage.mockClear();
     globalThis.fetch = vi.fn(async (url: string) => {
       if (url === '/public/signatures/test-token') return { ok: true, status: 200, json: async () => signatureResponse() };
       if (url === '/public/signatures/test-token/confirm') return { ok: true, status: 200, json: async () => ({ signed: true }) };
@@ -102,6 +105,21 @@ describe('patient signature workspace', () => {
     expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();
     await user.click((await screen.findAllByRole('button', { name: 'Continuar' }))[0]!);
     await waitFor(() => expect(screen.getByTitle('Prévia do PDF candidato')).toBeInTheDocument());
+  });
+
+  it('renders the PDF again when returning from signing to reading', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Contrato de teste' })).toBeInTheDocument();
+    expect(await screen.findByText(/Página 1 de 2/)).toBeInTheDocument();
+    await waitFor(() => expect(renderPdfPage).toHaveBeenCalled());
+    const initialRenderCount = renderPdfPage.mock.calls.length;
+    await user.click((await screen.findAllByRole('button', { name: 'Continuar para assinatura' }))[0]!);
+    expect(await screen.findByLabelText('Área para desenhar sua assinatura')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Voltar à leitura' }));
+    await waitFor(() => expect(renderPdfPage.mock.calls.length).toBeGreaterThan(initialRenderCount));
+    expect(screen.getByText(/Página 1 de 2/)).toBeInTheDocument();
   });
 
   it('notifies the patient and suggests reloading on a stale-document conflict', async () => {
