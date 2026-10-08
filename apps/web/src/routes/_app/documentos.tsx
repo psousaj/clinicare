@@ -45,7 +45,7 @@ function DocumentsContent() {
             <FileSignature size={18} />
             <span className="procedure-info"><strong>{item.title}</strong><small>{item.patient.fullName}{item.blocking ? ' · bloqueia a liberação do plano' : ''}</small></span>
             <span className="flex items-center gap-2">
-              <ContractReprocessButton followupContractId={item.contractId} title={item.title} />
+              <ContractReprocessButton followupContractId={item.contractId} title={item.title} disabled={Boolean(item.hasSignature)} disabledReason="Contrato já possui assinatura e não pode ser reprocessado." />
               <Button size="sm" asChild>
                 <Link
                   to="/documentos/$followupContractId/assinar"
@@ -77,7 +77,7 @@ function DocumentsContent() {
             <span className="procedure-info"><strong>{item.title}</strong><small>{item.patient.fullName}</small></span>
             <span className="flex items-center gap-2">
               {item.blocking && <StatusBadge tone="warning">Bloqueia liberação</StatusBadge>}
-              <ContractReprocessButton followupContractId={item.contractId} title={item.title} />
+              <ContractReprocessButton followupContractId={item.contractId} title={item.title} disabled={Boolean(item.hasSignature)} disabledReason="Contrato já possui assinatura e não pode ser reprocessado." />
               <Link className="text-button" to="/pacientes/$patientId" params={{ patientId: item.patient.id }}>Abrir paciente</Link>
             </span>
           </div>

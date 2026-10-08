@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import {
   appliedDocuments, appliedDocumentRevisions, buildPatientAad, buildProtectedAad, decryptValue, encryptValue, getDatabase, followupContracts, followups, patients,
   signatureEvents, signatureEvidence, signatureExternalAttempts, signatureExternalReceipts, signatureOperations, signatureParticipants, signatureProcesses, signatureRevisions, signatureTokens, signaturePreviewCandidates, tenants,
@@ -553,7 +553,16 @@ export async function listPendingSignatures(tenantId: string) {
     const previous = latest.get(key);
     if (!previous || new Date(row.contract.createdAt).getTime() > new Date(previous.contract.createdAt).getTime()) latest.set(key, row);
   }
-  return [...latest.values()].map((row: any) => ({ participantId: row.participant.id, role: row.participant.role, status: row.participant.status, followupId: row.contract.followupId, contractId: row.contract.id, title: row.contract.titleSnapshot, blocking: row.participant.role === 'patient' && row.contract.required, patient: { id: row.patient.id, fullName: row.patient.fullName } }));
+  const values = [...latest.values()];
+  // Trava de reprocessamento no backend bloqueia com qualquer assinatura
+  // (participante assinado ou carimbo no contrato). Expõe o estado para o
+  // frontend desabilitar o botão sem tentar um POST que voltaria 409.
+  const contractIds = [...new Set(values.map((row: any) => row.contract.id))];
+  const signedProcessIds = contractIds.length
+    ? (await getDatabase().select({ followupContractId: signatureProcesses.followupContractId }).from(signatureParticipants).innerJoin(signatureProcesses, and(eq(signatureProcesses.tenantId, signatureParticipants.tenantId), eq(signatureProcesses.id, signatureParticipants.processId))).where(and(eq(signatureParticipants.tenantId, tenantId), inArray(signatureProcesses.followupContractId, contractIds), eq(signatureParticipants.status, 'signed')))).map((row: any) => row.followupContractId)
+    : [];
+  const signedSet = new Set(signedProcessIds);
+  return values.map((row: any) => ({ participantId: row.participant.id, role: row.participant.role, status: row.participant.status, followupId: row.contract.followupId, contractId: row.contract.id, title: row.contract.titleSnapshot, blocking: row.participant.role === 'patient' && row.contract.required, hasSignature: Boolean((row.contract.patientSignedAt ?? row.contract.professionalSignedAt ?? null) || row.contract.status === 'signed' || signedSet.has(row.contract.id)), contractStatus: row.contract.status, patient: { id: row.patient.id, fullName: row.patient.fullName } }));
 }
 
 /* ------------------------------------------------------------------ */

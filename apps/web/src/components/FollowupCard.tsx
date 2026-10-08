@@ -27,7 +27,7 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
   const validityDays = followup.validUntil ? Math.ceil((new Date(followup.validUntil).getTime() - Date.now()) / 86400000) : null;
   const state = !open ? followup.status : followup.status === 'idle' ? 'idle' : 'active';
   const pendingAnamnesis = followup.anamneses.some((form) => form.required && !form.answered);
-  const reprocessableContracts = followup.contracts.filter((contract) => contract.id && !contract.signedAt && contract.status !== 'signed' && contract.status !== 'cancelled');
+  const reprocessableContracts = followup.contracts.filter((contract) => contract.id && !contract.signedAt && !contract.patientSigned && !contract.professionalSigned && contract.status !== 'signed' && contract.status !== 'cancelled');
   // Reprocessamento cancela a linha antiga e cria uma substituta: o contrato
   // continua sendo um só, então linhas canceladas são só auditoria e não
   // rendem área própria no card.

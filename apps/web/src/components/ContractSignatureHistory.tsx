@@ -161,17 +161,21 @@ function ContractGenerateButton({ followupContractId, failed }: { followupContra
 
 // Reprocessa o R0 com os dados atuais do paciente. O documento atual é
 // substituído e links de assinatura pendentes deixam de valer — por isso o
-// botão some assim que houver qualquer assinatura.
-export function ContractReprocessButton({ followupContractId, title }: { followupContractId: string; title: string }) {
+// botão some assim que houver qualquer assinatura (trava do backend: 409)
+// e, na página de documentos, aparece desabilitado com o motivo.
+export function ContractReprocessButton({ followupContractId, title, disabled, disabledReason }: { followupContractId: string; title: string; disabled?: boolean; disabledReason?: string }) {
   const reprocess = useReprocessFollowupContract();
+  const locked = Boolean(disabled);
   return (
     <Button
       type="button"
       variant="outline"
       size="sm"
-      disabled={reprocess.isPending}
-      aria-label={`Reprocessar ${title} com os dados atuais`}
+      disabled={locked || reprocess.isPending}
+      title={locked ? (disabledReason ?? 'Contrato já possui assinatura e não pode ser reprocessado.') : undefined}
+      aria-label={locked ? `Reprocessamento bloqueado: ${title} já possui assinatura` : `Reprocessar ${title} com os dados atuais`}
       onClick={() => {
+        if (locked) return;
         if (window.confirm(`Reprocessar o PDF de ${title} com os dados atuais do paciente? O documento atual será substituído e links de assinatura pendentes deixam de valer.`)) reprocess.mutate(followupContractId);
       }}
     >

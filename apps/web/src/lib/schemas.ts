@@ -161,7 +161,7 @@ export const appliedAnamnesisSchema = z.looseObject({
   submittedAt: z.string().nullish(),
   required: z.boolean().optional(),
 });
-export const signaturePendingSchema = z.looseObject({ participantId: z.string(), role: z.string(), status: z.string(), followupId: z.string(), contractId: z.string(), title: z.string(), blocking: z.boolean(), patient: z.looseObject({ id: z.string(), fullName: z.string() }) });
+export const signaturePendingSchema = z.looseObject({ participantId: z.string(), role: z.string(), status: z.string(), followupId: z.string(), contractId: z.string(), title: z.string(), blocking: z.boolean(), hasSignature: z.boolean().optional(), contractStatus: z.string().optional(), patient: z.looseObject({ id: z.string(), fullName: z.string() }) });
 // Perfil profissional do usuário logado (GET/PUT /api/auth/professional-profile):
 // conselho + número (+ UF) que carimba os contratos materializados.
 export const professionalProfileSchema = z.looseObject({
@@ -186,9 +186,10 @@ export const followupSchema = z.looseObject({
   eventDate: z.string().nullish(),
   offerName: z.string(),
   priceCents: z.number(),
+  status: z.string().optional(),
   validUntil: z.string().nullish(),
   createdAt: z.string().nullish(),
-  contracts: z.array(z.looseObject({ id: z.string().optional(), title: z.string().optional(), signedAt: z.string().nullish(), status: z.string().optional() })).default([]),
+  contracts: z.array(z.looseObject({ id: z.string().optional(), title: z.string().optional(), signedAt: z.string().nullish(), status: z.string().optional(), patientSigned: z.boolean().optional(), professionalSigned: z.boolean().optional() })).default([]),
   anamneses: z.array(followupAnamnesisSchema).default([]),
   blocked: z.boolean().default(false),
   items: z.array(followupItemSchema),
