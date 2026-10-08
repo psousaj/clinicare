@@ -67,6 +67,52 @@ integration('PostgreSQL followups', () => {
     expect((await post('/api/followups', { patientId, offerType: 'combo', offerId: comboId })).status).toBe(201);
   });
 
+  it('keeps cancelled followups visible and allows independent re-enrollment', async () => {
+    const db = getDatabase(); const patientId = crypto.randomUUID(); const procedureId = crypto.randomUUID(); const comboId = crypto.randomUUID();
+    await db.insert(patients).values({ id: patientId, tenantId, fullName: 'Recontratação' });
+    await db.insert(procedures).values({ id: procedureId, tenantId, name: 'Procedimento recontratação', durationMinutes: 30, priceCents: 100, sessionSchema: { type: 'object', properties: {} } });
+    await db.insert(combos).values({ id: comboId, tenantId, name: 'Combo recontratação', priceCents: 100 }); await db.insert(comboItems).values({ tenantId, comboId, procedureId, sessions: 1 });
+    const created = await (await post('/api/followups', { patientId, offerType: 'combo', offerId: comboId })).json() as any;
+    const items = (await (await app.request(`/api/followups/${created.id}`, { headers })).json() as any).items as any[];
+    expect(items.length).toBeGreaterThan(0);
+    expect((await app.request(`/api/followups/${created.id}/cancel`, { method: 'POST', headers, body: JSON.stringify({ reason: 'Solicitado pelo paciente' }) })).status).toBe(200);
+    const history = await (await app.request(`/api/followups/${created.id}`, { headers })).json() as any;
+    expect(history.status).toBe('cancelled');
+    expect(history.cancellationReason).toBe('Solicitado pelo paciente');
+    expect(history.items.length).toBe(items.length);
+    const start = new Date(Date.now() + 3600000);
+    expect((await post('/api/appointments', { patientId, startsAt: start.toISOString(), endsAt: new Date(start.getTime() + 30 * 60000).toISOString(), items: [{ followupItemId: items[0].id }] })).status).toBe(404);
+    const renewed = await (await post('/api/followups', { patientId, offerType: 'combo', offerId: comboId })).json() as any;
+    expect(renewed.id).not.toBe(created.id);
+    expect(renewed.status).toBe('active');
+    expect(((await (await app.request(`/api/followups/${created.id}`, { headers })).json() as any).status)).toBe('cancelled');
+  });
+
+  it('revokes signature tokens and cancels processes on plan cancellation', async () => {
+    const db = getDatabase(); const patientId = crypto.randomUUID(); const procedureId = crypto.randomUUID(); const planId = crypto.randomUUID(); const versionId = crypto.randomUUID(); const contractId = crypto.randomUUID(); const contractVersionId = crypto.randomUUID();
+    const phone = encryptValue('11987654321', buildPatientAad(tenantId, patientId, 'phone', 1));
+    await db.insert(patients).values({ id: patientId, tenantId, fullName: 'Plano revogação', phoneCiphertext: phone.ciphertext, phoneNonce: phone.nonce, phoneKeyVersion: 1 });
+    await db.insert(procedures).values({ id: procedureId, tenantId, name: 'Procedimento revogação', durationMinutes: 30, priceCents: 100, sessionSchema: { type: 'object', properties: {} } });
+    await db.insert(plans).values({ id: planId, tenantId, name: 'Plano revogação' });
+    await db.insert(planVersions).values({ id: versionId, tenantId, planId, version: 1, priceCents: 100 });
+    await db.insert(planVersionItems).values({ tenantId, planVersionId: versionId, procedureId, sessions: 1, procedureName: 'Procedimento revogação', durationMinutes: 30, priceCents: 100, sessionSchema: { type: 'object', properties: {} } });
+    await db.insert(contracts).values({ id: contractId, tenantId, title: 'Contrato revogação', kind: 'standard' });
+    await db.insert(contractVersions).values({ id: contractVersionId, tenantId, contractId, version: 1, content: 'terms', renderedPdfObjectKey: crypto.randomUUID(), renderedPdfHash: 'a'.repeat(64), renderedPdfSize: 123, renderedPdfContentType: 'application/pdf' });
+    await db.insert(planVersionContracts).values({ tenantId, planVersionId: versionId, contractId, title: 'Contrato revogação' });
+    const created = await (await post('/api/followups', { patientId, offerType: 'plan', offerId: planId })).json() as any;
+    const group = Object.values(created.signatureTokens)[0] as any;
+    const token = group.patient.token as string;
+    expect((await app.request(`/public/signatures/${token}`, { headers })).status).toBe(200);
+    expect((await app.request(`/api/followups/${created.id}/cancel`, { method: 'POST', headers, body: JSON.stringify({ reason: 'Solicitado pelo paciente' }) })).status).toBe(200);
+    expect((await app.request(`/public/signatures/${token}`, { headers })).status).toBe(404);
+    const applied = (await db.select().from(followupContracts).where(eq(followupContracts.followupId, created.id)))[0]!;
+    expect(applied.status).toBe('cancelled');
+    const events = await db.select().from(signatureEvents).where(eq(signatureEvents.tenantId, tenantId));
+    expect(events.length).toBeGreaterThan(0);
+    const history = await (await app.request(`/api/signature-history?followupContractId=${applied.id}`, { headers })).json() as any;
+    expect(JSON.stringify(history)).toContain('cancelled');
+  });
+
   it('cancels generating contracts without a signature process and rejects retry', async () => {
     const db = getDatabase(); const patientId = crypto.randomUUID(); const procedureId = crypto.randomUUID(); const comboId = crypto.randomUUID(); const contractId = crypto.randomUUID();
     await db.insert(patients).values({ id: patientId, tenantId, fullName: 'Cancel geração' });
@@ -116,8 +162,9 @@ integration('PostgreSQL followups', () => {
     expect(created.blocked).toBe(true);
     const applied = await db.select().from(followupContracts).where(eq(followupContracts.followupId, created.id));
     expect(applied).toHaveLength(1);
-    expect(await db.select().from(signatureProcesses).where(eq(signatureProcesses.followupContractId, applied[0]!.id))).toHaveLength(1);
-    const participants = await db.select().from(signatureParticipants).where(eq(signatureParticipants.tenantId, tenantId));
+    const processes = await db.select().from(signatureProcesses).where(eq(signatureProcesses.followupContractId, applied[0]!.id));
+    expect(processes).toHaveLength(1);
+    const participants = await db.select().from(signatureParticipants).where(eq(signatureParticipants.processId, processes[0]!.id));
     expect(participants).toHaveLength(2);
     expect(created.signatureTokens).toBeDefined();
     const patientToken = Object.values(created.signatureTokens)[0] as any;
