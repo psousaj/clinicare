@@ -817,8 +817,8 @@ describe('Acompanhamentos', () => {
     const user = userEvent.setup();
     renderAt('/pacientes/p1');
     expect(await screen.findByText('Não realizado')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /não realizar peeling/i })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /não realizar botox/i }));
+    expect(screen.queryByRole('button', { name: /remover peeling/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /remover botox/i }));
     await waitFor(() => expect(calls.some((call) => call.method === 'POST' && call.url === '/api/followups/at1/items/it1/cancel')).toBe(true));
   });
 

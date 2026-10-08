@@ -100,16 +100,18 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
                       <button
                         type="button"
                         className="text-button"
-                        disabled={cancelItem.isPending}
-                        aria-label={`Não realizar ${item.procedureName}`}
+                        disabled={!open || cancelItem.isPending}
+                        title={!open ? 'Acompanhamento encerrado.' : undefined}
+                        aria-label={`Remover ${item.procedureName}`}
                         onClick={() => {
+                          if (!open) return;
                           const message = item.comboId
-                            ? `Não realizar o combo ${item.comboName}? O pacote inteiro sai do que será feito neste evento.`
-                            : `Não realizar ${item.procedureName} neste evento?`;
+                            ? `Remover o combo ${item.comboName}? O pacote inteiro sai do que será feito neste evento.`
+                            : `Remover ${item.procedureName} deste evento?`;
                           if (window.confirm(message)) cancelItem.mutate({ followupId: followup.id, itemId: item.id });
                         }}
                       >
-                        Não realizar
+                        Remover
                       </button>
                     )}
                   </span>
