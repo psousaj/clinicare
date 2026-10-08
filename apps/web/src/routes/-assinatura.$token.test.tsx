@@ -94,7 +94,9 @@ describe('patient signature workspace', () => {
 
     expect(await screen.findByRole('heading', { name: 'Contrato de teste' })).toBeInTheDocument();
     await user.click((await screen.findAllByRole('button', { name: 'Continuar para assinatura' }))[0]!);
-    fireEvent.pointerDown(await screen.findByLabelText('Área para desenhar sua assinatura'));
+    const canvas = await screen.findByLabelText('Área para desenhar sua assinatura');
+    fireEvent.pointerDown(canvas);
+    fireEvent.pointerUp(canvas);
     expect(await screen.findByRole('button', { name: 'Confirmar' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
     expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();

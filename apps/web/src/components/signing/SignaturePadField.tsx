@@ -37,7 +37,7 @@ export const SignaturePadField = forwardRef<SignaturePadHandle, {
 
   useEffect(() => {
     const media = window.matchMedia('(hover: none) and (pointer: coarse)');
-    const update = () => setMobileDevice(media.matches);
+    const update = () => setMobileDevice(isMobileSignatureDevice());
     update();
     media.addEventListener?.('change', update);
     media.addListener?.(update);
@@ -173,6 +173,11 @@ export const SignaturePadField = forwardRef<SignaturePadHandle, {
           if (!mobileDevice || expanded) return;
           event.preventDefault();
           event.stopPropagation();
+        }}
+        onPointerUpCapture={(event) => {
+          if (!mobileDevice || expanded) return;
+          event.preventDefault();
+          event.stopPropagation();
           openExpanded();
         }}
       />
@@ -206,9 +211,9 @@ function scalePointGroups(pointGroups: PointGroup[], scaleX: number, scaleY: num
 }
 
 function isMobileSignatureDevice(): boolean {
-  return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-    ? window.matchMedia('(hover: none) and (pointer: coarse)').matches
-    : false;
+  if (typeof window === 'undefined') return false;
+  if (typeof window.matchMedia === 'function') return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  return typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
 }
 
 function lockLandscape() {

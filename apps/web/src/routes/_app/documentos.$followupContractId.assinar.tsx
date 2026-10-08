@@ -18,6 +18,7 @@ import { QueryError } from '@/components/QueryState';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api';
 import { collectFingerprint } from '@/lib/fingerprint';
+import { createIdempotencyKey } from '@/lib/idempotency';
 import {
   confirmProfessionalSignature,
   defaultSignatureQuery,
@@ -114,7 +115,7 @@ function RepresentativeSignPage() {
   const [step, setStep] = useState<'sign' | 'confirm'>('sign');
   const [submitted, setSubmitted] = useState(false);
   const [fingerprint, setFingerprint] = useState<unknown>({ unavailable: true });
-  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey, setIdempotencyKey] = useState(createIdempotencyKey);
   const autoPreviewTried = useRef(false);
   const previewEvidenceRef = useRef<PreviewEvidence | null>(null);
 
@@ -307,7 +308,7 @@ function RepresentativeSignPage() {
     try {
       if (typeof document !== 'undefined' && document.fonts) await document.fonts.ready.catch(() => undefined);
       const stamped = await composeStampImage(draw, stampLines);
-      const key = crypto.randomUUID();
+      const key = createIdempotencyKey();
       setIdempotencyKey(key);
       const fingerprintNow = await collectFingerprint();
       setFingerprint(fingerprintNow);
