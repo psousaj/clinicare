@@ -118,6 +118,7 @@ function RepresentativeSignPage() {
   const [idempotencyKey, setIdempotencyKey] = useState(createIdempotencyKey);
   const autoPreviewTried = useRef(false);
   const previewEvidenceRef = useRef<PreviewEvidence | null>(null);
+  const previewGenerationRef = useRef(0);
 
   const progress = pageCount === 0 ? 0 : Math.min(1, readPages.length / pageCount);
   // O representante é o autor do contrato; não precisa repetir a etapa de leitura.
@@ -235,6 +236,7 @@ function RepresentativeSignPage() {
         if (cancelled) return;
         setPageGeometries(geometries);
         // Posição automática no rodapé da última página, nunca no cabeçalho.
+        invalidatePreview();
         setPlacement({ pageIndex: pdf.numPages - 1, x: 0.08, y: 0.8, width: 0.36, height: 0.12 });
       } catch {
         if (!cancelled) setPdfError('Não foi possível renderizar o PDF.');
@@ -303,36 +305,44 @@ function RepresentativeSignPage() {
       flag('read', 'O documento ainda não está disponível para assinatura.');
       return null;
     }
+    const generation = previewGenerationRef.current;
+    const placementForPreview = { ...placement };
     setPreviewBusy(true);
     setMessage(null);
     try {
-      if (typeof document !== 'undefined' && document.fonts) await document.fonts.ready.catch(() => undefined);
-      const stamped = await composeStampImage(draw, stampLines);
-      const key = createIdempotencyKey();
-      setIdempotencyKey(key);
-      const fingerprintNow = await collectFingerprint();
-      setFingerprint(fingerprintNow);
+       if (typeof document !== 'undefined' && document.fonts) await document.fonts.ready.catch(() => undefined);
+       const stamped = await composeStampImage(draw, stampLines);
+       const key = createIdempotencyKey();
+       const fingerprintNow = await collectFingerprint();
+       if (generation !== previewGenerationRef.current) return null;
+       setIdempotencyKey(key);
+       setFingerprint(fingerprintNow);
       const result = await previewProfessionalSignature(participantId, {
         documentId,
         baseRevisionId: currentRevision.id,
         signaturePng: stamped,
-        placement,
+        placement: placementForPreview,
         idempotencyKey: key,
         fingerprint: fingerprintNow,
         acceptanceText: 'Confirmo a assinatura visual deste contrato.',
-      });
-      if (!result.hash) throw new Error('A prévia foi gerada sem identificação. Gere novamente antes de confirmar.');
+       });
+       if (generation !== previewGenerationRef.current) {
+         URL.revokeObjectURL(result.url);
+         return null;
+       }
+       if (!result.hash) {
+         URL.revokeObjectURL(result.url);
+         throw new Error('A prévia foi gerada sem identificação. Gere novamente antes de confirmar.');
+       }
       setComposed(stamped);
-      setPreviewUrl((previous) => {
-        if (previous) URL.revokeObjectURL(previous);
-        return result.url;
-      });
+      setPreviewUrl(result.url);
       setPreviewHash(result.hash);
       setPendingId(null);
-      const evidence: PreviewEvidence = { idempotencyKey: key, fingerprint: fingerprintNow, hash: result.hash, stamped, placement: { ...placement } };
+      const evidence: PreviewEvidence = { idempotencyKey: key, fingerprint: fingerprintNow, hash: result.hash, stamped, placement: placementForPreview };
       previewEvidenceRef.current = evidence;
       return evidence;
     } catch (reason) {
+      if (generation !== previewGenerationRef.current) return null;
       setComposed(null);
       setPreviewUrl(null);
       setPreviewHash(null);
@@ -341,8 +351,17 @@ function RepresentativeSignPage() {
       previewEvidenceRef.current = null;
       return null;
     } finally {
-      setPreviewBusy(false);
+      if (generation === previewGenerationRef.current) setPreviewBusy(false);
     }
+  }
+
+  function invalidatePreview() {
+    previewGenerationRef.current += 1;
+    previewEvidenceRef.current = null;
+    setPreviewBusy(false);
+    setComposed(null);
+    setPreviewUrl(null);
+    setPreviewHash(null);
   }
 
   // Prévia integrada: assim que há traço + documento, gera sozinha.
@@ -372,10 +391,8 @@ function RepresentativeSignPage() {
 
   function handleStroke(draw: string) {
     setImage(draw);
+    invalidatePreview();
     setComposed(null);
-    setPreviewUrl(null);
-    setPreviewHash(null);
-    previewEvidenceRef.current = null;
     autoPreviewTried.current = false;
     setMessage(null);
     setPendingId(null);
@@ -384,10 +401,8 @@ function RepresentativeSignPage() {
   function handleClear() {
     padHandle.current?.clear();
     setImage(null);
+    invalidatePreview();
     setComposed(null);
-    setPreviewUrl(null);
-    setPreviewHash(null);
-    previewEvidenceRef.current = null;
     setPendingId(null);
     setMessage(null);
   }
@@ -396,8 +411,7 @@ function RepresentativeSignPage() {
     setPlacement((current) => ({ ...current, ...position }));
     // Moving or resizing changes the evidence sent to the server. The old
     // candidate preview must not be reused with the new geometry.
-    setPreviewHash(null);
-    previewEvidenceRef.current = null;
+    invalidatePreview();
   }
 
   function handleUseSaved() {
@@ -411,9 +425,8 @@ function RepresentativeSignPage() {
     padHandle.current?.clear();
     setUseSaved(false);
     setImage(null);
+    invalidatePreview();
     setComposed(null);
-    setPreviewUrl(null);
-    setPreviewHash(null);
     setMessage(null);
     setPendingId(null);
   }
@@ -599,6 +612,7 @@ function RepresentativeSignPage() {
             if (index === 0) {
               setMessage(null);
               setPendingId(null);
+              invalidatePreview();
               setStep('sign');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }
