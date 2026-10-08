@@ -80,6 +80,7 @@ describe('patient signature workspace', () => {
     expect(request).toBeDefined();
     const body = JSON.parse(request![1].body as string);
     expect(body.evidence.baseRevisionId).toBe('revision-1');
+    expect(body.evidence.signaturePng).toMatch(/^data:image\/png;base64,/);
     expect(body.evidence.placement.pageIndex).toBe(1);
     expect(body.evidence.placement.x).toBeGreaterThanOrEqual(0);
     expect(body.evidence.placement.x + body.evidence.placement.width).toBeLessThanOrEqual(1);

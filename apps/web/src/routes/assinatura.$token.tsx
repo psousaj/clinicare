@@ -1,13 +1,14 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import SignaturePad from 'signature_pad';
 import { getDocument, GlobalWorkerOptions, type PDFDocumentProxy } from 'pdfjs-dist';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { SignaturePadField, type SignaturePadHandle } from '@/components/signing/SignaturePadField';
 import { ApiError, api } from '@/lib/api';
 import { anySchema } from '@/lib/schemas';
 import { collectFingerprint } from '@/lib/fingerprint';
+import { createIdempotencyKey } from '@/lib/idempotency';
 import { z } from 'zod';
 
 if (typeof window !== 'undefined') {
@@ -82,8 +83,7 @@ function storeDraft(token: string, image: string | null) {
 // separado; o posicionamento é automático no rodapé da última página,
 // com ajuste manual opcional.
 function SigningWorkspace({ token, signature }: { token: string; signature: Signature }) {
-  const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
-  const padRef = useRef<SignaturePad | null>(null);
+  const signaturePadRef = useRef<SignaturePadHandle>(null);
   const pdfRef = useRef<PDFDocumentProxy | null>(null);
   const pageCanvasRefs = useRef<Array<HTMLCanvasElement | null>>([]);
   const pageWrapperRefs = useRef<Array<HTMLDivElement | null>>([]);
@@ -97,8 +97,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
   const [pageCount, setPageCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(0);
   const [readPages, setReadPages] = useState<number[]>([]);
-  const [image, setImage] = useState<string | null>(null);
-  const [hasStroke, setHasStroke] = useState(false);
+  const [image, setImage] = useState<string | null>(() => readStoredDraft(token));
   const [placement, setPlacement] = useState<RelativePlacement>({ pageIndex: 0, x: 0.08, y: 0.8, width: 0.36, height: 0.12 });
   const [consentGiven, setConsentGiven] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -115,7 +114,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
   const [showGovBr, setShowGovBr] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [fingerprint, setFingerprint] = useState<unknown>({ unavailable: true });
-  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey, setIdempotencyKey] = useState(createIdempotencyKey);
   const previewEvidenceRef = useRef<{ idempotencyKey: string; fingerprint: unknown; previewHash: string; placement: RelativePlacement } | null>(null);
 
   const progress = pageCount === 0 ? 0 : Math.min(1, readPages.length / pageCount);
@@ -197,45 +196,10 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
     return () => observer.disconnect();
   }, [pageCount, step]);
 
-  useEffect(() => {
-    if (step !== 'sign') return;
-    const canvas = signatureCanvasRef.current;
-    if (!canvas) return;
-    const ratio = Math.max(window.devicePixelRatio || 1, 1);
-    canvas.width = Math.max(canvas.offsetWidth, 1) * ratio;
-    canvas.height = Math.max(canvas.offsetHeight, 1) * ratio;
-    canvas.getContext('2d')?.scale(ratio, ratio);
-    const pad = new SignaturePad(canvas, { minWidth: 0.7, maxWidth: 2.2, penColor: '#194d40' });
-    const handleBegin = () => setHasStroke(true);
-    const handleEnd = () => {
-      if (padRef.current && !padRef.current.isEmpty()) {
-        const draw = padRef.current.toDataURL('image/png');
-        setImage(draw);
-        storeDraft(token, draw);
-        setMessage(null);
-      }
-    };
-    pad.addEventListener?.('beginStroke', handleBegin);
-    pad.addEventListener?.('endStroke', handleEnd);
-    padRef.current = pad;
-    const stored = readStoredDraft(token);
-    if (stored) {
-      setImage(stored);
-      setHasStroke(true);
-      if (typeof pad.fromDataURL === 'function') pad.fromDataURL(stored).catch(() => undefined);
-    }
-    return () => {
-      pad.removeEventListener?.('beginStroke', handleBegin);
-      pad.removeEventListener?.('endStroke', handleEnd);
-      pad.off();
-      padRef.current = null;
-    };
-  }, [step, token]);
-
   function captureFromPad(): string | null {
-    const pad = padRef.current;
+    const pad = signaturePadRef.current;
     if (pad && !pad.isEmpty()) {
-      const draw = pad.toDataURL('image/png');
+      const draw = pad.toDataURL();
       setImage(draw);
       storeDraft(token, draw);
       return draw;
@@ -244,9 +208,8 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
   }
 
   function clear() {
-    padRef.current?.clear();
+    signaturePadRef.current?.clear();
     setImage(null);
-    setHasStroke(false);
     storeDraft(token, null);
     setPreviewUrl(null); setPreviewHash(null); setPreviewPlacement(null);
   }
@@ -267,7 +230,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
     const draw = captureFromPad();
     if (!draw) {
       setMessage('Desenhe sua assinatura para continuar.');
-      signatureCanvasRef.current?.focus();
+      signaturePadRef.current?.focus();
       return;
     }
     setMessage(null);
@@ -282,7 +245,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
     try {
       const fingerprintNow = await collectFingerprint();
       setFingerprint(fingerprintNow);
-      const previewKey = crypto.randomUUID();
+      const previewKey = createIdempotencyKey();
       setIdempotencyKey(previewKey);
       const response = await fetch(`/public/signatures/${token}/preview`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ documentId: signature.document!.id, baseRevisionId: signature.document!.revisionId, signaturePng: image, placement, idempotencyKey: previewKey, fingerprint: fingerprintNow, acceptanceText: 'Confirmo a assinatura visual deste contrato.' }) });
       if (!response.ok) { setMessage('Não foi possível gerar a prévia. Verifique sua conexão e tente de novo.'); return null; }
@@ -449,14 +412,14 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
             <div className="grid gap-3 rounded-2xl border bg-white p-4 shadow-sm sm:p-5 border-[#e3e9e4]">
               <p className="m-0 text-sm text-[#40524a]">Desenhe sua assinatura com o dedo ou o mouse. Se errar, toque em Limpar e tente de novo.</p>
               <p className="m-0 rounded-xl bg-[#fef6e4] p-3 text-sm text-[#7c4a03] md:hidden">Gire o celular na horizontal para assinar com mais espaço (opcional).</p>
-              <div className="relative">
-                <canvas ref={signatureCanvasRef} className="h-64 w-full touch-none rounded-xl border-2 border-[#26785f] bg-white sm:h-72" style={{ touchAction: 'none' }} aria-label="Área para desenhar sua assinatura" />
-                {!hasStroke && !image && (
-                  <div className="pointer-events-none absolute inset-0 grid place-items-center" aria-hidden="true">
-                    <span className="border-b-2 border-dotted border-[#9db8ab] px-8 pb-1 text-lg font-semibold text-[#9db8ab]">Assine aqui</span>
-                  </div>
-                )}
-              </div>
+              <SignaturePadField
+                ref={signaturePadRef}
+                initialImage={image}
+                onStroke={(draw) => { setImage(draw); storeDraft(token, draw); setMessage(null); }}
+                label="Área para desenhar sua assinatura"
+                tall
+                className="border-2 border-[#26785f] bg-white"
+              />
               {message && step === 'sign' && <p className="m-0 text-sm font-medium text-[#b3261e]" role="alert">{message}</p>}
               <div className="flex w-full flex-wrap items-center justify-between gap-3">
                 <button
@@ -698,7 +661,7 @@ function GovBrSection({ token, signature }: { token: string; signature: Signatur
       const fingerprint = await collectFingerprint();
       const payload = await postJson(`/public/signatures/${token}/external/export`, {
         documentId: signature.document!.id, baseRevisionId: signature.document!.revisionId,
-        idempotencyKey: crypto.randomUUID(), fingerprint,
+        idempotencyKey: createIdempotencyKey(), fingerprint,
       });
       setState({ step: 'exported', attemptId: payload.attemptId as string, exportHash: payload.exportHash as string });
     } catch (reason) {
@@ -733,7 +696,7 @@ function GovBrSection({ token, signature }: { token: string; signature: Signatur
     try {
       const fingerprint = await collectFingerprint();
       await postJson(`/public/signatures/${token}/external/confirm`, {
-        attemptId, idempotencyKey: crypto.randomUUID(), fingerprint,
+        attemptId, idempotencyKey: createIdempotencyKey(), fingerprint,
         acceptanceText: 'Confirmo a assinatura realizada no GOV.BR', confirmed: true,
       });
       setState({ step: 'done' });
