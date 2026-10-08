@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory } from '@tanstack/react-router';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAppRouter, createQueryClient } from '../../router';
@@ -52,6 +52,9 @@ describe('representative signature page', () => {
   let calls: { url: string; method: string; body: unknown }[];
   beforeEach(() => {
     calls = [];
+    // O rascunho do representante sobrevive em sessionStorage: limpar entre
+    // testes para um não trancar o modo (salva/desenhada) do outro.
+    sessionStorage.clear();
     globalThis.fetch = vi.fn(async (url: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET';
       calls.push({ url, method, body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined });
@@ -77,6 +80,32 @@ describe('representative signature page', () => {
     render(<QueryClientProvider client={createQueryClient()}><RouterProvider router={router} /></QueryClientProvider>);
   };
 
+  // Atalho direto à página de assinatura: pula a lista e suas queries.
+  const renderAssinarPage = () => {
+    const router = createAppRouter(createMemoryHistory({ initialEntries: ['/documentos/c1/assinar'] }));
+    render(<QueryClientProvider client={createQueryClient()}><RouterProvider router={router} /></QueryClientProvider>);
+  };
+
+  // Assinatura salva habilita o botão "Continuar para confirmação" sem
+  // depender do traço no canvas (indisponível no jsdom).
+  const mockRepresentativeFetch = (pdfOk: boolean) => {
+    globalThis.fetch = vi.fn(async (url: string) => {
+      if (url === '/api/signature-participants/prof1/pdf') {
+        return pdfOk
+          ? { ok: true, status: 200, blob: async () => new Blob(['%PDF-1.4']) }
+          : { ok: false, status: 500, json: async () => ({}) };
+      }
+      if (url === '/api/signature-participants/prof1/preview') return { ok: true, status: 200, headers: { get: () => `"${'b'.repeat(64)}"` }, blob: async () => new Blob(['%PDF-1.4']) };
+      if (url === '/api/auth/get-session') return { ok: true, status: 200, json: async () => ({ user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com' } }) };
+      if (url === '/api/auth/me') return { ok: true, status: 200, json: async () => ({ user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com' }, tenant: { id: 't1', name: 'Clínica Teste' } }) };
+      if (url === '/api/auth/default-signature') return { ok: true, status: 200, json: async () => ({ signaturePng: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==' }) };
+      if (url === '/api/auth/professional-profile') return { ok: true, status: 200, json: async () => ({ id: 'prof9', userId: 'u1', registrationType: 'CRM', registrationNumber: '123456', registrationState: 'SP', active: true }) };
+      if (url === '/api/signature-pending') return { ok: true, status: 200, json: async () => queue() };
+      if (url.startsWith('/api/signature-history')) return { ok: true, status: 200, json: async () => historyResponse() };
+      return { ok: true, status: 200, json: async () => ({}) };
+    }) as unknown as typeof fetch;
+  };
+
   it('navigates to the dedicated page with the patient-like reading step', async () => {
     const user = userEvent.setup();
     renderPage();
@@ -94,5 +123,39 @@ describe('representative signature page', () => {
     // Sem aceite, o fluxo segue no painel e não envia nada.
     await user.click((await screen.findAllByRole('button', { name: /continuar para confirmação/i }))[0]!);
     expect(calls.some((call) => call.url.endsWith('/confirm'))).toBe(false);
+  });
+
+  it('keeps the confirm preview mounted when dragging the signature box', async () => {
+    mockRepresentativeFetch(true);
+    const user = userEvent.setup();
+    renderAssinarPage();
+    expect(await screen.findByRole('heading', { name: 'Assinar como representante' })).toBeInTheDocument();
+    await user.click((await screen.findAllByRole('button', { name: /continuar para confirmação/i }))[0]!);
+    await waitFor(() => expect(screen.getByLabelText('Página 1 de 2 da prévia')).toBeInTheDocument());
+    const slider = await screen.findByRole('slider', { name: 'Posição da assinatura' });
+    fireEvent.pointerDown(slider, { clientX: 100, clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 140, clientY: 130 });
+    fireEvent.pointerUp(window);
+    // Arrastar invalida a evidência candidata, mas o bloco da prévia
+    // (ancorado no PDF original) continua montado para reposicionar.
+    expect(await screen.findByLabelText('Página 1 de 2 da prévia')).toBeInTheDocument();
+    expect(await screen.findByRole('slider', { name: 'Posição da assinatura' })).toBeInTheDocument();
+  });
+
+  it('keeps the confirm preview block mounted when dragging with only the candidate preview available', async () => {
+    mockRepresentativeFetch(false);
+    const user = userEvent.setup();
+    renderAssinarPage();
+    expect(await screen.findByRole('heading', { name: 'Assinar como representante' })).toBeInTheDocument();
+    await user.click((await screen.findAllByRole('button', { name: /continuar para confirmação/i }))[0]!);
+    // Sem o PDF original, a prévia candidata sustenta o bloco até o arrasto.
+    await waitFor(() => expect(screen.getByText('Confira e ajuste a posição da assinatura')).toBeInTheDocument());
+    const slider = await screen.findByRole('slider', { name: 'Posição da assinatura' });
+    fireEvent.pointerDown(slider, { clientX: 100, clientY: 100, pointerId: 1 });
+    fireEvent.pointerMove(window, { clientX: 140, clientY: 130 });
+    fireEvent.pointerUp(window);
+    // Mesmo sem URL para renderizar, o bloco permanece com um estado de
+    // carregamento em vez de sumir da tela como antes.
+    expect(await screen.findByText('Confira e ajuste a posição da assinatura')).toBeInTheDocument();
   });
 });

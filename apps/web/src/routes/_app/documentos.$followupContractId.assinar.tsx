@@ -642,15 +642,19 @@ function RepresentativeSignPage() {
             </p>
           </div>
 
-          {step === 'confirm' && (pdfUrl || previewUrl) && (
+          {step === 'confirm' && (
             <div ref={previewBlockRef} className="overflow-hidden rounded-2xl border border-[#e3e9e4] bg-white">
               <p className="m-0 border-b border-[#e9ede8] bg-[#f7f8f5] p-3 text-sm font-semibold">Confira e ajuste a posição da assinatura</p>
-              <PreviewPdf
-                url={pdfUrl ?? previewUrl!}
-                placement={placement}
-                signatureImage={composed ?? activeImage}
-                onPlacementChange={handlePlacementChange}
-              />
+              {(pdfUrl || previewUrl) ? (
+                <PreviewPdf
+                  url={pdfUrl ?? previewUrl!}
+                  placement={placement}
+                  signatureImage={composed ?? activeImage}
+                  onPlacementChange={handlePlacementChange}
+                />
+              ) : (
+                <p className="m-0 p-4 text-sm text-[#40524a]" role="status">Carregando o documento…</p>
+              )}
             </div>
           )}
 
