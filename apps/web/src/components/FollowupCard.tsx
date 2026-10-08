@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
-import { FileSignature, Lock } from 'lucide-react';
-import { useState } from 'react';
+import { ChevronDown, FileSignature, Lock } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { ContractSignatureHistory } from '@/components/ContractSignatureHistory';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,12 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
   const cancelFollowup = useCancelFollowup();
   const [cancelOpen, setCancelOpen] = useState(false);
   const open = followup.status !== 'completed' && followup.status !== 'cancelled';
+  // Accordion começa aberto só para acompanhamentos em andamento; os
+  // encerrados (cancelados/concluídos) nascem fechados para não poluir a ficha.
+  const [expanded, setExpanded] = useState(open);
+  useEffect(() => {
+    if (!open) setExpanded(false);
+  }, [open]);
   // O backend só aceita atendimento em acompanhamento ativo; fora disso o
   // botão aparece bloqueado em vez de um link que quebraria no servidor.
   const canRegister = open && followup.status === 'active';
@@ -34,8 +40,14 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
   const visibleContracts = followup.contracts.filter((contract) => contract.status !== 'cancelled');
   return (
     <article className="followup-card" data-state={state} aria-label={`${followup.offerName} (${offerLabel[followup.offerType]})`}>
-      <header className="followup-card__head">
-        <div className="followup-card__title">
+      <button
+        type="button"
+        className="followup-card__head followup-card__toggle"
+        aria-expanded={expanded}
+        aria-label={`${expanded ? 'Minimizar' : 'Expandir'} acompanhamento ${followup.offerName}`}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        <span className="followup-card__title">
           {/* Evento não tem preço contratado: o valor exibido é o realizado, que nasce da baixa. */}
           <strong>{followup.offerName}</strong>
           <span className="followup-card__meta">
@@ -43,13 +55,19 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
             {followup.validUntil && ` · Válido até ${new Date(followup.validUntil).toLocaleDateString('pt-BR')}`}
             {validityDays !== null && !expired && validityDays <= 30 && ` · vence ${validityDays <= 0 ? 'hoje' : `em ${validityDays} dia${validityDays === 1 ? '' : 's'}`}`}
           </span>
-        </div>
-        <div className="followup-card__badges">
+        </span>
+        <span className="followup-card__badges">
           {expired && <StatusBadge tone="danger">Vencido</StatusBadge>}
           {followup.status === 'cancelled' && <StatusBadge tone="danger">Cancelado</StatusBadge>}
           {followup.status === 'completed' && <StatusBadge tone="success">Concluído</StatusBadge>}
-        </div>
-      </header>
+          <ChevronDown className="size-4 followup-card__chevron" data-expanded={expanded} aria-hidden />
+        </span>
+      </button>
+      {/* Corpo sempre montado para animar abre/fecha via grid-rows + opacity;
+          quando fechado fica fora da ordem de tab (inert) e da árvore de
+          acessibilidade (aria-hidden), sem desmontar no meio da transição. */}
+      <div className="followup-card__body" data-expanded={expanded} aria-hidden={!expanded} inert={!expanded}>
+        <div className="followup-card__body-inner">
       {state === 'idle' && visibleContracts.length === 0 && (
         <p className="followup-alert" role="status">
           <strong>Aguardando assinatura</strong> — libera após a assinatura do paciente.
@@ -151,6 +169,8 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
           />
         </footer>
       )}
+        </div>
+      </div>
     </article>
   );
 }

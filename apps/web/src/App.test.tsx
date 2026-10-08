@@ -861,6 +861,33 @@ describe('Acompanhamentos', () => {
     expect(button).toHaveAttribute('title', 'Disponível após a assinatura do paciente.');
   });
 
+  it('expands and collapses the followup card like an accordion', async () => {
+    routes['GET /api/followups'] = () => [pendingFollowup({ offerType: 'plan', status: 'active', anamneses: [], contracts: [] })];
+    routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
+    const user = userEvent.setup();
+    renderAt('/pacientes/p1');
+    const body = () => document.querySelector('article .followup-card__body');
+    const toggle = await screen.findByRole('button', { name: /minimizar acompanhamento combo pele/i });
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(body()).toHaveAttribute('data-expanded', 'true');
+    await user.click(toggle);
+    const expand = await screen.findByRole('button', { name: /expandir acompanhamento combo pele/i });
+    expect(expand).toHaveAttribute('aria-expanded', 'false');
+    expect(body()).toHaveAttribute('data-expanded', 'false');
+    expect(body()).toHaveAttribute('aria-hidden', 'true');
+    await user.click(expand);
+    expect(await screen.findByRole('button', { name: /minimizar acompanhamento combo pele/i })).toHaveAttribute('aria-expanded', 'true');
+    expect(body()).toHaveAttribute('data-expanded', 'true');
+  });
+
+  it('starts cancelled followups collapsed', async () => {
+    routes['GET /api/followups'] = () => [pendingFollowup({ offerType: 'plan', status: 'cancelled', anamneses: [], contracts: [] })];
+    routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
+    renderAt('/pacientes/p1');
+    expect(await screen.findByRole('button', { name: /expandir acompanhamento combo pele/i })).toHaveAttribute('aria-expanded', 'false');
+    expect(document.querySelector('article .followup-card__body')).toHaveAttribute('data-expanded', 'false');
+  });
+
   it('cancels the followup through a modal with a required reason', async () => {
     routes['GET /api/followups'] = () => [pendingFollowup({ anamneses: [], contracts: [] })];
     routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });

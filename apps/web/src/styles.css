@@ -739,6 +739,62 @@ nav {
   gap: 6px;
 }
 
+/* ----- Followup accordion (abre/fecha) ----- */
+
+.followup-card__toggle {
+  background: none;
+  border: 0;
+  padding: 0;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.followup-card__chevron {
+  transition: transform 180ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.followup-card__chevron[data-expanded="true"] {
+  transform: rotate(180deg);
+}
+
+.followup-card__body {
+  display: grid;
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+  transition:
+    grid-template-rows 220ms cubic-bezier(0.23, 1, 0.32, 1),
+    opacity 200ms ease-out,
+    visibility 0s linear 0s;
+}
+
+.followup-card__body[data-expanded="false"] {
+  grid-template-rows: 0fr;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows 220ms cubic-bezier(0.23, 1, 0.32, 1),
+    opacity 200ms ease-out,
+    visibility 0s linear 220ms;
+}
+
+.followup-card__body-inner {
+  overflow: hidden;
+  min-height: 0;
+  display: grid;
+  gap: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .followup-card__body,
+  .followup-card__chevron {
+    transition: none;
+  }
+}
+
 .followup-alert {
   margin: 0;
   border-radius: 10px;
