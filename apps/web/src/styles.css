@@ -810,18 +810,13 @@ nav {
 .followup-contract {
   display: grid;
   gap: 8px;
-  border: 1px dashed var(--line);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ink);
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 12px;
   color: var(--muted);
-}
-
-.followup-contract--pending {
-  border-style: solid;
-  border-color: #f5dfb8;
-  border-left: 3px solid #7a5610;
-  background: #fffdf8;
+  background: var(--soft);
 }
 
 .contract-block {

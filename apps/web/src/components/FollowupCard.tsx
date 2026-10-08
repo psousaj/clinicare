@@ -146,7 +146,7 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
       {visibleContracts.length > 0 && (
         <ul className="followup-contracts" aria-label={`Contratos de ${followup.offerName}`}>
           {visibleContracts.map((contract, index) => (
-            <li key={contract.id ?? index} id={contract.id ? `followup-contract-${contract.id}` : undefined} className={`followup-contract scroll-mt-24${contract.signedAt ? '' : ' followup-contract--pending'}`}>
+            <li key={contract.id ?? index} id={contract.id ? `followup-contract-${contract.id}` : undefined} className="followup-contract scroll-mt-24">
               {contract.id
                 ? <ContractSignatureHistory followupContractId={contract.id} title={contract.title ?? 'Contrato'} signedAt={contract.signedAt} status={contract.status} reprocessable={reprocessableContracts.some((item) => item.id === contract.id)} />
                 : <span className="flex flex-wrap items-center gap-2"><FileSignature className="size-3.5" /> {contract.title} · {contract.signedAt ? 'assinado' : 'assinatura pendente'}</span>}
