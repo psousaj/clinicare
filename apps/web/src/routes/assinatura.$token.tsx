@@ -117,6 +117,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
   const [fingerprint, setFingerprint] = useState<unknown>({ unavailable: true });
   const [idempotencyKey, setIdempotencyKey] = useState(createIdempotencyKey);
   const previewEvidenceRef = useRef<{ idempotencyKey: string; fingerprint: unknown; previewHash: string; placement: RelativePlacement } | null>(null);
+  const previewGenerationRef = useRef(0);
 
   const progress = pageCount === 0 ? 0 : Math.min(1, readPages.length / pageCount);
 
@@ -204,6 +205,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
       const draw = pad.toDataURL();
       setImage(draw);
       storeDraft(token, draw);
+      invalidatePreview();
       return draw;
     }
     return image;
@@ -213,7 +215,16 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
     signaturePadRef.current?.clear();
     setImage(null);
     storeDraft(token, null);
-    setPreviewUrl(null); setPreviewHash(null); setPreviewPlacement(null);
+    invalidatePreview();
+  }
+
+  function invalidatePreview() {
+    previewGenerationRef.current += 1;
+    previewEvidenceRef.current = null;
+    setPreviewBusy(false);
+    setPreviewUrl(null);
+    setPreviewHash(null);
+    setPreviewPlacement(null);
   }
 
   function goToSign() {
@@ -244,37 +255,44 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
     setHint(null);
     setMessage(null);
     autoPreviewTried.current = false;
+    invalidatePreview();
     setStep(target);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   async function runPreview(): Promise<{ idempotencyKey: string; fingerprint: unknown; previewHash: string; placement: RelativePlacement } | null> {
     if (!image) return null;
+    const generation = previewGenerationRef.current;
+    const imageForPreview = image;
+    const placementForPreview = { ...placement };
     setPreviewBusy(true);
     setMessage(null);
     try {
       const fingerprintNow = await collectFingerprint();
       setFingerprint(fingerprintNow);
-      const previewKey = createIdempotencyKey();
-      setIdempotencyKey(previewKey);
-      const response = await fetch(`/public/signatures/${token}/preview`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ documentId: signature.document!.id, baseRevisionId: signature.document!.revisionId, signaturePng: image, placement, idempotencyKey: previewKey, fingerprint: fingerprintNow, acceptanceText: 'Confirmo a assinatura visual deste contrato.' }) });
-      if (!response.ok) { setMessage('Não foi possível gerar a prévia. Verifique sua conexão e tente de novo.'); return null; }
-      const previewBytes = await response.blob();
-      const hash = response.headers.get('etag')?.replaceAll('"', '') ?? null;
-      if (!hash) { setMessage('A prévia foi gerada sem identificação. Tente novamente.'); return null; }
-      setPreviewUrl((previous) => { if (previous) URL.revokeObjectURL(previous); return URL.createObjectURL(previewBytes); });
-      setPreviewHash(hash);
-      setPreviewPlacement({ ...placement });
-      const evidence = { idempotencyKey: previewKey, fingerprint: fingerprintNow, previewHash: hash, placement: { ...placement } };
+       const previewKey = createIdempotencyKey();
+       setIdempotencyKey(previewKey);
+       const response = await fetch(`/public/signatures/${token}/preview`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ documentId: signature.document!.id, baseRevisionId: signature.document!.revisionId, signaturePng: imageForPreview, placement: placementForPreview, idempotencyKey: previewKey, fingerprint: fingerprintNow, acceptanceText: 'Confirmo a assinatura visual deste contrato.' }) });
+       if (!response.ok) { if (generation === previewGenerationRef.current) setMessage('Não foi possível gerar a prévia. Verifique sua conexão e tente de novo.'); return null; }
+       const previewBytes = await response.blob();
+       const hash = response.headers.get('etag')?.replaceAll('"', '') ?? null;
+       if (!hash) { if (generation === previewGenerationRef.current) setMessage('A prévia foi gerada sem identificação. Tente novamente.'); return null; }
+       if (generation !== previewGenerationRef.current) return null;
+       setPreviewUrl(URL.createObjectURL(previewBytes));
+       setPreviewHash(hash);
+       setPreviewPlacement(placementForPreview);
+       const evidence = { idempotencyKey: previewKey, fingerprint: fingerprintNow, previewHash: hash, placement: placementForPreview };
       previewEvidenceRef.current = evidence;
       return evidence;
-    } catch {
-      setMessage('Não foi possível gerar a prévia. Verifique sua conexão e tente de novo.');
-      previewEvidenceRef.current = null;
-      return null;
-    } finally {
-      setPreviewBusy(false);
-    }
+     } catch {
+       if (generation === previewGenerationRef.current) {
+         setMessage('Não foi possível gerar a prévia. Verifique sua conexão e tente de novo.');
+         previewEvidenceRef.current = null;
+       }
+       return null;
+     } finally {
+       if (generation === previewGenerationRef.current) setPreviewBusy(false);
+     }
   }
 
   useEffect(() => {
@@ -321,9 +339,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
   function handlePlacementChange(position: { x: number; y: number; width?: number; height?: number }) {
     setPlacement((current) => ({ ...current, ...position }));
     // A moved/resized box needs a fresh candidate preview before confirmation.
-    previewEvidenceRef.current = null;
-    setPreviewHash(null);
-    setPreviewPlacement(null);
+    invalidatePreview();
   }
 
   if (signature.status === 'signed') {
@@ -413,7 +429,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
               <SignaturePadField
                 ref={signaturePadRef}
                 initialImage={image}
-                onStroke={(draw) => { setImage(draw); storeDraft(token, draw); setMessage(null); }}
+                onStroke={(draw) => { setImage(draw); storeDraft(token, draw); invalidatePreview(); setMessage(null); }}
                 onClear={clear}
                 label="Área para desenhar sua assinatura"
                 tall
@@ -424,7 +440,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
                 <button
                   type="button"
                   className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg border border-[#d8e2dc] bg-[#f7faf8] px-3.5 text-sm font-semibold text-[#26785f] transition-[background-color,border-color,color,transform] duration-150 ease-out hover:border-[#b9d3c0] hover:bg-[#eef5f1] hover:text-[#194d40] active:scale-[0.98]"
-                  onClick={() => setStep('read')}
+                  onClick={() => goBackToStep('read')}
                 >
                   <svg aria-hidden="true" viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 10H5m4-4-4 4 4 4" /></svg>
                   Voltar à leitura
@@ -463,7 +479,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
               </label>
               {message && <p className="m-0 text-sm font-medium text-[#b3261e]" role="alert">{message}</p>}
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <button type="button" className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg border border-[#d8e2dc] bg-white px-3.5 text-sm font-semibold text-[#5b6b64] transition-[background-color,border-color,color,transform] duration-150 ease-out hover:border-[#b9d3c0] hover:bg-[#f7faf8] hover:text-[#25312d] active:scale-[0.98]" onClick={() => { autoPreviewTried.current = false; setStep('sign'); }}>
+                <button type="button" className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg border border-[#d8e2dc] bg-white px-3.5 text-sm font-semibold text-[#5b6b64] transition-[background-color,border-color,color,transform] duration-150 ease-out hover:border-[#b9d3c0] hover:bg-[#f7faf8] hover:text-[#25312d] active:scale-[0.98]" onClick={() => goBackToStep('sign')}>
                   <svg aria-hidden="true" viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 10H5m4-4-4 4 4 4" /></svg>
                   Refazer assinatura
                 </button>
