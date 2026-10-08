@@ -28,4 +28,6 @@ COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/docker/manage /usr/local/bin/manage
 RUN chmod +x /usr/local/bin/manage
 EXPOSE 3000
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
+  CMD bun -e 'fetch("http://127.0.0.1:3000/api/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))'
 CMD ["bun", "apps/api/dist/index.js"]
