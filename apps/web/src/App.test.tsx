@@ -1273,7 +1273,7 @@ describe('Documentos', () => {
     routes['GET /api/signature-pending'] = () => queue();
     renderAt('/documentos');
     expect(await screen.findByRole('heading', { name: 'Sua assinatura' })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: /revisar e assinar/i })).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: /revisar e assinar/i })).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Falta o paciente' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /abrir paciente/i })).toHaveAttribute('href', '/pacientes/p1');
   });
