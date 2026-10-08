@@ -100,7 +100,12 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
                   <span className="flex flex-wrap items-center justify-end gap-2">
                     {canRegister
                       ? (
-                        <Button variant="outline" size="sm" asChild>
+                         <Button
+                           variant="outline"
+                           size="sm"
+                           className="border-[var(--green)] bg-[var(--green)] text-white hover:border-[var(--deep)] hover:bg-[var(--deep)] hover:text-white"
+                           asChild
+                         >
                           <Link to="/pacientes/$patientId/novo-atendimento/$itemId" params={{ patientId, itemId: item.id }}>Registrar atendimento</Link>
                         </Button>
                       )
@@ -108,6 +113,7 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
                         <Button
                           variant="outline"
                           size="sm"
+                          className="border-[var(--green)] bg-[var(--green)] text-white"
                           disabled
                           title={followup.status === 'idle' ? 'Disponível após a assinatura do paciente.' : 'Acompanhamento encerrado.'}
                         >

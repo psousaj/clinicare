@@ -870,6 +870,7 @@ describe('Acompanhamentos', () => {
     const toggle = await screen.findByRole('button', { name: /minimizar acompanhamento combo pele/i });
     expect(toggle).toHaveAttribute('aria-expanded', 'true');
     expect(body()).toHaveAttribute('data-expanded', 'true');
+    expect(screen.getByRole('link', { name: /registrar atendimento/i })).toHaveClass('bg-[var(--green)]');
     await user.click(toggle);
     const expand = await screen.findByRole('button', { name: /expandir acompanhamento combo pele/i });
     expect(expand).toHaveAttribute('aria-expanded', 'false');
