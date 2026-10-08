@@ -48,7 +48,7 @@ vi.mock('signature_pad', () => ({
   },
 }));
 
-describe('representative signature workspace', () => {
+describe('representative signature page', () => {
   let calls: { url: string; method: string; body: unknown }[];
   beforeEach(() => {
     calls = [];
@@ -56,6 +56,7 @@ describe('representative signature workspace', () => {
       const method = init?.method ?? 'GET';
       calls.push({ url, method, body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined });
       if (url === '/api/auth/get-session') return { ok: true, status: 200, json: async () => ({ user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com' } }) };
+      if (url === '/api/auth/me') return { ok: true, status: 200, json: async () => ({ user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com' }, tenant: { id: 't1', name: 'Clínica Teste' } }) };
       if (url === '/api/auth/professional-profile') return { ok: true, status: 200, json: async () => ({ id: 'prof9', userId: 'u1', registrationType: 'CRM', registrationNumber: '123456', registrationState: 'SP', active: true }) };
       if (url === '/api/signature-pending') return { ok: true, status: 200, json: async () => queue() };
       if (url.startsWith('/api/signature-history')) return { ok: true, status: 200, json: async () => historyResponse() };
@@ -76,21 +77,22 @@ describe('representative signature workspace', () => {
     render(<QueryClientProvider client={createQueryClient()}><RouterProvider router={router} /></QueryClientProvider>);
   };
 
-  it('previews and confirms the representative signature with panel endpoints', async () => {
+  it('navigates to the dedicated page with the patient-like reading step', async () => {
     const user = userEvent.setup();
     renderPage();
-    await user.click(await screen.findByRole('button', { name: /revisar e assinar/i }));
-    expect(await screen.findByRole('heading', { name: 'Contrato padrão' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /visualizar prévia do pdf/i }));
-    expect(await screen.findByTitle('Prévia do PDF candidato')).toBeInTheDocument();
-    await user.click(screen.getByRole('checkbox'));
-    await user.click(screen.getByRole('button', { name: /confirmar assinatura/i }));
-    await waitFor(() => expect(calls.some((call) => call.url.endsWith('/confirm'))).toBe(true));
-    const preview = calls.find((call) => call.url.endsWith('/preview'))?.body as Record<string, unknown>;
-    expect(preview).toMatchObject({ documentId: 'd1', baseRevisionId: 'r1', placement: { pageIndex: 0 }, acceptanceText: 'Confirmo a assinatura visual deste contrato.' });
-    const confirmRequest = calls.find((call) => call.url.endsWith('/confirm'))?.body as { evidence?: Record<string, unknown> };
-    const confirm = confirmRequest.evidence;
-    expect(confirm).toMatchObject({ documentId: 'd1', baseRevisionId: 'r1', confirmed: true, previewHash: 'b'.repeat(64) });
-    expect(await screen.findByText('Assinatura registrada')).toBeInTheDocument();
+    await user.click(await screen.findByRole('link', { name: /revisar e assinar/i }));
+    // O representante começa direto na assinatura: não repete a leitura do contrato.
+    expect(await screen.findByRole('heading', { name: 'Assinar como representante' })).toBeInTheDocument();
+    expect(await screen.findByLabelText('Área para desenhar sua assinatura')).toBeInTheDocument();
+  });
+
+  it('shows validation where the user is looking when the aceite is missing', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole('link', { name: /revisar e assinar/i }));
+    expect(await screen.findByRole('heading', { name: 'Assinar como representante' })).toBeInTheDocument();
+    // Sem aceite, o fluxo segue no painel e não envia nada.
+    await user.click((await screen.findAllByRole('button', { name: /continuar para confirmação/i }))[0]!);
+    expect(calls.some((call) => call.url.endsWith('/confirm'))).toBe(false);
   });
 });

@@ -1,13 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
-import { BadgeCheck, FileText, History, Stamp } from 'lucide-react';
-import { useEffect, useState, type FormEvent } from 'react';
+import { BadgeCheck, FileText, History, PenLine, Settings2, Stamp, UserRound } from 'lucide-react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { QueryError } from '@/components/QueryState';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Field } from '@/components/Field';
 import { Button } from '@/components/ui/button';
+import { SignaturePadField, type SignaturePadHandle } from '@/components/signing/SignaturePadField';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
-import { professionalProfileQuery, accountQuery, sessionQuery, useSaveProfessionalProfile, useUpdateAccount } from '@/lib/queries';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { defaultSignatureQuery, professionalProfileQuery, accountQuery, sessionQuery, useSaveDefaultSignature, useSaveProfessionalProfile, useUpdateAccount } from '@/lib/queries';
 
 export const Route = createFileRoute('/_app/configuracoes')({ component: Settings });
 
@@ -20,6 +22,10 @@ const STATES = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT'
 function Settings() {
   const profile = useQuery(professionalProfileQuery);
   const session = useQuery(sessionQuery);
+  const defaultSignature = useQuery(defaultSignatureQuery);
+  const saveDefaultSignature = useSaveDefaultSignature();
+  const signaturePad = useRef<SignaturePadHandle>(null);
+  const [signaturePng, setSignaturePng] = useState<string | null>(null);
   const save = useSaveProfessionalProfile();
   const [council, setCouncil] = useState('');
   const [number, setNumber] = useState('');
@@ -32,6 +38,10 @@ function Settings() {
     setState(profile.data.registrationState ?? '');
   }, [profile.data]);
 
+  useEffect(() => {
+    if (defaultSignature.data) setSignaturePng(defaultSignature.data.signaturePng);
+  }, [defaultSignature.data]);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await save.mutateAsync({ registrationType: council, registrationNumber: number.trim(), registrationState: state || null });
@@ -40,9 +50,36 @@ function Settings() {
   const stampLine = council && number.trim() ? `${council} ${number.trim()}${state ? `/${state}` : ''}` : null;
 
   return (
-    <div className="grid items-start gap-4">
-      <ClinicAccountPanel />
-      <div className="grid items-start gap-4 lg:grid-cols-[1fr_340px]">
+    <Tabs defaultValue="identity" className="items-stretch">
+      <TabsList aria-label="Seções de configurações">
+        <TabsTrigger value="account"><Settings2 aria-hidden="true" /> Clínica e conta</TabsTrigger>
+        <TabsTrigger value="identity"><UserRound aria-hidden="true" /> Identidade profissional</TabsTrigger>
+        <TabsTrigger value="signature"><PenLine aria-hidden="true" /> Assinatura</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="account">
+        <ClinicAccountPanel />
+      </TabsContent>
+
+      <TabsContent value="signature">
+      <section className="panel grid gap-4" aria-label="Assinatura padrão">
+        <div className="panel-header">
+          <div><div className="section-kicker">ASSINATURA PADRÃO</div><h2>Desenhe uma vez</h2></div>
+          <StatusBadge tone={signaturePng ? 'success' : 'warning'}>{signaturePng ? 'Salva' : 'Não configurada'}</StatusBadge>
+        </div>
+        <p className="section-note m-0">Sua assinatura fica salva nesta conta e aparece pronta nos próximos documentos. Você ainda pode desenhar outra durante qualquer assinatura.</p>
+        <SignaturePadField ref={signaturePad} initialImage={signaturePng} onStroke={setSignaturePng} label="Área para desenhar sua assinatura padrão" />
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="ghost" onClick={() => { signaturePad.current?.clear(); setSignaturePng(null); }}>Limpar</Button>
+          <Button type="button" disabled={saveDefaultSignature.isPending || defaultSignature.isLoading} onClick={() => saveDefaultSignature.mutate(signaturePng)}>
+            {saveDefaultSignature.isPending ? 'Salvando…' : 'Salvar assinatura padrão'}
+          </Button>
+        </div>
+      </section>
+      </TabsContent>
+
+      <TabsContent value="identity">
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
       <section className="panel grid gap-4">
         <div className="panel-header">
           <div>
@@ -105,7 +142,8 @@ function Settings() {
         <p className="m-0 text-xs text-muted-foreground">É assim que sua identificação sai impressa no contrato do paciente.</p>
       </aside>
       </div>
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 }
 

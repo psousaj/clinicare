@@ -88,6 +88,7 @@ function AppLayout() {
     : (navigation.find(({ to }) => (to === '/' ? pathname === '/' : pathname.startsWith(to))) ?? navigation[0]);
   const path = pathname.replace(/(.)\/$/, '$1');
   const showNewPatient = path === '/pacientes';
+  const isSigning = pathname.includes('/assinar');
 
   return (
     <div className="app-shell">
@@ -103,18 +104,18 @@ function AppLayout() {
             </div>
           </header>
           <div className="content-wrap">
-            <section className="welcome-row">
+            {!isSigning && <section className="welcome-row">
               <div>
                 <h1>{current.title}</h1>
                 <p className="welcome-subtitle">Gestão de pacientes, procedimentos e cuidados.</p>
               </div>
               {path === '/' && <QuickActions />}
               {showNewPatient && <Button asChild><Link to="/pacientes/novo"><Plus size={17} /> Novo paciente</Link></Button>}
-            </section>
+            </section>}
             <Outlet />
-            <footer className="page-footer">
+            {!isSigning && <footer className="page-footer">
               <span>Clínicare <span className="brand-dot">.</span> Gestão feita com cuidado.</span>
-            </footer>
+            </footer>}
           </div>
         </main>
         <nav className="mobile-dock" aria-label="Atalhos principais">

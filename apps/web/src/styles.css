@@ -359,6 +359,14 @@ nav {
   padding: 36px 40px;
 }
 
+/* O fluxo de assinatura é uma estação de trabalho, não uma página infinita.
+   O documento tem seu próprio scroll; o shell respeita a altura visível do
+   viewport para não criar uma segunda barra atrás do painel. */
+.signing-flow {
+  min-height: calc(100dvh - 128px);
+  overflow: visible;
+}
+
 /* ----- Welcome Row ----- */
 
 .welcome-row {

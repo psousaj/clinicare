@@ -225,6 +225,13 @@
       "when": 1791440000000,
       "tag": "0031_event_followup_item_cancel",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791441000000,
+      "tag": "0032_default_signature",
+      "breakpoints": true
     }
   ]
 }

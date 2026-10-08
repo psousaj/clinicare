@@ -58,20 +58,24 @@ describe('patient signature workspace', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders the selected PDF page and submits normalized placement after explicit confirmation', async () => {
+  it('walks read, sign and confirm steps and submits normalized placement after explicit confirmation', async () => {
     const user = userEvent.setup();
     renderPage();
 
     expect(await screen.findByRole('heading', { name: 'Contrato de teste' })).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Página 2' })).toBeEnabled());
-    await user.click(screen.getByRole('button', { name: 'Página 2' }));
-    await user.click(screen.getByRole('button', { name: 'Usar assinatura' }));
-    await user.click(screen.getByRole('button', { name: 'Visualizar prévia do PDF' }));
+    // Leitura contínua das páginas (passo 1 de 3).
+    expect(await screen.findByText(/Página 1 de 2/)).toBeInTheDocument();
+    await user.click((await screen.findAllByRole('button', { name: 'Continuar para assinatura' }))[0]!);
+    // Assinatura com canvas grande (passo 2 de 3); o mock nunca está vazio,
+    // então o Continuar captura o traço como um desenho real faria no onEnd.
+    expect(await screen.findByLabelText('Área para desenhar sua assinatura')).toBeInTheDocument();
+    await user.click((await screen.findAllByRole('button', { name: 'Continuar' }))[0]!);
+    // Confirmação com prévia automática (passo 3 de 3).
     await waitFor(() => expect(screen.getByTitle('Prévia do PDF candidato')).toBeInTheDocument());
-    await user.click(screen.getByRole('checkbox', { name: /revisei o contrato/i }));
-    await user.click(screen.getByRole('button', { name: 'Confirmar assinatura' }));
+    await user.click(screen.getByRole('checkbox', { name: /li e concordo/i }));
+    await user.click((await screen.findAllByRole('button', { name: 'Assinar documento' }))[0]!);
 
-    await waitFor(() => expect(screen.getByRole('heading', { name: 'Assinatura registrada' })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Documento assinado!' })).toBeInTheDocument());
     const request = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(([url, init]) => url === '/public/signatures/test-token/confirm' && init?.method === 'POST');
     expect(request).toBeDefined();
     const body = JSON.parse(request![1].body as string);
@@ -93,11 +97,12 @@ describe('patient signature workspace', () => {
     const user = userEvent.setup();
     renderPage();
     expect(await screen.findByRole('heading', { name: 'Contrato de teste' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Usar assinatura' }));
-    await user.click(screen.getByRole('button', { name: 'Visualizar prévia do PDF' }));
+    expect(await screen.findByText(/Página 1 de 2/)).toBeInTheDocument();
+    await user.click((await screen.findAllByRole('button', { name: 'Continuar para assinatura' }))[0]!);
+    await user.click((await screen.findAllByRole('button', { name: 'Continuar' }))[0]!);
     await waitFor(() => expect(screen.getByTitle('Prévia do PDF candidato')).toBeInTheDocument());
-    await user.click(screen.getByRole('checkbox', { name: /revisei o contrato/i }));
-    await user.click(screen.getByRole('button', { name: 'Confirmar assinatura' }));
+    await user.click(screen.getByRole('checkbox', { name: /li e concordo/i }));
+    await user.click((await screen.findAllByRole('button', { name: 'Assinar documento' }))[0]!);
 
     expect(await screen.findByText(/O documento foi atualizado antes da confirmação/i)).toBeInTheDocument();
   });
@@ -118,6 +123,8 @@ describe('patient signature workspace', () => {
 
     const user = userEvent.setup();
     renderPage();
+    expect(await screen.findByRole('heading', { name: 'Contrato de teste' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /usar assinatura gov\.br/i }));
     expect(await screen.findByRole('heading', { name: 'Assinar pelo GOV.BR' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Exportar revisão para o GOV.BR' }));
     expect(await screen.findByText(/Baixar o PDF exato da revisão/i)).toBeInTheDocument();
@@ -150,7 +157,8 @@ describe('patient signature workspace', () => {
 
     renderPage();
     expect(await screen.findByRole('heading', { name: 'Contrato de teste' })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Ver histórico' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Ver histórico da assinatura' }));
+    await userEvent.click(await screen.findByRole('button', { name: /^ver histórico$/i }));
     expect(await screen.findByText(/Assinatura confirmada/i)).toBeInTheDocument();
     expect(await screen.findByText(/Manuscrita local/i)).toBeInTheDocument();
     expect(await screen.findByText(/Baixar PDF desta revisão/i)).toBeInTheDocument();

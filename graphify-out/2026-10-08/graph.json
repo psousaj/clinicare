@@ -508,7 +508,7 @@
       "file_type": "code",
       "norm_label": "govbrstate",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L529"
+      "source_location": "L522"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_pagegeometry",
@@ -534,7 +534,7 @@
       "file_type": "code",
       "norm_label": "publichistoryevent",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L767"
+      "source_location": "L760"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_publichistoryrevision",
@@ -547,7 +547,7 @@
       "file_type": "code",
       "norm_label": "publichistoryrevision",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L768"
+      "source_location": "L761"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_relativeplacement",
@@ -2626,7 +2626,7 @@
       "file_type": "code",
       "norm_label": "flag()",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L355"
+      "source_location": "L354"
     },
     {
       "id": "apps_web_src_routes_app_documentos_followupcontractid_assinar_representativesignpage_handleclear",
@@ -2638,7 +2638,7 @@
       "file_type": "code",
       "norm_label": "handleclear()",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L383"
+      "source_location": "L379"
     },
     {
       "id": "apps_web_src_routes_app_documentos_followupcontractid_assinar_representativesignpage_handleconfirm",
@@ -2650,7 +2650,7 @@
       "file_type": "code",
       "norm_label": "handleconfirm()",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L420"
+      "source_location": "L416"
     },
     {
       "id": "apps_web_src_routes_app_documentos_followupcontractid_assinar_representativesignpage_handledrawother",
@@ -2662,7 +2662,7 @@
       "file_type": "code",
       "norm_label": "handledrawother()",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L409"
+      "source_location": "L405"
     },
     {
       "id": "apps_web_src_routes_app_documentos_followupcontractid_assinar_representativesignpage_handleplacementchange",
@@ -2674,7 +2674,7 @@
       "file_type": "code",
       "norm_label": "handleplacementchange()",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L394"
+      "source_location": "L390"
     },
     {
       "id": "apps_web_src_routes_app_documentos_followupcontractid_assinar_representativesignpage_handleprimaryaction",
@@ -2686,7 +2686,7 @@
       "file_type": "code",
       "norm_label": "handleprimaryaction()",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L500"
+      "source_location": "L496"
     },
     {
       "id": "apps_web_src_routes_app_documentos_followupcontractid_assinar_representativesignpage_handlestroke",
@@ -2698,7 +2698,7 @@
       "file_type": "code",
       "norm_label": "handlestroke()",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L372"
+      "source_location": "L368"
     },
     {
       "id": "apps_web_src_routes_app_documentos_followupcontractid_assinar_representativesignpage_handleusesaved",
@@ -2710,7 +2710,7 @@
       "file_type": "code",
       "norm_label": "handleusesaved()",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L402"
+      "source_location": "L398"
     },
     {
       "id": "apps_web_src_routes_app_documentos_followupcontractid_assinar_representativesignpage_loadpdf",
@@ -2722,7 +2722,7 @@
       "file_type": "code",
       "norm_label": "loadpdf()",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L222"
+      "source_location": "L221"
     },
     {
       "id": "apps_web_src_routes_app_documentos_followupcontractid_assinar_representativesignpage_runpreview",
@@ -2734,7 +2734,7 @@
       "file_type": "code",
       "norm_label": "runpreview()",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L300"
+      "source_location": "L299"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_draft_storage_key",
@@ -2782,7 +2782,7 @@
       "file_type": "code",
       "norm_label": "capturefrompad()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L234"
+      "source_location": "L232"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_signingworkspace_clear",
@@ -2794,7 +2794,7 @@
       "file_type": "code",
       "norm_label": "clear()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L245"
+      "source_location": "L243"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_signingworkspace_confirm",
@@ -2806,7 +2806,7 @@
       "file_type": "code",
       "norm_label": "confirm()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L306"
+      "source_location": "L304"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_signingworkspace_gotoconfirm",
@@ -2818,7 +2818,7 @@
       "file_type": "code",
       "norm_label": "gotoconfirm()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L265"
+      "source_location": "L263"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_signingworkspace_gotosign",
@@ -2830,7 +2830,7 @@
       "file_type": "code",
       "norm_label": "gotosign()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L253"
+      "source_location": "L251"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_signingworkspace_loadpdf",
@@ -2842,7 +2842,7 @@
       "file_type": "code",
       "norm_label": "loadpdf()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L134"
+      "source_location": "L132"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_signingworkspace_renderall",
@@ -2854,7 +2854,7 @@
       "file_type": "code",
       "norm_label": "renderall()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L158"
+      "source_location": "L156"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_signingworkspace_runpreview",
@@ -2866,7 +2866,7 @@
       "file_type": "code",
       "norm_label": "runpreview()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L277"
+      "source_location": "L275"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_storedraft",
@@ -3706,7 +3706,7 @@
       "file_type": "code",
       "norm_label": "govbrsection()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L666"
+      "source_location": "L659"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_govbrsection_acceptreturn",
@@ -3718,7 +3718,7 @@
       "file_type": "code",
       "norm_label": "acceptreturn()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L716"
+      "source_location": "L709"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_govbrsection_cancelattempt",
@@ -3730,7 +3730,7 @@
       "file_type": "code",
       "norm_label": "cancelattempt()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L732"
+      "source_location": "L725"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_govbrsection_exportrevision",
@@ -3742,7 +3742,7 @@
       "file_type": "code",
       "norm_label": "exportrevision()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L680"
+      "source_location": "L673"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_govbrsection_importreturn",
@@ -3754,7 +3754,7 @@
       "file_type": "code",
       "norm_label": "importreturn()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L696"
+      "source_location": "L689"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_govbrsection_postjson",
@@ -3766,7 +3766,7 @@
       "file_type": "code",
       "norm_label": "postjson()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L673"
+      "source_location": "L666"
     },
     {
       "id": "apps_api_src_storage_config_resolvestorageconfig",
@@ -6682,7 +6682,7 @@
       "file_type": "code",
       "norm_label": "draggablesignature()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L616"
+      "source_location": "L609"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_draggablesignature_start",
@@ -6694,7 +6694,7 @@
       "file_type": "code",
       "norm_label": "start()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L619"
+      "source_location": "L612"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_phonegate",
@@ -6718,7 +6718,7 @@
       "file_type": "code",
       "norm_label": "previewpdf()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L535"
+      "source_location": "L528"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_previewpdf_renderpages",
@@ -6730,7 +6730,7 @@
       "file_type": "code",
       "norm_label": "renderpages()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L566"
+      "source_location": "L559"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_publicshell",
@@ -6742,7 +6742,7 @@
       "file_type": "code",
       "norm_label": "publicshell()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L823"
+      "source_location": "L816"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_signaturepage",
@@ -9406,7 +9406,7 @@
       "file_type": "code",
       "norm_label": "signaturehistorysection()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L770"
+      "source_location": "L763"
     },
     {
       "id": "apps_web_src_routes_assinatura_token_signaturehistorysection_load",
@@ -9418,7 +9418,7 @@
       "file_type": "code",
       "norm_label": "load()",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L774"
+      "source_location": "L767"
     },
     {
       "id": "apps_web_src_routes_formulario_token_anamnesisform",
@@ -41483,7 +41483,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L101",
+      "source_location": "L100",
       "weight": 1.0
     },
     {
@@ -41495,7 +41495,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L153",
+      "source_location": "L152",
       "weight": 1.0
     },
     {
@@ -41507,7 +41507,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L167",
+      "source_location": "L166",
       "weight": 1.0
     },
     {
@@ -41519,7 +41519,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L192",
+      "source_location": "L191",
       "weight": 1.0
     },
     {
@@ -41531,7 +41531,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L203",
+      "source_location": "L202",
       "weight": 1.0
     },
     {
@@ -41543,7 +41543,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L252",
+      "source_location": "L251",
       "weight": 1.0
     },
     {
@@ -41555,7 +41555,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L309",
+      "source_location": "L308",
       "weight": 1.0
     },
     {
@@ -41567,7 +41567,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L314",
+      "source_location": "L313",
       "weight": 1.0
     },
     {
@@ -41579,7 +41579,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L548",
+      "source_location": "L544",
       "weight": 1.0
     },
     {
@@ -41591,7 +41591,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L594",
+      "source_location": "L590",
       "weight": 1.0
     },
     {
@@ -41603,7 +41603,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L600",
+      "source_location": "L596",
       "weight": 1.0
     },
     {
@@ -41615,7 +41615,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L622",
+      "source_location": "L618",
       "weight": 1.0
     },
     {
@@ -41639,7 +41639,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L652",
+      "source_location": "L648",
       "weight": 1.0
     },
     {
@@ -41651,7 +41651,19 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L675",
+      "source_location": "L671",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_web_src_routes_app_documentos_followupcontractid_assinar_representativesignpage",
+      "target": "apps_web_src_components_signing_signchecklist_signchecklist",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
+      "source_location": "L688",
       "weight": 1.0
     },
     {
@@ -41664,18 +41676,6 @@
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
       "source_location": "L69",
-      "weight": 1.0
-    },
-    {
-      "source": "apps_web_src_routes_app_documentos_followupcontractid_assinar_representativesignpage",
-      "target": "apps_web_src_components_signing_signchecklist_signchecklist",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L692",
       "weight": 1.0
     },
     {
@@ -41699,7 +41699,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L425",
+      "source_location": "L421",
       "weight": 1.0
     },
     {
@@ -41711,7 +41711,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L448",
+      "source_location": "L444",
       "weight": 1.0
     },
     {
@@ -41723,7 +41723,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L476",
+      "source_location": "L472",
       "weight": 1.0
     },
     {
@@ -41735,7 +41735,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L504",
+      "source_location": "L500",
       "weight": 1.0
     },
     {
@@ -41747,7 +41747,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L513",
+      "source_location": "L509",
       "weight": 1.0
     },
     {
@@ -41759,7 +41759,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L406",
+      "source_location": "L402",
       "weight": 1.0
     },
     {
@@ -41771,7 +41771,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L302",
+      "source_location": "L301",
       "weight": 1.0
     },
     {
@@ -41783,7 +41783,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L309",
+      "source_location": "L308",
       "weight": 1.0
     },
     {
@@ -41795,7 +41795,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L312",
+      "source_location": "L311",
       "weight": 1.0
     },
     {
@@ -41807,7 +41807,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L314",
+      "source_location": "L313",
       "weight": 1.0
     },
     {
@@ -43487,7 +43487,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L683",
+      "source_location": "L676",
       "weight": 1.0
     },
     {
@@ -43499,7 +43499,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L750",
+      "source_location": "L743",
       "weight": 1.0
     },
     {
@@ -43511,7 +43511,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L719",
+      "source_location": "L712",
       "weight": 1.0
     },
     {
@@ -43523,7 +43523,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L720",
+      "source_location": "L713",
       "weight": 1.0
     },
     {
@@ -43535,7 +43535,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L735",
+      "source_location": "L728",
       "weight": 1.0
     },
     {
@@ -43547,7 +43547,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L683",
+      "source_location": "L676",
       "weight": 1.0
     },
     {
@@ -43559,7 +43559,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L684",
+      "source_location": "L677",
       "weight": 1.0
     },
     {
@@ -43571,7 +43571,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L702",
+      "source_location": "L695",
       "weight": 1.0
     },
     {
@@ -43583,7 +43583,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L703",
+      "source_location": "L696",
       "weight": 1.0
     },
     {
@@ -43631,7 +43631,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L608",
+      "source_location": "L601",
       "weight": 1.0
     },
     {
@@ -43655,7 +43655,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L777",
+      "source_location": "L770",
       "weight": 1.0
     },
     {
@@ -43667,7 +43667,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L788",
+      "source_location": "L781",
       "weight": 1.0
     },
     {
@@ -43679,7 +43679,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L777",
+      "source_location": "L770",
       "weight": 1.0
     },
     {
@@ -43739,7 +43739,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L128",
+      "source_location": "L126",
       "weight": 1.0
     },
     {
@@ -43751,7 +43751,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L213",
+      "source_location": "L211",
       "weight": 1.0
     },
     {
@@ -43763,7 +43763,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L220",
+      "source_location": "L218",
       "weight": 1.0
     },
     {
@@ -43775,7 +43775,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L324",
+      "source_location": "L317",
       "weight": 1.0
     },
     {
@@ -43787,7 +43787,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L342",
+      "source_location": "L335",
       "weight": 1.0
     },
     {
@@ -43799,7 +43799,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L426",
+      "source_location": "L419",
       "weight": 1.0
     },
     {
@@ -43811,7 +43811,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L475",
+      "source_location": "L468",
       "weight": 1.0
     },
     {
@@ -43823,7 +43823,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L517",
+      "source_location": "L510",
       "weight": 1.0
     },
     {
@@ -43835,7 +43835,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L518",
+      "source_location": "L511",
       "weight": 1.0
     },
     {
@@ -43847,7 +43847,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L239",
+      "source_location": "L237",
       "weight": 1.0
     },
     {
@@ -43859,7 +43859,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L246",
+      "source_location": "L244",
       "weight": 1.0
     },
     {
@@ -43871,7 +43871,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L249",
+      "source_location": "L247",
       "weight": 1.0
     },
     {
@@ -43883,7 +43883,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L316",
+      "source_location": "L309",
       "weight": 1.0
     },
     {
@@ -43895,7 +43895,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L321",
+      "source_location": "L314",
       "weight": 1.0
     },
     {
@@ -43907,7 +43907,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L324",
+      "source_location": "L317",
       "weight": 1.0
     },
     {
@@ -43919,7 +43919,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L327",
+      "source_location": "L320",
       "weight": 1.0
     },
     {
@@ -43931,7 +43931,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L266",
+      "source_location": "L264",
       "weight": 1.0
     },
     {
@@ -43943,7 +43943,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L282",
+      "source_location": "L280",
       "weight": 1.0
     },
     {
@@ -45275,7 +45275,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L222",
+      "source_location": "L221",
       "weight": 1.0
     },
     {
@@ -45287,7 +45287,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L300",
+      "source_location": "L299",
       "weight": 1.0
     },
     {
@@ -45299,7 +45299,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L500",
+      "source_location": "L496",
       "weight": 1.0
     },
     {
@@ -45347,7 +45347,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L619",
+      "source_location": "L612",
       "weight": 1.0
     },
     {
@@ -45359,7 +45359,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L680",
+      "source_location": "L673",
       "weight": 1.0
     },
     {
@@ -45371,7 +45371,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L696",
+      "source_location": "L689",
       "weight": 1.0
     },
     {
@@ -45383,7 +45383,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L716",
+      "source_location": "L709",
       "weight": 1.0
     },
     {
@@ -45395,7 +45395,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L732",
+      "source_location": "L725",
       "weight": 1.0
     },
     {
@@ -45407,7 +45407,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L566",
+      "source_location": "L559",
       "weight": 1.0
     },
     {
@@ -45419,7 +45419,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L774",
+      "source_location": "L767",
       "weight": 1.0
     },
     {
@@ -45431,7 +45431,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L134",
+      "source_location": "L132",
       "weight": 1.0
     },
     {
@@ -45443,7 +45443,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L158",
+      "source_location": "L156",
       "weight": 1.0
     },
     {
@@ -45455,7 +45455,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L277",
+      "source_location": "L275",
       "weight": 1.0
     },
     {
@@ -45467,7 +45467,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L306",
+      "source_location": "L304",
       "weight": 1.0
     },
     {
@@ -97122,7 +97122,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L355",
+      "source_location": "L354",
       "weight": 1.0
     },
     {
@@ -97133,7 +97133,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L372",
+      "source_location": "L368",
       "weight": 1.0
     },
     {
@@ -97144,7 +97144,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L383",
+      "source_location": "L379",
       "weight": 1.0
     },
     {
@@ -97155,7 +97155,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L394",
+      "source_location": "L390",
       "weight": 1.0
     },
     {
@@ -97166,7 +97166,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L402",
+      "source_location": "L398",
       "weight": 1.0
     },
     {
@@ -97177,7 +97177,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L409",
+      "source_location": "L405",
       "weight": 1.0
     },
     {
@@ -97188,7 +97188,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/_app/documentos.$followupContractId.assinar.tsx",
-      "source_location": "L420",
+      "source_location": "L416",
       "weight": 1.0
     },
     {
@@ -97694,7 +97694,18 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L529",
+      "source_location": "L522",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_web_src_routes_assinatura_token",
+      "target": "apps_web_src_routes_assinatura_token_previewpdf",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/web/src/routes/assinatura.$token.tsx",
+      "source_location": "L528",
       "weight": 1.0
     },
     {
@@ -97706,17 +97717,6 @@
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
       "source_location": "L53",
-      "weight": 1.0
-    },
-    {
-      "source": "apps_web_src_routes_assinatura_token",
-      "target": "apps_web_src_routes_assinatura_token_previewpdf",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L535",
       "weight": 1.0
     },
     {
@@ -97760,7 +97760,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L616",
+      "source_location": "L609",
       "weight": 1.0
     },
     {
@@ -97782,7 +97782,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L666",
+      "source_location": "L659",
       "weight": 1.0
     },
     {
@@ -97804,7 +97804,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L767",
+      "source_location": "L760",
       "weight": 1.0
     },
     {
@@ -97815,7 +97815,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L768",
+      "source_location": "L761",
       "weight": 1.0
     },
     {
@@ -97826,7 +97826,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L770",
+      "source_location": "L763",
       "weight": 1.0
     },
     {
@@ -97837,7 +97837,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L823",
+      "source_location": "L816",
       "weight": 1.0
     },
     {
@@ -97859,7 +97859,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L673",
+      "source_location": "L666",
       "weight": 1.0
     },
     {
@@ -97870,7 +97870,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L234",
+      "source_location": "L232",
       "weight": 1.0
     },
     {
@@ -97881,7 +97881,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L245",
+      "source_location": "L243",
       "weight": 1.0
     },
     {
@@ -97892,7 +97892,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L253",
+      "source_location": "L251",
       "weight": 1.0
     },
     {
@@ -97903,7 +97903,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/web/src/routes/assinatura.$token.tsx",
-      "source_location": "L265",
+      "source_location": "L263",
       "weight": 1.0
     },
     {

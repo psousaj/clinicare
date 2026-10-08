@@ -14,7 +14,7 @@ import { createPayment, deletePayment, listPayments } from './payments';
 import { deleteObject } from './storage';
 import { addAnamnesisNote, answerAppliedAnamnesis, createAnamnesisRequest, createAppliedAnamnesis, deleteAppliedDocument, getAppliedDocument, listAnamnesisNotes, listAppliedDocuments, materializeAppliedDocumentResult, presignAppliedDocument, readAppliedAnamnesis, readPublicAnamnesis, refreshAnamnesisRequest, retryDocumentCleanupJobs, saveAnamnesisDraft, submitPublicAnamnesis } from './clinical';
 import { authHandler, clinicSession, requireClinicSession } from './auth-routes';
-import { getAccount, getProfessionalProfile, updateAccount, updateInitialPasswordChoice, updateProfessionalProfile } from './account-routes';
+import { getAccount, getDefaultSignature, getProfessionalProfile, updateAccount, updateDefaultSignature, updateInitialPasswordChoice, updateProfessionalProfile } from './account-routes';
 import { getContractDraftEditor, listContractPlaceholders, presignContractDraft, publishContractDraft, saveContractDraft } from './contract-authoring';
 import { generateFollowupContract, reprocessFollowupContract, retryFollowupContract } from './contract-generation';
 
@@ -64,6 +64,8 @@ export const app = new Hono()
   .patch('/api/auth/me', requireClinicSession, updateAccount)
   .get('/api/auth/professional-profile', requireClinicSession, getProfessionalProfile)
   .put('/api/auth/professional-profile', requireClinicSession, updateProfessionalProfile)
+  .get('/api/auth/default-signature', requireClinicSession, getDefaultSignature)
+  .put('/api/auth/default-signature', requireClinicSession, updateDefaultSignature)
   .on(['POST', 'GET'], '/api/auth/*', (c) => authHandler(c.req.raw))
   .get('/api/health', async (c) => {
     try { await getDatabasePool().query('select 1'); return c.json({ status: 'ok', service: 'clinicare-api', database: 'connected' }); }

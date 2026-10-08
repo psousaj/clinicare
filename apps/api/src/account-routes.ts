@@ -64,6 +64,36 @@ export async function getProfessionalProfile(c: Context) {
   });
 }
 
+export async function getDefaultSignature(c: Context) {
+  const session = clinicSession(c);
+  const [user] = await getDatabase().select({ defaultSignaturePng: authUsers.defaultSignaturePng }).from(authUsers).where(eq(authUsers.id, session.userId));
+  if (!user) return c.json({ error: 'Usuário não encontrado.' }, 404);
+  return c.json({ signaturePng: user.defaultSignaturePng });
+}
+
+function validSignaturePng(value: unknown): value is string {
+  if (typeof value !== 'string' || !value.startsWith('data:image/png;base64,')) return false;
+  const encoded = value.slice('data:image/png;base64,'.length);
+  if (encoded.length > 2_800_000 || !/^[A-Za-z0-9+/]*={0,2}$/.test(encoded) || encoded.length % 4 !== 0) return false;
+  const bytes = Buffer.from(encoded, 'base64');
+  if (bytes.length < 68 || bytes.length > 2_000_000) return false;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const png = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (!png.every((byte, index) => bytes[index] === byte) || view.getUint32(8) !== 13 || view.getUint32(12) !== 0x49484452) return false;
+  const width = view.getUint32(16);
+  const height = view.getUint32(20);
+  const colorType = bytes[25];
+  return !!width && !!height && width <= 2400 && height <= 1600 && (colorType === 6 || colorType === 4);
+}
+
+export async function updateDefaultSignature(c: Context) {
+  const session = clinicSession(c);
+  const body = await c.req.json().catch(() => null) as { signaturePng?: unknown } | null;
+  if (!body || (body.signaturePng !== null && !validSignaturePng(body.signaturePng))) return c.json({ error: 'Imagem de assinatura PNG inválida.' }, 400);
+  await getDatabase().update(authUsers).set({ defaultSignaturePng: body.signaturePng as string | null }).where(eq(authUsers.id, session.userId));
+  return c.json({ signaturePng: body.signaturePng ?? null });
+}
+
 const BRAZILIAN_STATES = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
   'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',

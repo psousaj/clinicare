@@ -1,7 +1,6 @@
-// Compõe a imagem visual da assinatura do representante: desenho manuscrita
-// em cima e carimbo de identificação (nome + conselho/número/UF do perfil
-// profissional) embaixo, num único PNG transparente. O backend grava esse
-// PNG no PDF via mutação incremental, então o carimbo viaja junto.
+// Compõe a imagem visual da assinatura do representante em um único PNG
+// transparente: traço em cima, identificação embaixo. O mesmo PNG é usado
+// no preview e enviado ao backend, evitando divergência visual.
 export async function composeStampImage(drawDataUrl: string, stampLines: string[]): Promise<string> {
   try {
     const canvas = document.createElement('canvas');

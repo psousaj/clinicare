@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { api } from './api';
 import { sha256Hex } from './sha256';
-import { anamnesisSchema, anySchema, accountSchema, appointmentSchema, appliedAnamnesisSchema, contractSchema, createdSchema, comboSchema, eventSchema, planSchema, patientHistorySchema, professionalProfileSchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicAnamnesisSchema, publicFormSchema, requestSchema, attendanceSchema, sessionSchema, signatureHistorySchema, signaturePendingSchema } from './schemas';
+import { anamnesisSchema, anySchema, accountSchema, appointmentSchema, appliedAnamnesisSchema, contractSchema, createdSchema, comboSchema, eventSchema, planSchema, patientHistorySchema, professionalProfileSchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicAnamnesisSchema, publicFormSchema, requestSchema, attendanceSchema, sessionSchema, signatureHistorySchema, signaturePendingSchema, defaultSignatureSchema } from './schemas';
 
 export const keys = {
   patients: ['patients'] as const,
@@ -24,6 +24,7 @@ export const keys = {
   professionalProfile: ['professional-profile'] as const,
   session: ['session'] as const,
   signatureHistory: (followupContractId: string) => ['signature-history', followupContractId] as const,
+  defaultSignature: ['default-signature'] as const,
 };
 
 const list = <S extends z.ZodType>(key: QueryKey, path: string, schema: S) =>
@@ -42,6 +43,16 @@ export const professionalProfileQuery = queryOptions({
   queryKey: keys.professionalProfile,
   queryFn: () => api('/api/auth/professional-profile', { schema: professionalProfileSchema.nullable(), fallbackError: 'Não foi possível carregar o registro profissional.' }),
 });
+export const defaultSignatureQuery = queryOptions({
+  queryKey: keys.defaultSignature,
+  queryFn: () => api('/api/auth/default-signature', { schema: defaultSignatureSchema, fallbackError: 'Não foi possível carregar sua assinatura padrão.' }),
+});
+export const useSaveDefaultSignature = () =>
+  useApiMutation({
+    mutationFn: (signaturePng: string | null) => api('/api/auth/default-signature', { method: 'PUT', body: { signaturePng }, schema: defaultSignatureSchema }),
+    invalidate: [keys.defaultSignature],
+    success: 'Assinatura padrão salva.',
+  });
 export const sessionQuery = queryOptions({
   queryKey: keys.session,
   queryFn: () => api('/api/auth/get-session', { schema: sessionSchema, fallbackError: 'Não foi possível carregar a sessão.' }),

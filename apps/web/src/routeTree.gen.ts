@@ -33,6 +33,7 @@ import { Route as AppPlanosNovoRouteImport } from './routes/_app/planos/novo'
 import { Route as AppProcedimentosIndexRouteImport } from './routes/_app/procedimentos/index'
 import { Route as AppProcedimentosProcedureIdRouteImport } from './routes/_app/procedimentos/$procedureId'
 import { Route as AppProcedimentosNovoRouteImport } from './routes/_app/procedimentos/novo'
+import { Route as AppDocumentosFollowupContractIdAssinarRouteImport } from './routes/_app/documentos.$followupContractId.assinar'
 import { Route as AppPacientesPatientIdIndexRouteImport } from './routes/_app/pacientes/$patientId/index'
 import { Route as AppPacientesPatientIdRelacionamentoRouteImport } from './routes/_app/pacientes/$patientId/relacionamento'
 import { Route as AppProcedimentosCombosComboIdRouteImport } from './routes/_app/procedimentos/combos/$comboId'
@@ -166,6 +167,12 @@ const AppProcedimentosNovoRoute = AppProcedimentosNovoRouteImport.update({
   path: '/procedimentos/novo',
   getParentRoute: () => AppRoute,
 } as any)
+const AppDocumentosFollowupContractIdAssinarRoute =
+  AppDocumentosFollowupContractIdAssinarRouteImport.update({
+    id: '/$followupContractId/assinar',
+    path: '/$followupContractId/assinar',
+    getParentRoute: () => AppDocumentosRoute,
+  } as any)
 const AppPacientesPatientIdIndexRoute =
   AppPacientesPatientIdIndexRouteImport.update({
     id: '/pacientes/$patientId/',
@@ -226,7 +233,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/agenda': typeof AppAgendaRoute
   '/configuracoes': typeof AppConfiguracoesRoute
-  '/documentos': typeof AppDocumentosRoute
+  '/documentos': typeof AppDocumentosRouteWithChildren
   '/financeiro': typeof AppFinanceiroRoute
   '/assinatura/$token': typeof AssinaturaTokenRoute
   '/formulario/$token': typeof FormularioTokenRoute
@@ -245,6 +252,7 @@ export interface FileRoutesByFullPath {
   '/pacientes/': typeof AppPacientesIndexRoute
   '/planos/': typeof AppPlanosIndexRoute
   '/procedimentos/': typeof AppProcedimentosIndexRoute
+  '/documentos/$followupContractId/assinar': typeof AppDocumentosFollowupContractIdAssinarRoute
   '/pacientes/$patientId/relacionamento': typeof AppPacientesPatientIdRelacionamentoRoute
   '/procedimentos/combos/$comboId': typeof AppProcedimentosCombosComboIdRoute
   '/procedimentos/combos/novo': typeof AppProcedimentosCombosNovoRoute
@@ -259,7 +267,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/agenda': typeof AppAgendaRoute
   '/configuracoes': typeof AppConfiguracoesRoute
-  '/documentos': typeof AppDocumentosRoute
+  '/documentos': typeof AppDocumentosRouteWithChildren
   '/financeiro': typeof AppFinanceiroRoute
   '/assinatura/$token': typeof AssinaturaTokenRoute
   '/formulario/$token': typeof FormularioTokenRoute
@@ -279,6 +287,7 @@ export interface FileRoutesByTo {
   '/pacientes': typeof AppPacientesIndexRoute
   '/planos': typeof AppPlanosIndexRoute
   '/procedimentos': typeof AppProcedimentosIndexRoute
+  '/documentos/$followupContractId/assinar': typeof AppDocumentosFollowupContractIdAssinarRoute
   '/pacientes/$patientId/relacionamento': typeof AppPacientesPatientIdRelacionamentoRoute
   '/procedimentos/combos/$comboId': typeof AppProcedimentosCombosComboIdRoute
   '/procedimentos/combos/novo': typeof AppProcedimentosCombosNovoRoute
@@ -295,7 +304,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/_app/agenda': typeof AppAgendaRoute
   '/_app/configuracoes': typeof AppConfiguracoesRoute
-  '/_app/documentos': typeof AppDocumentosRoute
+  '/_app/documentos': typeof AppDocumentosRouteWithChildren
   '/_app/financeiro': typeof AppFinanceiroRoute
   '/assinatura/$token': typeof AssinaturaTokenRoute
   '/formulario/$token': typeof FormularioTokenRoute
@@ -315,6 +324,7 @@ export interface FileRoutesById {
   '/_app/pacientes/': typeof AppPacientesIndexRoute
   '/_app/planos/': typeof AppPlanosIndexRoute
   '/_app/procedimentos/': typeof AppProcedimentosIndexRoute
+  '/_app/documentos/$followupContractId/assinar': typeof AppDocumentosFollowupContractIdAssinarRoute
   '/_app/pacientes/$patientId/relacionamento': typeof AppPacientesPatientIdRelacionamentoRoute
   '/_app/procedimentos/combos/$comboId': typeof AppProcedimentosCombosComboIdRoute
   '/_app/procedimentos/combos/novo': typeof AppProcedimentosCombosNovoRoute
@@ -351,6 +361,7 @@ export interface FileRouteTypes {
     | '/pacientes/'
     | '/planos/'
     | '/procedimentos/'
+    | '/documentos/$followupContractId/assinar'
     | '/pacientes/$patientId/relacionamento'
     | '/procedimentos/combos/$comboId'
     | '/procedimentos/combos/novo'
@@ -385,6 +396,7 @@ export interface FileRouteTypes {
     | '/pacientes'
     | '/planos'
     | '/procedimentos'
+    | '/documentos/$followupContractId/assinar'
     | '/pacientes/$patientId/relacionamento'
     | '/procedimentos/combos/$comboId'
     | '/procedimentos/combos/novo'
@@ -420,6 +432,7 @@ export interface FileRouteTypes {
     | '/_app/pacientes/'
     | '/_app/planos/'
     | '/_app/procedimentos/'
+    | '/_app/documentos/$followupContractId/assinar'
     | '/_app/pacientes/$patientId/relacionamento'
     | '/_app/procedimentos/combos/$comboId'
     | '/_app/procedimentos/combos/novo'
@@ -608,6 +621,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppProcedimentosNovoRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/documentos/$followupContractId/assinar': {
+      id: '/_app/documentos/$followupContractId/assinar'
+      path: '/$followupContractId/assinar'
+      fullPath: '/documentos/$followupContractId/assinar'
+      preLoaderRoute: typeof AppDocumentosFollowupContractIdAssinarRouteImport
+      parentRoute: typeof AppDocumentosRoute
+    }
     '/_app/pacientes/$patientId/': {
       id: '/_app/pacientes/$patientId/'
       path: '/pacientes/$patientId'
@@ -674,6 +694,19 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppDocumentosRouteChildren {
+  AppDocumentosFollowupContractIdAssinarRoute: typeof AppDocumentosFollowupContractIdAssinarRoute
+}
+
+const AppDocumentosRouteChildren: AppDocumentosRouteChildren = {
+  AppDocumentosFollowupContractIdAssinarRoute:
+    AppDocumentosFollowupContractIdAssinarRoute,
+}
+
+const AppDocumentosRouteWithChildren = AppDocumentosRoute._addFileChildren(
+  AppDocumentosRouteChildren,
+)
+
 interface AppPacientesPatientIdAnamnesesFormIdRouteChildren {
   AppPacientesPatientIdAnamnesesFormIdRespostasRoute: typeof AppPacientesPatientIdAnamnesesFormIdRespostasRoute
 }
@@ -692,7 +725,7 @@ const AppPacientesPatientIdAnamnesesFormIdRouteWithChildren =
 interface AppRouteChildren {
   AppAgendaRoute: typeof AppAgendaRoute
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
-  AppDocumentosRoute: typeof AppDocumentosRoute
+  AppDocumentosRoute: typeof AppDocumentosRouteWithChildren
   AppFinanceiroRoute: typeof AppFinanceiroRoute
   AppIndexRoute: typeof AppIndexRoute
   AppContratosContractIdRoute: typeof AppContratosContractIdRoute
@@ -723,7 +756,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppAgendaRoute: AppAgendaRoute,
   AppConfiguracoesRoute: AppConfiguracoesRoute,
-  AppDocumentosRoute: AppDocumentosRoute,
+  AppDocumentosRoute: AppDocumentosRouteWithChildren,
   AppFinanceiroRoute: AppFinanceiroRoute,
   AppIndexRoute: AppIndexRoute,
   AppContratosContractIdRoute: AppContratosContractIdRoute,

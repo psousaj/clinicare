@@ -177,6 +177,7 @@ export const accountSchema = z.looseObject({
   user: z.looseObject({ id: z.string(), name: z.string(), email: z.string().nullish() }),
   tenant: z.looseObject({ id: z.string(), name: z.string() }),
 });
+export const defaultSignatureSchema = z.object({ signaturePng: z.string().nullable() });
 export const signatureSchema = z.looseObject({ participantId: z.string(), role: z.string(), status: z.string(), expiresAt: z.string(), contract: z.looseObject({ id: z.string(), followupId: z.string(), title: z.string(), version: z.number(), content: z.string().nullish() }) });
 export const followupSchema = z.looseObject({
   id: z.string(),

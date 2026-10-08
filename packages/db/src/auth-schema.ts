@@ -7,6 +7,7 @@ export const authUsers = pgTable('user', {
   email: text('email').notNull().unique(),
   emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
+  defaultSignaturePng: text('default_signature_png'),
   tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
   initialPasswordChoice: text('initial_password_choice').notNull().default('pending'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),

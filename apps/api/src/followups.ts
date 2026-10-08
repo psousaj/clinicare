@@ -194,15 +194,22 @@ export async function getFollowup(tenantId: string, followupId: string, executor
   if (!row) return null;
   const [items, contractsRows, anamnesesRows, paymentRows] = await Promise.all([
     executor.select().from(followupItems).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.followupId, followupId))),
-    executor.select().from(followupContracts).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.followupId, followupId))),
+    executor.select().from(followupContracts).where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.followupId, followupId), sql`${followupContracts.status} <> 'cancelled'`)),
     executor.select().from(appliedAnamneses).where(and(eq(appliedAnamneses.tenantId, tenantId), eq(appliedAnamneses.followupId, followupId))),
     executor.select().from(payments).where(and(eq(payments.tenantId, tenantId), eq(payments.followupId, followupId))),
   ]);
-  const processRows = contractsRows.length ? await executor.select().from(signatureProcesses).where(and(eq(signatureProcesses.tenantId, tenantId), inArray(signatureProcesses.followupContractId, contractsRows.map((x: any) => x.id)))) : [];
+  const latestContracts = new Map<string, any>();
+  for (const contract of contractsRows as any[]) {
+    const key = contract.contractId;
+    const previous = latestContracts.get(key);
+    if (!previous || new Date(contract.createdAt).getTime() > new Date(previous.createdAt).getTime()) latestContracts.set(key, contract);
+  }
+  const visibleContractRows = [...latestContracts.values()];
+  const processRows = visibleContractRows.length ? await executor.select().from(signatureProcesses).where(and(eq(signatureProcesses.tenantId, tenantId), inArray(signatureProcesses.followupContractId, visibleContractRows.map((x: any) => x.id)))) : [];
   const participantRows = processRows.length ? await executor.select().from(signatureParticipants).where(and(eq(signatureParticipants.tenantId, tenantId), inArray(signatureParticipants.processId, processRows.map((x: any) => x.id)))) : [];
   const responseItems = items.map((item: any) => ({ ...idShape(item), procedureId: item.procedureId, procedureName: item.procedureName, priceCents: item.priceCents, sessionsTotal: item.sessionsTotal, sessionsPerformed: item.sessionsPerformed, comboId: item.comboId ?? null, comboName: item.comboName ?? null, packagePriceCents: item.packagePriceCents ?? null, cancelledAt: item.cancelledAt ?? null }));
   const responseAnamneses = anamnesesRows.map((form: any) => ({ id: form.id, title: form.titleSnapshot, required: form.required, schemaSnapshot: form.schemaSnapshot, answered: !!form.submittedAt, submittedAt: form.submittedAt, validUntil: form.validUntil }));
-  const responseContracts = contractsRows.map((contract: any) => { const process = processRows.find((p: any) => p.followupContractId === contract.id); const people = participantRows.filter((p: any) => p.processId === process?.id); const patient = people.find((p: any) => p.role === 'patient'); const professional = people.find((p: any) => p.role === 'professional'); return { id: contract.id, _id: contract.id, followupId: contract.followupId, contractId: contract.contractId, title: contract.titleSnapshot, version: contract.contractVersion, sourceObjectKey: contract.sourceObjectKey, required: contract.required, status: contract.status, signedAt: contract.patientSignedAt, patientSigned: patient?.status === 'signed', professionalSigned: professional?.status === 'signed', professionalPending: professional?.status !== 'signed' }; });
+  const responseContracts = visibleContractRows.map((contract: any) => { const process = processRows.find((p: any) => p.followupContractId === contract.id); const people = participantRows.filter((p: any) => p.processId === process?.id); const patient = people.find((p: any) => p.role === 'patient'); const professional = people.find((p: any) => p.role === 'professional'); return { id: contract.id, _id: contract.id, followupId: contract.followupId, contractId: contract.contractId, title: contract.titleSnapshot, version: contract.contractVersion, sourceObjectKey: contract.sourceObjectKey, required: contract.required, status: contract.status, signedAt: contract.patientSignedAt, patientSigned: patient?.status === 'signed', professionalSigned: professional?.status === 'signed', professionalPending: professional?.status !== 'signed' }; });
   return { ...idShape(row), offerName: row.offerNameSnapshot, items: responseItems, contracts: responseContracts, anamneses: responseAnamneses, payments: paymentRows.filter((payment: any) => !payment.deletedAt).map(paymentResponse), blocked: row.status === 'idle' || responseAnamneses.some((form: any) => form.required && !form.answered) };
 }
 
