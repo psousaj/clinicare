@@ -416,6 +416,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
                 ref={signaturePadRef}
                 initialImage={image}
                 onStroke={(draw) => { setImage(draw); storeDraft(token, draw); setMessage(null); }}
+                onClear={clear}
                 label="Área para desenhar sua assinatura"
                 tall
                 className="border-2 border-[#26785f] bg-white"

@@ -649,7 +649,7 @@ function RepresentativeSignPage() {
             </div>
           ) : (
             <div className="grid gap-2" ref={padWrapRef}>
-              <SignaturePadField ref={padHandle} onStroke={handleStroke} tall />
+              <SignaturePadField ref={padHandle} onStroke={handleStroke} onClear={handleClear} tall />
               <div className="flex flex-wrap items-center gap-2">
                 <Button type="button" variant="ghost" size="sm" onClick={handleClear}>
                   Limpar

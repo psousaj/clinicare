@@ -68,7 +68,7 @@ function Settings() {
           <StatusBadge tone={signaturePng ? 'success' : 'warning'}>{signaturePng ? 'Salva' : 'Não configurada'}</StatusBadge>
         </div>
         <p className="section-note m-0">Sua assinatura fica salva nesta conta e aparece pronta nos próximos documentos. Você ainda pode desenhar outra durante qualquer assinatura.</p>
-        <SignaturePadField ref={signaturePad} initialImage={signaturePng} onStroke={setSignaturePng} label="Área para desenhar sua assinatura padrão" />
+        <SignaturePadField ref={signaturePad} initialImage={signaturePng} onStroke={setSignaturePng} onClear={() => setSignaturePng(null)} label="Área para desenhar sua assinatura padrão" />
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="ghost" onClick={() => { signaturePad.current?.clear(); setSignaturePng(null); }}>Limpar</Button>
           <Button type="button" disabled={saveDefaultSignature.isPending || defaultSignature.isLoading} onClick={() => saveDefaultSignature.mutate(signaturePng)}>

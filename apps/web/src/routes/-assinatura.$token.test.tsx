@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory } from '@tanstack/react-router';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAppRouter, createQueryClient } from '../router';
@@ -85,6 +85,21 @@ describe('patient signature workspace', () => {
     expect(body.evidence.placement.x).toBeGreaterThanOrEqual(0);
     expect(body.evidence.placement.x + body.evidence.placement.width).toBeLessThanOrEqual(1);
     expect(body.evidence.confirmed).toBe(true);
+  });
+
+  it('closes mobile fullscreen before the explicit Continue advances to confirmation', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {}, addListener() {} }));
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Contrato de teste' })).toBeInTheDocument();
+    await user.click((await screen.findAllByRole('button', { name: 'Continuar para assinatura' }))[0]!);
+    fireEvent.pointerDown(await screen.findByLabelText('Área para desenhar sua assinatura'));
+    expect(await screen.findByRole('button', { name: 'Confirmar' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+    expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();
+    await user.click((await screen.findAllByRole('button', { name: 'Continuar' }))[0]!);
+    await waitFor(() => expect(screen.getByTitle('Prévia do PDF candidato')).toBeInTheDocument());
   });
 
   it('notifies the patient and suggests reloading on a stale-document conflict', async () => {

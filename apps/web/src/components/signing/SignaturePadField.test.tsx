@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createRef } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SignaturePadField, type SignaturePadHandle } from './SignaturePadField';
@@ -14,6 +14,9 @@ let padInstance: {
   clear: ReturnType<typeof vi.fn>;
   dispatch: (event: string) => void;
 } | undefined;
+const originalRequestFullscreenDescriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'requestFullscreen');
+const originalFullscreenElementDescriptor = Object.getOwnPropertyDescriptor(document, 'fullscreenElement');
+const originalExitFullscreenDescriptor = Object.getOwnPropertyDescriptor(document, 'exitFullscreen');
 
 vi.mock('signature_pad', () => ({
   default: class SignaturePadMock {
@@ -46,6 +49,12 @@ describe('SignaturePadField', () => {
     resizeCallback = undefined;
     padInstance = undefined;
     vi.unstubAllGlobals();
+    if (originalRequestFullscreenDescriptor) Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', originalRequestFullscreenDescriptor);
+    else Reflect.deleteProperty(HTMLElement.prototype, 'requestFullscreen');
+    if (originalFullscreenElementDescriptor) Object.defineProperty(document, 'fullscreenElement', originalFullscreenElementDescriptor);
+    else Reflect.deleteProperty(document, 'fullscreenElement');
+    if (originalExitFullscreenDescriptor) Object.defineProperty(document, 'exitFullscreen', originalExitFullscreenDescriptor);
+    else Reflect.deleteProperty(document, 'exitFullscreen');
   });
 
   it('preserves the drawing at the new canvas scale after resize', () => {
@@ -136,5 +145,77 @@ describe('SignaturePadField', () => {
 
     expect(padInstance?.fromDataUrlCalls).toContain('data:image/png;base64,draft');
     expect(padInstance?.fromDataCalls.at(-1)?.[0]?.points[0]).toMatchObject({ x: 40, y: 20 });
+  });
+
+  it('opens fullscreen on mobile, keeps actions local, and can be reopened', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} }));
+    const requestFullscreen = vi.fn(() => Promise.resolve());
+    const lock = vi.fn(() => Promise.resolve());
+    const clear = vi.fn();
+    const onStroke = vi.fn();
+    vi.stubGlobal('screen', { orientation: { lock, unlock: vi.fn() } });
+    Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', { configurable: true, value: requestFullscreen });
+    render(<SignaturePadField onStroke={onStroke} onClear={clear} />);
+
+    fireEvent.pointerDown(screen.getByLabelText('Área para desenhar sua assinatura'));
+    expect(requestFullscreen).toHaveBeenCalledOnce();
+    await Promise.resolve();
+    expect(lock).toHaveBeenCalledWith('landscape');
+    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeInTheDocument();
+    fireEvent.pointerDown(screen.getByLabelText('Área para desenhar sua assinatura'));
+    padInstance?.dispatch('endStroke');
+    expect(onStroke).toHaveBeenCalledWith('data:image/png;base64,signature');
+    fireEvent.click(screen.getByRole('button', { name: 'Limpar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+    expect(clear).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();
+
+    fireEvent.pointerDown(screen.getByLabelText('Área para desenhar sua assinatura'));
+    expect(requestFullscreen).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses the visual fallback when fullscreen is unavailable or rejected and leaves desktop unchanged', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {}, addListener() {} }));
+    Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', { configurable: true, value: undefined });
+    render(<SignaturePadField onStroke={vi.fn()} />);
+    fireEvent.pointerDown(screen.getByLabelText('Área para desenhar sua assinatura'));
+    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeInTheDocument();
+
+    cleanup();
+    Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', { configurable: true, value: vi.fn(() => Promise.reject(new Error('fullscreen denied'))) });
+    render(<SignaturePadField onStroke={vi.fn()} />);
+    fireEvent.pointerDown(screen.getByLabelText('Área para desenhar sua assinatura'));
+    await Promise.resolve();
+    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeInTheDocument();
+
+    cleanup();
+    vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {} }));
+    render(<SignaturePadField onStroke={vi.fn()} />);
+    fireEvent.pointerDown(screen.getByLabelText('Área para desenhar sua assinatura'));
+    expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();
+  });
+
+  it('closes when native fullscreen is exited', async () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {}, addListener() {} }));
+    let fullscreenElement: Element | null = null;
+    Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => fullscreenElement });
+    const exitFullscreen = vi.fn(() => {
+      fullscreenElement = null;
+      document.dispatchEvent(new Event('fullscreenchange'));
+      return Promise.resolve();
+    });
+    Object.defineProperty(document, 'exitFullscreen', { configurable: true, value: exitFullscreen });
+    Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', { configurable: true, value: vi.fn(function (this: HTMLElement) {
+      fullscreenElement = this;
+      document.dispatchEvent(new Event('fullscreenchange'));
+      return Promise.resolve();
+    }) });
+    render(<SignaturePadField onStroke={vi.fn()} />);
+    fireEvent.pointerDown(screen.getByLabelText('Área para desenhar sua assinatura'));
+    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeInTheDocument();
+    fullscreenElement = null;
+    document.dispatchEvent(new Event('fullscreenchange'));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument());
+    expect(exitFullscreen).not.toHaveBeenCalled();
   });
 });
