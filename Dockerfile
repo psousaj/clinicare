@@ -28,5 +28,5 @@ COPY --from=build /app/docker/manage /usr/local/bin/manage
 RUN chmod +x /usr/local/bin/clinicare-api /usr/local/bin/clinicare-manage /usr/local/bin/manage
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
-  CMD-SHELL curl -fsS http://127.0.0.1:3000/api/health >/dev/null || exit 1
+  CMD curl -fsS http://127.0.0.1:3000/api/health >/dev/null || exit 1
 CMD ["/usr/local/bin/clinicare-api"]
