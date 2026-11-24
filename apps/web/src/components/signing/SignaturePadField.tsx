@@ -51,7 +51,6 @@ export const SignaturePadField = forwardRef<SignaturePadHandle, {
     const handleFullscreenChange = () => {
       if (document.fullscreenElement === fieldRef.current) setExpanded(true);
       else if (expanded && document.fullscreenElement !== fieldRef.current) {
-        unlockLandscape();
         setExpanded(false);
       }
     };
@@ -64,9 +63,7 @@ export const SignaturePadField = forwardRef<SignaturePadHandle, {
     const field = fieldRef.current;
     const requestFullscreen = field?.requestFullscreen;
     if (field && typeof requestFullscreen === 'function') {
-      void requestFullscreen.call(field).then(() => lockLandscape()).catch(() => lockLandscape());
-    } else {
-      lockLandscape();
+      void requestFullscreen.call(field).catch(() => undefined);
     }
     setExpanded(true);
   }
@@ -75,7 +72,6 @@ export const SignaturePadField = forwardRef<SignaturePadHandle, {
     if (document.fullscreenElement === fieldRef.current && typeof document.exitFullscreen === 'function') {
       void document.exitFullscreen().catch(() => undefined);
     }
-    unlockLandscape();
     setExpanded(false);
   }
 
@@ -192,7 +188,7 @@ export const SignaturePadField = forwardRef<SignaturePadHandle, {
       {expanded && (
         <div className="flex flex-none items-center justify-end gap-3 pt-1">
           <button type="button" className="min-h-11 rounded-lg border border-[#d8e2dc] bg-white px-4 text-sm font-semibold text-[#26785f]" onClick={() => { clearField(); onClear?.(); }}>Limpar</button>
-          <button type="button" className="min-h-11 rounded-lg bg-[#26785f] px-5 text-sm font-semibold text-white" onClick={closeExpanded}>Confirmar</button>
+          <button type="button" className="min-h-11 rounded-lg bg-[#26785f] px-5 text-sm font-semibold text-white" onClick={closeExpanded}>Fechar modo ampliado</button>
         </div>
       )}
       </div>
@@ -214,14 +210,4 @@ function isMobileSignatureDevice(): boolean {
   if (typeof window === 'undefined') return false;
   if (typeof window.matchMedia === 'function') return window.matchMedia('(hover: none) and (pointer: coarse)').matches;
   return typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0;
-}
-
-function lockLandscape() {
-  const orientation = window.screen?.orientation;
-  if (typeof orientation?.lock === 'function') void orientation.lock('landscape').catch(() => undefined);
-}
-
-function unlockLandscape() {
-  const orientation = window.screen?.orientation;
-  if (typeof orientation?.unlock === 'function') orientation.unlock();
 }

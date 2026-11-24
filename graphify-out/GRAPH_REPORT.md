@@ -1,32 +1,32 @@
 # Graph Report - clinicare  (2026-11-24)
 
 ## Corpus Check
-- 275 files · ~203,545 words
+- 275 files · ~203,673 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 15 file(s) not represented in the graph (top: (none) 7, .css 4, .example 1)
 
 ## Summary
-- 2158 nodes · 7056 edges · 112 communities (75 shown, 37 thin omitted)
+- 2156 nodes · 7052 edges · 112 communities (78 shown, 34 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 73 edges (avg confidence: 0.87)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `04af1d6d`
+- Built from commit: `bd68ac8d`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- contract-generation.ts
+- atendimentos.$attendanceId.tsx
 - external-validation.ts
 - app
 - assinatura.$token.tsx
-- contract-materialization.ts
+- contract-authoring.ts
 - queries.ts
-- followups.ts
+- signatures-flow.integration.test.ts
 - routeTree.gen.ts
 - scripts
 - dependencies
-- external-mutations.integration.test.ts
+- db/src/index.ts
 - Assinatura eletrônica própria — especificação completa
 - Assinatura eletrônica própria — MVP
 - web/package.json
@@ -35,7 +35,7 @@
 - tasks
 - components.json
 - FileRoutesByPath
-- Investigação de anamneses e contratos em acompanhamentos
+- invalid
 - compilerOptions
 - documentos.$followupContractId.assinar.tsx
 - PreviewPdf.test.tsx
@@ -54,7 +54,7 @@
 - SignaturePadField.test.tsx
 - Button
 - admin-commands.ts
-- ContractFormPage.tsx
+- signWithToken
 - db/tsconfig.json
 - Agent skills
 - scheduling.ts
@@ -63,38 +63,39 @@
 - relational-schema.ts
 - contratos/novo.tsx
 - Decisão e plano: PostgreSQL + Drizzle + JSONB
-- react
+- @tanstack/react-router
 - Especificação: migração para PostgreSQL + Drizzle + JSONB
 - api/package.json
 - createFollowup
 - Validação de assinatura externa (GOV.BR) sem PAdES próprio
-- event-followups.integration.test.ts
-- dependencies
-- cn
+- followups.ts
+- issueSignatureToken
+- api
 - Issue tracker: GitHub
 - Domain Docs
 - Persistência PostgreSQL + Drizzle + JSONB
 - triage-labels.md
 - Preservação incremental de PDFs com assinaturas externas
-- scripts
+- SignaturePadField.tsx
 - Investigação da validação global T7
-- planos/novo.tsx
+- react
 - nova.tsx
 - docx-types.d.ts
 - Correção do cancelamento de acompanhamento, anamneses e contratos
 - DB_SCHEMA.md
 - request-ip.ts
-- docx-pdf.ts
-- vitest
-- getDatabase
+- app.ts
+- -documentos.test.tsx
+- createAnamnesisRequest
+- normalizeEvidence
 - relationship.ts
 - PageLoadingIndicator.test.tsx
 - SchemaEditor.tsx
 - pdf-mutation.ts
 - SigningWorkspace
-- contract-authoring.ts
-- sha256.ts
-- contract-propagation.test.ts
+- getDatabase
+- vitest
+- composeStampImage
 - RepresentativeSignPage
 - clinical.ts
 - collectFingerprint
@@ -114,50 +115,50 @@
 10. `lucide-react` - 46 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `Contratos ainda em geração` --references--> `getFollowup()`  [INFERRED]
-  docs/research/acompanhamento-anamneses-cancelamento.md → apps/api/src/followups.ts
 - `Solution` --references--> `patient()`  [INFERRED]
   docs/specs/0005-autoria-docx-e-materializacao-de-contratos.md → apps/api/src/anamnesis-links.integration.test.ts
-- `2. Cancelamento: anamneses` --references--> `byToken()`  [INFERRED]
-  docs/research/acompanhamento-anamneses-cancelamento.md → apps/api/src/clinical.ts
-- `Fluxo ponta a ponta` --references--> `createFollowup()`  [INFERRED]
-  docs/research/acompanhamento-anamneses-cancelamento.md → apps/api/src/followups.ts
 - `2. Cancelamento: anamneses` --references--> `getFollowup()`  [INFERRED]
   docs/research/acompanhamento-anamneses-cancelamento.md → apps/api/src/followups.ts
+- `Contratos ainda em geração` --references--> `getFollowup()`  [INFERRED]
+  docs/research/acompanhamento-anamneses-cancelamento.md → apps/api/src/followups.ts
+- `Implementation Decisions` --references--> `Contract`  [INFERRED]
+  docs/specs/0005-autoria-docx-e-materializacao-de-contratos.md → apps/web/src/lib/schemas.ts
+- `Decisão` --references--> `ContractVersion`  [INFERRED]
+  docs/adr/0005-autoria-docx-e-materializacao-de-contratos.md → apps/web/src/lib/schemas.ts
 
 ## Import Cycles
 - 2-file cycle: `packages/db/src/index.ts -> packages/db/src/migrate.ts -> packages/db/src/index.ts`
 - 2-file cycle: `packages/db/src/index.ts -> packages/db/src/seed.ts -> packages/db/src/index.ts`
 
-## Communities (112 total, 37 thin omitted)
+## Communities (112 total, 34 thin omitted)
 
-### Community 0 - "contract-generation.ts"
-Cohesion: 0.09
-Nodes (22): patient(), request(), contractedNames(), protectedFollowupValue(), api(), clinicDate(), enrolled(), api() (+14 more)
+### Community 0 - "atendimentos.$attendanceId.tsx"
+Cohesion: 0.11
+Nodes (23): allowed, AttendancePhotos(), Phase, phases, CalendarView(), EditPatientDialog(), Textarea(), photoPhases (+15 more)
 
 ### Community 1 - "external-validation.ts"
-Cohesion: 0.09
-Nodes (43): buildSignedReturnPdf(), buildUnparsableCmsReturn(), createTestCa(), ensureOpensslAvailable(), issueDatedTestSigner(), issueTestSigner(), num10(), parseBaseTrailer() (+35 more)
+Cohesion: 0.13
+Nodes (31): blankReport(), bytesEqual(), certEndpoints(), CertView, checkCrl(), checkOcsp(), checkRevocation(), cmsMessageDigest() (+23 more)
 
 ### Community 2 - "app"
-Cohesion: 0.08
-Nodes (52): app, expiry(), fail(), handleError(), isRecord(), observedClientIp(), addAnamnesisVersion(), addContractVersion() (+44 more)
+Cohesion: 0.07
+Nodes (55): app, expiry(), fail(), handleError(), isRecord(), observedClientIp(), addAnamnesisVersion(), addContractVersion() (+47 more)
 
 ### Community 3 - "assinatura.$token.tsx"
-Cohesion: 0.11
-Nodes (18): anySchema, DraggableSignature(), GovBrState, PageGeometry, PhoneGate(), PreviewPdf(), PublicHistoryEvent, PublicHistoryRevision (+10 more)
+Cohesion: 0.12
+Nodes (18): anySchema, DRAFT_STORAGE_KEY(), DraggableSignature(), GovBrState, PageGeometry, PhoneGate(), PreviewPdf(), PublicHistoryEvent (+10 more)
 
-### Community 4 - "contract-materialization.ts"
-Cohesion: 0.16
-Nodes (21): assertRequiredContext(), ContextConfiguration, CONTRACT_CONTEXT_INCOMPLETE, defaultContextConfiguration(), DOCX_CONTENT_TYPE, encryptMaterializationContext(), extractTags(), hasValue() (+13 more)
+### Community 4 - "contract-authoring.ts"
+Cohesion: 0.10
+Nodes (34): docxMetadata(), invalid(), propagatePublishedVersion(), publishContractDraft(), saveContractDraft(), sha256(), uuid(), replaceUnsignedAppliedContract() (+26 more)
 
 ### Community 5 - "queries.ts"
 Cohesion: 0.04
-Nodes (90): AttendancePhotos(), api(), withIds(), accountQuery, attendanceQuery(), confirmProfessionalSignature(), contractPlaceholdersQuery, defaultSignatureQuery (+82 more)
+Nodes (89): contextDescription(), contextLabel(), CONTEXTS, ContractDraftPanel(), ContractFormPage(), ContractMetadata, Props, attendancesQuery (+81 more)
 
-### Community 6 - "followups.ts"
-Cohesion: 0.10
-Nodes (34): contract(), form(), headers(), procedure(), request(), schema, tenantIds, schema (+26 more)
+### Community 6 - "signatures-flow.integration.test.ts"
+Cohesion: 0.11
+Nodes (26): request(), schema, tenantIds, civilDate(), eventBody(), fixtures(), headers(), request() (+18 more)
 
 ### Community 7 - "routeTree.gen.ts"
 Cohesion: 0.04
@@ -171,9 +172,9 @@ Nodes (38): devDependencies, turbo, engines, node, name, packageManager, private
 Cohesion: 0.06
 Nodes (32): dependencies, class-variance-authority, clsx, date-fns, @fingerprintjs/fingerprintjs, @fullcalendar/core, @fullcalendar/interaction, @fullcalendar/react (+24 more)
 
-### Community 11 - "external-mutations.integration.test.ts"
-Cohesion: 0.11
-Nodes (32): headers(), placement, request(), placement, request(), ADR-0004, AppLike, assertSafeIntegrationDatabase() (+24 more)
+### Community 11 - "db/src/index.ts"
+Cohesion: 0.17
+Nodes (21): provisionClinic(), AppLike, assertSafeIntegrationDatabase(), cleanupIntegrationClinics(), integration, integrationCookies, authAccounts, authSchema (+13 more)
 
 ### Community 12 - "Assinatura eletrônica própria — especificação completa"
 Cohesion: 0.09
@@ -193,7 +194,7 @@ Nodes (18): ADR 0001: Stack da aplicação, Alternativas consideradas, Consequê
 
 ### Community 16 - "db/package.json"
 Cohesion: 0.07
-Nodes (27): dependencies, drizzle-orm, pg, devDependencies, drizzle-kit, @types/bun, @types/pg, typescript (+19 more)
+Nodes (33): dependencies, drizzle-orm, pg, devDependencies, drizzle-kit, @types/bun, @types/pg, typescript (+25 more)
 
 ### Community 17 - "tasks"
 Cohesion: 0.08
@@ -204,40 +205,40 @@ Cohesion: 0.11
 Nodes (17): aliases, components, hooks, lib, ui, utils, iconLibrary, rsc (+9 more)
 
 ### Community 19 - "FileRoutesByPath"
-Cohesion: 0.08
-Nodes (26): Route, Route, Route, Route, Route, Route, Route, Route (+18 more)
+Cohesion: 0.07
+Nodes (27): Route, Route, Route, Route, Route, Route, Route, Route (+19 more)
 
-### Community 21 - "Investigação de anamneses e contratos em acompanhamentos"
-Cohesion: 0.15
-Nodes (12): latest(), offerForms(), 1. Criação: associação por oferta e por procedimento, 2. Cancelamento: anamneses, 3. Cancelamento: contratos, Conclusão, Contratos ainda em geração, Contratos com processo de assinatura (+4 more)
+### Community 21 - "invalid"
+Cohesion: 0.27
+Nodes (17): currentDocument(), decodePng(), idempotencyKeyReused(), invalid(), lockedAccessContext(), lockedParticipantReadContext(), lockedTokenContext(), lockedTokenReadContext() (+9 more)
 
 ### Community 22 - "compilerOptions"
 Cohesion: 0.12
 Nodes (16): compilerOptions, allowImportingTsExtensions, isolatedModules, jsx, lib, module, moduleResolution, noEmit (+8 more)
 
 ### Community 23 - "documentos.$followupContractId.assinar.tsx"
-Cohesion: 0.12
-Nodes (17): PageGeometry, renderAllPages(), usePdfDocument(), ChecklistItem, SignChecklist(), SigningSteps(), StampPreview(), fetchProfessionalPdf() (+9 more)
+Cohesion: 0.14
+Nodes (13): PageGeometry, renderAllPages(), usePdfDocument(), ChecklistItem, SignChecklist(), SigningSteps(), StampPreview(), fetchProfessionalPdf() (+5 more)
 
 ### Community 24 - "PreviewPdf.test.tsx"
-Cohesion: 0.27
-Nodes (5): DraggableSignature(), PreviewPdf(), PreviewPlacement, placement, { renderPdfPage }
+Cohesion: 0.24
+Nodes (6): DraggableSignature(), PreviewPdf(), PreviewPlacement, placement, { renderPdfPage }, pdfjs-dist
 
 ### Community 25 - "Implementation Decisions"
 Cohesion: 0.09
 Nodes (22): Assinatura local, Concorrência, idempotência e storage, Especificação — Assinatura eletrônica própria no MVP, Estados e conclusão, Fingerprint e evidências, Fonte, PDF e revisões, Further Notes, GOV.BR e assinaturas externas (+14 more)
 
 ### Community 26 - "dialogs.tsx"
-Cohesion: 0.07
-Nodes (50): CalendarView(), ComboFormPage(), day(), ProcedurePicker(), AppointmentDialog(), AppointmentFields(), localDate(), localTime() (+42 more)
+Cohesion: 0.10
+Nodes (45): ProcedurePicker(), AppointmentDialog(), AppointmentFields(), localDate(), localTime(), minutesBetween(), OfferFields(), PaymentDialog() (+37 more)
 
 ### Community 27 - "devDependencies"
 Cohesion: 0.18
 Nodes (11): devDependencies, jsdom, @tanstack/router-plugin, @testing-library/jest-dom, @testing-library/react, @testing-library/user-event, @types/node, @types/react (+3 more)
 
 ### Community 29 - "signatures.ts"
-Cohesion: 0.07
-Nodes (77): loadTrustedRootFiles(), loadTrustedRootsFromEnv(), NormalizedEvidence, normalizeEvidence(), RawFingerprint, cancelExternalAttempt(), cancelExternalAttemptAsClinicRepresentative(), canonicalJson() (+69 more)
+Cohesion: 0.09
+Nodes (34): loadTrustedRootFiles(), loadTrustedRootsFromEnv(), cancelExternalAttempt(), cancelExternalAttemptAsClinicRepresentative(), ClinicSignatureActor, contentAad(), displayName(), downloadExternalExport() (+26 more)
 
 ### Community 30 - "compilerOptions"
 Cohesion: 0.20
@@ -256,8 +257,8 @@ Cohesion: 0.29
 Nodes (6): Clínicare, Desenvolvimento sem Docker, Estrutura do monorepo, Rodar localmente via Docker (caminho recomendado), Stack, Verificações
 
 ### Community 34 - "buildProtectedAad"
-Cohesion: 0.22
-Nodes (19): addAnamnesisNote(), noteValue(), unprotect(), decryptMaterializationContext(), conflict(), createPayment(), deletePayment(), invalid() (+11 more)
+Cohesion: 0.17
+Nodes (22): addAnamnesisNote(), listAnamnesisNotes(), noteValue(), unprotect(), decryptMaterializationContext(), conflict(), createPayment(), deletePayment() (+14 more)
 
 ### Community 35 - "-assinatura.$token.test.tsx"
 Cohesion: 0.10
@@ -269,23 +270,23 @@ Nodes (9): Attendance, Atendimento estético, Clínica de cuidados estéticos, D
 
 ### Community 37 - "patients.ts"
 Cohesion: 0.10
-Nodes (19): DEFAULT_TENANT_ID, encrypted(), encryptedColumns(), PatientInput, ProtectedField, validateInput(), configuredKey(), EncryptedValue (+11 more)
+Nodes (27): createPatient(), deactivatePatient(), DEFAULT_TENANT_ID, encrypted(), encryptedColumns(), ensureTenant(), getPatient(), isUuid() (+19 more)
 
 ### Community 38 - "SignaturePadField.test.tsx"
-Cohesion: 0.09
-Nodes (11): isMobileSignatureDevice(), lockLandscape(), scalePointGroups(), SignaturePadField, SignaturePadHandle, originalExitFullscreenDescriptor, originalFullscreenElementDescriptor, originalRequestFullscreenDescriptor (+3 more)
+Cohesion: 0.11
+Nodes (4): originalExitFullscreenDescriptor, originalFullscreenElementDescriptor, originalRequestFullscreenDescriptor, ResizeCallback
 
 ### Community 39 - "Button"
-Cohesion: 0.10
-Nodes (45): AnamnesisFormPage(), emptySchema, PatientPreview(), Props, AppointmentDetails(), dateLong, Props, Row() (+37 more)
+Cohesion: 0.13
+Nodes (39): AnamnesisFormPage(), emptySchema, PatientPreview(), Props, AppointmentDetails(), dateLong, Props, Row() (+31 more)
 
 ### Community 40 - "admin-commands.ts"
-Cohesion: 0.05
-Nodes (49): administratorByEmail(), BOOTSTRAP_ENV_KEYS, bootstrapConfigFromEnv(), changeClinicAdministratorEmail(), CreateAdministratorInput, createBetterAuthClinicAdministrator(), createClinicAdministrator(), createTenant() (+41 more)
+Cohesion: 0.07
+Nodes (31): administratorByEmail(), BOOTSTRAP_ENV_KEYS, bootstrapConfigFromEnv(), changeClinicAdministratorEmail(), CreateAdministratorInput, createBetterAuthClinicAdministrator(), createClinicAdministrator(), createTenant() (+23 more)
 
-### Community 41 - "ContractFormPage.tsx"
-Cohesion: 0.17
-Nodes (17): contextDescription(), contextLabel(), CONTEXTS, ContractDraftPanel(), ContractFormPage(), ContractMetadata, Props, Input() (+9 more)
+### Community 41 - "signWithToken"
+Cohesion: 0.20
+Nodes (16): canonicalJson(), confirmExternalReturn(), confirmExternalReturnAsClinicRepresentative(), evidenceAad(), hashBytes(), hashJson(), lockedParticipantContext(), previewMismatch() (+8 more)
 
 ### Community 42 - "db/tsconfig.json"
 Cohesion: 0.33
@@ -300,8 +301,8 @@ Cohesion: 0.14
 Nodes (40): civilDateOf(), clinicTimeZone(), activeAppointmentStatuses, addAttendancePhoto(), appointmentResponse(), assertAtomicCombos(), assertEventDay(), attendanceResponse() (+32 more)
 
 ### Community 45 - "$patientId/index.tsx"
-Cohesion: 0.12
-Nodes (30): ContractGenerateButton(), ContractReprocessButton(), ContractSignatureHistory(), copySignatureLink(), ContractSummary(), Entry, pendingBadge(), NewFollowupDialog() (+22 more)
+Cohesion: 0.11
+Nodes (35): ContractGenerateButton(), ContractReprocessButton(), ContractSignatureHistory(), copySignatureLink(), ContractSummary(), Entry, pendingBadge(), NewFollowupDialog() (+27 more)
 
 ### Community 46 - "_app.tsx"
 Cohesion: 0.19
@@ -309,7 +310,7 @@ Nodes (17): QuickActions(), Sheet(), SheetClose(), SheetContent(), SheetDescript
 
 ### Community 47 - "relational-schema.ts"
 Cohesion: 0.06
-Nodes (35): catalogTimestamps, contractVersionPdfUploadIntents, NewRelationalPatient, NewRelationalProcedure, NewTenant, paymentRelations, planVersionAnamneses, RelationalAnamnesis (+27 more)
+Nodes (34): catalogTimestamps, contractVersionPdfUploadIntents, NewRelationalPatient, NewRelationalProcedure, NewTenant, paymentRelations, RelationalAnamnesis, RelationalAnamnesisVersion (+26 more)
 
 ### Community 48 - "contratos/novo.tsx"
 Cohesion: 0.67
@@ -319,37 +320,37 @@ Nodes (3): useCreateContract(), NewContract(), Route
 Cohesion: 0.09
 Nodes (21): 10. Go/no-go para implementação, 1. Conclusão, 2. Decisões de domínio confirmadas, 3. Modelo de domínio e estados, 4. Blueprint relacional inicial, 5. Matriz de invariantes, 6. Fronteiras transacionais, 7. Reaproveitamento do Git (+13 more)
 
-### Community 50 - "react"
-Cohesion: 0.07
-Nodes (58): allowed, Phase, phases, AttendanceRecordForm(), matchesPatient(), PatientRow(), QueryError(), Props (+50 more)
+### Community 50 - "@tanstack/react-router"
+Cohesion: 0.09
+Nodes (46): AttendanceRecordForm(), matchesPatient(), PatientRow(), QueryError(), SchemaForm(), duration(), monthLabel(), shortDate() (+38 more)
 
 ### Community 51 - "Especificação: migração para PostgreSQL + Drizzle + JSONB"
 Cohesion: 0.13
 Nodes (14): API, frontend e operações de produto, Catálogo, planos e snapshots, Dados protegidos, Especificação: migração para PostgreSQL + Drizzle + JSONB, Further Notes, Implementation Decisions, Integridade e concorrência, Máquina de estados (+6 more)
 
 ### Community 52 - "api/package.json"
-Cohesion: 0.11
-Nodes (18): devDependencies, @types/bun, typescript, drizzle-orm, @types/bun, typescript, name, private (+10 more)
+Cohesion: 0.04
+Nodes (43): dependencies, asn1js, @aws-sdk/client-s3, @aws-sdk/s3-request-presigner, better-auth, @better-auth/drizzle-adapter, @clinicare/db, docxtemplater (+35 more)
 
 ### Community 53 - "createFollowup"
-Cohesion: 0.21
-Nodes (17): cancelFollowup(), cancelFollowupItem(), conflict(), createFollowup(), getFollowup(), hashToken(), idShape(), invalid() (+9 more)
+Cohesion: 0.10
+Nodes (29): cancelFollowup(), cancelFollowupItem(), conflict(), createFollowup(), getFollowup(), hashToken(), idShape(), invalid() (+21 more)
 
 ### Community 55 - "Validação de assinatura externa (GOV.BR) sem PAdES próprio"
 Cohesion: 0.40
 Nodes (4): Resultados, Revalidação em mutações posteriores (Issue #27), Validação de assinatura externa (GOV.BR) sem PAdES próprio, Verificações executadas (todas genuínas, nenhuma presumida)
 
-### Community 56 - "event-followups.integration.test.ts"
-Cohesion: 0.14
-Nodes (30): schema, schema, api(), call(), clinicDate(), fixture(), schema, cleanupIntegrationClinics() (+22 more)
+### Community 56 - "followups.ts"
+Cohesion: 0.08
+Nodes (59): contract(), form(), headers(), patient(), procedure(), request(), schema, tenantIds (+51 more)
 
-### Community 58 - "dependencies"
-Cohesion: 0.14
-Nodes (14): dependencies, asn1js, @aws-sdk/client-s3, @aws-sdk/s3-request-presigner, better-auth, @better-auth/drizzle-adapter, @clinicare/db, docxtemplater (+6 more)
+### Community 58 - "issueSignatureToken"
+Cohesion: 0.29
+Nodes (7): expiry(), hashToken(), issueSignatureToken(), phoneCode(), refreshSignatureToken(), signAsClinicRepresentative(), verifySignaturePhone()
 
-### Community 59 - "cn"
-Cohesion: 0.14
-Nodes (27): OfferFields(), PaymentDialog(), StandaloneAttendanceDialog(), Field(), buttonVariants, Calendar(), CalendarDayButton(), NativeSelect() (+19 more)
+### Community 59 - "api"
+Cohesion: 0.12
+Nodes (24): Tabs(), TabsContent(), TabsList(), TabsTrigger(), api(), ApiError, RequestOptions, withIds() (+16 more)
 
 ### Community 60 - "Issue tracker: GitHub"
 Cohesion: 0.29
@@ -359,17 +360,17 @@ Nodes (6): Conventions, Issue tracker: GitHub, Pull requests as a triage surface
 Cohesion: 0.33
 Nodes (5): Before exploring, read these, Domain Docs, File structure, Flag ADR conflicts, Use the glossary's vocabulary
 
-### Community 77 - "scripts"
-Cohesion: 0.25
-Nodes (8): scripts, build, dev, dev:debug, manage, test, test:integration, typecheck
+### Community 77 - "SignaturePadField.tsx"
+Cohesion: 0.47
+Nodes (5): isMobileSignatureDevice(), scalePointGroups(), SignaturePadField, SignaturePadHandle, signature_pad
 
 ### Community 78 - "Investigação da validação global T7"
 Cohesion: 0.40
 Nodes (4): Correções e validação final, Evidências de escopo, Investigação da validação global T7, Resultado inicial
 
-### Community 79 - "planos/novo.tsx"
-Cohesion: 0.11
-Nodes (44): AnamnesisPicker(), InheritedAnamneses(), CpfField(), EditPatientDialog(), FormPage(), Kind, kinds, PlanOfferPicker() (+36 more)
+### Community 79 - "react"
+Cohesion: 0.09
+Nodes (56): AnamnesisPicker(), InheritedAnamneses(), ComboFormPage(), day(), CpfField(), Field(), FormPage(), FormPageProps (+48 more)
 
 ### Community 80 - "nova.tsx"
 Cohesion: 0.67
@@ -383,17 +384,21 @@ Nodes (8): Correção do cancelamento de acompanhamento, anamneses e contratos, 
 Cohesion: 0.43
 Nodes (4): forwardedParameter(), headerAddress(), observedClientIp(), validIp()
 
-### Community 85 - "docx-pdf.ts"
-Cohesion: 0.16
-Nodes (8): createLibreOfficeConverter(), DocxToPdfConverter, LIBREOFFICE_DEFAULT_TIMEOUT_MS, createSpaFallback(), createWebAssetMiddleware(), serveSpaIndex, hono, pizzip
+### Community 85 - "app.ts"
+Cohesion: 0.21
+Nodes (21): authFailure(), BRAZILIAN_STATES, changeOwnEmail(), changeOwnPassword(), getAccount(), getDefaultSignature(), getProfessionalProfile(), REGISTRATION_TYPES (+13 more)
 
-### Community 86 - "vitest"
-Cohesion: 0.15
-Nodes (6): ControlledEditor(), schema, @testing-library/jest-dom, @testing-library/react, @testing-library/user-event, vitest
+### Community 86 - "-documentos.test.tsx"
+Cohesion: 0.10
+Nodes (5): ControlledEditor(), schema, @testing-library/jest-dom, @testing-library/react, @testing-library/user-event
 
-### Community 87 - "getDatabase"
-Cohesion: 0.08
-Nodes (59): authFailure(), BRAZILIAN_STATES, changeOwnEmail(), changeOwnPassword(), getAccount(), getDefaultSignature(), getProfessionalProfile(), REGISTRATION_TYPES (+51 more)
+### Community 87 - "createAnamnesisRequest"
+Cohesion: 0.12
+Nodes (23): answerAppliedAnamnesis(), appliedShape(), byToken(), cancelledError(), createAnamnesisRequest(), createAppliedAnamnesis(), expiry(), followupCancelled() (+15 more)
+
+### Community 88 - "normalizeEvidence"
+Cohesion: 0.50
+Nodes (3): NormalizedEvidence, normalizeEvidence(), RawFingerprint
 
 ### Community 90 - "PageLoadingIndicator.test.tsx"
 Cohesion: 0.33
@@ -401,27 +406,35 @@ Nodes (4): PageLoadingIndicator(), setup(), Route, FileRoutesById
 
 ### Community 91 - "SchemaEditor.tsx"
 Cohesion: 0.07
-Nodes (61): submit(), canControlVisibility(), conditionOf(), Field, FieldPatch, identifierFor(), newSalt(), Preview() (+53 more)
+Nodes (62): submit(), canControlVisibility(), conditionOf(), Field, FieldPatch, identifierFor(), newSalt(), Preview() (+54 more)
 
 ### Community 92 - "pdf-mutation.ts"
 Cohesion: 0.36
 Nodes (6): createIncrementalSignaturePdf(), normalizedPlacementToPdfRect(), PdfPlacement, PdfRect, sha256(), validatePlacement()
 
 ### Community 93 - "SigningWorkspace"
-Cohesion: 0.24
-Nodes (11): DRAFT_STORAGE_KEY(), readStoredDraft(), SigningWorkspace(), captureFromPad(), clear(), confirm(), goBackToStep(), goToConfirm() (+3 more)
+Cohesion: 0.23
+Nodes (11): SignatureHistorySection(), load(), SigningWorkspace(), captureFromPad(), clear(), confirm(), goBackToStep(), goToConfirm() (+3 more)
 
-### Community 96 - "contract-authoring.ts"
-Cohesion: 0.18
-Nodes (21): docxMetadata(), invalid(), propagatePublishedVersion(), publishContractDraft(), saveContractDraft(), sha256(), uuid(), buildContext() (+13 more)
+### Community 96 - "getDatabase"
+Cohesion: 0.16
+Nodes (20): resetClinicAdministratorPassword(), documentShape(), getAppliedDocument(), listAppliedDocuments(), reconcileReservedCleanupJobs(), releaseReservedCleanupJob(), retryDocumentCleanupJobs(), presignContractDraft() (+12 more)
+
+### Community 97 - "vitest"
+Cohesion: 0.22
+Nodes (4): planSchema, base, @noble/hashes, vitest
+
+### Community 98 - "composeStampImage"
+Cohesion: 0.83
+Nodes (3): composeStampImage(), loadImage(), trimTransparent()
 
 ### Community 100 - "RepresentativeSignPage"
 Cohesion: 0.24
 Nodes (16): previewProfessionalSignature(), usePreviewProfessionalSignature(), draftKey(), readDraft(), RepresentativeSignPage(), flag(), handleClear(), handleConfirm() (+8 more)
 
 ### Community 102 - "clinical.ts"
-Cohesion: 0.08
-Nodes (33): claimCleanupJob(), cleanupLease(), CleanupResult, CleanupStatus, clearDraft, deleteAppliedDocument(), documentOwnsCleanupKeys(), heartbeatCleanupJob() (+25 more)
+Cohesion: 0.05
+Nodes (65): claimCleanupJob(), cleanupLease(), CleanupResult, CleanupStatus, clearDraft, deleteAppliedDocument(), documentOwnsCleanupKeys(), heartbeatCleanupJob() (+57 more)
 
 ### Community 106 - "collectFingerprint"
 Cohesion: 0.32
@@ -434,22 +447,22 @@ Nodes (5): scripts, build, dev, test, typecheck
 ## Knowledge Gaps
 - **631 isolated node(s):** `name`, `private`, `type`, `dev`, `dev:debug` (+626 more)
   These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 802 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **37 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **34 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `ContractVersion` connect `Spec — Autoria DOCX com ONLYOFFICE e Materialização Paramétrica de Contratos para Assinatura PDF` to `queries.ts`?**
-  _High betweenness centrality (0.287) - this node is a cross-community bridge._
-- **Why does `Solution` connect `Spec — Autoria DOCX com ONLYOFFICE e Materialização Paramétrica de Contratos para Assinatura PDF` to `contract-generation.ts`?**
-  _High betweenness centrality (0.278) - this node is a cross-community bridge._
-- **Why does `patient()` connect `contract-generation.ts` to `Spec — Autoria DOCX com ONLYOFFICE e Materialização Paramétrica de Contratos para Assinatura PDF`, `followups.ts`, `getDatabase`?**
-  _High betweenness centrality (0.278) - this node is a cross-community bridge._
+  _High betweenness centrality (0.277) - this node is a cross-community bridge._
+- **Why does `Solution` connect `Spec — Autoria DOCX com ONLYOFFICE e Materialização Paramétrica de Contratos para Assinatura PDF` to `followups.ts`?**
+  _High betweenness centrality (0.272) - this node is a cross-community bridge._
+- **Why does `patient()` connect `followups.ts` to `getDatabase`, `Spec — Autoria DOCX com ONLYOFFICE e Materialização Paramétrica de Contratos para Assinatura PDF`?**
+  _High betweenness centrality (0.272) - this node is a cross-community bridge._
 - **What connects `name`, `private`, `type` to the rest of the system?**
   _631 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `contract-generation.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.0945945945945946 - nodes in this community are weakly interconnected._
+- **Should `atendimentos.$attendanceId.tsx` be split into smaller, more focused modules?**
+  _Cohesion score 0.11330049261083744 - nodes in this community are weakly interconnected._
 - **Should `external-validation.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.08758503401360544 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.13257575757575757 - nodes in this community are weakly interconnected._
 - **Should `app` be split into smaller, more focused modules?**
-  _Cohesion score 0.07532467532467532 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.06954997077732321 - nodes in this community are weakly interconnected._

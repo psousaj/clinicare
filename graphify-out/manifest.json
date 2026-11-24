@@ -1032,9 +1032,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/routes/-assinatura.$token.test.tsx": {
-    "mtime": 1795496389.726655,
-    "seen": 1795496665.28632,
-    "ast_hash": "c6b6dad0709f6b2c37ebedb6a7a19c5e",
+    "mtime": 1795497489.0576005,
+    "seen": 1795497606.160213,
+    "ast_hash": "0c775d999d3084957d28dd2dc6c6b29d",
     "semantic_hash": ""
   },
   "apps/web/src/routes/assinatura.$token.tsx": {
@@ -1362,9 +1362,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/signing/SignaturePadField.tsx": {
-    "mtime": 1792452794.4942307,
-    "seen": 1795484950.0513835,
-    "ast_hash": "7457e15300af0ea27d68f47277147594",
+    "mtime": 1795496902.0866508,
+    "seen": 1795496947.5111518,
+    "ast_hash": "3782094bdf3ef2b887336272b3ec0d67",
     "semantic_hash": ""
   },
   "apps/web/src/components/signing/StampPreview.tsx": {
@@ -1392,9 +1392,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/signing/SignaturePadField.test.tsx": {
-    "mtime": 1792452794.4942307,
-    "seen": 1795484950.051382,
-    "ast_hash": "a0bb50d81d85d7fc7a2396e99217beea",
+    "mtime": 1795496902.0866508,
+    "seen": 1795496947.5111487,
+    "ast_hash": "9507a89466dffc22ff9c51ac8dad85f1",
     "semantic_hash": ""
   },
   "apps/web/src/lib/idempotency.test.ts": {

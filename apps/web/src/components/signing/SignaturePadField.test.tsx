@@ -161,16 +161,16 @@ describe('SignaturePadField', () => {
     fireEvent.pointerUp(screen.getByLabelText('Área para desenhar sua assinatura'));
     expect(requestFullscreen).toHaveBeenCalledOnce();
     await Promise.resolve();
-    expect(lock).toHaveBeenCalledWith('landscape');
-    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeInTheDocument();
+    expect(lock).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Fechar modo ampliado' })).toBeInTheDocument();
     fireEvent.pointerDown(screen.getByLabelText('Área para desenhar sua assinatura'));
     fireEvent.pointerUp(screen.getByLabelText('Área para desenhar sua assinatura'));
     padInstance?.dispatch('endStroke');
     expect(onStroke).toHaveBeenCalledWith('data:image/png;base64,signature');
     fireEvent.click(screen.getByRole('button', { name: 'Limpar' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar modo ampliado' }));
     expect(clear).toHaveBeenCalledOnce();
-    expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Fechar modo ampliado' })).not.toBeInTheDocument();
 
     fireEvent.pointerDown(screen.getByLabelText('Área para desenhar sua assinatura'));
     fireEvent.pointerUp(screen.getByLabelText('Área para desenhar sua assinatura'));
@@ -183,7 +183,7 @@ describe('SignaturePadField', () => {
     render(<SignaturePadField onStroke={vi.fn()} />);
     fireEvent.pointerDown(screen.getByLabelText('Área para desenhar sua assinatura'));
     fireEvent.pointerUp(screen.getByLabelText('Área para desenhar sua assinatura'));
-    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Fechar modo ampliado' })).toBeInTheDocument();
 
     cleanup();
     Object.defineProperty(HTMLElement.prototype, 'requestFullscreen', { configurable: true, value: vi.fn(() => Promise.reject(new Error('fullscreen denied'))) });
@@ -191,14 +191,14 @@ describe('SignaturePadField', () => {
     fireEvent.pointerDown(screen.getByLabelText('Área para desenhar sua assinatura'));
     fireEvent.pointerUp(screen.getByLabelText('Área para desenhar sua assinatura'));
     await Promise.resolve();
-    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Fechar modo ampliado' })).toBeInTheDocument();
 
     cleanup();
     vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {}, addListener() {} }));
     render(<SignaturePadField onStroke={vi.fn()} />);
     fireEvent.pointerDown(screen.getByLabelText('Área para desenhar sua assinatura'));
     fireEvent.pointerUp(screen.getByLabelText('Área para desenhar sua assinatura'));
-    expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Fechar modo ampliado' })).not.toBeInTheDocument();
   });
 
   it('closes when native fullscreen is exited', async () => {
@@ -219,10 +219,10 @@ describe('SignaturePadField', () => {
     render(<SignaturePadField onStroke={vi.fn()} />);
     fireEvent.pointerDown(screen.getByLabelText('Área para desenhar sua assinatura'));
     fireEvent.pointerUp(screen.getByLabelText('Área para desenhar sua assinatura'));
-    expect(screen.getByRole('button', { name: 'Confirmar' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Fechar modo ampliado' })).toBeInTheDocument();
     fullscreenElement = null;
     document.dispatchEvent(new Event('fullscreenchange'));
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Fechar modo ampliado' })).not.toBeInTheDocument());
     expect(exitFullscreen).not.toHaveBeenCalled();
   });
 });

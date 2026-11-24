@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider, createMemoryHistory } from '@tanstack/react-router';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAppRouter, createQueryClient } from '../router';
@@ -22,7 +22,15 @@ const renderPage = () => {
   return queryClient;
 };
 
-const { renderPdfPage } = vi.hoisted(() => ({ renderPdfPage: vi.fn(() => ({ promise: Promise.resolve() })) }));
+const { renderPdfPage, triggerSignatureStroke, setSignatureStrokeListener, clearSignatureStrokeListener } = vi.hoisted(() => {
+  let signatureStrokeListener: (() => void) | undefined;
+  return {
+    renderPdfPage: vi.fn(() => ({ promise: Promise.resolve() })),
+    triggerSignatureStroke: () => signatureStrokeListener?.(),
+    setSignatureStrokeListener: (listener: () => void) => { signatureStrokeListener = listener; },
+    clearSignatureStrokeListener: () => { signatureStrokeListener = undefined; },
+  };
+});
 
 vi.mock('pdfjs-dist', () => ({
   GlobalWorkerOptions: { workerSrc: '' },
@@ -42,6 +50,8 @@ vi.mock('signature_pad', () => ({
     off() {}
     clear() {}
     isEmpty() { return false; }
+    addEventListener(event: string, listener: () => void) { if (event === 'endStroke') setSignatureStrokeListener(listener); }
+    removeEventListener() { clearSignatureStrokeListener(); }
     toDataURL() { return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='; }
   },
 }));
@@ -50,6 +60,7 @@ describe('patient signature workspace', () => {
   beforeEach(() => {
     cleanup();
     renderPdfPage.mockClear();
+    clearSignatureStrokeListener();
     globalThis.fetch = vi.fn(async (url: string) => {
       if (url === '/public/signatures/test-token') return { ok: true, status: 200, json: async () => signatureResponse() };
       if (url === '/public/signatures/test-token/confirm') return { ok: true, status: 200, json: async () => ({ signed: true }) };
@@ -153,15 +164,28 @@ describe('patient signature workspace', () => {
     renderPage();
 
     expect(await screen.findByRole('heading', { name: 'Contrato de teste' })).toBeInTheDocument();
+    expect(await screen.findByText(/Página 1 de 2/)).toBeInTheDocument();
     await user.click((await screen.findAllByRole('button', { name: 'Continuar para assinatura' }))[0]!);
     const canvas = await screen.findByLabelText('Área para desenhar sua assinatura');
     fireEvent.pointerDown(canvas);
     fireEvent.pointerUp(canvas);
-    expect(await screen.findByRole('button', { name: 'Confirmar' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
-    expect(screen.queryByRole('button', { name: 'Confirmar' })).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Fechar modo ampliado' })).toBeInTheDocument();
+    act(() => triggerSignatureStroke());
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar modo ampliado' }));
+    expect(screen.queryByRole('button', { name: 'Fechar modo ampliado' })).not.toBeInTheDocument();
+    expect((fetch as ReturnType<typeof vi.fn>).mock.calls.some(([url]) => url === '/public/signatures/test-token/confirm')).toBe(false);
     await user.click((await screen.findAllByRole('button', { name: 'Continuar' }))[0]!);
     await waitFor(() => expect(screen.getByLabelText('Página 1 de 2 da prévia')).toBeInTheDocument());
+    await waitFor(() => expect((fetch as ReturnType<typeof vi.fn>).mock.calls.some(([url]) => url === '/public/signatures/test-token/preview')).toBe(true));
+    const previewRequest = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(([url]) => url === '/public/signatures/test-token/preview');
+    const previewBody = JSON.parse(previewRequest![1].body as string);
+    expect(previewBody.signaturePng).toMatch(/^data:image\/png;base64,/);
+    await user.click(screen.getByRole('checkbox', { name: /li e concordo/i }));
+    await user.click((await screen.findAllByRole('button', { name: 'Assinar documento' }))[0]!);
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Documento assinado!' })).toBeInTheDocument());
+    const confirmRequest = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(([url]) => url === '/public/signatures/test-token/confirm');
+    const confirmBody = JSON.parse(confirmRequest![1].body as string);
+    expect(confirmBody.evidence.signaturePng).toBe(previewBody.signaturePng);
   });
 
   it('keeps the PDF mounted when dragging the signature box and never auto-loads a hidden preview', async () => {
