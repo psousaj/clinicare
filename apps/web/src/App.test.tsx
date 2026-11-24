@@ -1289,6 +1289,68 @@ describe('Configurações', () => {
     await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true));
     expect(calls.find((call) => call.method === 'PUT')?.body).toEqual({ registrationType: 'CRM', registrationNumber: '123456', registrationState: 'SP' });
   });
+
+  it('changes the login email and password from account settings', async () => {
+    routes['GET /api/auth/me'] = () => ({
+      user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com', initialPasswordChoice: 'declined' },
+      tenant: { id: 't1', name: 'Clínica Essenza' },
+    });
+    routes['GET /api/auth/professional-profile'] = () => null;
+    routes['POST /api/auth/change-email'] = () => ({ email: 'nova@example.com' });
+    routes['POST /api/auth/change-password'] = () => ({ success: true });
+    const user = userEvent.setup();
+    renderAt('/configuracoes');
+    await user.click(await screen.findByRole('tab', { name: /clínica e conta/i }));
+    const email = await screen.findByLabelText('E-mail');
+    await user.clear(email);
+    await user.type(email, 'nova@example.com');
+    await user.click(screen.getByRole('button', { name: 'Atualizar e-mail' }));
+    await waitFor(() => expect(calls.some((call) => call.url === '/api/auth/change-email')).toBe(true));
+    expect(calls.find((call) => call.url === '/api/auth/change-email')?.body).toEqual({ newEmail: 'nova@example.com' });
+
+    await user.type(screen.getByLabelText('Senha atual'), 'current-password');
+    await user.type(screen.getByLabelText('Nova senha'), 'new-password');
+    await user.type(screen.getByLabelText('Confirmar nova senha'), 'new-password');
+    await user.click(screen.getByRole('button', { name: 'Alterar senha' }));
+    await waitFor(() => expect(calls.some((call) => call.url === '/api/auth/change-password')).toBe(true));
+    expect(calls.find((call) => call.url === '/api/auth/change-password')?.body).toEqual({ currentPassword: 'current-password', newPassword: 'new-password' });
+    expect(await screen.findByRole('heading', { name: 'Entrar na sua clínica' })).toBeInTheDocument();
+  });
+
+  it('shows the first-login password prompt and persists the choice without blocking access', async () => {
+    let choice = 'pending';
+    routes['GET /api/auth/me'] = () => ({
+      user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com', initialPasswordChoice: choice },
+      tenant: { id: 't1', name: 'Clínica Essenza' },
+    });
+    routes['POST /api/auth/initial-password-choice'] = (init) => {
+      choice = (JSON.parse(init?.body as string) as { choice: string }).choice;
+      return { choice };
+    };
+    const user = userEvent.setup();
+    renderAt('/');
+    expect(await screen.findByText(/Você está usando a senha inicial da clínica/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Manter por enquanto' }));
+    await waitFor(() => expect(calls.some((call) => call.url === '/api/auth/initial-password-choice')).toBe(true));
+    expect(calls.find((call) => call.url === '/api/auth/initial-password-choice')?.body).toEqual({ choice: 'declined' });
+    await waitFor(() => expect(screen.queryByText(/Você está usando a senha inicial da clínica/i)).not.toBeInTheDocument());
+    expect(screen.getByRole('heading', { name: 'Sua clínica, em um só lugar.' })).toBeInTheDocument();
+  });
+
+  it('takes an administrator who accepts the password suggestion directly to the password form', async () => {
+    routes['GET /api/auth/me'] = () => ({
+      user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com', initialPasswordChoice: 'pending' },
+      tenant: { id: 't1', name: 'Clínica Essenza' },
+    });
+    routes['GET /api/auth/professional-profile'] = () => null;
+    routes['POST /api/auth/initial-password-choice'] = () => ({ choice: 'accepted' });
+    const user = userEvent.setup();
+    renderAt('/');
+    await user.click(await screen.findByRole('button', { name: 'Quero trocar a senha' }));
+    expect(await screen.findByLabelText('Senha atual')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Alterar senha' })).toBeInTheDocument();
+    expect(calls.find((call) => call.url === '/api/auth/initial-password-choice')?.body).toEqual({ choice: 'accepted' });
+  });
 });
 
 describe('Documentos', () => {

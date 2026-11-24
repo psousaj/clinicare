@@ -5,7 +5,7 @@ import { QuickActions } from '@/components/QuickActions';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { accountQuery, professionalProfileQuery } from '@/lib/queries';
+import { accountQuery, professionalProfileQuery, useUpdateInitialPasswordChoice } from '@/lib/queries';
 
 const navigation = [
   { to: '/', label: 'Visão geral', title: 'Sua clínica, em um só lugar.', icon: LayoutDashboard },
@@ -109,6 +109,8 @@ function initials(name: string) {
 function AppLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const account = useQuery(accountQuery);
+  const initialPasswordChoice = useUpdateInitialPasswordChoice();
+  const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const current = pathname.startsWith('/configuracoes')
     ? settingsEntry
@@ -116,6 +118,11 @@ function AppLayout() {
   const path = pathname.replace(/(.)\/$/, '$1');
   const showNewPatient = path === '/pacientes';
   const isSigning = pathname.includes('/assinar');
+
+  async function chooseInitialPassword(choice: 'accepted' | 'declined') {
+    await initialPasswordChoice.mutateAsync(choice);
+    if (choice === 'accepted') await navigate({ to: '/configuracoes', search: { tab: 'account' } });
+  }
 
   return (
     <div className="app-shell">
@@ -139,6 +146,16 @@ function AppLayout() {
               {path === '/' && <QuickActions />}
               {showNewPatient && <Button asChild><Link to="/pacientes/novo"><Plus size={17} /> Novo paciente</Link></Button>}
             </section>}
+            {account.data?.user.initialPasswordChoice === 'pending' && (
+              <section className="panel mb-4 grid gap-3 sm:grid-cols-[1fr_auto_auto]" aria-labelledby="initial-password-title">
+                <div>
+                  <h2 id="initial-password-title" className="m-0 text-base font-semibold">Proteja sua conta</h2>
+                  <p className="m-0 mt-1 text-sm text-muted-foreground">Você está usando a senha inicial da clínica. Recomendamos criar uma senha própria; essa troca é opcional.</p>
+                </div>
+                <Button type="button" disabled={initialPasswordChoice.isPending} onClick={() => { void chooseInitialPassword('accepted').catch(() => undefined); }}>Quero trocar a senha</Button>
+                <Button type="button" variant="ghost" disabled={initialPasswordChoice.isPending} onClick={() => { void chooseInitialPassword('declined').catch(() => undefined); }}>Manter por enquanto</Button>
+              </section>
+            )}
             <Outlet />
             {!isSigning && <footer className="page-footer">
               <span>Clínicare <span className="brand-dot">.</span> Gestão feita com cuidado.</span>

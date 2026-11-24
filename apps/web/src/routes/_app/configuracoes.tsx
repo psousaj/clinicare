@@ -1,7 +1,8 @@
-import { useQuery } from '@tanstack/react-query';
-import { createFileRoute } from '@tanstack/react-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { BadgeCheck, FileText, History, PenLine, Settings2, Stamp, UserRound } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { z } from 'zod';
 import { QueryError } from '@/components/QueryState';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Field } from '@/components/Field';
@@ -9,9 +10,12 @@ import { Button } from '@/components/ui/button';
 import { SignaturePadField, type SignaturePadHandle } from '@/components/signing/SignaturePadField';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { defaultSignatureQuery, professionalProfileQuery, accountQuery, sessionQuery, useSaveDefaultSignature, useSaveProfessionalProfile, useUpdateAccount } from '@/lib/queries';
+import { defaultSignatureQuery, professionalProfileQuery, accountQuery, sessionQuery, useChangeAccountEmail, useChangeAccountPassword, useSaveDefaultSignature, useSaveProfessionalProfile, useUpdateAccount } from '@/lib/queries';
 
-export const Route = createFileRoute('/_app/configuracoes')({ component: Settings });
+export const Route = createFileRoute('/_app/configuracoes')({
+  validateSearch: z.object({ tab: z.enum(['account', 'identity', 'signature']).optional() }),
+  component: Settings,
+});
 
 const COUNCILS = ['CRM', 'CRO', 'CREFITO', 'CRF', 'COREN', 'CRBM', 'CRBio', 'OUTRO'] as const;
 const STATES = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'] as const;
@@ -20,6 +24,8 @@ const STATES = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT'
 // O registro aqui é o carimbo que a materialização grava nos contratos
 // (placeholders professional.*) — sem ele, a geração do DOCX falha.
 function Settings() {
+  const { tab } = Route.useSearch();
+  const navigate = Route.useNavigate();
   const profile = useQuery(professionalProfileQuery);
   const session = useQuery(sessionQuery);
   const defaultSignature = useQuery(defaultSignatureQuery);
@@ -50,7 +56,7 @@ function Settings() {
   const stampLine = council && number.trim() ? `${council} ${number.trim()}${state ? `/${state}` : ''}` : null;
 
   return (
-    <Tabs defaultValue="identity" className="items-stretch">
+    <Tabs value={tab ?? 'identity'} onValueChange={(value) => { void navigate({ search: { tab: value as 'account' | 'identity' | 'signature' } }); }} className="items-stretch">
       <TabsList aria-label="Seções de configurações">
         <TabsTrigger value="account"><Settings2 aria-hidden="true" /> Clínica e conta</TabsTrigger>
         <TabsTrigger value="identity"><UserRound aria-hidden="true" /> Identidade profissional</TabsTrigger>
@@ -147,25 +153,44 @@ function Settings() {
   );
 }
 
-// Clínica e conta: nome da clínica (topo, contratos, identidade pública)
-// e nome do responsável (carimbo, assinaturas, histórico). E-mail e senha
-// continuam gerenciados pelos comandos administrativos; o bootstrap via
-// env só provisiona na primeira criação e não sobrescreve estes nomes.
+// Clínica e conta: identidade da clínica e credenciais do administrador autenticado.
 function ClinicAccountPanel() {
   const account = useQuery(accountQuery);
   const save = useUpdateAccount();
+  const changeEmail = useChangeAccountEmail();
+  const changePassword = useChangeAccountPassword();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [clinicName, setClinicName] = useState('');
   const [adminName, setAdminName] = useState('');
+  const [email, setEmail] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   useEffect(() => {
     if (!account.data) return;
     setClinicName(account.data.tenant.name ?? '');
     setAdminName(account.data.user.name ?? '');
+    setEmail(account.data.user.email ?? '');
   }, [account.data]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await save.mutateAsync({ name: adminName.trim(), clinicName: clinicName.trim() });
+  }
+
+  async function submitEmail(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await changeEmail.mutateAsync(email.trim());
+  }
+
+  async function submitPassword(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (newPassword !== confirmPassword) return;
+    await changePassword.mutateAsync({ currentPassword, newPassword });
+    queryClient.clear();
+    await navigate({ to: '/login' });
   }
 
   return (
@@ -186,13 +211,37 @@ function ClinicAccountPanel() {
             <Field label="Nome da clínica" name="clinicName" required minLength={2} value={clinicName} onChange={(event) => setClinicName(event.target.value)} placeholder="Ex.: Espaço Vida" />
             <Field label="Nome do responsável" name="adminName" required minLength={2} value={adminName} onChange={(event) => setAdminName(event.target.value)} placeholder="Ex.: Dra. Ana Souza" />
           </div>
-          <p className="section-note m-0">Acesso: {account.data.user.email ?? '—'} (e-mail e senha não mudam por aqui).</p>
           <div>
             <Button type="submit" disabled={save.isPending} className="transition-transform duration-150 ease-out active:scale-[0.97]">
               {save.isPending ? 'Salvando…' : 'Salvar nomes'}
             </Button>
           </div>
         </form>
+      )}
+      {account.isSuccess && (
+        <>
+          <form className="grid gap-3 border-t pt-4" onSubmit={(event) => submitEmail(event).catch(() => undefined)}>
+            <div>
+              <h3 className="m-0 text-sm font-semibold">E-mail de acesso</h3>
+              <p className="section-note m-0 mt-1">O novo e-mail passa a valer imediatamente e precisa ser único.</p>
+            </div>
+            <Field label="E-mail" name="accountEmail" type="email" required value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" />
+            <div><Button type="submit" variant="secondary" disabled={changeEmail.isPending}>{changeEmail.isPending ? 'Salvando…' : 'Atualizar e-mail'}</Button></div>
+          </form>
+          <form className="grid gap-3 border-t pt-4" onSubmit={(event) => submitPassword(event).catch(() => undefined)}>
+            <div>
+              <h3 className="m-0 text-sm font-semibold">Alterar senha</h3>
+              <p className="section-note m-0 mt-1">Por segurança, informe a senha atual. A alteração encerra todas as sessões e exigirá novo login.</p>
+            </div>
+            <Field label="Senha atual" name="currentPassword" type="password" required value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} autoComplete="current-password" />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Nova senha" name="newPassword" type="password" required minLength={8} value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" />
+              <Field label="Confirmar nova senha" name="confirmPassword" type="password" required minLength={8} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" />
+            </div>
+            {confirmPassword && newPassword !== confirmPassword && <p role="alert" className="m-0 text-sm text-destructive">As senhas não conferem.</p>}
+            <div><Button type="submit" variant="secondary" disabled={changePassword.isPending || newPassword !== confirmPassword}>{changePassword.isPending ? 'Atualizando…' : 'Alterar senha'}</Button></div>
+          </form>
+        </>
       )}
     </section>
   );
