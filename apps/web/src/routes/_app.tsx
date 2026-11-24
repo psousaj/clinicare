@@ -1,10 +1,10 @@
-import { createFileRoute, Link, Outlet, redirect, useRouterState } from '@tanstack/react-router';
-import { Activity, CalendarDays, ChevronDown, ChevronRight, ClipboardList, FileSignature, FileText, Layers, LayoutDashboard, PartyPopper, Plus, Settings2, Sparkles, UsersRound, WalletCards, X } from 'lucide-react';
+import { createFileRoute, Link, Outlet, redirect, useNavigate, useRouterState } from '@tanstack/react-router';
+import { Activity, CalendarDays, ChevronDown, ChevronRight, ClipboardList, FileSignature, FileText, Layers, LayoutDashboard, LogOut, PartyPopper, Plus, Settings2, Sparkles, UsersRound, WalletCards, X } from 'lucide-react';
 import { useState } from 'react';
 import { QuickActions } from '@/components/QuickActions';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { accountQuery, professionalProfileQuery } from '@/lib/queries';
 
 const navigation = [
@@ -34,11 +34,33 @@ export const Route = createFileRoute('/_app')({
 function NavigationPanelContent({ onNavigate, mobile = false }: { onNavigate: () => void; mobile?: boolean }) {
   const account = useQuery(accountQuery);
   const profile = useQuery(professionalProfileQuery);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [signingOut, setSigningOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const userName = account.data?.user.name ?? '…';
   const tenantName = account.data?.tenant.name ?? '…';
   const council = profile.data?.registrationType && profile.data?.registrationNumber
     ? `${profile.data.registrationType} ${profile.data.registrationNumber}${profile.data.registrationState ? `/${profile.data.registrationState}` : ''}`
     : null;
+
+  async function signOut() {
+    if (signingOut) return;
+    setSigningOut(true);
+    setSignOutError(null);
+    try {
+      const response = await fetch('/api/auth/sign-out', { method: 'POST', credentials: 'include' });
+      if (!response.ok) throw new Error('Não foi possível encerrar a sessão. Tente novamente.');
+      queryClient.clear();
+      onNavigate();
+      await navigate({ to: '/login' });
+    } catch (error) {
+      setSignOutError(error instanceof Error ? error.message : 'Não foi possível encerrar a sessão. Tente novamente.');
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
   return (
     <>
       <div className="mobile-drawer-header">
@@ -64,6 +86,11 @@ function NavigationPanelContent({ onNavigate, mobile = false }: { onNavigate: ()
       </nav>
       <div className="sidebar-bottom">
         <Link to="/configuracoes" className="nav-link" activeProps={{ className: 'active' }} onClick={onNavigate}><Settings2 size={18} /><span>Configurações</span></Link>
+        <button type="button" className="nav-link w-full text-left" onClick={() => { void signOut(); }} disabled={signingOut}>
+          <LogOut size={18} aria-hidden="true" />
+          <span>{signingOut ? 'Saindo…' : 'Sair'}</span>
+        </button>
+        {signOutError && <p role="alert" className="m-0 px-3 text-xs text-destructive">{signOutError}</p>}
         <div className="profile-row">
           <div className="profile-avatar">{initials(userName)}</div>
           <div className="profile-copy"><strong>{userName}</strong><small>{tenantName}</small></div>

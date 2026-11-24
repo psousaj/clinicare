@@ -372,9 +372,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app.tsx": {
-    "mtime": 1791424306.891347,
-    "seen": 1795484950.0514374,
-    "ast_hash": "e8f0b0b8c5e08b63b10b8d8e787ba337",
+    "mtime": 1795485214.2986574,
+    "seen": 1795485347.3562694,
+    "ast_hash": "e4dbc556ca19f59e4a7ed2d477ea16d6",
     "semantic_hash": ""
   },
   "apps/web/src/routes/_app/agenda.tsx": {
