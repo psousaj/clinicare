@@ -24,9 +24,9 @@
     "semantic_hash": ""
   },
   "apps/api/package.json": {
-    "mtime": 1795485634.1546574,
-    "seen": 1795485669.515329,
-    "ast_hash": "452a8da35c2f86cad65c52398073813d",
+    "mtime": 1795486021.9746556,
+    "seen": 1795487402.7927375,
+    "ast_hash": "20a90d381995b3efe5ab599c8a49facb",
     "semantic_hash": ""
   },
   "apps/api/src/app.test.ts": {
@@ -582,8 +582,8 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1790986941.5487947,
-    "seen": 1795484950.0515187,
+    "mtime": 1795485883.4866576,
+    "seen": 1795487402.7995195,
     "ast_hash": "1f21ff818ed77739d22a808b7887e957",
     "semantic_hash": ""
   },
@@ -660,9 +660,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/clinical.integration.test.ts": {
-    "mtime": 1792452794.4902306,
-    "seen": 1795484950.0512557,
-    "ast_hash": "2cc193132db0fa84bcc0bbd119a0c130",
+    "mtime": 1795487048.9026566,
+    "seen": 1795487402.7932906,
+    "ast_hash": "952ce9c9d099e67bd29b3ea56481c62c",
     "semantic_hash": ""
   },
   "apps/api/src/clinical.ts": {
@@ -738,9 +738,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/signatures.integration.test.ts": {
-    "mtime": 1791324710.1133084,
-    "seen": 1795484950.051316,
-    "ast_hash": "ab47168095825e027133ff698a8d82a6",
+    "mtime": 1795488076.522657,
+    "seen": 1795488101.7162795,
+    "ast_hash": "51e0b88f36aa10f84905503feb4aa1cd",
     "semantic_hash": ""
   },
   "apps/api/src/signatures.ts": {
@@ -882,9 +882,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/auth.ts": {
-    "mtime": 1791326985.1549811,
-    "seen": 1795484950.0512497,
-    "ast_hash": "47dc3880388d023da392108eeb148bd2",
+    "mtime": 1795486285.4906578,
+    "seen": 1795487402.7932138,
+    "ast_hash": "ded91402c1f2fc9fd23506380d2daffc",
     "semantic_hash": ""
   },
   "apps/web/src/routes/login.tsx": {
@@ -1443,6 +1443,12 @@
     "mtime": 1795485814.286657,
     "seen": 1795485848.281227,
     "ast_hash": "72e244600de27f0c8885a104ffc5861b",
+    "semantic_hash": ""
+  },
+  "apps/api/src/tenant-lifecycle.integration.test.ts": {
+    "mtime": 1795486371.7306573,
+    "seen": 1795487402.7945013,
+    "ast_hash": "1a861cc0139af9022000ed5231994874",
     "semantic_hash": ""
   }
 }

@@ -67,6 +67,66 @@ integration('clinical relational workflows', () => {
     expect(((await (await request(tenantId, `/api/patient-anamneses/${f.appliedId}`)).json()) as any).answers).toMatchObject({ a: 1 });
     expect((await (await request(tenantId, `/api/anamnesis-responses/${f.appliedId}/notes`)).json() as any[]).length).toBeGreaterThanOrEqual(1);
   });
+  it('blocks public anamnesis links only while the tenant is inactive and preserves expiry and single submission', async () => {
+    const validFixture = await fixture();
+    const expiredFixture = await fixture();
+    const submittedFixture = await fixture();
+    const db = getDatabase();
+    const createLink = async (appliedId: string) => {
+      const response = await post(tenantId, '/api/anamnesis-requests', { patientAnamnesisId: appliedId });
+      expect(response.status).toBe(201);
+      const body = await response.json() as { url: string };
+      return body.url.split('/').at(-1)!;
+    };
+    const validToken = await createLink(validFixture.appliedId);
+    const expiredToken = await createLink(expiredFixture.appliedId);
+    const submittedToken = await createLink(submittedFixture.appliedId);
+    await db.update(appliedAnamneses).set({ requestExpiresAt: new Date(Date.now() - 1000) }).where(eq(appliedAnamneses.id, expiredFixture.appliedId));
+    const usedResponse = await app.request(`/public/anamnesis/${submittedToken}/submit`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ answers: { patientResponse: true } }),
+    });
+    expect(usedResponse.status).toBe(201);
+
+    const publicRead = (token: string) => app.request(`/public/anamnesis/${token}`);
+    expect((await publicRead(validToken)).status).toBe(200);
+    expect((await publicRead(expiredToken)).status).toBe(404);
+    expect((await publicRead(submittedToken)).status).toBe(404);
+
+    await db.update(tenants).set({ active: false }).where(eq(tenants.id, tenantId));
+    try {
+      const blockedRead = await publicRead(validToken);
+      expect(blockedRead.status).toBe(404);
+      const blockedBody = await blockedRead.text();
+      expect(blockedBody).not.toContain('Paciente clínico');
+      expect(blockedBody).not.toContain('Título original');
+      expect((await app.request(`/public/anamnesis/${validToken}/draft`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ draft: { patientResponse: true } }),
+      })).status).toBe(404);
+      expect((await app.request(`/public/anamnesis/${validToken}/submit`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ answers: { patientResponse: true } }),
+      })).status).toBe(409);
+    } finally {
+      await db.update(tenants).set({ active: true }).where(eq(tenants.id, tenantId));
+    }
+
+    const restoredRead = await publicRead(validToken);
+    expect(restoredRead.status).toBe(200);
+    expect(await restoredRead.json()).toMatchObject({ title: 'Título original' });
+    expect((await app.request(`/public/anamnesis/${validToken}/submit`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ answers: { patientResponse: true } }),
+    })).status).toBe(201);
+    expect((await publicRead(validToken)).status).toBe(404);
+    expect((await publicRead(expiredToken)).status).toBe(404);
+    expect((await publicRead(submittedToken)).status).toBe(404);
+  });
   it('rejects applied-document uploads without a valid rendered PDF hash and size', async () => { const f = await fixture(); const contract = (await getDatabase().select().from(followupContracts).where(eq(followupContracts.followupId, f.followupId)))[0]!; const response = await post(tenantId, `/api/followup-contracts/${contract.id}/documents/presign`, { contentType: 'application/pdf', contentHash: 'sha256:test', size: 123 }); expect(response.status).toBe(400); });
   it('materializes only the immutable contract PDF and rejects client-selected metadata', async () => { const f = await fixture(); const contract = (await getDatabase().select().from(followupContracts).where(eq(followupContracts.followupId, f.followupId)))[0]!; const rejected = await post(tenantId, `/api/followup-contracts/${contract.id}/documents/presign`, { contentType: 'application/pdf', contentHash: 'b'.repeat(64), size: 999 }); expect(rejected.status).toBe(400); if (!storage) { const materialized = await post(tenantId, `/api/followup-contracts/${contract.id}/documents`, { uploadIntentId: crypto.randomUUID(), contentType: 'application/pdf', contentHash: 'b'.repeat(64), size: 999 }); expect(materialized.status).toBe(503); } });
   it('deletes a document and all immutable revisions through the aggregate boundary', async () => { const db = getDatabase(); const f = await fixture(); const contract = (await db.select().from(followupContracts).where(eq(followupContracts.followupId, f.followupId)))[0]!; const documentId = crypto.randomUUID(); const revisionId = crypto.randomUUID(); await db.execute(sql`select set_config('app.constructing_applied_document', 'on', false)`); await db.insert(appliedDocuments).values({ id: documentId, tenantId, followupContractId: contract.id, originalObjectKey: crypto.randomUUID(), originalHash: 'a'.repeat(64), originalSize: 123 }); await db.insert(appliedDocumentRevisions).values({ id: revisionId, tenantId, documentId, version: 1, objectKey: crypto.randomUUID(), contentHash: 'a'.repeat(64), contentSize: 123 }); await db.execute(sql`select set_config('app.constructing_applied_document', 'on', false)`); await db.update(appliedDocuments).set({ currentRevisionId: revisionId }).where(and(eq(appliedDocuments.tenantId, tenantId), eq(appliedDocuments.id, documentId))); await db.execute(sql`select set_config('app.constructing_applied_document', 'off', false)`); if (!storage) { const response = await request(tenantId, `/api/applied-documents/${documentId}`, { method: 'DELETE' }); expect(response.status).toBe(503); expect(await db.select().from(appliedDocuments).where(eq(appliedDocuments.id, documentId))).toHaveLength(0); expect(await db.select().from(appliedDocumentRevisions).where(eq(appliedDocumentRevisions.documentId, documentId))).toHaveLength(0); expect(await db.select().from(documentCleanupJobs).where(eq(documentCleanupJobs.documentId, documentId))).toMatchObject([{ status: 'failed', attempts: 1 }]); } else { const response = await request(tenantId, `/api/applied-documents/${documentId}`, { method: 'DELETE' }); expect(response.status).toBe(200); expect(await db.select().from(appliedDocumentRevisions).where(eq(appliedDocumentRevisions.documentId, documentId))).toHaveLength(0); expect(await db.select().from(documentCleanupJobs).where(eq(documentCleanupJobs.documentId, documentId))).toMatchObject([{ status: 'completed' }]); } });

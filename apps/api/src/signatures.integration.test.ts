@@ -155,6 +155,75 @@ integration('PostgreSQL signatures API', () => {
     expect(revisions).toHaveLength(0);
   });
 
+  it('blocks public document links while the tenant is inactive and restores only unexpired links', async () => {
+    const db = getDatabase();
+    const usableToken = patientTokens[1]!;
+    const expiredToken = patientTokens[0]!;
+    const expiredTokenHash = createHash('sha256').update(expiredToken).digest('hex');
+    const [expiredRow] = await db.select().from(signatureTokens).where(eq(signatureTokens.tokenHash, expiredTokenHash));
+    const originalExpiry = expiredRow!.expiresAt;
+    const publicRequest = (path: string, init: RequestInit = {}) => app.request(path, init);
+    const document = (await db.select().from(appliedDocuments).where(eq(appliedDocuments.id, documentIds[1]!)))[0]!;
+    await db.update(signatureTokens).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(signatureTokens.id, expiredRow!.id));
+    await db.update(tenants).set({ active: false }).where(eq(tenants.id, tenantId));
+    try {
+      const blockedRead = await publicRequest(`/public/signatures/${usableToken}`);
+      expect(blockedRead.status).toBe(404);
+      const blockedBody = await blockedRead.text();
+      expect(blockedBody).not.toContain('Paciente assinatura');
+      expect(blockedBody).not.toContain('Conteúdo protegido');
+      expect((await publicRequest(`/public/signatures/${usableToken}/verify-phone`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ phoneLast4: '4321' }),
+      })).status).toBe(404);
+      expect((await publicRequest(`/public/signatures/${usableToken}/pdf`)).status).toBe(404);
+      expect((await publicRequest(`/public/signatures/${usableToken}/history`)).status).toBe(404);
+      expect((await publicRequest(`/public/signatures/${usableToken}/revisions/${document.currentRevisionId}/pdf`)).status).toBe(404);
+      expect((await publicRequest(`/public/signatures/${usableToken}/preview`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          documentId: document.id,
+          baseRevisionId: document.currentRevisionId,
+          signaturePng: pngDataUrl,
+          idempotencyKey: randomUUID(),
+          placement,
+          previewOnly: true,
+        }),
+      })).status).toBe(404);
+      expect((await publicRequest(`/public/signatures/${usableToken}/confirm`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ evidence: {
+          documentId: document.id,
+          baseRevisionId: document.currentRevisionId,
+          signaturePng: pngDataUrl,
+          idempotencyKey: randomUUID(),
+          placement,
+          previewHash: 'a'.repeat(64),
+          confirmed: true,
+          acceptanceText: 'Li e aceito.',
+        } }),
+      })).status).toBe(404);
+
+      await db.update(tenants).set({ active: true }).where(eq(tenants.id, tenantId));
+      expect((await publicRequest(`/public/signatures/${expiredToken}`)).status).toBe(404);
+      expect((await publicRequest(`/public/signatures/${usableToken}`)).status).toBe(200);
+      expect((await publicRequest(`/public/signatures/${usableToken}/verify-phone`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ phoneLast4: '4321' }),
+      })).status).toBe(200);
+      const restoredRead = await publicRequest(`/public/signatures/${usableToken}`);
+      expect(restoredRead.status).toBe(200);
+      expect(await restoredRead.json()).toMatchObject({ contract: { content: expect.stringContaining('Conteúdo protegido') } });
+    } finally {
+      await db.update(tenants).set({ active: true }).where(eq(tenants.id, tenantId));
+      await db.update(signatureTokens).set({ expiresAt: originalExpiry }).where(eq(signatureTokens.id, expiredRow!.id));
+    }
+  });
+
   it('refreshes atomically and invalidates the old token', async () => {
     const refresh = await request(`/api/signature-participants/${patientParticipantIds[0]}/refresh`, json({}));
     expect(refresh.status).toBe(200);
