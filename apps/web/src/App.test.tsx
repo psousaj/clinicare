@@ -477,7 +477,11 @@ describe('Attendance page', () => {
 });
 
 describe('Agenda', () => {
-  const appointment = { _id: 'ap1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, items: [{ _id: 'ai1', followupId: 'pl1', followupItemId: 'it1', procedureId: 'pr1', procedureName: 'Limpeza de pele', quantity: 2, minutesEach: 30, confirmationStatus: 'pending' }], startsAt: '2026-10-06T14:00:00Z', endsAt: '2026-10-06T15:00:00Z', status: 'planned', notes: 'Trazer exames' };
+  const appointmentStart = new Date(Date.now());
+  if (appointmentStart.getDay() === 0) appointmentStart.setDate(appointmentStart.getDate() - 2);
+  else if (appointmentStart.getDay() === 6) appointmentStart.setDate(appointmentStart.getDate() - 1);
+  appointmentStart.setHours(14, 0, 0, 0);
+  const appointment = { _id: 'ap1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, items: [{ _id: 'ai1', followupId: 'pl1', followupItemId: 'it1', procedureId: 'pr1', procedureName: 'Limpeza de pele', quantity: 2, minutesEach: 30, confirmationStatus: 'pending' }], startsAt: appointmentStart.toISOString(), endsAt: new Date(appointmentStart.getTime() + 60 * 60 * 1000).toISOString(), status: 'planned', notes: 'Trazer exames' };
   const followup = { _id: 'pl1', patientId: 'p1', offerName: 'Limpeza', priceCents: 1000, payments: [], items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3 }] };
 
   it('opens an appointment directly in the edit dialog and deletes it after confirmation', async () => {

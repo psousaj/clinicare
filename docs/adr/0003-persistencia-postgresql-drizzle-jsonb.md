@@ -7,7 +7,7 @@ O Clinicare deixa a persistência documental anterior e adota PostgreSQL acessad
 
 A arquitetura final usa `tenant_id` em todas as tabelas pertencentes ao tenant e FKs compostas nos vínculos críticos. Dados pessoais e clínicos protegíveis são cifrados na aplicação por coluna com AES-256-GCM, nonce aleatório, AAD vinculado ao tenant/tabela/registro/coluna/versão e chaves fornecidas por ambiente; e-mail, telefone e CPF opcional usam HMAC separado para busca exata e unicidade entre pacientes ativos. `full_name` permanece plaintext por ser a busca principal e usa `pg_trgm` com filtro por tenant.
 
-O banco começa vazio com migrations e seed reproduzível: os dados atuais da persistência documental anterior são apenas protótipo e não serão migrados. A troca deve manter o R2 para binários, não deixar dual-write como estado final e só remover Mongo/a persistência documental anterior depois da suíte PostgreSQL e do smoke test estarem verdes.
+O banco começa vazio com migrations e seed reproduzível: os dados da persistência documental anterior eram apenas protótipo e não foram migrados. O corte foi concluído com PostgreSQL como fonte única da verdade, mantendo o R2 para binários e removendo Mongo/Mongoose depois que a suíte PostgreSQL e o smoke test ficaram verdes.
 
 ## Consequências
 

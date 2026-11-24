@@ -8,26 +8,26 @@
 
 O Clinicare evoluiu de um protótipo documental para um produto clínico-financeiro que precisa preservar histórico, controlar consumo de sessões, impedir sobreposição de agendamentos, manter pagamentos consistentes e materializar contratos, anamneses e snapshots sem efeitos retroativos.
 
-A persistência atual em MongoDB/Mongoose não garante, por si só, a integridade necessária entre agregados. Há operações multi-entidade separadas, risco de corrida no consumo de sessões, referências sem FK, versões sujeitas a disputa entre requisições e execução em MongoDB standalone sem uma topologia adequada para transações multi-documento.
+Antes do corte descrito nesta especificação, a persistência em MongoDB/Mongoose não garantia, por si só, a integridade necessária entre agregados. Havia operações multi-entidade separadas, risco de corrida no consumo de sessões, referências sem FK, versões sujeitas a disputa entre requisições e execução em MongoDB standalone sem uma topologia adequada para transações multi-documento.
 
 Ao mesmo tempo, o sistema depende de comportamentos documentais legítimos: JSON Schema configurável, respostas dinâmicas, snapshots históricos e documentos aplicados que precisam continuar interpretáveis depois que o catálogo mudar.
 
-## Solution
+## Solution delivered
 
-Substituir MongoDB/Mongoose por PostgreSQL acessado via Drizzle, mantendo `jsonb` para schemas e snapshots estruturais e usando transações, FKs, `CHECK`s, unicidade, índices e locks como garantias de integridade.
+MongoDB/Mongoose foi substituído por PostgreSQL acessado via Drizzle. Schemas e snapshots estruturais continuam em `jsonb`, enquanto transações, FKs, `CHECK`s, unicidade, índices e locks garantem a integridade dos fluxos.
 
-A solução deve:
+O corte implementado:
 
-- manter o contrato HTTP efetivamente consumido pelo frontend, salvo mudanças explicitamente necessárias;
-- preservar o R2 para fotos e documentos binários;
-- criar um modelo relacional com `tenant_id` em todas as tabelas pertencentes ao tenant;
-- versionar planos e congelar snapshots comerciais dos acompanhamentos;
-- proteger dados pessoais e clínicos por coluna com AES-256-GCM;
-- manter `full_name` em plaintext para a busca principal, limitada por tenant e indexada com `pg_trgm`;
-- oferecer busca exata protegida de e-mail, telefone e CPF opcional por HMAC-SHA-256 separado;
-- tornar início de acompanhamento, reserva, atendimento, assinatura e pagamento operações atômicas;
-- começar com uma base PostgreSQL vazia, migrations versionadas e seed reproduzível; os dados atuais do MongoDB são apenas protótipo e não serão migrados;
-- remover MongoDB/Mongoose somente depois que a suíte PostgreSQL, as migrations e o smoke test estiverem verdes.
+- mantém o contrato HTTP efetivamente consumido pelo frontend, salvo mudanças explicitamente implementadas nele;
+- preserva o R2 para fotos e documentos binários;
+- usa um modelo relacional com `tenant_id` em todas as tabelas pertencentes ao tenant;
+- versiona planos e congela snapshots comerciais dos acompanhamentos;
+- protege dados pessoais e clínicos por coluna com AES-256-GCM;
+- mantém `full_name` em plaintext para a busca principal, limitada por tenant e indexada com `pg_trgm`;
+- oferece busca exata protegida de e-mail, telefone e CPF opcional por HMAC-SHA-256 separado;
+- torna início de acompanhamento, reserva, atendimento, assinatura e pagamento operações atômicas;
+- usa uma base PostgreSQL recriável por migrations versionadas e seed reproduzível; os dados da persistência documental anterior eram apenas protótipo e não foram migrados;
+- não mantém MongoDB/Mongoose: a remoção ocorreu depois que a suíte PostgreSQL, as migrations e o smoke test ficaram verdes.
 
 A seam principal de testes será a API HTTP existente contra PostgreSQL real. Testes diretos de banco serão reservados para migrations, constraints e comportamentos que não sejam observáveis adequadamente pela API.
 
@@ -143,8 +143,8 @@ A seam principal de testes será a API HTTP existente contra PostgreSQL real. Te
 - A tela principal poderá incluir os widgets de assinaturas pendentes e confirmação dos agendamentos do dia, conforme issues #1 e #2.
 - O fluxo de confirmação terá itens selecionados por padrão e ação “Confirmar tudo”, com desmarcação individual.
 - Autenticação/autorização administrativa não será implementada nesta especificação, mas será pré-requisito para dados reais e a camada de criptografia deverá receber contexto autorizado, sem fallback anônimo.
-- Migrations deverão recriar uma base vazia; seed será reproduzível; dados atuais do MongoDB serão descartados como dados de protótipo.
-- MongoDB, Mongoose, MongoDB Memory Server, `MONGODB_URI` e serviços Mongo só serão removidos após a suíte PostgreSQL estar verde.
+- Migrations recriam uma base vazia; seed é reproduzível; os dados da persistência documental anterior foram descartados como dados de protótipo.
+- MongoDB, Mongoose, MongoDB Memory Server, `MONGODB_URI` e serviços Mongo foram removidos após a suíte PostgreSQL ficar verde.
 
 ## Testing Decisions
 
