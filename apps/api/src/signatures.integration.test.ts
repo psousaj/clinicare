@@ -13,6 +13,7 @@ import {
 import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, integrationHeaders, provisionIntegrationClinic } from './integration-support';
 import { deleteObject, uploadObjectBytes } from './storage';
 import { materializeAppliedDocumentResult, deleteAppliedDocument } from './clinical';
+import { normalizeEvidence } from './signature-evidence';
 import { createHash, randomUUID } from 'node:crypto';
 import { PDF } from '@libpdf/core';
 
@@ -329,6 +330,10 @@ integration('PostgreSQL signatures API', () => {
       } }))));
     expect(firstConfirmations.filter((response) => response.status === 200)).toHaveLength(1);
     expect(firstConfirmations.filter((response) => response.status === 409)).toHaveLength(1);
+    const staleConfirmation = firstConfirmations.find((response) => response.status === 409)!;
+    const staleBody = await staleConfirmation.json() as any;
+    const promotedDocument = (await db.select().from(appliedDocuments).where(eq(appliedDocuments.id, firstDocument.id)))[0]!;
+    expect(staleBody).toMatchObject({ code: 'STALE_DOCUMENT_REVISION', currentRevisionId: promotedDocument.currentRevisionId });
     expect((await (await request(`/api/followups/${followupId}`)).json()).status).toBe('idle');
 
     const tokenB = tokenByProcess[processB!.id]!.patient;
@@ -343,12 +348,54 @@ integration('PostgreSQL signatures API', () => {
     const secondPreview = await request(`/public/signatures/${tokenB}/preview`, json(secondPreviewPayload));
     expect(secondPreview.status).toBe(200);
     const secondPreviewHash = secondPreview.headers.get('etag')!.replaceAll('"', '');
+    const persistedPreview = (await db.select().from(signaturePreviewCandidates).where(and(
+      eq(signaturePreviewCandidates.tenantId, tenantId),
+      eq(signaturePreviewCandidates.participantId, patB!.id),
+      eq(signaturePreviewCandidates.idempotencyKey, secondIdempotencyKey),
+    )))[0]!;
+    expect(persistedPreview).toMatchObject({
+      documentId: secondDocument.id,
+      baseRevisionId: secondDocument.revisionId,
+      contentHash: secondPreviewHash,
+      signatureImageHash: createHash('sha256').update(Buffer.from(pngDataUrl.slice('data:image/png;base64,'.length), 'base64')).digest('hex'),
+      fingerprint: { unavailable: true },
+      fingerprintDigest: normalizeEvidence({ unavailable: true }).digest,
+    });
+    const repeatedPreview = await request(`/public/signatures/${tokenB}/preview`, json(secondPreviewPayload));
+    expect(repeatedPreview.status).toBe(200);
+    expect(repeatedPreview.headers.get('etag')).toBe(secondPreview.headers.get('etag'));
+    const reusedPreviewKey = await request(`/public/signatures/${tokenB}/preview`, json({
+      ...secondPreviewPayload,
+      fingerprint: { visitorId: 'tampered', version: 'fingerprintjs-oss-5' },
+    }));
+    expect(reusedPreviewKey.status).toBe(409);
+    expect(await reusedPreviewKey.json()).toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED' });
+    const mismatchedPreview = await request(`/public/signatures/${tokenB}/confirm`, json({ evidence: {
+      documentId: secondDocument.id, baseRevisionId: secondDocument.revisionId, signaturePng: pngDataUrl, placement,
+      idempotencyKey: secondIdempotencyKey, previewHash: secondPreviewHash,
+      fingerprint: { visitorId: 'tampered', version: 'fingerprintjs-oss-5' },
+      confirmed: true, acceptanceText: 'aceito',
+    } }));
+    expect(mismatchedPreview.status).toBe(409);
+    expect(await mismatchedPreview.json()).toMatchObject({ code: 'SIGNATURE_PREVIEW_MISMATCH' });
     const second = await request(`/public/signatures/${tokenB}/confirm`, json({ evidence: {
       documentId: secondDocument.id, baseRevisionId: secondDocument.revisionId, signaturePng: pngDataUrl, placement,
       idempotencyKey: secondIdempotencyKey, previewHash: secondPreviewHash,
       confirmed: true, acceptanceText: 'aceito',
     } }));
     expect(second.status).toBe(200);
+    const idempotentConfirmReplay = await request(`/public/signatures/${tokenB}/confirm`, json({ evidence: {
+      documentId: secondDocument.id, baseRevisionId: secondDocument.revisionId, signaturePng: pngDataUrl, placement,
+      idempotencyKey: secondIdempotencyKey, previewHash: secondPreviewHash,
+      confirmed: true, acceptanceText: 'aceito',
+    } }));
+    expect(idempotentConfirmReplay.status).toBe(200);
+    const differentConfirmRequest = await request(`/public/signatures/${tokenB}/confirm`, json({ evidence: {
+      documentId: secondDocument.id, baseRevisionId: secondDocument.revisionId, signaturePng: pngDataUrl, placement,
+      idempotencyKey: randomUUID(), previewHash: secondPreviewHash,
+      confirmed: true, acceptanceText: 'aceito',
+    } }));
+    expect(differentConfirmRequest.status).toBe(409);
     const secondBody = await second.json() as any;
     expect(secondBody.activated).toBe(true);
     // O processo do contrato B só conclui quando o representante também confirmar.

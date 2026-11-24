@@ -232,6 +232,13 @@
       "when": 1791441000000,
       "tag": "0032_default_signature",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1795493587000,
+      "tag": "0033_signature_preview_fingerprint_hash",
+      "breakpoints": true
     }
   ]
 }

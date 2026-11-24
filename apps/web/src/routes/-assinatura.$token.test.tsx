@@ -16,8 +16,10 @@ const signatureResponse = () => ({
 });
 
 const renderPage = () => {
+  const queryClient = createQueryClient();
   const router = createAppRouter(createMemoryHistory({ initialEntries: ['/assinatura/test-token'] }));
-  render(<QueryClientProvider client={createQueryClient()}><RouterProvider router={router} /></QueryClientProvider>);
+  render(<QueryClientProvider client={queryClient}><RouterProvider router={router} /></QueryClientProvider>);
+  return queryClient;
 };
 
 const { renderPdfPage } = vi.hoisted(() => ({ renderPdfPage: vi.fn(() => ({ promise: Promise.resolve() })) }));
@@ -63,7 +65,7 @@ describe('patient signature workspace', () => {
 
   it('walks read, sign and confirm steps and submits normalized placement after explicit confirmation', async () => {
     const user = userEvent.setup();
-    renderPage();
+    const queryClient = renderPage();
 
     expect(await screen.findByRole('heading', { name: 'Contrato de teste' })).toBeInTheDocument();
     // Leitura contínua das páginas (passo 1 de 3).
@@ -75,6 +77,11 @@ describe('patient signature workspace', () => {
     await user.click((await screen.findAllByRole('button', { name: 'Continuar' }))[0]!);
     // Confirmação com prévia automática (passo 3 de 3).
     await waitFor(() => expect(screen.getByLabelText('Página 1 de 2 da prévia')).toBeInTheDocument());
+    await waitFor(() => expect((fetch as ReturnType<typeof vi.fn>).mock.calls.some(([url]) => url === '/public/signatures/test-token/preview')).toBe(true));
+    queryClient.setQueryData(['signature', 'test-token'], {
+      ...signatureResponse(),
+      document: { ...signatureResponse().document, revisionId: 'revision-2', version: 2, hash: 'b'.repeat(64) },
+    });
     await user.click(screen.getByRole('checkbox', { name: /li e concordo/i }));
     await user.click((await screen.findAllByRole('button', { name: 'Assinar documento' }))[0]!);
 
@@ -83,11 +90,61 @@ describe('patient signature workspace', () => {
     expect(request).toBeDefined();
     const body = JSON.parse(request![1].body as string);
     expect(body.evidence.baseRevisionId).toBe('revision-1');
+    expect(body.evidence.documentId).toBe('document-1');
     expect(body.evidence.signaturePng).toMatch(/^data:image\/png;base64,/);
     expect(body.evidence.placement.pageIndex).toBe(1);
     expect(body.evidence.placement.x).toBeGreaterThanOrEqual(0);
     expect(body.evidence.placement.x + body.evidence.placement.width).toBeLessThanOrEqual(1);
     expect(body.evidence.confirmed).toBe(true);
+    const previewRequest = (fetch as ReturnType<typeof vi.fn>).mock.calls.find(([url]) => url === '/public/signatures/test-token/preview');
+    const previewBody = JSON.parse(previewRequest![1].body as string);
+    expect(body.evidence).toMatchObject({
+      documentId: previewBody.documentId,
+      baseRevisionId: previewBody.baseRevisionId,
+      signaturePng: previewBody.signaturePng,
+      idempotencyKey: previewBody.idempotencyKey,
+      fingerprint: previewBody.fingerprint,
+      previewHash: 'a'.repeat(64),
+    });
+  });
+
+  it('explains a preview mismatch without claiming the document revision is stale', async () => {
+    globalThis.fetch = vi.fn(async (url: string) => {
+      if (url === '/public/signatures/test-token') return { ok: true, status: 200, json: async () => signatureResponse() };
+      if (url === '/public/signatures/test-token/preview') return { ok: true, status: 200, headers: { get: () => 'a'.repeat(64) }, blob: async () => new Blob(['%PDF-1.4']) };
+      if (url === '/public/signatures/test-token/confirm') return { ok: false, status: 409, json: async () => ({ code: 'SIGNATURE_PREVIEW_MISMATCH', error: 'A prévia do PDF não corresponde à confirmação.' }) };
+      return { ok: true, status: 200, json: async () => ({}) };
+    }) as unknown as typeof fetch;
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Contrato de teste' })).toBeInTheDocument();
+    expect(await screen.findByText(/Página 1 de 2/)).toBeInTheDocument();
+    await user.click((await screen.findAllByRole('button', { name: 'Continuar para assinatura' }))[0]!);
+    await user.click((await screen.findAllByRole('button', { name: 'Continuar' }))[0]!);
+    await waitFor(() => expect(screen.getByLabelText('Página 1 de 2 da prévia')).toBeInTheDocument());
+    await user.click(screen.getByRole('checkbox', { name: /li e concordo/i }));
+    await user.click((await screen.findAllByRole('button', { name: 'Assinar documento' }))[0]!);
+
+    expect(await screen.findByText('A prévia não corresponde aos dados da assinatura. Gere uma nova prévia antes de confirmar.')).toBeInTheDocument();
+    expect(screen.queryByText(/O documento foi atualizado antes da confirmação/)).not.toBeInTheDocument();
+  });
+
+  it('asks the participant to review the current document when preview creation is stale', async () => {
+    globalThis.fetch = vi.fn(async (url: string) => {
+      if (url === '/public/signatures/test-token') return { ok: true, status: 200, json: async () => signatureResponse() };
+      if (url === '/public/signatures/test-token/preview') return { ok: false, status: 409, json: async () => ({ code: 'STALE_DOCUMENT_REVISION', currentRevisionId: 'revision-2', currentVersion: 2 }) };
+      return { ok: true, status: 200, json: async () => ({}) };
+    }) as unknown as typeof fetch;
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Contrato de teste' })).toBeInTheDocument();
+    expect(await screen.findByText(/Página 1 de 2/)).toBeInTheDocument();
+    await user.click((await screen.findAllByRole('button', { name: 'Continuar para assinatura' }))[0]!);
+    await user.click((await screen.findAllByRole('button', { name: 'Continuar' }))[0]!);
+
+    expect(await screen.findByText('O documento foi atualizado antes da prévia. Recarregue a página para revisar a versão atual.')).toBeInTheDocument();
   });
 
   it('closes mobile fullscreen before the explicit Continue advances to confirmation', async () => {

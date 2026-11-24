@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(message: string, readonly status: number, readonly code?: string) {
     super(message);
   }
 }
@@ -21,7 +21,7 @@ type RequestOptions<S extends z.ZodType> = { method?: 'GET' | 'POST' | 'PUT' | '
 export async function api<S extends z.ZodType>(path: string, { method = 'GET', body, schema, fallbackError = 'Não foi possível concluir.' }: RequestOptions<S>): Promise<z.output<S>> {
   const response = await fetch(path, { method, credentials: 'include', headers: body === undefined ? undefined : { 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
   const data = await response.json().catch(() => null);
-  if (!response.ok) throw new ApiError((data as { error?: string } | null)?.error ?? fallbackError, response.status);
+  if (!response.ok) throw new ApiError((data as { error?: string; code?: string } | null)?.error ?? fallbackError, response.status, (data as { code?: string } | null)?.code);
   const parsed = schema.safeParse(withIds(data));
   if (!parsed.success) throw new ApiError('Resposta inesperada do servidor.', response.status);
   return parsed.data;
