@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { app } from './app';
 import {
   appliedDocuments, appliedDocumentRevisions, authUsers, closeDatabase, contracts,
@@ -292,7 +292,47 @@ integration('PostgreSQL signatures API', () => {
     // Ordem livre (Issue #25): o representante do contrato A assina ANTES de
     // qualquer paciente, com um userId falso no corpo que deve ser ignorado.
     // A identidade vem exclusivamente da sessão autenticada.
-    const proAConfirm = await representativeConfirm(proA!.id, { userId: 'attacker' });
+    const proADocument = await currentDocumentFor(proA!.id);
+    const proAIdempotencyKey = randomUUID();
+    const proAFingerprint = { visitorId: 'vis-clinic', version: 'fingerprintjs-oss-5' };
+    const proAPreview = await request(`/api/signature-participants/${proA!.id}/preview`, json({
+      ...proADocument, signaturePng: pngDataUrl, placement, idempotencyKey: proAIdempotencyKey,
+      fingerprint: proAFingerprint, previewOnly: true,
+    }));
+    expect(proAPreview.status).toBe(200);
+    const proAPreviewHash = proAPreview.headers.get('etag')!.replaceAll('"', '');
+    const proAConfirmationBody = { evidence: {
+      ...proADocument, signaturePng: pngDataUrl, placement, idempotencyKey: proAIdempotencyKey,
+      previewHash: proAPreviewHash, fingerprint: proAFingerprint,
+      confirmed: true, acceptanceText: 'aceito pelo representante', userId: 'attacker',
+    } };
+    await db.execute(sql.raw(`CREATE OR REPLACE FUNCTION clinicare_test_force_signature_head_cas_miss() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.current_revision_id IS DISTINCT FROM OLD.current_revision_id THEN RETURN NULL; END IF;
+        RETURN NEW;
+      END;
+    $$`));
+    await db.execute(sql.raw('DROP TRIGGER IF EXISTS clinicare_test_force_signature_head_cas_miss ON applied_documents'));
+    await db.execute(sql.raw(`CREATE TRIGGER clinicare_test_force_signature_head_cas_miss
+      BEFORE UPDATE OF current_revision_id ON applied_documents
+      FOR EACH ROW WHEN (OLD.id = '${proADocument.documentId}'::uuid)
+      EXECUTE FUNCTION clinicare_test_force_signature_head_cas_miss()`));
+    let casMissResponse: Response;
+    try {
+      casMissResponse = await request(`/api/signature-participants/${proA!.id}/confirm`, json(proAConfirmationBody));
+    } finally {
+      await db.execute(sql.raw('DROP TRIGGER IF EXISTS clinicare_test_force_signature_head_cas_miss ON applied_documents'));
+      await db.execute(sql.raw('DROP FUNCTION IF EXISTS clinicare_test_force_signature_head_cas_miss()'));
+    }
+    expect(casMissResponse!.status).toBe(409);
+    const casMissBody = await casMissResponse!.json() as any;
+    const currentRevision = (await db.select().from(appliedDocumentRevisions).where(eq(appliedDocumentRevisions.id, proADocument.baseRevisionId)))[0]!;
+    expect(casMissBody).toMatchObject({
+      code: 'STALE_DOCUMENT_REVISION',
+      currentRevisionId: proADocument.baseRevisionId,
+      currentVersion: currentRevision.version,
+    });
+    const proAConfirm = await request(`/api/signature-participants/${proA!.id}/confirm`, json(proAConfirmationBody));
     expect(proAConfirm.status).toBe(200);
     expect((await proAConfirm.json() as any).processCompleted).toBe(false);
     expect((await (await request(`/api/followups/${followupId}`)).json()).status).toBe('idle');

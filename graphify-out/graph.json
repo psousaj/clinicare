@@ -430,7 +430,7 @@
       "file_type": "code",
       "norm_label": "externalaccess",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L653"
+      "source_location": "L656"
     },
     {
       "id": "apps_api_src_signatures_historyviewer",
@@ -443,7 +443,7 @@
       "file_type": "code",
       "norm_label": "historyviewer",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1083"
+      "source_location": "L1089"
     },
     {
       "id": "apps_api_src_signatures_persistedsignaturepreview",
@@ -3037,7 +3037,7 @@
       "file_type": "code",
       "norm_label": "currentdocumentof()",
       "source_file": "apps/api/src/external-signatures.integration.test.ts",
-      "source_location": "L485"
+      "source_location": "L512"
     },
     {
       "id": "apps_api_src_external_signatures_integration_test_json",
@@ -4321,7 +4321,7 @@
       "file_type": "code",
       "norm_label": "listpendingsignatures()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L587"
+      "source_location": "L590"
     },
     {
       "id": "apps_api_src_storage_uploadurlforpdf",
@@ -4357,7 +4357,7 @@
       "file_type": "code",
       "norm_label": "cancelexternalattempt()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1001"
+      "source_location": "L1007"
     },
     {
       "id": "apps_api_src_signatures_cancelexternalattemptasclinicrepresentative",
@@ -4369,7 +4369,7 @@
       "file_type": "code",
       "norm_label": "cancelexternalattemptasclinicrepresentative()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1030"
+      "source_location": "L1036"
     },
     {
       "id": "apps_api_src_signatures_contentaad",
@@ -4405,7 +4405,7 @@
       "file_type": "code",
       "norm_label": "downloadexternalexport()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L749"
+      "source_location": "L752"
     },
     {
       "id": "apps_api_src_signatures_downloadexternalexportasclinicrepresentative",
@@ -4417,7 +4417,7 @@
       "file_type": "code",
       "norm_label": "downloadexternalexportasclinicrepresentative()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1021"
+      "source_location": "L1027"
     },
     {
       "id": "apps_api_src_signatures_exportexternalrevision",
@@ -4429,7 +4429,7 @@
       "file_type": "code",
       "norm_label": "exportexternalrevision()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L704"
+      "source_location": "L707"
     },
     {
       "id": "apps_api_src_signatures_exportexternalrevisionasclinicrepresentative",
@@ -4441,7 +4441,7 @@
       "file_type": "code",
       "norm_label": "exportexternalrevisionasclinicrepresentative()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1018"
+      "source_location": "L1024"
     },
     {
       "id": "apps_api_src_signatures_externalaccesscontext",
@@ -4453,7 +4453,7 @@
       "file_type": "code",
       "norm_label": "externalaccesscontext()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L655"
+      "source_location": "L658"
     },
     {
       "id": "apps_api_src_signatures_invalid",
@@ -4477,7 +4477,7 @@
       "file_type": "code",
       "norm_label": "liveexternalattempt()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L694"
+      "source_location": "L697"
     },
     {
       "id": "apps_api_src_signatures_lockedparticipantreadcontext",
@@ -4513,7 +4513,7 @@
       "file_type": "code",
       "norm_label": "readdocumentbytes()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L532"
+      "source_location": "L535"
     },
     {
       "id": "apps_api_src_signatures_readsignaturehistorybytoken",
@@ -4525,7 +4525,7 @@
       "file_type": "code",
       "norm_label": "readsignaturehistorybytoken()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1267"
+      "source_location": "L1273"
     },
     {
       "id": "apps_api_src_signatures_readsignaturepdf",
@@ -4537,7 +4537,7 @@
       "file_type": "code",
       "norm_label": "readsignaturepdf()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L558"
+      "source_location": "L561"
     },
     {
       "id": "apps_api_src_signatures_readsignaturepdfforparticipant",
@@ -4549,7 +4549,7 @@
       "file_type": "code",
       "norm_label": "readsignaturepdfforparticipant()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L569"
+      "source_location": "L572"
     },
     {
       "id": "apps_api_src_signatures_readsignaturerevisionpdf",
@@ -4561,7 +4561,7 @@
       "file_type": "code",
       "norm_label": "readsignaturerevisionpdf()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1279"
+      "source_location": "L1285"
     },
     {
       "id": "apps_api_src_signatures_readsignaturetoken",
@@ -4585,7 +4585,7 @@
       "file_type": "code",
       "norm_label": "revalidateexternalancestors()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L546"
+      "source_location": "L549"
     },
     {
       "id": "apps_api_src_signatures_staledocumentrevision",
@@ -5209,7 +5209,7 @@
       "file_type": "code",
       "norm_label": "displayname()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1091"
+      "source_location": "L1097"
     },
     {
       "id": "apps_api_src_signatures_expectedexternalsigner",
@@ -5221,7 +5221,7 @@
       "file_type": "code",
       "norm_label": "expectedexternalsigner()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L677"
+      "source_location": "L680"
     },
     {
       "id": "apps_api_src_signatures_expectedexternalsignerbyid",
@@ -5233,7 +5233,7 @@
       "file_type": "code",
       "norm_label": "expectedexternalsignerbyid()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L666"
+      "source_location": "L669"
     },
     {
       "id": "apps_api_src_signatures_expiry",
@@ -5257,7 +5257,7 @@
       "file_type": "code",
       "norm_label": "externalconfirminput()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L643"
+      "source_location": "L646"
     },
     {
       "id": "apps_api_src_signatures_externalexportinput",
@@ -5269,7 +5269,7 @@
       "file_type": "code",
       "norm_label": "externalexportinput()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L634"
+      "source_location": "L637"
     },
     {
       "id": "apps_api_src_signatures_externaltrustedroots",
@@ -5281,7 +5281,7 @@
       "file_type": "code",
       "norm_label": "externaltrustedroots()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L627"
+      "source_location": "L630"
     },
     {
       "id": "apps_api_src_signatures_fingerprintvalue",
@@ -5305,7 +5305,7 @@
       "file_type": "code",
       "norm_label": "getsignaturehistory()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1099"
+      "source_location": "L1105"
     },
     {
       "id": "apps_api_src_signatures_hashtoken",
@@ -5329,7 +5329,7 @@
       "file_type": "code",
       "norm_label": "importexternalreturn()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L761"
+      "source_location": "L764"
     },
     {
       "id": "apps_api_src_signatures_importexternalreturnasclinicrepresentative",
@@ -5341,7 +5341,7 @@
       "file_type": "code",
       "norm_label": "importexternalreturnasclinicrepresentative()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1024"
+      "source_location": "L1030"
     },
     {
       "id": "apps_api_src_signatures_issuesignaturetoken",
@@ -5365,7 +5365,7 @@
       "file_type": "code",
       "norm_label": "masksnapshot()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1085"
+      "source_location": "L1091"
     },
     {
       "id": "apps_api_src_signatures_operationinput",
@@ -5413,7 +5413,7 @@
       "file_type": "code",
       "norm_label": "signasclinicrepresentative()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L578"
+      "source_location": "L581"
     },
     {
       "id": "apps_api_src_signatures_verifysignaturephone",
@@ -7081,7 +7081,7 @@
       "file_type": "code",
       "norm_label": "confirmexternalreturn()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L880"
+      "source_location": "L883"
     },
     {
       "id": "apps_api_src_signatures_confirmexternalreturnasclinicrepresentative",
@@ -7093,7 +7093,7 @@
       "file_type": "code",
       "norm_label": "confirmexternalreturnasclinicrepresentative()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1027"
+      "source_location": "L1033"
     },
     {
       "id": "apps_api_src_signatures_decodepng",
@@ -7237,7 +7237,7 @@
       "file_type": "code",
       "norm_label": "previewsignatureasclinicrepresentative()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L583"
+      "source_location": "L586"
     },
     {
       "id": "apps_api_src_signatures_professionalactorid",
@@ -7273,7 +7273,7 @@
       "file_type": "code",
       "norm_label": "signatureresult()",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L504"
+      "source_location": "L507"
     },
     {
       "id": "apps_api_src_signatures_signwithtoken",
@@ -17316,7 +17316,7 @@
       "file_type": "code",
       "norm_label": "externalvalidationpt",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L620"
+      "source_location": "L623"
     },
     {
       "id": "apps_api_src_signatures_rolept",
@@ -17327,7 +17327,7 @@
       "file_type": "code",
       "norm_label": "rolept",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1081"
+      "source_location": "L1087"
     },
     {
       "id": "apps_api_src_signatures_signatureeventpt",
@@ -17338,7 +17338,7 @@
       "file_type": "code",
       "norm_label": "signatureeventpt",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1071"
+      "source_location": "L1077"
     },
     {
       "id": "apps_api_src_signatures_signaturemethodpt",
@@ -17349,7 +17349,7 @@
       "file_type": "code",
       "norm_label": "signaturemethodpt",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1045"
+      "source_location": "L1051"
     },
     {
       "id": "apps_api_src_signatures_signatureoriginpt",
@@ -17360,7 +17360,7 @@
       "file_type": "code",
       "norm_label": "signatureoriginpt",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1050"
+      "source_location": "L1056"
     },
     {
       "id": "apps_api_src_signatures_signaturestatuspt",
@@ -17371,7 +17371,7 @@
       "file_type": "code",
       "norm_label": "signaturestatuspt",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1056"
+      "source_location": "L1062"
     },
     {
       "id": "apps_web_src_components_signing_signchecklist",
@@ -33958,7 +33958,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1002",
+      "source_location": "L1008",
       "weight": 1.0
     },
     {
@@ -33970,7 +33970,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1004",
+      "source_location": "L1010",
       "weight": 1.0
     },
     {
@@ -33982,7 +33982,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1006",
+      "source_location": "L1012",
       "weight": 1.0
     },
     {
@@ -33994,7 +33994,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1031",
+      "source_location": "L1037",
       "weight": 1.0
     },
     {
@@ -34018,7 +34018,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L881",
+      "source_location": "L884",
       "weight": 1.0
     },
     {
@@ -34030,7 +34030,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L882",
+      "source_location": "L885",
       "weight": 1.0
     },
     {
@@ -34042,7 +34042,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L883",
+      "source_location": "L886",
       "weight": 1.0
     },
     {
@@ -34054,7 +34054,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L884",
+      "source_location": "L887",
       "weight": 1.0
     },
     {
@@ -34066,7 +34066,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L886",
+      "source_location": "L889",
       "weight": 1.0
     },
     {
@@ -34078,7 +34078,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L888",
+      "source_location": "L891",
       "weight": 1.0
     },
     {
@@ -34090,7 +34090,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L895",
+      "source_location": "L898",
       "weight": 1.0
     },
     {
@@ -34102,7 +34102,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L904",
+      "source_location": "L907",
       "weight": 1.0
     },
     {
@@ -34114,7 +34114,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L906",
+      "source_location": "L909",
       "weight": 1.0
     },
     {
@@ -34126,7 +34126,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L909",
+      "source_location": "L912",
       "weight": 1.0
     },
     {
@@ -34138,7 +34138,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L914",
+      "source_location": "L917",
       "weight": 1.0
     },
     {
@@ -34150,7 +34150,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L916",
+      "source_location": "L919",
       "weight": 1.0
     },
     {
@@ -34162,7 +34162,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L950",
+      "source_location": "L953",
       "weight": 1.0
     },
     {
@@ -34174,7 +34174,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L958",
+      "source_location": "L961",
       "weight": 1.0
     },
     {
@@ -34186,7 +34186,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L970",
+      "source_location": "L976",
       "weight": 1.0
     },
     {
@@ -34198,7 +34198,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L970",
+      "source_location": "L976",
       "weight": 1.0
     },
     {
@@ -34210,7 +34210,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1028",
+      "source_location": "L1034",
       "weight": 1.0
     },
     {
@@ -34258,7 +34258,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L750",
+      "source_location": "L753",
       "weight": 1.0
     },
     {
@@ -34270,7 +34270,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L752",
+      "source_location": "L755",
       "weight": 1.0
     },
     {
@@ -34282,7 +34282,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L753",
+      "source_location": "L756",
       "weight": 1.0
     },
     {
@@ -34294,7 +34294,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L755",
+      "source_location": "L758",
       "weight": 1.0
     },
     {
@@ -34306,7 +34306,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L758",
+      "source_location": "L761",
       "weight": 1.0
     },
     {
@@ -34318,7 +34318,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1022",
+      "source_location": "L1028",
       "weight": 1.0
     },
     {
@@ -34342,7 +34342,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L686",
+      "source_location": "L689",
       "weight": 1.0
     },
     {
@@ -34354,7 +34354,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L686",
+      "source_location": "L689",
       "weight": 1.0
     },
     {
@@ -34366,7 +34366,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L674",
+      "source_location": "L677",
       "weight": 1.0
     },
     {
@@ -34378,7 +34378,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L705",
+      "source_location": "L708",
       "weight": 1.0
     },
     {
@@ -34390,7 +34390,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L706",
+      "source_location": "L709",
       "weight": 1.0
     },
     {
@@ -34402,7 +34402,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L707",
+      "source_location": "L710",
       "weight": 1.0
     },
     {
@@ -34414,7 +34414,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L708",
+      "source_location": "L711",
       "weight": 1.0
     },
     {
@@ -34426,7 +34426,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L710",
+      "source_location": "L713",
       "weight": 1.0
     },
     {
@@ -34438,7 +34438,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L711",
+      "source_location": "L714",
       "weight": 1.0
     },
     {
@@ -34450,7 +34450,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L713",
+      "source_location": "L716",
       "weight": 1.0
     },
     {
@@ -34462,7 +34462,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1019",
+      "source_location": "L1025",
       "weight": 1.0
     },
     {
@@ -34474,7 +34474,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L657",
+      "source_location": "L660",
       "weight": 1.0
     },
     {
@@ -34486,7 +34486,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L658",
+      "source_location": "L661",
       "weight": 1.0
     },
     {
@@ -34498,7 +34498,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L660",
+      "source_location": "L663",
       "weight": 1.0
     },
     {
@@ -34510,7 +34510,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L644",
+      "source_location": "L647",
       "weight": 1.0
     },
     {
@@ -34522,7 +34522,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L650",
+      "source_location": "L653",
       "weight": 1.0
     },
     {
@@ -34534,7 +34534,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L635",
+      "source_location": "L638",
       "weight": 1.0
     },
     {
@@ -34546,7 +34546,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L640",
+      "source_location": "L643",
       "weight": 1.0
     },
     {
@@ -34558,7 +34558,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L628",
+      "source_location": "L631",
       "weight": 1.0
     },
     {
@@ -34570,7 +34570,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L631",
+      "source_location": "L634",
       "weight": 1.0
     },
     {
@@ -34594,7 +34594,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1100",
+      "source_location": "L1106",
       "weight": 1.0
     },
     {
@@ -34606,7 +34606,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1101",
+      "source_location": "L1107",
       "weight": 1.0
     },
     {
@@ -34618,7 +34618,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1165",
+      "source_location": "L1171",
       "weight": 1.0
     },
     {
@@ -34630,7 +34630,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1227",
+      "source_location": "L1233",
       "weight": 1.0
     },
     {
@@ -34678,7 +34678,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L762",
+      "source_location": "L765",
       "weight": 1.0
     },
     {
@@ -34690,7 +34690,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L774",
+      "source_location": "L777",
       "weight": 1.0
     },
     {
@@ -34702,7 +34702,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L774",
+      "source_location": "L777",
       "weight": 1.0
     },
     {
@@ -34714,7 +34714,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L775",
+      "source_location": "L778",
       "weight": 1.0
     },
     {
@@ -34726,7 +34726,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L776",
+      "source_location": "L779",
       "weight": 1.0
     },
     {
@@ -34738,7 +34738,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L779",
+      "source_location": "L782",
       "weight": 1.0
     },
     {
@@ -34750,7 +34750,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L781",
+      "source_location": "L784",
       "weight": 1.0
     },
     {
@@ -34762,7 +34762,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L807",
+      "source_location": "L810",
       "weight": 1.0
     },
     {
@@ -34774,7 +34774,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L808",
+      "source_location": "L811",
       "weight": 1.0
     },
     {
@@ -34786,7 +34786,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L809",
+      "source_location": "L812",
       "weight": 1.0
     },
     {
@@ -34798,7 +34798,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L812",
+      "source_location": "L815",
       "weight": 1.0
     },
     {
@@ -34810,7 +34810,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L816",
+      "source_location": "L819",
       "weight": 1.0
     },
     {
@@ -34822,7 +34822,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L818",
+      "source_location": "L821",
       "weight": 1.0
     },
     {
@@ -34834,7 +34834,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L820",
+      "source_location": "L823",
       "weight": 1.0
     },
     {
@@ -34846,7 +34846,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1025",
+      "source_location": "L1031",
       "weight": 1.0
     },
     {
@@ -34930,7 +34930,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L588",
+      "source_location": "L591",
       "weight": 1.0
     },
     {
@@ -34942,7 +34942,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L695",
+      "source_location": "L698",
       "weight": 1.0
     },
     {
@@ -35350,7 +35350,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L584",
+      "source_location": "L587",
       "weight": 1.0
     },
     {
@@ -35362,7 +35362,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L533",
+      "source_location": "L536",
       "weight": 1.0
     },
     {
@@ -35374,7 +35374,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L534",
+      "source_location": "L537",
       "weight": 1.0
     },
     {
@@ -35386,7 +35386,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L534",
+      "source_location": "L537",
       "weight": 1.0
     },
     {
@@ -35398,7 +35398,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1268",
+      "source_location": "L1274",
       "weight": 1.0
     },
     {
@@ -35410,7 +35410,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1269",
+      "source_location": "L1275",
       "weight": 1.0
     },
     {
@@ -35422,7 +35422,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1270",
+      "source_location": "L1276",
       "weight": 1.0
     },
     {
@@ -35434,7 +35434,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1274",
+      "source_location": "L1280",
       "weight": 1.0
     },
     {
@@ -35446,36 +35446,12 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L559",
+      "source_location": "L562",
       "weight": 1.0
     },
     {
       "source": "apps_api_src_signatures_readsignaturepdf",
       "target": "apps_api_src_signatures_lockedtokenreadcontext",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L560",
-      "weight": 1.0
-    },
-    {
-      "source": "apps_api_src_signatures_readsignaturepdf",
-      "target": "apps_api_src_signatures_invalid",
-      "relation": "calls",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "context": "call",
-      "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L561",
-      "weight": 1.0
-    },
-    {
-      "source": "apps_api_src_signatures_readsignaturepdf",
-      "target": "apps_api_src_signatures_currentdocument",
       "relation": "calls",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -35487,7 +35463,19 @@
     },
     {
       "source": "apps_api_src_signatures_readsignaturepdf",
-      "target": "apps_api_src_signatures_readdocumentbytes",
+      "target": "apps_api_src_signatures_invalid",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "apps/api/src/signatures.ts",
+      "source_location": "L564",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_api_src_signatures_readsignaturepdf",
+      "target": "apps_api_src_signatures_currentdocument",
       "relation": "calls",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -35495,6 +35483,18 @@
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
       "source_location": "L566",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_api_src_signatures_readsignaturepdf",
+      "target": "apps_api_src_signatures_readdocumentbytes",
+      "relation": "calls",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "context": "call",
+      "source_file": "apps/api/src/signatures.ts",
+      "source_location": "L569",
       "weight": 1.0
     },
     {
@@ -35506,7 +35506,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L570",
+      "source_location": "L573",
       "weight": 1.0
     },
     {
@@ -35518,7 +35518,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L571",
+      "source_location": "L574",
       "weight": 1.0
     },
     {
@@ -35530,7 +35530,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L572",
+      "source_location": "L575",
       "weight": 1.0
     },
     {
@@ -35542,7 +35542,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L575",
+      "source_location": "L578",
       "weight": 1.0
     },
     {
@@ -35554,7 +35554,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1280",
+      "source_location": "L1286",
       "weight": 1.0
     },
     {
@@ -35566,7 +35566,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1282",
+      "source_location": "L1288",
       "weight": 1.0
     },
     {
@@ -35578,7 +35578,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1284",
+      "source_location": "L1290",
       "weight": 1.0
     },
     {
@@ -35590,7 +35590,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1285",
+      "source_location": "L1291",
       "weight": 1.0
     },
     {
@@ -35602,7 +35602,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1290",
+      "source_location": "L1296",
       "weight": 1.0
     },
     {
@@ -35614,7 +35614,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1294",
+      "source_location": "L1300",
       "weight": 1.0
     },
     {
@@ -35722,7 +35722,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L549",
+      "source_location": "L552",
       "weight": 1.0
     },
     {
@@ -35734,7 +35734,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L550",
+      "source_location": "L553",
       "weight": 1.0
     },
     {
@@ -35746,7 +35746,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L550",
+      "source_location": "L553",
       "weight": 1.0
     },
     {
@@ -35758,7 +35758,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L552",
+      "source_location": "L555",
       "weight": 1.0
     },
     {
@@ -35770,7 +35770,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L579",
+      "source_location": "L582",
       "weight": 1.0
     },
     {
@@ -35782,7 +35782,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L581",
+      "source_location": "L584",
       "weight": 1.0
     },
     {
@@ -36070,7 +36070,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L487",
+      "source_location": "L490",
       "weight": 1.0
     },
     {
@@ -36082,7 +36082,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L487",
+      "source_location": "L490",
       "weight": 1.0
     },
     {
@@ -46594,7 +46594,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "apps/api/src/external-signatures.integration.test.ts",
-      "source_location": "L485",
+      "source_location": "L512",
       "weight": 1.0
     },
     {
@@ -94361,18 +94361,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1001",
-      "weight": 1.0
-    },
-    {
-      "source": "apps_api_src_signatures",
-      "target": "apps_api_src_signatures_exportexternalrevisionasclinicrepresentative",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1018",
+      "source_location": "L1007",
       "weight": 1.0
     },
     {
@@ -94388,18 +94377,7 @@
     },
     {
       "source": "apps_api_src_signatures",
-      "target": "apps_api_src_signatures_downloadexternalexportasclinicrepresentative",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1021",
-      "weight": 1.0
-    },
-    {
-      "source": "apps_api_src_signatures",
-      "target": "apps_api_src_signatures_importexternalreturnasclinicrepresentative",
+      "target": "apps_api_src_signatures_exportexternalrevisionasclinicrepresentative",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -94410,7 +94388,7 @@
     },
     {
       "source": "apps_api_src_signatures",
-      "target": "apps_api_src_signatures_confirmexternalreturnasclinicrepresentative",
+      "target": "apps_api_src_signatures_downloadexternalexportasclinicrepresentative",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -94421,7 +94399,7 @@
     },
     {
       "source": "apps_api_src_signatures",
-      "target": "apps_api_src_signatures_cancelexternalattemptasclinicrepresentative",
+      "target": "apps_api_src_signatures_importexternalreturnasclinicrepresentative",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
@@ -94432,13 +94410,35 @@
     },
     {
       "source": "apps_api_src_signatures",
+      "target": "apps_api_src_signatures_confirmexternalreturnasclinicrepresentative",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/api/src/signatures.ts",
+      "source_location": "L1033",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_api_src_signatures",
+      "target": "apps_api_src_signatures_cancelexternalattemptasclinicrepresentative",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/api/src/signatures.ts",
+      "source_location": "L1036",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_api_src_signatures",
       "target": "apps_api_src_signatures_signaturemethodpt",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1045",
+      "source_location": "L1051",
       "weight": 1.0
     },
     {
@@ -94449,7 +94449,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1050",
+      "source_location": "L1056",
       "weight": 1.0
     },
     {
@@ -94460,7 +94460,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1056",
+      "source_location": "L1062",
       "weight": 1.0
     },
     {
@@ -94471,7 +94471,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1071",
+      "source_location": "L1077",
       "weight": 1.0
     },
     {
@@ -94482,7 +94482,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1081",
+      "source_location": "L1087",
       "weight": 1.0
     },
     {
@@ -94493,7 +94493,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1083",
+      "source_location": "L1089",
       "weight": 1.0
     },
     {
@@ -94504,7 +94504,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1085",
+      "source_location": "L1091",
       "weight": 1.0
     },
     {
@@ -94515,7 +94515,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1091",
+      "source_location": "L1097",
       "weight": 1.0
     },
     {
@@ -94526,7 +94526,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1099",
+      "source_location": "L1105",
       "weight": 1.0
     },
     {
@@ -94559,18 +94559,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1267",
-      "weight": 1.0
-    },
-    {
-      "source": "apps_api_src_signatures",
-      "target": "apps_api_src_signatures_readsignaturerevisionpdf",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L1279",
+      "source_location": "L1273",
       "weight": 1.0
     },
     {
@@ -94582,6 +94571,17 @@
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
       "source_location": "L128",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_api_src_signatures",
+      "target": "apps_api_src_signatures_readsignaturerevisionpdf",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/api/src/signatures.ts",
+      "source_location": "L1285",
       "weight": 1.0
     },
     {
@@ -94856,7 +94856,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L504",
+      "source_location": "L507",
       "weight": 1.0
     },
     {
@@ -94878,7 +94878,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L532",
+      "source_location": "L535",
       "weight": 1.0
     },
     {
@@ -94889,7 +94889,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L546",
+      "source_location": "L549",
       "weight": 1.0
     },
     {
@@ -94900,7 +94900,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L558",
+      "source_location": "L561",
       "weight": 1.0
     },
     {
@@ -94911,7 +94911,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L569",
+      "source_location": "L572",
       "weight": 1.0
     },
     {
@@ -94922,7 +94922,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L578",
+      "source_location": "L581",
       "weight": 1.0
     },
     {
@@ -94933,18 +94933,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L583",
-      "weight": 1.0
-    },
-    {
-      "source": "apps_api_src_signatures",
-      "target": "apps_api_src_signatures_listpendingsignatures",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L587",
+      "source_location": "L586",
       "weight": 1.0
     },
     {
@@ -94960,24 +94949,24 @@
     },
     {
       "source": "apps_api_src_signatures",
+      "target": "apps_api_src_signatures_listpendingsignatures",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/api/src/signatures.ts",
+      "source_location": "L590",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_api_src_signatures",
       "target": "apps_api_src_signatures_externalvalidationpt",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L620",
-      "weight": 1.0
-    },
-    {
-      "source": "apps_api_src_signatures",
-      "target": "apps_api_src_signatures_externaltrustedroots",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L627",
+      "source_location": "L623",
       "weight": 1.0
     },
     {
@@ -94993,13 +94982,24 @@
     },
     {
       "source": "apps_api_src_signatures",
+      "target": "apps_api_src_signatures_externaltrustedroots",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/api/src/signatures.ts",
+      "source_location": "L630",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_api_src_signatures",
       "target": "apps_api_src_signatures_externalexportinput",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L634",
+      "source_location": "L637",
       "weight": 1.0
     },
     {
@@ -95010,7 +95010,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L643",
+      "source_location": "L646",
       "weight": 1.0
     },
     {
@@ -95021,7 +95021,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L653",
+      "source_location": "L656",
       "weight": 1.0
     },
     {
@@ -95032,7 +95032,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L655",
+      "source_location": "L658",
       "weight": 1.0
     },
     {
@@ -95043,7 +95043,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L666",
+      "source_location": "L669",
       "weight": 1.0
     },
     {
@@ -95054,7 +95054,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L677",
+      "source_location": "L680",
       "weight": 1.0
     },
     {
@@ -95065,7 +95065,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L694",
+      "source_location": "L697",
       "weight": 1.0
     },
     {
@@ -95076,18 +95076,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L704",
-      "weight": 1.0
-    },
-    {
-      "source": "apps_api_src_signatures",
-      "target": "apps_api_src_signatures_downloadexternalexport",
-      "relation": "contains",
-      "_origin": "ast",
-      "confidence": "EXTRACTED",
-      "confidence_score": 1.0,
-      "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L749",
+      "source_location": "L707",
       "weight": 1.0
     },
     {
@@ -95103,13 +95092,24 @@
     },
     {
       "source": "apps_api_src_signatures",
+      "target": "apps_api_src_signatures_downloadexternalexport",
+      "relation": "contains",
+      "_origin": "ast",
+      "confidence": "EXTRACTED",
+      "confidence_score": 1.0,
+      "source_file": "apps/api/src/signatures.ts",
+      "source_location": "L752",
+      "weight": 1.0
+    },
+    {
+      "source": "apps_api_src_signatures",
       "target": "apps_api_src_signatures_importexternalreturn",
       "relation": "contains",
       "_origin": "ast",
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L761",
+      "source_location": "L764",
       "weight": 1.0
     },
     {
@@ -95142,7 +95142,7 @@
       "confidence": "EXTRACTED",
       "confidence_score": 1.0,
       "source_file": "apps/api/src/signatures.ts",
-      "source_location": "L880",
+      "source_location": "L883",
       "weight": 1.0
     },
     {
@@ -108385,5 +108385,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "52b57902616f1d777d02a614260bcaf124893fc8"
+  "built_at_commit": "0923e606f9f9a30e61bd7c80046a01e3c746a5d6"
 }

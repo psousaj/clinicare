@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { app } from './app';
 import {
   appliedDocuments, appliedDocumentRevisions, authUsers, closeDatabase, contracts,
@@ -471,11 +471,38 @@ integration('Issue #26: Exportar e importar assinatura externa pelo GOV.BR', () 
     }));
     expect(importRes.status).toBe(200);
     expect((await importRes.json() as any).validationStatus).toBe('validada');
-    const confirmRes = await request(`/api/signature-participants/${representative.id}/external/confirm`, json({
+    const confirmationBody = {
       attemptId, idempotencyKey: randomUUID(),
       fingerprint: { visitorId: 'vis-rep-accept', version: 'fingerprintjs-oss-5' },
       acceptanceText: 'aceito pelo representante', confirmed: true,
-    }));
+    };
+    await db.execute(sql.raw('DROP TRIGGER IF EXISTS clinicare_test_force_external_signature_head_cas_miss ON applied_documents'));
+    await db.execute(sql.raw(`CREATE OR REPLACE FUNCTION clinicare_test_force_external_signature_head_cas_miss() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.current_revision_id IS DISTINCT FROM OLD.current_revision_id THEN RETURN NULL; END IF;
+        RETURN NEW;
+      END;
+    $$`));
+    await db.execute(sql.raw(`CREATE TRIGGER clinicare_test_force_external_signature_head_cas_miss
+      BEFORE UPDATE OF current_revision_id ON applied_documents
+      FOR EACH ROW WHEN (OLD.id = '${docRow.documentId}'::uuid)
+      EXECUTE FUNCTION clinicare_test_force_external_signature_head_cas_miss()`));
+    let casMissResponse: Response;
+    try {
+      casMissResponse = await request(`/api/signature-participants/${representative.id}/external/confirm`, json(confirmationBody));
+    } finally {
+      await db.execute(sql.raw('DROP TRIGGER IF EXISTS clinicare_test_force_external_signature_head_cas_miss ON applied_documents'));
+      await db.execute(sql.raw('DROP FUNCTION IF EXISTS clinicare_test_force_external_signature_head_cas_miss()'));
+    }
+    expect(casMissResponse!.status).toBe(409);
+    const casMissBody = await casMissResponse!.json() as any;
+    const currentRevision = (await db.select().from(appliedDocumentRevisions).where(eq(appliedDocumentRevisions.id, docRow.revisionId)))[0]!;
+    expect(casMissBody).toMatchObject({
+      code: 'STALE_DOCUMENT_REVISION',
+      currentRevisionId: docRow.revisionId,
+      currentVersion: currentRevision.version,
+    });
+    const confirmRes = await request(`/api/signature-participants/${representative.id}/external/confirm`, json(confirmationBody));
     expect(confirmRes.status).toBe(200);
     expect((await confirmRes.json() as any).processCompleted).toBe(true);
     const operation = (await db.select().from(signatureOperations).where(and(eq(signatureOperations.tenantId, tenantId), eq(signatureOperations.participantId, representative.id))))[0]!;

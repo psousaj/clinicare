@@ -483,7 +483,10 @@ export async function signWithToken(token: string, input: unknown, actor?: Clini
     const revision = revisionRows[0];
     if (!revision) throw invalid('Não foi possível registrar a revisão do documento.', 503);
     const updatedRows = await tx.update(appliedDocuments).set({ currentRevisionId: revision.id }).where(and(eq(appliedDocuments.tenantId, found.context.participant.tenantId), eq(appliedDocuments.id, document.document.id), eq(appliedDocuments.currentRevisionId, document.revision.id))).returning() as any[];
-    if (!updatedRows[0]) throw invalid('STALE_DOCUMENT_REVISION', 409);
+    if (!updatedRows[0]) {
+      const current = await currentDocument(tx, found.context.participant.tenantId, found.context.contract.id);
+      throw staleDocumentRevision(current.revision);
+    }
     const evidence = encryptValue(JSON.stringify({ placement: operation.placement, acceptanceText: operation.acceptanceText, candidateHash: operation.candidateHash, baseRevisionId: operation.baseRevisionId, fingerprint: operation.fingerprint }), evidenceAad(found.context.participant.tenantId, found.context.participant.id));
     const signatureRevisionRows = await tx.insert(signatureRevisions).values({ tenantId: found.context.participant.tenantId, participantId: found.context.participant.id, revision: found.context.participant.latestRevision + 1, evidenceCiphertext: evidence.ciphertext, evidenceNonce: evidence.nonce, evidenceKeyVersion: evidence.keyVersion, operationId: operation.id, documentRevisionId: revision.id, method: 'local_handwritten', placement: operation.placement, signatureImageHash: operation.signatureImageHash }).returning() as any[];
     await tx.insert(signatureEvidence).values({ tenantId: found.context.participant.tenantId, participantId: found.context.participant.id, documentId: document.document.id, documentRevisionId: revision.id, operationId: operation.id, eventType: found.context.participant.role === 'professional' ? 'professional_confirmation' : 'local_confirmation', collectorVersion: normalizedEv.collectorVersion, normalizationVersion: normalizedEv.normalizationVersion, attributes: normalizedEv.attributes, unavailableAttributes: normalizedEv.unavailableAttributes, normalizedRepresentation: normalizedEv.normalizedRepresentation, digest: normalizedEv.digest, observedIp: operation.observedIp, observedAt: operation.evidenceReceivedAt ?? new Date() });
@@ -966,7 +969,10 @@ export async function confirmExternalReturn(access: string, input: unknown, acto
     const revision = revisionRows[0];
     if (!revision) throw invalid('Não foi possível registrar a revisão do documento.', 503);
     const updatedRows = (await tx.update(appliedDocuments).set({ currentRevisionId: revision.id }).where(and(eq(appliedDocuments.tenantId, operation.tenantId), eq(appliedDocuments.id, document.document.id), eq(appliedDocuments.currentRevisionId, document.revision.id))).returning() as any[]);
-    if (!updatedRows[0]) throw invalid('STALE_DOCUMENT_REVISION', 409);
+    if (!updatedRows[0]) {
+      const current = await currentDocument(tx, operation.tenantId, context.contract.id);
+      throw staleDocumentRevision(current.revision);
+    }
     const evidence = encryptValue(JSON.stringify({ method: 'govbr_external', acceptanceText: operation.acceptanceText, candidateHash: operation.candidateHash, baseRevisionId: operation.baseRevisionId, attemptId: receipt.attemptId, receiptId: receipt.id, certificateFingerprint: receipt.certificateFingerprint }), evidenceAad(operation.tenantId, operation.participantId));
     const signatureRevisionRows = (await tx.insert(signatureRevisions).values({ tenantId: operation.tenantId, participantId: operation.participantId, revision: context.participant.latestRevision + 1, evidenceCiphertext: evidence.ciphertext, evidenceNonce: evidence.nonce, evidenceKeyVersion: evidence.keyVersion, operationId: operation.id, documentRevisionId: revision.id, method: 'govbr_external', placement: null, signatureImageHash: null, externalReceiptId: receipt.id }).returning() as any[]);
     const acceptEv = normalizeEvidence(operation.fingerprint);

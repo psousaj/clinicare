@@ -1,7 +1,7 @@
 # Graph Report - clinicare  (2026-11-24)
 
 ## Corpus Check
-- 275 files · ~203,504 words
+- 275 files · ~203,802 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 15 file(s) not represented in the graph (top: (none) 7, .css 4, .example 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `52b57902`
+- Built from commit: `0923e606`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -463,11 +463,11 @@ Nodes (5): scripts, build, dev, test, typecheck
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `ContractVersion` connect `Spec — Autoria DOCX com ONLYOFFICE e Materialização Paramétrica de Contratos para Assinatura PDF` to `queries.ts`?**
-  _High betweenness centrality (0.284) - this node is a cross-community bridge._
+  _High betweenness centrality (0.281) - this node is a cross-community bridge._
 - **Why does `Solution` connect `Spec — Autoria DOCX com ONLYOFFICE e Materialização Paramétrica de Contratos para Assinatura PDF` to `followups.ts`?**
-  _High betweenness centrality (0.275) - this node is a cross-community bridge._
+  _High betweenness centrality (0.272) - this node is a cross-community bridge._
 - **Why does `patient()` connect `followups.ts` to `Spec — Autoria DOCX com ONLYOFFICE e Materialização Paramétrica de Contratos para Assinatura PDF`, `getDatabase`?**
-  _High betweenness centrality (0.275) - this node is a cross-community bridge._
+  _High betweenness centrality (0.272) - this node is a cross-community bridge._
 - **What connects `name`, `private`, `type` to the rest of the system?**
   _631 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `dialogs.tsx` be split into smaller, more focused modules?**

@@ -738,15 +738,15 @@
     "semantic_hash": ""
   },
   "apps/api/src/signatures.integration.test.ts": {
-    "mtime": 1795495563.5026515,
-    "seen": 1795496068.5835197,
-    "ast_hash": "928c26662ed24674715ece5a07f597b4",
+    "mtime": 1795500434.9882514,
+    "seen": 1795500741.2168956,
+    "ast_hash": "459a8e651745a2b42394b04cbb58f38a",
     "semantic_hash": ""
   },
   "apps/api/src/signatures.ts": {
-    "mtime": 1795499693.28425,
-    "seen": 1795499719.6215818,
-    "ast_hash": "a7ba4236baec14ec9699909cd8f95b8a",
+    "mtime": 1795500370.3242502,
+    "seen": 1795500741.2168975,
+    "ast_hash": "894158bfca9c8ddfdd3d228f8f65e723",
     "semantic_hash": ""
   },
   "packages/db/drizzle.config.ts": {
@@ -954,9 +954,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/external-signatures.integration.test.ts": {
-    "mtime": 1791324710.1092992,
-    "seen": 1795484950.051278,
-    "ast_hash": "d7b12e9b8919148b88595f2871702fde",
+    "mtime": 1795501088.332252,
+    "seen": 1795501109.13338,
+    "ast_hash": "5bbad67c93238f59a282da38cc19f1a3",
     "semantic_hash": ""
   },
   "apps/api/src/external-test-fixtures.ts": {
