@@ -49,6 +49,13 @@ const previewMismatch = () => Object.assign(
   invalid('A prévia do PDF não corresponde à confirmação.', 409),
   { code: 'SIGNATURE_PREVIEW_MISMATCH' },
 );
+const staleDocumentRevision = (current?: { id: string; version: number }) => Object.assign(
+  invalid('STALE_DOCUMENT_REVISION', 409),
+  {
+    code: 'STALE_DOCUMENT_REVISION',
+    ...(current ? { currentRevisionId: current.id, currentVersion: current.version } : {}),
+  },
+);
 const idempotencyKeyReused = () => Object.assign(
   invalid('IDEMPOTENCY_KEY_REUSED', 409),
   { code: 'IDEMPOTENCY_KEY_REUSED' },
@@ -311,11 +318,7 @@ export async function previewSignature(token: string, input: unknown, actor?: Cl
     if (found.participant.role === 'patient' && !found.token?.phoneVerifiedAt) throw invalid('Os quatro últimos dígitos do telefone devem ser confirmados antes da prévia.', 403);
     const current = await currentDocument(tx, found.participant.tenantId, found.contract.id);
     if (current.document.id !== prepared.documentId || current.revision.id !== prepared.baseRevisionId) {
-      const error = invalid('STALE_DOCUMENT_REVISION', 409) as Error & { code?: string; currentRevisionId?: string; currentVersion?: number };
-      error.code = 'STALE_DOCUMENT_REVISION';
-      error.currentRevisionId = current.revision.id;
-      error.currentVersion = current.revision.version;
-      throw error;
+      throw staleDocumentRevision(current.revision);
     }
     return { tenantId: found.participant.tenantId, participantId: found.participant.id, key: current.revision.objectKey, hash: current.revision.contentHash, size: current.revision.contentSize };
   });
@@ -380,9 +383,7 @@ export async function signWithToken(token: string, input: unknown, actor?: Clini
     } else if (!context.token?.phoneVerifiedAt) throw invalid('Os quatro últimos dígitos do telefone devem ser confirmados antes da assinatura.', 403);
     const document = await currentDocument(tx, context.participant.tenantId, context.contract.id);
     if (document.document.id !== prepared.documentId || document.revision.id !== prepared.baseRevisionId) {
-      const error = invalid('STALE_DOCUMENT_REVISION', 409) as Error & { code?: string; currentRevisionId?: string; currentVersion?: number };
-      error.code = 'STALE_DOCUMENT_REVISION'; error.currentRevisionId = document.revision.id; error.currentVersion = document.revision.version;
-      throw error;
+      throw staleDocumentRevision(document.revision);
     }
     if (context.participant.status === 'signed') throw invalid('Esta etapa de assinatura já foi confirmada.', 409);
     return { context, document, signatureImageHash, requestHash };
@@ -445,10 +446,7 @@ export async function signWithToken(token: string, input: unknown, actor?: Clini
   if (found.operation.status === 'rejected') throw invalid('Esta operação de assinatura foi rejeitada.', 409);
   if (found.operation.status === 'stale') {
     const current = (await db.select({ document: appliedDocuments, revision: appliedDocumentRevisions }).from(appliedDocuments).innerJoin(appliedDocumentRevisions, and(eq(appliedDocumentRevisions.tenantId, appliedDocuments.tenantId), eq(appliedDocumentRevisions.id, appliedDocuments.currentRevisionId))).where(and(eq(appliedDocuments.tenantId, found.context.participant.tenantId), eq(appliedDocuments.id, found.operation.documentId))))[0];
-    const error = invalid('STALE_DOCUMENT_REVISION', 409) as Error & { code?: string; currentRevisionId?: string; currentVersion?: number };
-    error.code = 'STALE_DOCUMENT_REVISION';
-    if (current) { error.currentRevisionId = current.revision.id; error.currentVersion = current.revision.version; }
-    throw error;
+    throw staleDocumentRevision(current?.revision);
   }
   const operation = found.operation;
   const promoted = await db.transaction(async (tx) => {
@@ -499,9 +497,7 @@ export async function signWithToken(token: string, input: unknown, actor?: Clini
     return { result: await signatureResult(tx, found.context.participant.tenantId, found.context.participant.processId) };
   });
   if ('stale' in promoted) {
-    const error = invalid('STALE_DOCUMENT_REVISION', 409) as Error & { currentRevisionId?: string; currentVersion?: number; code?: string };
-    error.code = 'STALE_DOCUMENT_REVISION'; error.currentRevisionId = promoted.currentRevisionId; error.currentVersion = promoted.currentVersion;
-    throw error;
+    throw staleDocumentRevision({ id: promoted.currentRevisionId, version: promoted.currentVersion });
   }
   return promoted.result;
 }
@@ -714,9 +710,7 @@ export async function exportExternalRevision(access: string, input: unknown, act
     const found = await externalAccessContext(tx, access, actor);
     const document = await currentDocument(tx, found.participant.tenantId, found.contract.id);
     if (document.document.id !== prepared.documentId || document.revision.id !== prepared.baseRevisionId) {
-      const error = invalid('STALE_DOCUMENT_REVISION', 409) as Error & { code?: string; currentRevisionId?: string; currentVersion?: number };
-      error.code = 'STALE_DOCUMENT_REVISION'; error.currentRevisionId = document.revision.id; error.currentVersion = document.revision.version;
-      throw error;
+      throw staleDocumentRevision(document.revision);
     }
     const existing = (await tx.select().from(signatureExternalAttempts).where(and(eq(signatureExternalAttempts.tenantId, found.participant.tenantId), eq(signatureExternalAttempts.participantId, found.participant.id), eq(signatureExternalAttempts.idempotencyKey, prepared.idempotencyKey))))[0];
     if (existing) {
@@ -909,9 +903,7 @@ export async function confirmExternalReturn(access: string, input: unknown, acto
     }
     const document = await currentDocument(tx, found.participant.tenantId, found.contract.id);
     if (document.document.id !== attempt.documentId || document.revision.id !== attempt.baseRevisionId) {
-      const error = invalid('STALE_DOCUMENT_REVISION', 409) as Error & { code?: string; currentRevisionId?: string; currentVersion?: number };
-      error.code = 'STALE_DOCUMENT_REVISION'; error.currentRevisionId = document.revision.id; error.currentVersion = document.revision.version;
-      throw error;
+      throw staleDocumentRevision(document.revision);
     }
     if (found.participant.status === 'signed') {
       const done = await signatureResult(tx, found.participant.tenantId, found.participant.processId);
@@ -940,10 +932,7 @@ export async function confirmExternalReturn(access: string, input: unknown, acto
   if (operation.status === 'rejected') throw invalid('Esta operação de assinatura foi rejeitada.', 409);
   if (operation.status === 'stale') {
     const current = (await db.select({ document: appliedDocuments, revision: appliedDocumentRevisions }).from(appliedDocuments).innerJoin(appliedDocumentRevisions, and(eq(appliedDocumentRevisions.tenantId, appliedDocuments.tenantId), eq(appliedDocumentRevisions.id, appliedDocuments.currentRevisionId))).where(and(eq(appliedDocuments.tenantId, operation.tenantId), eq(appliedDocuments.id, operation.documentId))))[0];
-    const error = invalid('STALE_DOCUMENT_REVISION', 409) as Error & { code?: string; currentRevisionId?: string; currentVersion?: number };
-    error.code = 'STALE_DOCUMENT_REVISION';
-    if (current) { error.currentRevisionId = current.revision.id; error.currentVersion = current.revision.version; }
-    throw error;
+    throw staleDocumentRevision(current?.revision);
   }
   const promoted = await db.transaction(async (tx) => {
     const context = operation.tenantId && operation.participantId
@@ -1004,9 +993,7 @@ export async function confirmExternalReturn(access: string, input: unknown, acto
     return { result: await signatureResult(tx, operation.tenantId, context.participant.processId) };
   });
   if ('stale' in promoted) {
-    const error = invalid('STALE_DOCUMENT_REVISION', 409) as Error & { currentRevisionId?: string; currentVersion?: number; code?: string };
-    error.code = 'STALE_DOCUMENT_REVISION'; error.currentRevisionId = promoted.currentRevisionId; error.currentVersion = promoted.currentVersion;
-    throw error;
+    throw staleDocumentRevision({ id: promoted.currentRevisionId, version: promoted.currentVersion });
   }
   return promoted.result;
 }
