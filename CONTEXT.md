@@ -23,11 +23,17 @@ A gestão de pacientes, documentos e agenda relacionados aos procedimentos esté
 _Avoid_: escopo completo, prontuário generalista
 
 **Tenant**:
-Limite de isolamento dos dados de uma clínica cliente do SaaS. Cada clínica é um tenant próprio; todos os pacientes, profissionais, procedimentos e documentos pertencem a exatamente um tenant. O SaaS pode ter vários tenants, e o administrador da plataforma provisiona cada novo tenant junto com sua conta administrativa. O tenant inicial determinístico usado antes da autenticação existe apenas para compatibilidade do protótipo e deve deixar de ser a forma normal de identificar a clínica quando o acesso autenticado estiver ativo.
+Limite de isolamento dos dados de uma clínica cliente do SaaS. Cada clínica é um tenant próprio; todos os pacientes, profissionais, procedimentos e documentos pertencem a exatamente um tenant. Na evolução para cadastro autônomo, cada novo dono cadastra sua própria clínica junto com sua única conta administrativa. Uma conta pertence a uma única clínica; equipes e participação em várias clínicas ficam fora desta entrega. As clínicas compartilham a estrutura de persistência, sem um schema de banco exclusivo por tenant. Clínicas e contas existentes mantêm suas identidades e seus históricos; o tenant inicial do protótipo não é a identidade padrão de novos cadastros.
 
 **Isolamento do tenant**:
 Regra de que uma operação, busca ou vínculo só pode acessar dados pertencentes ao mesmo tenant. O isolamento vale para entidades principais e seus dados dependentes; um registro de um tenant nunca pode ser associado a um registro de outro. O administrador da clínica só pode operar o tenant vinculado à sua conta; o administrador da plataforma pode provisionar tenants e administrar suas credenciais, mas não recebe acesso operacional automático aos dados clínicos de cada tenant nem pode entrar como um administrador da clínica.
 _Avoid_: instalação, conta (quando significar a clínica), implantação (quando significar o limite de dados)
+
+**Plano de assinatura do SaaS**:
+Oferta da plataforma para uma clínica, com preço e conjunto de funcionalidades incluídas. O plano gratuito (Free) é a base do modelo freemium; cada nível superior inclui todas as funcionalidades do anterior e acrescenta outras. Não é o plano de procedimentos oferecido pela clínica ao paciente.
+
+**Assinatura da clínica**:
+Vínculo comercial da clínica com um plano pago, administrado manualmente pela plataforma. A **situação da assinatura** descreve esse vínculo: ativa libera o plano contratado; pausada mantém o vínculo, mas libera apenas o Free; inativa indica cancelamento e retorno ao Free. Uma clínica pode usar o Free sem nunca ter contratado plano pago. A situação não é um registro de pagamento nem altera o bloqueio administrativo do tenant.
 
 **Índice de busca sensível**:
 HMAC-SHA-256 calculado sobre o `tenant_id`, o nome da tabela, o nome do campo, a versão da normalização e o valor normalizado. Permite busca exata sem armazenar o valor em texto aberto. Não é o valor criptografado nem substitui a confirmação de igualdade após a descriptografia.
