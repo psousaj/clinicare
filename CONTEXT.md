@@ -23,7 +23,10 @@ A gestão de pacientes, documentos e agenda relacionados aos procedimentos esté
 _Avoid_: escopo completo, prontuário generalista
 
 **Tenant**:
-Limite de isolamento dos dados de uma clínica cliente do SaaS. Cada clínica é um tenant próprio; todos os pacientes, profissionais, procedimentos e documentos pertencem a exatamente um tenant. Na evolução para cadastro autônomo, cada novo dono cadastra sua própria clínica junto com sua única conta administrativa. Uma conta pertence a uma única clínica; equipes e participação em várias clínicas ficam fora desta entrega. As clínicas compartilham a estrutura de persistência, sem um schema de banco exclusivo por tenant. Clínicas e contas existentes mantêm suas identidades e seus históricos; o tenant inicial do protótipo não é a identidade padrão de novos cadastros.
+Limite de isolamento dos dados de uma clínica cliente do SaaS. Cada clínica é um tenant próprio; todos os pacientes, profissionais, procedimentos e documentos pertencem a exatamente um tenant. A identidade da pessoa existe independentemente das clínicas: pode não ter vínculo ou ter vínculos com várias clínicas, com papel próprio em cada uma. Nesta entrega, o cadastro cria uma clínica e seu vínculo administrativo; equipes e operação entre várias clínicas são jornadas futuras. Clínicas e contas existentes mantêm suas identidades e seus históricos; o tenant inicial do protótipo não é a identidade padrão de novos cadastros.
+
+**Vínculo com clínica**:
+Associação de uma pessoa a uma clínica, com um papel naquela organização. Uma pessoa pode ser administradora numa clínica e colaboradora em outra; o papel de um vínculo não concede acesso às demais clínicas. Não há dois vínculos distintos para o mesmo par pessoa–clínica.
 
 **Isolamento do tenant**:
 Regra de que uma operação, busca ou vínculo só pode acessar dados pertencentes ao mesmo tenant. O isolamento vale para entidades principais e seus dados dependentes; um registro de um tenant nunca pode ser associado a um registro de outro. O administrador da clínica só pode operar o tenant vinculado à sua conta; o administrador da plataforma pode provisionar tenants e administrar suas credenciais, mas não recebe acesso operacional automático aos dados clínicos de cada tenant nem pode entrar como um administrador da clínica.
@@ -275,9 +278,9 @@ _Avoid_: campanha (quando o conjunto de procedimentos e seu preço forem o foco)
 Dia civil da clínica com cardápio próprio de procedimentos e/ou combos, contratos obrigatórios e vários pacientes. A inscrição leva o cardápio inteiro para o acompanhamento; procedimento avulso que já entra por um combo do mesmo cardápio fica só no combo. O que não for feito no dia vale zero e não vira sessão restante. Combo entra fechado, com todos os seus procedimentos e sessões cumpridos na data do evento, sem resto para depois. Não há preço total no catálogo do evento nem versionamento formal: a inscrição congela snapshot próprio e mudanças posteriores não alteram acompanhamentos já iniciados. Desativar o evento impede novas aplicações, mas preserva os já iniciados.
 _Avoid_: campanha, mutirão, plano aberto, sessão (quando significar o dia), evento de assinatura
 
-**Cardápio do evento**:
+**Procedimentos do evento**:
 Itens do dia civil inscritos no acompanhamento. Não é preço contratado: item não realizado vale zero.
-_Avoid_: pedido, compra, escolha do evento
+_Avoid_: cardápio, pedido, compra, escolha do evento
 
 **Valor realizado do evento**:
 Soma dos preços das baixas confirmadas em um acompanhamento de evento, que começa em zero e cresce a cada atendimento realizado (procedimento avulso pelo preço da sessão, combo pelo preço do pacote, uma vez). É o único teto financeiro do evento: pagamentos não podem ultrapassá-lo e acompanhamento ocioso de evento não recebe pagamento.
