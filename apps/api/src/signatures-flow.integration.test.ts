@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
 import { app } from './app';
 import {
-  appliedDocuments, appliedDocumentRevisions, closeDatabase, contracts,
+  appliedDocuments, appliedDocumentRevisions, clinicSubscriptions, closeDatabase, contracts,
   contractVersions, documentCleanupJobs, followupContracts, followupItems,
   followupSnapshots, followups, getDatabase, migrateDatabase, patients,
   planVersionContracts, planVersionItems, planVersions, plans, procedures,
@@ -51,6 +51,7 @@ integration('Issue #23: Entregar assinatura manuscrita local do paciente', () =>
     const db = getDatabase();
     await provisionIntegrationClinic(app, 'sig-flow', tenantId);
     await provisionIntegrationClinic(app, 'sig-flow-other', otherTenantId);
+    await db.insert(clinicSubscriptions).values({ tenantId, planId: 'standard', status: 'active', startedAt: new Date() });
     sessionHeaders = integrationHeaders(tenantId);
     otherSessionHeaders = integrationHeaders(otherTenantId);
 
@@ -141,6 +142,7 @@ integration('Issue #23: Entregar assinatura manuscrita local do paciente', () =>
 
   afterAll(async () => {
     const db = getDatabase();
+    await db.delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, tenantId));
     for (const table of [
       signatureEvidence, signatureEvents, signatureRevisions, signatureOperations,
       signaturePreviewCandidates, signatureTokens, signatureParticipants, signatureProcesses

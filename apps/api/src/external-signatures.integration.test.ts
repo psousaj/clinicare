@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { and, eq, sql } from 'drizzle-orm';
 import { app } from './app';
 import {
-  appliedDocuments, appliedDocumentRevisions, authUsers, closeDatabase, contracts,
+  appliedDocuments, appliedDocumentRevisions, authUsers, clinicSubscriptions, closeDatabase, contracts,
   contractVersions, documentCleanupJobs, followupContracts, followupItems,
   followupSnapshots, followups, getDatabase, migrateDatabase, patients,
   planVersionContracts, planVersionItems, planVersions, plans, procedures,
@@ -50,6 +50,7 @@ integration('Issue #26: Exportar e importar assinatura externa pelo GOV.BR', () 
     const db = getDatabase();
     await provisionIntegrationClinic(app, 'sig-external', tenantId);
     await provisionIntegrationClinic(app, 'sig-external-other', otherTenantId);
+    await db.insert(clinicSubscriptions).values({ tenantId, planId: 'standard', status: 'active', startedAt: new Date() });
     sessionHeaders = integrationHeaders(tenantId);
     otherSessionHeaders = integrationHeaders(otherTenantId);
     sessionEmail = (await db.select({ email: authUsers.email }).from(authUsers)
@@ -113,6 +114,7 @@ integration('Issue #26: Exportar e importar assinatura externa pelo GOV.BR', () 
   afterAll(async () => {
     delete process.env.GOVBR_TRUSTED_ROOTS;
     const db = getDatabase();
+    await db.delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, tenantId));
     for (const table of [
       signatureEvidence, signatureEvents, signatureRevisions, signatureOperations,
       signatureExternalReceipts, signatureExternalAttempts,

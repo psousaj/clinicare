@@ -112,6 +112,8 @@ export function AppointmentDialog({ open, selection, appointment, patientId, pat
 
 // Monta a sessão: procedimentos avulsos e sessões dos acompanhamentos do paciente, limitados pelos minutos do horário.
 function AppointmentFields({ selection, lockedPatientId, patients, followups, procedures }: { selection?: Selection | null; lockedPatientId?: string; patients: Patient[]; followups: Followup[]; procedures: Procedure[] }) {
+  const subscription = useQuery(saasSubscriptionQuery);
+  const canUsePremiumFollowups = subscription.data?.effectivePlan === 'standard' || subscription.data?.effectivePlan === 'pro';
   const [patientId, setPatientId] = useState(lockedPatientId ?? patients[0]?.id ?? '');
   const [patientPickerOpen, setPatientPickerOpen] = useState(false), [patientQuery, setPatientQuery] = useState('');
   const [date, setDate] = useState<string>(), [start, setStart] = useState<string>(), [end, setEnd] = useState<string>();
@@ -119,7 +121,7 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
   const capacity = selection ? minutesBetween(selection.start, selection.end) : date && start && end ? minutesBetween(`${date}T${start}`, `${date}T${end}`) : 0;
   const minutesOf = (procedureId?: string | null) => procedures.find((procedure) => procedure.id === procedureId)?.durationMinutes ?? 60;
   const minutesOfItem = (item: { procedureId?: string | null; durationMinutes?: number | null }) => item.durationMinutes ?? minutesOf(item.procedureId);
-  const patientFollowups = followups.filter((followup) => followup.patientId === patientId);
+  const patientFollowups = followups.filter((followup) => followup.patientId === patientId && (canUsePremiumFollowups || (followup.offerType !== 'combo' && followup.offerType !== 'plan')));
   const blockedStandalone = new Set(patientFollowups.filter((followup) => followup.offerType === 'procedure' && followup.blocked).flatMap((followup) => followup.items.map((item) => item.procedureId)));
   const mine = patientFollowups.filter((followup) => followup.offerType !== 'procedure').map((followup) => ({ ...followup, items: followup.items.filter((item) => !item.cancelledAt && item.sessionsPerformed < item.sessionsTotal) })).filter((followup) => followup.items.length > 0);
   const contractedProcedureIds = new Set(mine.flatMap((followup) => followup.items.map((item) => item.procedureId).filter(Boolean)));

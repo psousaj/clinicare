@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { and, eq, sql } from 'drizzle-orm';
 import { app } from './app';
 import {
-  appliedDocuments, appliedDocumentRevisions, authUsers, closeDatabase, contracts,
+  appliedDocuments, appliedDocumentRevisions, authUsers, clinicSubscriptions, closeDatabase, contracts,
   contractVersions, documentCleanupJobs, followupContracts, followupItems,
   followupSnapshots, followups, getDatabase, migrateDatabase, patients,
   planVersionContracts, planVersionItems, planVersions, plans, procedures,
@@ -45,6 +45,7 @@ integration('PostgreSQL signatures API', () => {
     const db = getDatabase();
     await provisionIntegrationClinic(app, 'signatures', tenantId);
     await provisionIntegrationClinic(app, 'signatures-other', otherTenantId);
+    await getDatabase().insert(clinicSubscriptions).values({ tenantId, planId: 'standard', status: 'active', startedAt: new Date() });
     sessionHeaders = integrationHeaders(tenantId);
     otherSessionHeaders = integrationHeaders(otherTenantId);
 
@@ -112,6 +113,7 @@ integration('PostgreSQL signatures API', () => {
 
   afterAll(async () => {
     const db = getDatabase();
+    await db.delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, tenantId));
     for (const table of [
       signatureEvidence, signatureEvents, signatureRevisions, signatureOperations,
       signaturePreviewCandidates, signatureTokens, signatureParticipants, signatureProcesses,

@@ -879,6 +879,17 @@ describe('Acompanhamentos', () => {
     expect(button).toHaveAttribute('title', 'Disponível após a assinatura do paciente.');
   });
 
+  it('keeps premium followup history visible but freezes actions on Free', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    routes['GET /api/followups'] = () => [pendingFollowup({ offerType: 'combo', status: 'active', anamneses: [], contracts: [] })];
+    routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
+    renderAt('/pacientes/p1');
+    const card = await screen.findByRole('article', { name: /combo pele \(combo\)/i });
+    expect(within(card).getByText(/acompanhamento congelado no plano free/i)).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: /registrar atendimento/i })).toBeDisabled();
+    expect(within(card).getByRole('button', { name: /cancelar acompanhamento/i })).toBeDisabled();
+  });
+
   it('expands and collapses the followup card like an accordion', async () => {
     routes['GET /api/followups'] = () => [pendingFollowup({ offerType: 'plan', status: 'active', anamneses: [], contracts: [] })];
     routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });

@@ -6,13 +6,13 @@ import { PaymentDialog } from '@/components/dialogs';
 import { QueryError } from '@/components/QueryState';
 import { StatusBadge } from '@/components/StatusBadge';
 import { currency } from '@/lib/format';
-import { patientsQuery, followupsQuery } from '@/lib/queries';
+import { patientsQuery, followupsQuery, saasSubscriptionQuery } from '@/lib/queries';
 import type { Followup } from '@/lib/schemas';
 
 export const Route = createFileRoute('/_app/financeiro')({ component: Finance });
 
 function Finance() {
-  const followups = useQuery(followupsQuery), patients = useQuery(patientsQuery);
+  const followups = useQuery(followupsQuery), patients = useQuery(patientsQuery), subscription = useQuery(saasSubscriptionQuery);
   const [paymentFollowup, setPaymentFollowup] = useState<Followup | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'paid'>('all');
   const patientList = patients.data ?? [];
@@ -53,7 +53,9 @@ function Finance() {
               <MoneyLine label="Recebido" amount={currency(paid)} />
               <MoneyLine label="Falta receber" amount={currency(due)} emphasis={due > 0} />
             </div>
-            {due > 0 && <div className="mt-4 flex justify-end"><button className="text-button" onClick={() => setPaymentFollowup(followup)}>Registrar pagamento</button></div>}
+            {due > 0 && <div className="mt-4 flex justify-end">{(followup.offerType === 'combo' || followup.offerType === 'plan') && subscription.data?.effectivePlan === 'free'
+              ? <span className="text-sm text-muted-foreground">Congelado no plano Free</span>
+              : <button className="text-button" disabled={subscription.isPending || subscription.isError} onClick={() => setPaymentFollowup(followup)}>Registrar pagamento</button>}</div>}
           </article>;
         })}
         {followups.isSuccess && entries.length > 0 && filteredEntries.length === 0 && <p className="m-0 text-sm text-muted-foreground">Nenhum registro nesta categoria.</p>}
