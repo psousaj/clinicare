@@ -1,6 +1,6 @@
 import { describe } from 'bun:test';
 import { and, eq, inArray } from 'drizzle-orm';
-import { authAccounts, authSessions, authUsers, getDatabase, professionals, tenants, userTenantMemberships } from '@clinicare/db';
+import { authAccounts, authSessions, authUsers, clinicSubscriptions, getDatabase, professionals, tenants, userTenantMemberships } from '@clinicare/db';
 import { provisionClinic } from './admin-commands';
 
 type AppLike = { request(path: string, init?: RequestInit): Promise<Response> };
@@ -66,9 +66,14 @@ export async function confirmIntegrationUser(email: string) {
   await getDatabase().update(authUsers).set({ emailVerified: true }).where(eq(authUsers.email, email));
 }
 
+export async function grantIntegrationPlan(tenantId: string, planId: 'standard' | 'pro') {
+  await getDatabase().insert(clinicSubscriptions).values({ tenantId, planId, status: 'active', startedAt: new Date() });
+}
+
 export async function cleanupIntegrationClinics(tenantIds: string[]) {
   if (!tenantIds.length) return;
   const database = getDatabase();
+  await database.delete(clinicSubscriptions).where(inArray(clinicSubscriptions.tenantId, tenantIds));
   await database.delete(professionals).where(inArray(professionals.tenantId, tenantIds));
   const users = await database.select({ id: userTenantMemberships.userId })
     .from(userTenantMemberships)

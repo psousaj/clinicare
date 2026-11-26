@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { inArray } from 'drizzle-orm';
 import { app } from './app';
 import { closeDatabase, eventContracts, eventItems, events, getDatabase, migrateDatabase, combos, comboItems, contracts, contractVersions, procedures, procedureVersions, anamneses, anamnesisProcedures, anamnesisVersions } from '@clinicare/db';
-import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
+import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, grantIntegrationPlan, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
 
 const tenantIds = [crypto.randomUUID(), crypto.randomUUID()];
 let clinics: IntegrationClinic[];
@@ -19,6 +19,7 @@ integration('events catalog API with PostgreSQL', () => {
     assertSafeIntegrationDatabase();
     await migrateDatabase();
     clinics = [await provisionIntegrationClinic(app, 'events-a', tenantIds[0]!), await provisionIntegrationClinic(app, 'events-b', tenantIds[1]!)];
+    for (const tenantId of tenantIds) await grantIntegrationPlan(tenantId, 'pro');
   });
   afterAll(async () => {
     const db = getDatabase();

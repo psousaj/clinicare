@@ -2,10 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { CalendarDays, Check, ChevronRight, Pencil, Plus, Power, Users, X } from 'lucide-react';
 import { useState } from 'react';
+import { ProPlanNotice } from '@/components/ProPlanNotice';
 import { QueryError } from '@/components/QueryState';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { eventsQuery, useSaveEvent } from '@/lib/queries';
+import { eventsQuery, saasSubscriptionQuery, useSaveEvent } from '@/lib/queries';
 import './events.css';
 
 export const Route = createFileRoute('/_app/eventos/')({ component: Events });
@@ -16,10 +17,21 @@ const civil = (value: string) => value.split('-').reverse().join('/');
 const initials = (name: string) => name.trim().split(/\s+/).filter(Boolean).filter((_, index, parts) => index === 0 || index === parts.length - 1).map((part) => part.charAt(0)).join('').toLocaleUpperCase('pt-BR');
 
 function Events() {
-  const events = useQuery(eventsQuery);
+  const subscription = useQuery(saasSubscriptionQuery);
+  const canManageEvents = subscription.data?.effectivePlan === 'pro';
+  const events = useQuery({ ...eventsQuery, enabled: canManageEvents });
   const save = useSaveEvent();
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const selectedEvent = events.data?.find((event) => event.id === selectedEventId);
+
+  if (!canManageEvents) {
+    return (
+      <section className="panel">
+        <h2>Recurso Pró</h2>
+        <ProPlanNotice />
+      </section>
+    );
+  }
 
   return (
     <div className="events-page">
@@ -36,7 +48,7 @@ function Events() {
         {events.isSuccess && events.data.length === 0 && <div className="events-empty">
           <CalendarDays aria-hidden="true" />
           <h3>Seu primeiro evento começa aqui</h3>
-          <p>Crie um evento com data e cardápio para inscrever seus pacientes.</p>
+          <p>Crie um evento com data e Procedimentos do evento para inscrever seus pacientes.</p>
         </div>}
         <div className="events-catalog">
           {events.data?.map((event) => (
@@ -49,7 +61,7 @@ function Events() {
               <div className="event-details">
                 <div className="event-name"><h3>{event.name}</h3>{event.active === false && <StatusBadge tone="neutral">Inativo</StatusBadge>}</div>
                 <div className="event-meta">
-                  <span>{event.items.length} {event.items.length === 1 ? 'item no cardápio' : 'itens no cardápio'}</span>
+                  <span>{event.items.length} {event.items.length === 1 ? 'item nos Procedimentos do evento' : 'itens nos Procedimentos do evento'}</span>
                   <span><Users size={14} aria-hidden="true" />{event.enrolledPatients.length} {event.enrolledPatients.length === 1 ? 'inscrito' : 'inscritos'}</span>
                 </div>
               </div>

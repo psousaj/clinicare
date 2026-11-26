@@ -16,7 +16,7 @@ beforeEach(() => {
   routes = {
     'GET /api/auth/get-session': () => ({ user: { id: 'u1', tenantId: 't1' } }),
     'GET /api/account/state': () => ({ kind: 'clinic' }),
-    'GET /api/saas/subscription': () => ({ effectivePlan: 'standard', subscription: { planId: 'standard', status: 'active', startedAt: '2026-01-01T00:00:00Z', endedAt: null } }),
+    'GET /api/saas/subscription': () => ({ effectivePlan: 'pro', subscription: { planId: 'pro', status: 'active', startedAt: '2026-01-01T00:00:00Z', endedAt: null } }),
     'GET /api/patients': () => [marina],
   };
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
@@ -552,6 +552,20 @@ describe('Agenda', () => {
     await waitFor(() => expect(calls.some((call) => call.method === 'DELETE' && call.url === '/api/appointments/ap1')).toBe(true));
   });
 
+  it('freezes an existing event appointment below Pró', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'standard', subscription: { planId: 'standard', status: 'active', startedAt: '2026-01-01T00:00:00Z', endedAt: null } });
+    routes['GET /api/appointments'] = () => [appointment];
+    routes['GET /api/followups'] = () => [{ ...followup, offerType: 'event', offerName: 'Evento facial' }];
+    const user = userEvent.setup();
+    renderAt('/agenda');
+    await user.click(await screen.findByTitle('Marina Alves · Agendado'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/agendamento congelado/i)).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /excluir agendamento/i })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /confirmar atendimento/i })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('checkbox', { name: /selecionar limpeza de pele/i })).toBeDisabled();
+  });
+
   it('opens a new appointment when a calendar time cell is clicked', async () => {
     routes['GET /api/appointments'] = () => [];
     const user = userEvent.setup();
@@ -670,6 +684,13 @@ const pendingFollowup = (extra: Record<string, unknown> = {}) => ({
 });
 
 describe('Eventos', () => {
+  it('hides event navigation and management below Pró', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'standard', subscription: { planId: 'standard', status: 'active', startedAt: '2026-01-01T00:00:00Z', endedAt: null } });
+    renderAt('/eventos');
+    expect(await screen.findByRole('heading', { name: 'Recurso Pró' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Eventos' })).not.toBeInTheDocument();
+  });
+
   it('supports keyboard selection and shows an empty event without hiding its filters', async () => {
     routes['GET /api/events'] = () => [
       { _id: 'ev1', name: 'Dia facial', eventDate: '2026-10-15', active: false, items: [], contractIds: [], enrolledPatients: [] },

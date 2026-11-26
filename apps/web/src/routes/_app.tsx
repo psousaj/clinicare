@@ -82,7 +82,7 @@ function NavigationPanelContent({ onNavigate, mobile = false }: { onNavigate: ()
       </div>
       <div className="nav-caption">MENU PRINCIPAL</div>
       <nav aria-label="Menu principal">
-        {navigation.map(({ to, label, icon: Icon }) => (
+        {navigation.filter(({ to }) => to !== '/eventos' || saas.data?.effectivePlan === 'pro').map(({ to, label, icon: Icon }) => (
           <Link key={to} to={to} className="nav-link" activeProps={{ className: 'active' }} activeOptions={{ exact: to === '/' }} onClick={onNavigate}>
             <Icon size={18} />
             <span>{label}</span>
@@ -114,12 +114,14 @@ function initials(name: string) {
 function AppLayout() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const account = useQuery(accountQuery);
+  const subscription = useQuery(saasSubscriptionQuery);
   const initialPasswordChoice = useUpdateInitialPasswordChoice();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const visibleNavigation = navigation.filter(({ to }) => to !== '/eventos' || subscription.data?.effectivePlan === 'pro');
   const current = pathname.startsWith('/configuracoes')
     ? settingsEntry
-    : (navigation.find(({ to }) => (to === '/' ? pathname === '/' : pathname.startsWith(to))) ?? navigation[0]);
+    : (visibleNavigation.find(({ to }) => (to === '/' ? pathname === '/' : pathname.startsWith(to))) ?? navigation[0]);
   const path = pathname.replace(/(.)\/$/, '$1');
   const showNewPatient = path === '/pacientes';
   const isSigning = pathname.includes('/assinar');

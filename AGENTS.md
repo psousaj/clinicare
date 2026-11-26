@@ -35,3 +35,9 @@ Use the default triage labels: `needs-triage`, `needs-info`, `ready-for-agent`, 
 ### Domain docs
 
 This is a single-context repository using root `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.
+
+### SDD review and verification
+
+- When implementation work is uncommitted, code review must use the complete worktree diff against the task base (`git diff <base>`) plus untracked files; reviewing only `HEAD` misses implementation findings.
+- Review findings remain implementation work. Resume the same task, remediate every finding, rerun verification, then review again before committing.
+- Do not mark a task complete or commit until the current task diff has clean Standards and Spec reviews and no task-owned changes remain uncommitted.

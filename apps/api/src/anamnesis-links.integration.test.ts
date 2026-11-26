@@ -20,7 +20,7 @@ integration('offer-owned anamnesis links with PostgreSQL', () => {
     assertSafeIntegrationDatabase();
     await migrateDatabase();
     clinics = [await provisionIntegrationClinic(app, 'anamnesis-links-a', tenantIds[0]!), await provisionIntegrationClinic(app, 'anamnesis-links-b', tenantIds[1]!)];
-    await getDatabase().insert(clinicSubscriptions).values({ tenantId: tenantIds[0]!, planId: 'standard', status: 'active', startedAt: new Date() });
+    await getDatabase().insert(clinicSubscriptions).values({ tenantId: tenantIds[0]!, planId: 'pro', status: 'active', startedAt: new Date() });
   });
   afterAll(async () => {
     const db = getDatabase();
@@ -108,5 +108,15 @@ integration('offer-owned anamnesis links with PostgreSQL', () => {
     const eventFollowup = await (await request(a!, '/api/followups', 'POST', { patientId: await patient(a!), offerType: 'event', offerId: event.id })).json() as any;
     expect(eventFollowup.anamneses.map((row: any) => row.title).sort()).toEqual(['Form via oferta', 'Form via procedimento']);
     expect(await db.select().from(appliedAnamneses).where(and(eq(appliedAnamneses.tenantId, a!), eq(appliedAnamneses.followupId, eventFollowup.id)))).toHaveLength(2);
+
+    const eventApplied = (await db.select().from(appliedAnamneses).where(and(eq(appliedAnamneses.tenantId, a!), eq(appliedAnamneses.followupId, eventFollowup.id))))[0]!;
+    const link = await request(a!, '/api/anamnesis-requests', 'POST', { patientAnamnesisId: eventApplied.id });
+    expect(link.status).toBe(201);
+    const token = ((await link.json()) as { url: string }).url.split('/').at(-1)!;
+    await getDatabase().update(clinicSubscriptions).set({ status: 'paused' }).where(eq(clinicSubscriptions.tenantId, a!));
+    expect((await app.request(`/public/anamnesis/${token}/draft`, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ draft: { answer: 'blocked' } }) })).status).toBe(403);
+    expect((await app.request(`/public/anamnesis/${token}/submit`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ answers: { answer: 'blocked' } }) })).status).toBe(403);
+    expect((await app.request(`/public/anamnesis/${token}`)).status).toBe(403);
+    await getDatabase().update(clinicSubscriptions).set({ status: 'active' }).where(eq(clinicSubscriptions.tenantId, a!));
   });
 });

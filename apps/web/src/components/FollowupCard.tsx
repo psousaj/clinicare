@@ -31,8 +31,10 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
   }, [open]);
   // O backend só aceita atendimento em acompanhamento ativo; fora disso o
   // botão aparece bloqueado em vez de um link que quebraria no servidor.
-  const premium = followup.offerType === 'combo' || followup.offerType === 'plan';
-  const premiumFrozen = premium && (subscription.isPending || subscription.isError || subscription.data.effectivePlan === 'free');
+  const premium = followup.offerType === 'combo' || followup.offerType === 'plan' || followup.offerType === 'event';
+  const premiumFrozen = premium && (subscription.isPending || subscription.isError || (followup.offerType === 'event' ? subscription.data.effectivePlan !== 'pro' : subscription.data.effectivePlan === 'free'));
+  const requiredPlan = followup.offerType === 'event' ? 'Pró' : 'Standard';
+  const frozenTitle = followup.offerType === 'event' ? 'Acompanhamento congelado: disponível no Pró.' : 'Acompanhamento congelado no plano Free.';
   const canRegister = open && followup.status === 'active' && !premiumFrozen;
   const validityDays = followup.validUntil ? Math.ceil((new Date(followup.validUntil).getTime() - Date.now()) / 86400000) : null;
   const state = !open ? followup.status : followup.status === 'idle' ? 'idle' : 'active';
@@ -74,7 +76,9 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
         <div className="followup-card__body-inner">
       {premiumFrozen && (
         <p role="status" className="rounded-lg border border-border bg-muted p-3 text-sm text-muted-foreground">
-          Acompanhamento congelado no plano Free. Histórico preservado; reative o Standard para retomar operações.
+          {followup.offerType === 'event'
+            ? `Acompanhamento congelado. Histórico preservado; reative o ${requiredPlan} para retomar operações.`
+            : `Acompanhamento congelado no plano Free. Histórico preservado; reative o ${requiredPlan} para retomar operações.`}
         </p>
       )}
       {state === 'idle' && visibleContracts.length === 0 && (
@@ -87,7 +91,7 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
           <strong>Anamnese pendente</strong> — responda para liberar o agendamento.
         </p>
       )}
-      {followup.offerType === 'event' && <p className="followup-card__note">O cardápio inteiro entra no acompanhamento. Deixe de realizar o que não for feito no dia.</p>}
+      {followup.offerType === 'event' && <p className="followup-card__note">Os Procedimentos do evento inteiros entram no acompanhamento. Deixe de realizar o que não for feito no dia.</p>}
       {followup.items.map((item) => {
         const done = item.sessionsPerformed >= item.sessionsTotal;
         const skipped = !!item.cancelledAt;
@@ -124,7 +128,7 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
                           size="sm"
                           className="border-[var(--green)] bg-[var(--green)] text-white"
                           disabled
-                          title={premiumFrozen ? 'Acompanhamento congelado no plano Free.' : followup.status === 'idle' ? 'Disponível após a assinatura do paciente.' : 'Acompanhamento encerrado.'}
+                          title={premiumFrozen ? frozenTitle : followup.status === 'idle' ? 'Disponível após a assinatura do paciente.' : 'Acompanhamento encerrado.'}
                         >
                           <Lock className="size-3.5" /> Registrar atendimento
                         </Button>
@@ -134,7 +138,7 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
                         type="button"
                         className="text-button"
                         disabled={!open || premiumFrozen || cancelItem.isPending}
-                        title={premiumFrozen ? 'Acompanhamento congelado no plano Free.' : !open ? 'Acompanhamento encerrado.' : undefined}
+                        title={premiumFrozen ? frozenTitle : !open ? 'Acompanhamento encerrado.' : undefined}
                         aria-label={`Remover ${item.procedureName}`}
                         onClick={() => {
                           if (!open || premiumFrozen) return;
@@ -172,7 +176,7 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
             className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
             aria-label={`Cancelar acompanhamento ${followup.offerName}`}
             disabled={premiumFrozen}
-            title={premiumFrozen ? 'Acompanhamento congelado no plano Free.' : undefined}
+            title={premiumFrozen ? frozenTitle : undefined}
             onClick={() => setCancelOpen(true)}
           >
             Cancelar acompanhamento

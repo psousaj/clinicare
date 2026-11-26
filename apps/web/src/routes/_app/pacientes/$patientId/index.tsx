@@ -30,9 +30,11 @@ function PatientDetail() {
         return data?.some((followup) => followup.contracts.some((contract) => contract.status === 'generating')) ? 4000 : false;
       },
     });
-  const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), combos = useQuery(combosQuery), plans = useQuery(plansQuery), events = useQuery(eventsQuery);
+  const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), combos = useQuery(combosQuery), plans = useQuery(plansQuery);
   const subscription = useQuery(saasSubscriptionQuery);
   const canUsePhotos = subscription.data?.effectivePlan === 'standard' || subscription.data?.effectivePlan === 'pro';
+  const canUseEvents = subscription.data?.effectivePlan === 'pro';
+  const events = useQuery({ ...eventsQuery, enabled: canUseEvents });
   const [dialog, setDialog] = useState<'edit' | 'followup' | 'standalone' | 'appointment' | null>(null);
   const allFollowups = (followups.data ?? []).filter((followup) => followup.patientId === patientId);
   const patientFollowups = allFollowups.filter((followup) => followup.offerType !== 'procedure');

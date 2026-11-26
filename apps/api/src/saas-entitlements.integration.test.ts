@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, expect, it } from 'bun:test';
 import { createHash } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { appliedAnamneses, appliedDocumentRevisions, appliedDocuments, anamnesisProcedures, anamnesisVersions, anamneses, appointmentItems, appointments, attendancePhotos, attendances, clinicSubscriptions, closeDatabase, comboItems, combos, contractVersions, contracts, documentCleanupJobs, followupContracts, followupItems, followupSnapshots, followups, getDatabase, migrateDatabase, patients, payments, planVersionContracts, planVersionItems, planVersions, plans, procedureVersions, procedures, signatureEvents, signatureEvidence, signatureExternalAttempts, signatureExternalReceipts, signatureOperations, signatureParticipants, signaturePreviewCandidates, signatureProcesses, signatureRevisions, signatureTokens } from '@clinicare/db';
+import { appliedAnamneses, appliedDocumentRevisions, appliedDocuments, anamnesisProcedures, anamnesisVersions, anamneses, appointmentItems, appointments, attendancePhotos, attendances, clinicSubscriptions, closeDatabase, comboItems, combos, contractVersions, contracts, documentCleanupJobs, eventContracts, eventItems, events, followupContracts, followupItems, followupSnapshots, followups, getDatabase, migrateDatabase, patients, payments, planVersionContracts, planVersionItems, planVersions, plans, procedureVersions, procedures, signatureEvents, signatureEvidence, signatureExternalAttempts, signatureExternalReceipts, signatureOperations, signatureParticipants, signaturePreviewCandidates, signatureProcesses, signatureRevisions, signatureTokens } from '@clinicare/db';
 import { app } from './app';
 import { deleteAppliedDocument } from './clinical';
 import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
@@ -26,11 +26,12 @@ integration('SaaS offer capabilities through API with PostgreSQL', () => {
   afterAll(async () => {
     const db = getDatabase();
     await db.delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, standard.tenantId));
+    await db.delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, free.tenantId));
     for (const [tenantId, documentId] of cleanupDocumentIds) {
       await deleteAppliedDocument(tenantId, documentId);
     }
     await db.delete(documentCleanupJobs).where(eq(documentCleanupJobs.tenantId, standard.tenantId));
-    for (const table of [appliedAnamneses, signatureEvents, signatureEvidence, signatureRevisions, signaturePreviewCandidates, signatureExternalReceipts, signatureExternalAttempts, signatureOperations, signatureTokens, signatureParticipants, signatureProcesses, appliedDocumentRevisions, appliedDocuments, attendancePhotos, attendances, appointmentItems, appointments, payments, followupSnapshots, followupItems, followupContracts, followups, planVersionContracts, planVersionItems, planVersions, plans, contractVersions, contracts, comboItems, combos, anamnesisProcedures, anamnesisVersions, anamneses, procedureVersions, procedures, patients]) {
+    for (const table of [appliedAnamneses, signatureEvents, signatureEvidence, signatureRevisions, signaturePreviewCandidates, signatureExternalReceipts, signatureExternalAttempts, signatureOperations, signatureTokens, signatureParticipants, signatureProcesses, appliedDocumentRevisions, appliedDocuments, attendancePhotos, attendances, appointmentItems, appointments, payments, followupSnapshots, followupItems, followupContracts, followups, eventContracts, eventItems, events, planVersionContracts, planVersionItems, planVersions, plans, contractVersions, contracts, comboItems, combos, anamnesisProcedures, anamnesisVersions, anamneses, procedureVersions, procedures, patients]) {
       for (const tenantId of tenantIds) await db.delete(table).where(eq((table as any).tenantId, tenantId));
     }
     await cleanupIntegrationClinics(tenantIds);
@@ -348,7 +349,103 @@ integration('SaaS offer capabilities through API with PostgreSQL', () => {
     expect(await getDatabase().select().from(combos).where(eq(combos.tenantId, free.tenantId))).toHaveLength(0);
   });
 
+  it('gates event catalog and enrollment to an active Pró plan and preserves event data across downgrade', async () => {
+    const freeHeaders = free.headers();
+    const freePatient = await (await app.request('/api/patients', {
+      method: 'POST', headers: freeHeaders, body: JSON.stringify({ fullName: 'Paciente evento Free' }),
+    })).json() as { id: string };
+    expect((await app.request('/api/events', { headers: freeHeaders })).status).toBe(403);
+    expect((await app.request('/api/events', {
+      method: 'POST', headers: freeHeaders,
+      body: JSON.stringify({ name: 'Evento bloqueado', eventDate: '2026-12-31', items: [], contractIds: [] }),
+    })).status).toBe(403);
+
+    await getDatabase().insert(clinicSubscriptions).values({
+      tenantId: free.tenantId, planId: 'pro', status: 'active', startedAt: new Date(),
+    });
+    const proHeaders = free.headers();
+    const procedure = await (await app.request('/api/procedures', {
+      method: 'POST', headers: proHeaders,
+      body: JSON.stringify({ name: 'Procedimento evento Pró', durationMinutes: 30, priceCents: 1000 }),
+    })).json() as { id: string };
+    const contract = await (await app.request('/api/contracts', {
+      method: 'POST', headers: proHeaders, body: JSON.stringify({ title: 'Contrato evento Pró', kind: 'standard' }),
+    })).json() as { id: string };
+    await getDatabase().insert(contractVersions).values({
+      tenantId: free.tenantId, contractId: contract.id, version: 1, content: 'Contrato evento Pró',
+      renderedPdfObjectKey: crypto.randomUUID(), renderedPdfHash: 'a'.repeat(64), renderedPdfSize: 123, renderedPdfContentType: 'application/pdf',
+    });
+    const eventResponse = await app.request('/api/events', {
+      method: 'POST', headers: proHeaders,
+      body: JSON.stringify({ name: 'Evento Pró', eventDate: '2026-12-31', items: [{ kind: 'procedure', procedureId: procedure.id, sessions: 1 }], contractIds: [contract.id] }),
+    });
+    expect(eventResponse.status).toBe(201);
+    const event = await eventResponse.json() as { id: string };
+    const enrolledPatient = await (await app.request('/api/patients', {
+      method: 'POST', headers: proHeaders, body: JSON.stringify({ fullName: 'Paciente evento inscrito', phone: '11987654321' }),
+    })).json() as { id: string };
+    const followupResponse = await app.request('/api/followups', {
+      method: 'POST', headers: proHeaders,
+      body: JSON.stringify({ patientId: enrolledPatient.id, offerType: 'event', offerId: event.id }),
+    });
+    expect(followupResponse.status).toBe(201);
+    const followup = await followupResponse.json() as { id: string };
+    await getDatabase().update(followups).set({ status: 'active' }).where(eq(followups.id, followup.id));
+    const eventBeforeFreeze = ((await (await app.request('/api/events', { headers: proHeaders })).json()) as Array<{ id: string }>).find((entry) => entry.id === event.id);
+    const followupBeforeFreeze = await (await app.request(`/api/followups/${followup.id}`, { headers: proHeaders })).json() as { items: Array<{ id: string }> };
+    const eventItemId = followupBeforeFreeze.items[0]!.id;
+    const eventAppointmentStart = new Date('2026-12-31T10:00:00');
+    const eventAppointmentResponse = await app.request('/api/appointments', {
+      method: 'POST', headers: proHeaders,
+      body: JSON.stringify({ patientId: enrolledPatient.id, startsAt: eventAppointmentStart.toISOString(), endsAt: new Date(eventAppointmentStart.getTime() + 3600000).toISOString(), items: [{ followupItemId: eventItemId }] }),
+    });
+    expect(eventAppointmentResponse.status).toBe(201);
+    const eventAppointment = await eventAppointmentResponse.json() as { id: string; status: string };
+
+    await getDatabase().update(clinicSubscriptions).set({ status: 'paused' }).where(eq(clinicSubscriptions.tenantId, free.tenantId));
+    expect((await app.request('/api/events', { headers: freeHeaders })).status).toBe(403);
+    expect((await app.request(`/api/events/${event.id}`, {
+      method: 'PUT', headers: freeHeaders, body: JSON.stringify({ name: 'Evento bloqueado após pausa' }),
+    })).status).toBe(403);
+    expect((await app.request('/api/followups', {
+      method: 'POST', headers: freeHeaders,
+      body: JSON.stringify({ patientId: enrolledPatient.id, offerType: 'event', offerId: event.id }),
+    })).status).toBe(403);
+    expect((await app.request('/api/appointments', {
+      method: 'POST', headers: freeHeaders,
+      body: JSON.stringify({ patientId: enrolledPatient.id, startsAt: new Date(Date.now() + 86400000).toISOString(), endsAt: new Date(Date.now() + 90000000).toISOString(), items: [{ followupItemId: eventItemId }] }),
+    })).status).toBe(403);
+    expect((await app.request('/api/attendances', {
+      method: 'POST', headers: freeHeaders,
+      body: JSON.stringify({ patientId: enrolledPatient.id, followupItemId: eventItemId }),
+    })).status).toBe(403);
+    expect((await app.request(`/api/appointments/${eventAppointment.id}/no-show`, {
+      method: 'POST', headers: freeHeaders, body: JSON.stringify({ reason: 'Downgrade não deve alterar o evento' }),
+    })).status).toBe(403);
+    await getDatabase().update(clinicSubscriptions).set({ planId: 'standard', status: 'active', endedAt: null }).where(eq(clinicSubscriptions.tenantId, free.tenantId));
+    const standalone = await (await app.request('/api/procedures', {
+      method: 'POST', headers: proHeaders,
+      body: JSON.stringify({ name: 'Procedimento misto Standard', durationMinutes: 30, priceCents: 500 }),
+    })).json() as { id: string };
+    expect((await app.request('/api/appointments', {
+      method: 'POST', headers: proHeaders,
+      body: JSON.stringify({ patientId: enrolledPatient.id, startsAt: new Date(Date.now() + 172800000).toISOString(), endsAt: new Date(Date.now() + 174600000).toISOString(), items: [{ procedureId: standalone.id }, { followupItemId: eventItemId }] }),
+    })).status).toBe(403);
+    await getDatabase().delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, free.tenantId));
+    expect((await app.request('/api/payments', {
+      method: 'POST', headers: freeHeaders,
+      body: JSON.stringify({ followupId: followup.id, amountCents: 100, method: 'cash' }),
+    })).status).toBe(403);
+    expect((await app.request('/api/events', { headers: freeHeaders })).status).toBe(403);
+    expect(await (await app.request(`/api/followups/${followup.id}`, { headers: freeHeaders })).json()).toEqual(followupBeforeFreeze);
+    expect(await getDatabase().select().from(events).where(eq(events.id, event.id))).toHaveLength(1);
+    expect(await getDatabase().select().from(followups).where(eq(followups.id, followup.id))).toHaveLength(1);
+    await getDatabase().update(clinicSubscriptions).set({ status: 'inactive', endedAt: new Date() }).where(eq(clinicSubscriptions.tenantId, free.tenantId));
+    await getDatabase().delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, free.tenantId));
+  });
+
   it('allows Free in-clinic anamnesis on an avulso and gates public links, custom fields, and photo storage URLs', async () => {
+    await getDatabase().delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, free.tenantId));
     const freeHeaders = free.headers();
     const form = await app.request('/api/anamneses', {
       method: 'POST', headers: freeHeaders,

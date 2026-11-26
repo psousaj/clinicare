@@ -13,13 +13,14 @@ type FormDialogProps = {
   kicker?: string;
   description?: ReactNode;
   submitLabel: string;
+  submitDisabled?: boolean;
   wide?: boolean;
   actions?: ReactNode;
   onSubmit: (form: FormData) => Promise<unknown> | unknown;
   children: ReactNode;
 };
 
-export function FormDialog({ open, onOpenChange, title, kicker, description, submitLabel, wide, actions, onSubmit, children }: FormDialogProps) {
+export function FormDialog({ open, onOpenChange, title, kicker, description, submitLabel, submitDisabled = false, wide, actions, onSubmit, children }: FormDialogProps) {
   const [pending, setPending] = useState(false);
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -48,7 +49,7 @@ export function FormDialog({ open, onOpenChange, title, kicker, description, sub
           <DialogFooter>
             {actions && <div className="dialog-extra-actions">{actions}</div>}
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-            <Button type="submit" disabled={pending}>{submitLabel}</Button>
+            <Button type="submit" disabled={pending || submitDisabled}>{submitLabel}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

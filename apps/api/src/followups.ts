@@ -49,13 +49,13 @@ async function resolveAppliedContracts(tenantId: string, contractRows: ContractR
   return contractRows.map((contract) => { const version = contractContentRows.find((row: any) => row.contractId === contract.contractId); if (!version || (!version.sourceDocxObjectKey && !validRenderedPdf(version))) throw invalid('A versão publicada do contrato não possui fonte DOCX ou PDF verificável.'); return { contractId: contract.contractId, contractVersion: version.version, title: contract.title, content: version.content ?? null, sourceObjectKey: contract.sourceObjectKey ?? version.sourceObjectKey ?? null, sourceDocxObjectKey: version.sourceDocxObjectKey ?? null, contextConfiguration: version.contextConfiguration, allowedPlaceholders: version.allowedPlaceholders, requiredPlaceholders: version.requiredPlaceholders, renderedPdfObjectKey: version.renderedPdfObjectKey ?? null, renderedPdfHash: version.renderedPdfHash ?? null, renderedPdfSize: version.renderedPdfSize ?? null, renderedPdfContentType: version.renderedPdfContentType ?? null }; });
 }
 
-// Evento: congela o cardápio inteiro. Procedimento avulso que já entra por combo do mesmo cardápio fica só no combo.
+// Evento: congela os Procedimentos do evento inteiros. Procedimento avulso que já entra por combo dos mesmos Procedimentos do evento fica só no combo.
 async function resolveEvent(tenantId: string, eventId: string, executor: any): Promise<Offer> {
   await executor.execute(sql`select id from events where tenant_id = ${tenantId} and id = ${eventId} for share`);
   const event = (await executor.select().from(events).where(and(eq(events.tenantId, tenantId), eq(events.id, eventId), eq(events.active, true))))[0];
   if (!event) throw notFound('Evento não encontrado.');
   const menu = await executor.select().from(eventItems).where(and(eq(eventItems.tenantId, tenantId), eq(eventItems.eventId, eventId)));
-  if (!menu.length) throw invalid('Evento sem itens no cardápio.');
+  if (!menu.length) throw invalid('Evento sem itens nos Procedimentos do evento.');
   const comboIds = [...new Set<string>(menu.filter((item: any) => item.kind === 'combo' && typeof item.comboId === 'string').map((item: any) => item.comboId as string))];
   const comboRows = comboIds.length ? await executor.select().from(combos).where(and(eq(combos.tenantId, tenantId), inArray(combos.id, comboIds))) : [];
   const comboItemRows = comboIds.length ? await executor.select().from(comboItems).where(and(eq(comboItems.tenantId, tenantId), inArray(comboItems.comboId, comboIds))) : [];
@@ -263,7 +263,7 @@ export async function cancelFollowupItem(tenantId: string, followupId: string, i
     const existing = (await tx.select().from(followups).where(and(eq(followups.tenantId, tenantId), eq(followups.id, followupId))))[0];
     if (!existing) return null;
     if (terminal(existing.status)) throw conflict('Acompanhamento já encerrado.');
-    if (existing.offerType !== 'event') throw invalid('Só o cardápio do evento pode deixar de realizar um item.');
+    if (existing.offerType !== 'event') throw invalid('Só os Procedimentos do evento podem deixar de realizar um item.');
     await tx.execute(sql`select id from followup_items where tenant_id = ${tenantId} and followup_id = ${followupId} for update`);
     const items = await tx.select().from(followupItems).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.followupId, followupId)));
     const target = items.find((item) => item.id === itemId);

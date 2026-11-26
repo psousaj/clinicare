@@ -53,8 +53,8 @@ function Finance() {
               <MoneyLine label="Recebido" amount={currency(paid)} />
               <MoneyLine label="Falta receber" amount={currency(due)} emphasis={due > 0} />
             </div>
-            {due > 0 && <div className="mt-4 flex justify-end">{(followup.offerType === 'combo' || followup.offerType === 'plan') && subscription.data?.effectivePlan === 'free'
-              ? <span className="text-sm text-muted-foreground">Congelado no plano Free</span>
+            {due > 0 && <div className="mt-4 flex justify-end">{((followup.offerType === 'combo' || followup.offerType === 'plan') && subscription.data?.effectivePlan === 'free') || (followup.offerType === 'event' && subscription.data?.effectivePlan !== 'pro')
+              ? <span className="text-sm text-muted-foreground">{followup.offerType === 'event' ? 'Congelado: financeiro de eventos disponível no Pró' : 'Congelado no plano Free'}</span>
               : <button className="text-button" disabled={subscription.isPending || subscription.isError} onClick={() => setPaymentFollowup(followup)}>Registrar pagamento</button>}</div>}
           </article>;
         })}

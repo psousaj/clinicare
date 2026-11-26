@@ -1,8 +1,8 @@
 import { Hono, type Context } from 'hono';
 import { createHash } from 'node:crypto';
 import { cors } from 'hono/cors';
-import { and, eq, gt, isNotNull, isNull } from 'drizzle-orm';
-import { appliedAnamneses, appliedDocuments, appointmentItems, attendances, followupContracts, followups, getDatabase, getDatabasePool, payments, procedures, signatureParticipants, signatureProcesses, signatureTokens } from '@clinicare/db';
+import { and, eq, gt, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { appliedAnamneses, appliedDocuments, appointmentItems, attendances, followupContracts, followupItems, followups, getDatabase, getDatabasePool, payments, procedures, signatureParticipants, signatureProcesses, signatureTokens } from '@clinicare/db';
 import { getTrustedOrigins } from './auth-config';
 import { createPatient, deactivatePatient, getPatient, isUuid, listPatients, updatePatient } from './patients';
 import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, saveProcedureAnamneses, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan, listEvents, saveEvent, presignContractVersionPdf, finalizeContractVersionPdf } from './catalog';
@@ -56,20 +56,35 @@ const handleError = (c: Context, error: unknown) => {
 const appointmentStatusLabel: Record<string, string> = { planned: 'agendado', confirmed: 'confirmado', rescheduled: 'remarcado', cancelled: 'cancelado', no_show: 'faltou' };
 const authTenant = (c: Context) => clinicSession(c).tenantId;
 const requireFollowupSessionCapability = async (tenantId: string, appointmentId: string) => {
-  const linked = await getDatabase().select({ id: appointmentItems.id }).from(appointmentItems)
-    .where(and(eq(appointmentItems.tenantId, tenantId), eq(appointmentItems.appointmentId, appointmentId), isNotNull(appointmentItems.followupItemId))).limit(1);
-  if (linked.length) await requireClinicCapability(tenantId, 'appointments.followup_sessions');
+  const linked = await getDatabase().select({ id: appointmentItems.id, offerType: followups.offerType }).from(appointmentItems)
+    .leftJoin(followups, and(eq(followups.tenantId, appointmentItems.tenantId), eq(followups.id, appointmentItems.followupId)))
+    .where(and(eq(appointmentItems.tenantId, tenantId), eq(appointmentItems.appointmentId, appointmentId), isNotNull(appointmentItems.followupItemId)));
+  if (!linked.length) return;
+  await requireClinicCapability(tenantId, 'appointments.followup_sessions');
+  if (linked.some((item) => item.offerType === 'event')) await requireClinicCapability(tenantId, 'events');
 };
 const requireFollowupAttendanceCapability = async (tenantId: string, attendanceId: string) => {
-  const linked = await getDatabase().select({ id: attendances.id }).from(attendances)
-    .where(and(eq(attendances.tenantId, tenantId), eq(attendances.id, attendanceId), isNotNull(attendances.followupItemId))).limit(1);
-  if (linked.length) await requireClinicCapability(tenantId, 'appointments.followup_sessions');
+  const linked = await getDatabase().select({ id: attendances.id, offerType: followups.offerType }).from(attendances)
+    .leftJoin(followups, and(eq(followups.tenantId, attendances.tenantId), eq(followups.id, attendances.followupId)))
+    .where(and(eq(attendances.tenantId, tenantId), eq(attendances.id, attendanceId), isNotNull(attendances.followupItemId)));
+  if (!linked.length) return;
+  await requireClinicCapability(tenantId, 'appointments.followup_sessions');
+  if (linked.some((item) => item.offerType === 'event')) await requireClinicCapability(tenantId, 'events');
 };
 const requireOfferMutationCapability = async (tenantId: string, followupId: string) => {
   const [followup] = await getDatabase().select({ offerType: followups.offerType }).from(followups)
     .where(and(eq(followups.tenantId, tenantId), eq(followups.id, followupId)));
   if (followup?.offerType === 'combo') await requireClinicCapability(tenantId, 'catalog.combos');
   if (followup?.offerType === 'plan') await requireClinicCapability(tenantId, 'catalog.clinical_plans');
+  if (followup?.offerType === 'event') await requireClinicCapability(tenantId, 'events');
+};
+const requireEventFollowupItemCapability = async (tenantId: string, followupItemIds: string[]) => {
+  if (!followupItemIds.length) return;
+  const [linked] = await getDatabase().select({ id: followupItems.id }).from(followupItems)
+    .innerJoin(followups, and(eq(followups.tenantId, followupItems.tenantId), eq(followups.id, followupItems.followupId)))
+    .where(and(eq(followupItems.tenantId, tenantId), inArray(followupItems.id, followupItemIds), eq(followups.offerType, 'event')))
+    .limit(1);
+  if (linked) await requireClinicCapability(tenantId, 'events');
 };
 const requireAttendanceFollowupCapability = async (tenantId: string, attendanceId: string) => {
   const [attendance] = await getDatabase().select({ followupId: attendances.followupId }).from(attendances)
@@ -93,16 +108,20 @@ const requireAppliedAnamnesisFollowupCapability = async (tenantId: string, appli
     .where(and(eq(appliedAnamneses.tenantId, tenantId), eq(appliedAnamneses.id, appliedId)));
   if (applied?.followupId) await requireOfferMutationCapability(tenantId, applied.followupId);
 };
-const requirePublicAnamnesisCapability = async (token: string) => {
+const requirePublicAnamnesisCapability = async (token: string, mutation = false) => {
   const tokenHash = createHash('sha256').update(token).digest('hex');
-  const [applied] = await getDatabase().select({ tenantId: appliedAnamneses.tenantId })
+  const [applied] = await getDatabase().select({ tenantId: appliedAnamneses.tenantId, followupId: appliedAnamneses.followupId, offerType: followups.offerType })
     .from(appliedAnamneses)
+    .leftJoin(followups, and(eq(followups.tenantId, appliedAnamneses.tenantId), eq(followups.id, appliedAnamneses.followupId)))
     .where(and(
       eq(appliedAnamneses.requestTokenHash, tokenHash),
       isNull(appliedAnamneses.submittedAt),
       gt(appliedAnamneses.requestExpiresAt, new Date()),
-    ));
-  if (applied) await requireClinicCapability(applied.tenantId, 'anamnesis.public_links');
+    ))
+    .limit(1);
+  if (!applied) return;
+  await requireClinicCapability(applied.tenantId, 'anamnesis.public_links');
+  if (mutation && applied.offerType === 'event') await requireClinicCapability(applied.tenantId, 'events');
 };
 const hasCustomAttendanceData = (data: unknown) =>
   isRecord(data) && Object.keys(data).length > 0;
@@ -298,9 +317,9 @@ export const app = new Hono()
   .get('/api/plans', async (c) => c.json(await listPlans(await catalogTenant(c.req, authTenant(c)))))
   .post('/api/plans', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'catalog.clinical_plans'); return c.json(await savePlan(tenantId, null, await c.req.json()), 201); } catch (error) { return handleError(c, error); } })
   .put('/api/plans/:id', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'catalog.clinical_plans'); const result = await savePlan(tenantId, c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Plano não encontrado.', 404); } catch (error) { return handleError(c, error); } })
-  .get('/api/events', async (c) => c.json(await listEvents(await catalogTenant(c.req, authTenant(c)))))
-  .post('/api/events', async (c) => c.json(await saveEvent(await catalogTenant(c.req, authTenant(c)), null, await c.req.json()), 201))
-  .put('/api/events/:id', async (c) => { const result = await saveEvent(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Evento não encontrado.', 404); })
+  .get('/api/events', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'events'); return c.json(await listEvents(tenantId)); } catch (error) { return handleError(c, error); } })
+  .post('/api/events', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'events'); return c.json(await saveEvent(tenantId, null, await c.req.json()), 201); } catch (error) { return handleError(c, error); } })
+  .put('/api/events/:id', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'events'); const result = await saveEvent(tenantId, c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Evento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
   .post('/api/followups', async (c) => {
     const tenantId = await catalogTenant(c.req, authTenant(c));
     const body = await c.req.json().catch(() => null);
@@ -308,6 +327,7 @@ export const app = new Hono()
     try {
       if (body.offerType === 'combo') await requireClinicCapability(tenantId, 'catalog.combos');
       if (body.offerType === 'plan') await requireClinicCapability(tenantId, 'catalog.clinical_plans');
+      if (body.offerType === 'event') await requireClinicCapability(tenantId, 'events');
       if (body.offerType === 'combo' || body.offerType === 'plan') await requireClinicCapability(tenantId, 'followups');
       const created = await createFollowup(tenantId, body.patientId, body.offerType, body.offerId, { contractApplicationDate: body.contractApplicationDate });
       // Sem cron/worker: dispara a materialização em background sem bloquear o
@@ -414,7 +434,11 @@ export const app = new Hono()
     try {
       const tenantId = await catalogTenant(c.req, authTenant(c));
       const body = await c.req.json().catch(() => null);
-      if (Array.isArray(body?.items) && body.items.some((item: any) => item?.followupItemId)) await requireClinicCapability(tenantId, 'appointments.followup_sessions');
+      const followupItemIds: string[] = Array.isArray(body?.items) ? body.items.map((item: any) => item?.followupItemId).filter((id: unknown): id is string => typeof id === 'string' && isUuid(id)) : [];
+      if (followupItemIds.length) {
+        await requireClinicCapability(tenantId, 'appointments.followup_sessions');
+        await requireEventFollowupItemCapability(tenantId, followupItemIds);
+      }
       return c.json(await createAppointment(tenantId, body), 201);
     } catch (error) { return handleError(c, error); }
   })
@@ -434,7 +458,7 @@ export const app = new Hono()
   .delete('/api/appointments/:id', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireFollowupSessionCapability(tenantId, c.req.param('id')); const result = await deleteAppointment(tenantId, c.req.param('id')); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
   .get('/api/attendances', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); const [photos, customFields] = await Promise.all([clinicHasCapability(tenantId, 'patient.session_photos'), clinicHasCapability(tenantId, 'patient.custom_fields')]); return c.json(await listAttendances(tenantId, photos, customFields)); } catch (error) { return handleError(c, error); } })
   .get('/api/attendances/:id', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); const [photos, customFields] = await Promise.all([clinicHasCapability(tenantId, 'patient.session_photos'), clinicHasCapability(tenantId, 'patient.custom_fields')]); const result = await getAttendance(tenantId, c.req.param('id'), photos, customFields); return result ? c.json(result) : fail(c, 'Atendimento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
-  .post('/api/attendances', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); const body = await c.req.json().catch(() => ({})); if (body.appointmentId) await requireFollowupSessionCapability(tenantId, body.appointmentId); if (body.followupItemId) await requireClinicCapability(tenantId, 'appointments.followup_sessions'); if (hasCustomAttendanceData(body.data)) await requireClinicCapability(tenantId, 'patient.custom_fields'); const [photos, customFields] = await Promise.all([clinicHasCapability(tenantId, 'patient.session_photos'), clinicHasCapability(tenantId, 'patient.custom_fields')]); return c.json(await createAttendance(tenantId, body, photos, customFields), 201); } catch (error) { return handleError(c, error); } })
+  .post('/api/attendances', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); const body = await c.req.json().catch(() => ({})); if (body.appointmentId) await requireFollowupSessionCapability(tenantId, body.appointmentId); if (body.followupItemId) { await requireClinicCapability(tenantId, 'appointments.followup_sessions'); if (isUuid(body.followupItemId)) await requireEventFollowupItemCapability(tenantId, [body.followupItemId]); } if (hasCustomAttendanceData(body.data)) await requireClinicCapability(tenantId, 'patient.custom_fields'); const [photos, customFields] = await Promise.all([clinicHasCapability(tenantId, 'patient.session_photos'), clinicHasCapability(tenantId, 'patient.custom_fields')]); return c.json(await createAttendance(tenantId, body, photos, customFields), 201); } catch (error) { return handleError(c, error); } })
   .patch('/api/attendances/:id', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireFollowupAttendanceCapability(tenantId, c.req.param('id')); const body = await c.req.json().catch(() => ({})); if (body.data !== undefined) await requireClinicCapability(tenantId, 'patient.custom_fields'); const [photos, customFields] = await Promise.all([clinicHasCapability(tenantId, 'patient.session_photos'), clinicHasCapability(tenantId, 'patient.custom_fields')]); const result = await updateAttendance(tenantId, c.req.param('id'), body, photos, customFields); return result ? c.json(result) : fail(c, 'Atendimento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
   .patch('/api/attendances/:id/cancel', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireFollowupAttendanceCapability(tenantId, c.req.param('id')); const body = await c.req.json().catch(() => ({})); const [photos, customFields] = await Promise.all([clinicHasCapability(tenantId, 'patient.session_photos'), clinicHasCapability(tenantId, 'patient.custom_fields')]); return c.json(await cancelAttendance(tenantId, c.req.param('id'), String(body.reason ?? ''), photos, customFields)); } catch (error) { return handleError(c, error); } })
   .post('/api/uploads/presign', async (c) => {
@@ -460,12 +484,12 @@ export const app = new Hono()
   .post('/api/anamnesis-requests', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'anamnesis.public_links'); const body = await c.req.json(); if (!isUuid(body?.patientAnamnesisId)) return fail(c, 'Anamnese aplicada inválida.'); await requireAppliedAnamnesisFollowupCapability(tenantId, body.patientAnamnesisId); return c.json(await createAnamnesisRequest(tenantId, body.patientAnamnesisId), 201); } catch (error) { return handleError(c, error); } })
   .put('/api/anamnesis-requests/:id/refresh', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'anamnesis.public_links'); await requireAppliedAnamnesisFollowupCapability(tenantId, c.req.param('id')); return c.json(await refreshAnamnesisRequest(tenantId, c.req.param('id'))); } catch (error) { return handleError(c, error); } })
   .get('/public/anamnesis/:token', async (c) => { try { await requirePublicAnamnesisCapability(c.req.param('token')); const result = await readPublicAnamnesis(c.req.param('token')); return result ? c.json(result) : fail(c, 'Link inválido, expirado ou já enviado.', 404); } catch (error) { return handleError(c, error); } })
-  .put('/public/anamnesis/:token/draft', async (c) => { try { await requirePublicAnamnesisCapability(c.req.param('token')); const body = await c.req.json().catch(() => null); if (!isRecord(body?.draft)) return fail(c, 'Rascunho inválido.'); return await saveAnamnesisDraft(c.req.param('token'), body.draft) ? c.json({ saved: true }) : fail(c, 'Link inválido ou expirado.', 404); } catch (error) { return handleError(c, error); } })
-  .post('/public/anamnesis/:token/submit', async (c) => { try { await requirePublicAnamnesisCapability(c.req.param('token')); const body = await c.req.json().catch(() => null); if (!isRecord(body?.answers)) return fail(c, 'Respostas inválidas.'); const result = await submitPublicAnamnesis(c.req.param('token'), body.answers); return result ? c.json(result, 201) : fail(c, 'Link inválido, expirado ou já enviado.', 409); } catch (error) { return handleError(c, error); } })
-  .get('/api/patient-anamneses/:id', async (c) => { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'anamnesis.in_clinic'); await requireAppliedAnamnesisFollowupCapability(tenantId, c.req.param('id')); const result = await readAppliedAnamnesis(tenantId, c.req.param('id')); return result ? c.json(result) : fail(c, 'Anamnese não encontrada.', 404); })
+  .put('/public/anamnesis/:token/draft', async (c) => { try { await requirePublicAnamnesisCapability(c.req.param('token'), true); const body = await c.req.json().catch(() => null); if (!isRecord(body?.draft)) return fail(c, 'Rascunho inválido.'); return await saveAnamnesisDraft(c.req.param('token'), body.draft) ? c.json({ saved: true }) : fail(c, 'Link inválido ou expirado.', 404); } catch (error) { return handleError(c, error); } })
+  .post('/public/anamnesis/:token/submit', async (c) => { try { await requirePublicAnamnesisCapability(c.req.param('token'), true); const body = await c.req.json().catch(() => null); if (!isRecord(body?.answers)) return fail(c, 'Respostas inválidas.'); const result = await submitPublicAnamnesis(c.req.param('token'), body.answers); return result ? c.json(result, 201) : fail(c, 'Link inválido, expirado ou já enviado.', 409); } catch (error) { return handleError(c, error); } })
+  .get('/api/patient-anamneses/:id', async (c) => { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'anamnesis.in_clinic'); const result = await readAppliedAnamnesis(tenantId, c.req.param('id')); return result ? c.json(result) : fail(c, 'Anamnese não encontrada.', 404); })
   .post('/api/patient-anamneses/:id/answers', async (c) => { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'anamnesis.in_clinic'); await requireAppliedAnamnesisFollowupCapability(tenantId, c.req.param('id')); const body = await c.req.json().catch(() => null); if (!isRecord(body?.answers)) return fail(c, 'Respostas inválidas.'); const result = await answerAppliedAnamnesis(tenantId, c.req.param('id'), body.answers); return result ? c.json({ submitted: true }, 201) : fail(c, 'Anamnese não encontrada ou já respondida.', 404); })
   .post('/api/anamnesis-responses/:id/notes', async (c) => { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'anamnesis.in_clinic'); await requireAppliedAnamnesisFollowupCapability(tenantId, c.req.param('id')); const body = await c.req.json().catch(() => null); const result = await addAnamnesisNote(tenantId, c.req.param('id'), body?.content ?? ''); return result ? c.json(result, 201) : fail(c, 'Resposta não encontrada ou ainda não enviada.', 404); })
-  .get('/api/anamnesis-responses/:id/notes', async (c) => { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'anamnesis.in_clinic'); await requireAppliedAnamnesisFollowupCapability(tenantId, c.req.param('id')); const result = await listAnamnesisNotes(tenantId, c.req.param('id')); return result ? c.json(result) : fail(c, 'Resposta não encontrada ou ainda não enviada.', 404); })
+  .get('/api/anamnesis-responses/:id/notes', async (c) => { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'anamnesis.in_clinic'); const result = await listAnamnesisNotes(tenantId, c.req.param('id')); return result ? c.json(result) : fail(c, 'Resposta não encontrada ou ainda não enviada.', 404); })
   .post('/api/followup-contracts/:id/documents/presign', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'contracts.generation'); await requireFollowupContractCapability(tenantId, c.req.param('id')); const body = await c.req.json().catch(() => ({})); return c.json(await presignAppliedDocument(tenantId, c.req.param('id'), body.contentType, body.contentHash, body.size)); } catch (error) { return handleError(c, error); } })
   .post('/api/followup-contracts/:id/documents', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'contracts.generation'); await requireFollowupContractCapability(tenantId, c.req.param('id')); const body = await c.req.json().catch(() => ({})); const result = await materializeAppliedDocumentResult(tenantId, c.req.param('id'), body); return c.json(result.document, result.existing ? 200 : 201); } catch (error) { return handleError(c, error); } })
    .get('/api/followup-contracts/:id/documents', async (c) => { const result = await listAppliedDocuments(await catalogTenant(c.req, authTenant(c)), c.req.param('id')); return result ? c.json(result) : fail(c, 'Contrato aplicado não encontrado.', 404); })

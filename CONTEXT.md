@@ -275,19 +275,19 @@ Combo comercial disponível durante um período de validade e com preço promoci
 _Avoid_: campanha (quando o conjunto de procedimentos e seu preço forem o foco)
 
 **Evento**:
-Dia civil da clínica com cardápio próprio de procedimentos e/ou combos, contratos obrigatórios e vários pacientes. A inscrição leva o cardápio inteiro para o acompanhamento; procedimento avulso que já entra por um combo do mesmo cardápio fica só no combo. O que não for feito no dia vale zero e não vira sessão restante. Combo entra fechado, com todos os seus procedimentos e sessões cumpridos na data do evento, sem resto para depois. Não há preço total no catálogo do evento nem versionamento formal: a inscrição congela snapshot próprio e mudanças posteriores não alteram acompanhamentos já iniciados. Desativar o evento impede novas aplicações, mas preserva os já iniciados.
+Dia civil da clínica com **Procedimentos do evento** próprios de procedimentos e/ou combos, contratos obrigatórios e vários pacientes. A inscrição leva os Procedimentos do evento inteiros para o acompanhamento; procedimento avulso que já entra por um combo dos mesmos Procedimentos do evento fica só no combo. O que não for feito no dia vale zero e não vira sessão restante. Combo entra fechado, com todos os seus procedimentos e sessões cumpridos na data do evento, sem resto para depois. Não há preço total no catálogo do evento nem versionamento formal: a inscrição congela snapshot próprio e mudanças posteriores não alteram acompanhamentos já iniciados. Desativar o evento impede novas aplicações, mas preserva os já iniciados.
 _Avoid_: campanha, mutirão, plano aberto, sessão (quando significar o dia), evento de assinatura
 
 **Procedimentos do evento**:
 Itens do dia civil inscritos no acompanhamento. Não é preço contratado: item não realizado vale zero.
-_Avoid_: cardápio, pedido, compra, escolha do evento
+_Avoid_: nomenclatura legada de cardápio, pedido, compra ou escolha do evento
 
 **Valor realizado do evento**:
 Soma dos preços das baixas confirmadas em um acompanhamento de evento, que começa em zero e cresce a cada atendimento realizado (procedimento avulso pelo preço da sessão, combo pelo preço do pacote, uma vez). É o único teto financeiro do evento: pagamentos não podem ultrapassá-lo e acompanhamento ocioso de evento não recebe pagamento.
 _Avoid_: preço contratado, estimativa da escolha
 
 **Procedimento selecionado**:
-Item do cardápio do evento que permanece a realizar no acompanhamento. A inscrição traz o cardápio inteiro; o que não for feito no dia é marcado como não realizado no card de acompanhamento e vale zero.
+Item dos Procedimentos do evento que permanece a realizar no acompanhamento. A inscrição traz os Procedimentos do evento inteiros; o que não for feito no dia é marcado como não realizado no card de acompanhamento e vale zero.
 _Avoid_: pedido, compra, escolha do evento
 
 **Preço contratado**:

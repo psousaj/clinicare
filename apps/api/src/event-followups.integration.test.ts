@@ -6,7 +6,7 @@ import {
   contractVersions, contracts, encryptValue, eventContracts, eventItems, events, followupContracts, followupItems, followupSnapshots, followups, getDatabase, migrateDatabase, patients, payments,
   procedures, signatureEvents, signatureParticipants, signatureProcesses, signatureRevisions, signatureTokens,
 } from '@clinicare/db';
-import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
+import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, grantIntegrationPlan, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
 
 const schema = { type: 'object', properties: {} };
 const clinicDate = (offsetDays = 0) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date(Date.now() + offsetDays * 86400000));
@@ -23,6 +23,8 @@ integration('PostgreSQL event followups', () => {
     tenantId = crypto.randomUUID();
     clinic = await provisionIntegrationClinic(app, 'event-followups-a', tenantId);
     otherClinic = await provisionIntegrationClinic(app, 'event-followups-b');
+    await grantIntegrationPlan(clinic.tenantId, 'pro');
+    await grantIntegrationPlan(otherClinic.tenantId, 'pro');
   });
   afterAll(async () => {
     const db = getDatabase();
@@ -38,7 +40,7 @@ integration('PostgreSQL event followups', () => {
     return id;
   }
 
-  /** Cardápio: avulso A (R$1,00/sessão, 1 sessão), avulso B (R$2,00, 2 sessões) e combo C (2×P3 a R$1,50 + 1×P4 a R$0,50; pacote R$2,50 promocional). */
+  /** Procedimentos do evento: avulso A (R$1,00/sessão, 1 sessão), avulso B (R$2,00, 2 sessões) e combo C (2×P3 a R$1,50 + 1×P4 a R$0,50; pacote R$2,50 promocional). */
   async function fixture(options: { eventDate?: string; withPublishedContract?: boolean } = {}) {
     const db = getDatabase();
     const ids = { a: crypto.randomUUID(), b: crypto.randomUUID(), p3: crypto.randomUUID(), p4: crypto.randomUUID(), combo: crypto.randomUUID(), contract: crypto.randomUUID() };
@@ -88,7 +90,7 @@ integration('PostgreSQL event followups', () => {
     expect(created.signatureTokens).toBeDefined();
   });
 
-  it('drops a standalone procedure from the menu when the same cardápio also has a combo containing it', async () => {
+  it('drops a standalone procedure from the menu when the same Procedimentos do evento also has a combo containing it', async () => {
     const overlap = await fixture();
     expect((await api(`/api/events/${overlap.eventId}`, 'PUT', { items: [{ kind: 'procedure', procedureId: overlap.p4, sessions: 1 }, { kind: 'combo', comboId: overlap.combo }], contractIds: [overlap.contract] })).status).toBe(200);
     const created = await (await enroll(await newPatient(), overlap)).json() as any;
