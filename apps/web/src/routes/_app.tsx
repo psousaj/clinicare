@@ -26,9 +26,11 @@ const planLabel = (id: 'free' | 'standard' | 'pro') => ({ free: 'Free', standard
 
 export const Route = createFileRoute('/_app')({
   beforeLoad: async () => {
-    const response = await fetch('/api/auth/get-session', { credentials: 'include' });
-    const session = response.ok ? await response.json() : null;
-    if (!session?.user) throw redirect({ to: '/login' });
+    const response = await fetch('/api/account/state', { credentials: 'include' });
+    if (response.status === 401) throw redirect({ to: '/login' });
+    const state = response.ok ? await response.json() as { kind?: string } : null;
+    if (state?.kind === 'onboarding') throw redirect({ to: '/onboarding' });
+    if (state?.kind !== 'clinic') throw redirect({ to: '/login' });
   },
   component: AppLayout,
 });

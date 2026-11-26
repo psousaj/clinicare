@@ -46,8 +46,15 @@ integration('PostgreSQL persistence seam', () => {
   });
 
   it('seeds the default tenant idempotently', async () => {
-    await seedDatabase();
-    await seedDatabase();
+    const original = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'test';
+    try {
+      await seedDatabase();
+      await seedDatabase();
+    } finally {
+      if (original === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = original;
+    }
     const rows = await getDatabase().select().from(tenants).where(eq(tenants.id, tenantDefaults.id));
     expect(rows).toHaveLength(1);
   });

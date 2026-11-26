@@ -19,6 +19,7 @@ import { getContractDraftEditor, listContractPlaceholders, presignContractDraft,
 import { generateFollowupContract, reprocessFollowupContract, retryFollowupContract } from './contract-generation';
 import { observedClientIp as resolveObservedClientIp } from './request-ip';
 import { getSaasSubscription, listSaasPlans } from './saas-plans';
+import { createClinicForUser, getPersonalAccountState, type ClinicOnboardingInput } from './onboarding';
 
 const fail = (c: Context, message: string, status: 400 | 401 | 403 | 404 | 409 | 410 | 429 | 503 = 400) => c.json({ error: message }, status);
 const isRecord = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -58,6 +59,23 @@ export const app = new Hono()
   .onError((error, c) => handleError(c, error))
   .get('/api/saas/plans', async (c) => c.json(await listSaasPlans()))
   .get('/api/saas/subscription', requireClinicSession, async (c) => c.json(await getSaasSubscription(authTenant(c))))
+  .get('/api/account/state', async (c) => {
+    const state = await getPersonalAccountState(c.req.raw);
+    return state.kind === 'unauthenticated' ? c.json({ error: 'Autenticação necessária.' }, 401) : c.json(state);
+  })
+  .post('/api/clinics/onboarding', async (c) => {
+    const state = await getPersonalAccountState(c.req.raw);
+    if (state.kind === 'unauthenticated') return c.json({ error: 'Autenticação necessária.' }, 401);
+    if (state.kind === 'confirmation') return c.json({ error: 'Confirme seu e-mail antes de cadastrar a clínica.' }, 403);
+    if (state.kind === 'inactive' || state.kind === 'ambiguous') return c.json({ error: 'A conta não pode concluir onboarding neste estado.' }, 409);
+    const body = await c.req.json().catch(() => null);
+    if (!isRecord(body)) return fail(c, 'Dados da clínica inválidos.');
+    if ('id' in body || 'tenantId' in body || 'tenant_id' in body) return fail(c, 'Não é permitido informar uma clínica existente.');
+    try {
+      const result = await createClinicForUser(state.user.id, body as ClinicOnboardingInput);
+      return c.json(result, result.recovered ? 200 : 201);
+    } catch (error) { return handleError(c, error); }
+  })
   // Rotas específicas ANTES do curinga do better-auth: o Hono executa o
   // primeiro handler que responde, então o '/api/auth/*' sombrearia o GET/POST
   // abaixo com 404 se viesse primeiro.

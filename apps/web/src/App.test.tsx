@@ -15,6 +15,7 @@ beforeEach(() => {
   calls = [];
   routes = {
     'GET /api/auth/get-session': () => ({ user: { id: 'u1', tenantId: 't1' } }),
+    'GET /api/account/state': () => ({ kind: 'clinic' }),
     'GET /api/patients': () => [marina],
   };
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
@@ -44,7 +45,7 @@ function renderAt(path: string) {
 
 describe('Clinic dashboard', () => {
   it('redirects unauthenticated visitors to login', async () => {
-    routes['GET /api/auth/get-session'] = () => null;
+    routes['GET /api/account/state'] = () => ({ status: 401, body: { error: 'Autenticação necessária.' } });
     renderAt('/');
     expect(await screen.findByRole('heading', { name: 'Entrar na sua clínica' })).toBeInTheDocument();
   });

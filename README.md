@@ -33,7 +33,7 @@ docker compose down -v
 docker compose up --build
 ```
 
-No primeiro startup, o app cria a conta administrativa inicial usando `BOOTSTRAP_CLINIC_NAME`, `BOOTSTRAP_ADMIN_NAME`, `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD` do ambiente — as quatro são opcionais e só valem juntas. Configure-as com valores próprios e fortes (em produção, use um gerenciador de secrets). O seed roda em todo startup, mas não altera senha, conta existente nem os nomes editados em Configurações → Clínica e conta; para trocar a senha, use `bun run reset-clinic-password --admin-email email --admin-password senha`. Sem as chaves de bootstrap, provisione a primeira clínica com `bun run provision-tenant --clinic-name "Nome" --admin-name "Nome" --admin-email email --admin-password senha`. De dentro do container (banco vazio, sem env), use o CLI avulso — a senha é pedida no stdin sem eco, nunca vai para o ambiente nem para o histórico do shell:
+Novas clínicas são cadastradas por uma pessoa com e-mail confirmado no onboarding. Para provisionamento operacional extraordinário, use os comandos administrativos locais; nenhum tenant ou conta é criado ou renomeado automaticamente no startup. Seeds fictícios são restritos a desenvolvimento/testes:
 
 ```bash
 docker compose exec app manage tenant create --name "Minha Clínica"

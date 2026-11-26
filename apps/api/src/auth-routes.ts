@@ -16,6 +16,7 @@ export type ClinicSession = {
 
 type ClinicSessionResolution =
   | { kind: 'unauthenticated' }
+  | { kind: 'confirmation-required' }
   | { kind: 'unlinked' }
   | { kind: 'forbidden-role' }
   | { kind: 'ambiguous' }
@@ -29,8 +30,10 @@ export async function resolveClinicSession(request: Request): Promise<ClinicSess
     id: authUsers.id,
     name: authUsers.name,
     email: authUsers.email,
+    emailVerified: authUsers.emailVerified,
   }).from(authUsers).where(eq(authUsers.id, result.user.id));
   if (!user) return { kind: 'unauthenticated' };
+  if (!user.emailVerified) return { kind: 'confirmation-required' };
   const memberships = await getDatabase().select({
     tenantId: userTenantMemberships.tenantId,
     role: userTenantMemberships.role,
@@ -64,6 +67,9 @@ export async function requireClinicSession(c: Context, next: Next) {
   const resolution = await resolveClinicSession(c.req.raw);
   if (resolution.kind === 'unauthenticated') {
     return c.json({ error: 'Autenticação necessária.', code: 'AUTHENTICATION_REQUIRED' }, 401);
+  }
+  if (resolution.kind === 'confirmation-required') {
+    return c.json({ error: 'Confirme seu e-mail para acessar as operações clínicas.', code: 'EMAIL_CONFIRMATION_REQUIRED' }, 403);
   }
   if (resolution.kind === 'unlinked') {
     return c.json({ error: 'Conta sem vínculo autorizado com uma clínica.', code: 'CLINIC_MEMBERSHIP_REQUIRED' }, 403);

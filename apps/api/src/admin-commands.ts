@@ -1,9 +1,7 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import {
   closeDatabase,
   getDatabase,
-  getDatabasePool,
-  tenantDefaults,
   tenants,
   authUsers,
   authSessions,
@@ -93,8 +91,6 @@ export async function provisionClinic(input: ProvisionClinicInput) {
   }
 }
 
-const BOOTSTRAP_ENV_KEYS = ['BOOTSTRAP_CLINIC_NAME', 'BOOTSTRAP_ADMIN_NAME', 'BOOTSTRAP_ADMIN_EMAIL', 'BOOTSTRAP_ADMIN_PASSWORD'] as const;
-
 export type CreateTenantInput = { name: string };
 export type CreateAdministratorInput = { tenantId: string; administratorName: string; email: string; password: string };
 
@@ -140,54 +136,6 @@ export async function listAdministrators(tenantId?: string) {
     .innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
     .where(where)
     .orderBy(authUsers.email);
-}
-
-export function bootstrapConfigFromEnv(env: Record<string, string | undefined> = process.env): ProvisionClinicInput | null {
-  const values = BOOTSTRAP_ENV_KEYS.map((key) => env[key]?.trim() ?? '');
-  // Bootstrap é opcional em qualquer ambiente: sem as quatro chaves, o
-  // servidor sobe sem provisionar ninguém (use `provision-tenant` no CLI
-  // ou cadastre pela primeira conta). Nomes depois mudam em Configurações.
-  if (values.every((value) => !value)) return null;
-  if (values.some((value) => !value)) throw new Error('Configure todas as variáveis BOOTSTRAP_* para criar o administrador inicial.');
-  const [clinicName, administratorName, email, password] = values;
-  return { tenantId: tenantDefaults.id, clinicName: clinicName!, administratorName: administratorName!, email: email!, password: password! };
-}
-
-/** Creates the configured first clinic administrator once; later boots never reset its password. */
-export async function seedConfiguredAdministrator(env: Record<string, string | undefined> = process.env) {
-  const config = bootstrapConfigFromEnv(env);
-  if (!config) {
-    if (env.NODE_ENV === 'production') console.warn('Nenhuma variável BOOTSTRAP_* configurada; pulando o provisionamento inicial. Use `provision-tenant` se ainda não houver administrador.');
-    return null;
-  }
-  const values = validateProvisionInput(config);
-  const pool = getDatabasePool();
-  const lock = await pool.connect();
-  try {
-    await lock.query('select pg_advisory_lock(hashtext($1))', ['clinicare:bootstrap-administrator']);
-    const database = getDatabase();
-    // Garante o tenant sem tocar no nome: ele já nasce com o nome do seed
-    // (que usa BOOTSTRAP_CLINIC_NAME quando informado) e depois só muda
-    // em Configurações. Renomear aqui a cada boot reverteria a edição do painel.
-    await database.insert(tenants).values({ id: tenantDefaults.id, name: values.clinicName, active: true }).onConflictDoNothing({ target: tenants.id });
-    const [existingTenantUser] = await database.select({ id: authUsers.id, email: authUsers.email })
-      .from(authUsers)
-      .innerJoin(userTenantMemberships, and(
-        eq(userTenantMemberships.userId, authUsers.id),
-        eq(userTenantMemberships.tenantId, tenantDefaults.id),
-      ));
-    if (existingTenantUser) {
-      if (existingTenantUser.email !== values.email) throw new Error('Já existe um administrador para a clínica inicial; o bootstrap não altera contas existentes.');
-      return { created: false, email: existingTenantUser.email };
-    }
-    const [existingEmail] = await database.select({ id: authUsers.id }).from(authUsers).where(eq(authUsers.email, values.email));
-    if (existingEmail) throw new Error('O e-mail configurado para o administrador inicial já pertence a outra clínica.');
-    const user = await createBetterAuthClinicAdministrator({ tenantId: tenantDefaults.id, administratorName: values.administratorName, email: values.email, password: values.password });
-    return { created: true, email: user.email };
-  } finally {
-    await lock.query('select pg_advisory_unlock(hashtext($1))', ['clinicare:bootstrap-administrator']).catch(() => undefined);
-    lock.release();
-  }
 }
 
 async function administratorByEmail(email: string) {

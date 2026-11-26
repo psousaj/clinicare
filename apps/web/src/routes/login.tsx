@@ -37,7 +37,9 @@ function LoginPage() {
         setConfirmationPending(true);
         return;
       }
-      await navigate({ to: '/' });
+      const stateResponse = await fetch('/api/account/state', { credentials: 'include' });
+      const state = stateResponse.ok ? await stateResponse.json() as { kind?: string } : null;
+      await navigate({ to: state?.kind === 'onboarding' ? '/onboarding' : '/' });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Não foi possível entrar.');
     } finally {

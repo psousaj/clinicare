@@ -1,12 +1,9 @@
-import { connectPostgresDatabase, migrateDatabase, seedDatabase } from '@clinicare/db';
+import { connectPostgresDatabase, migrateDatabase } from '@clinicare/db';
 import { app } from './app';
-import { seedConfiguredAdministrator } from './admin-commands';
 import { createWebAssetMiddleware, serveSpaIndex } from './static-files';
 import { resolveApiPort } from './runtime-config';
 
 await migrateDatabase();
-await seedDatabase(process.env.BOOTSTRAP_CLINIC_NAME?.trim() || undefined);
-await seedConfiguredAdministrator();
 await connectPostgresDatabase();
 app.use('/*', createWebAssetMiddleware());
 // Fallback da SPA para rotas do TanStack Router (ex.: /pacientes, /formulario/:token).

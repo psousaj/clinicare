@@ -5,7 +5,6 @@ const secretNames = [
   'SEARCH_HMAC_KEY',
   'UPLOAD_SIGNING_KEY',
   'BETTER_AUTH_SECRET',
-  'BOOTSTRAP_ADMIN_PASSWORD',
 ] as const;
 
 for (const name of secretNames) {
