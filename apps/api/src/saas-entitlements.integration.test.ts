@@ -174,7 +174,21 @@ integration('SaaS offer capabilities through API with PostgreSQL', () => {
       method: 'PUT', headers: standardHeaders, body: JSON.stringify({ signaturePng: null }),
     })).status).toBe(200);
     expect((await app.request('/api/signature-pending', { headers: standardHeaders })).status).toBe(200);
-    expect(await (await app.request(`/public/signatures/${signatureToken}`)).json()).toMatchObject({ canSign: true });
+    expect(await (await app.request(`/public/signatures/${signatureToken}`)).json()).toMatchObject({ canSign: true, canGovBr: false });
+    for (const govBrAction of [
+      `/public/signatures/${signatureToken}/external/export`,
+      `/public/signatures/${signatureToken}/external/import`,
+      `/public/signatures/${signatureToken}/external/confirm`,
+      `/public/signatures/${signatureToken}/external/cancel`,
+      `/api/signature-participants/${participantId}/external/export`,
+      `/api/signature-participants/${participantId}/external/import`,
+      `/api/signature-participants/${participantId}/external/confirm`,
+      `/api/signature-participants/${participantId}/external/cancel`,
+    ]) {
+      expect((await app.request(govBrAction, {
+        method: 'POST', headers: standardHeaders, body: JSON.stringify({}),
+      })).status).toBe(403);
+    }
     const paymentResponse = await app.request('/api/payments', {
       method: 'POST', headers: standardHeaders,
       body: JSON.stringify({ followupId: paidFollowup.id, amountCents: 500, method: 'cash' }),

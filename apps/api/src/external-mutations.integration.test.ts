@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
 import { app } from './app';
 import {
-  appliedDocuments, appliedDocumentRevisions, authUsers, closeDatabase, contracts,
+  appliedDocuments, appliedDocumentRevisions, authUsers, clinicSubscriptions, closeDatabase, contracts,
   contractVersions, documentCleanupJobs, followupContracts, followupItems,
   followupSnapshots, followups, getDatabase, migrateDatabase,
   planVersionContracts, planVersionItems, planVersions, plans, procedures,
@@ -49,6 +49,7 @@ integration('Issue #27: Preservar assinaturas externas em mutações posteriores
     const db = getDatabase();
     await provisionIntegrationClinic(app, 'sig-mutations', tenantId);
     await provisionIntegrationClinic(app, 'sig-mutations-other', otherTenantId);
+    await db.insert(clinicSubscriptions).values({ tenantId, planId: 'pro', status: 'active', startedAt: new Date() });
     sessionHeaders = integrationHeaders(tenantId);
 
     const patientRes = await request('/api/patients', json({ fullName: 'Paciente Mutações', phone: '11987654321', cpf: patientCpf }));
@@ -123,7 +124,7 @@ integration('Issue #27: Preservar assinaturas externas em mutações posteriores
       await deleteObject(pdfKey).catch(() => null);
     }
     for (const table of [
-      documentCleanupJobs, followupContracts, followupItems, followupSnapshots,
+      documentCleanupJobs, clinicSubscriptions, followupContracts, followupItems, followupSnapshots,
       followups, planVersionContracts, planVersionItems, planVersions, plans,
       contractVersions, contracts, procedures, patients,
     ]) {

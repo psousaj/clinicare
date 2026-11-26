@@ -338,4 +338,16 @@ describe('patient signature workspace', () => {
     renderPage();
     expect(await screen.findByText(/sem cobrir as assinaturas anteriores/i)).toBeInTheDocument();
   });
+
+  it('hides GOV.BR option when canGovBr is false', async () => {
+    globalThis.fetch = vi.fn(async (url: string) => {
+      if (url === '/public/signatures/test-token') return { ok: true, status: 200, json: async () => ({ ...signatureResponse(), canGovBr: false }) };
+      return { ok: true, status: 200, json: async () => ({}) };
+    }) as unknown as typeof fetch;
+
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Contrato de teste' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Prefere o GOV\.BR\?/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ver histórico da assinatura' })).toBeInTheDocument();
+  });
 });
