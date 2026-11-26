@@ -8,4 +8,5 @@ coverage
 .DS_Store
 .turbo
 .playwright-mcp
+graphify-out/
 /docs/specs/
