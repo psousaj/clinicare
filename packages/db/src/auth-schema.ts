@@ -1,4 +1,5 @@
-import { boolean, index, pgTable, text, timestamp, uuid, unique } from 'drizzle-orm/pg-core';
+import { boolean, check, index, pgTable, primaryKey, text, timestamp, uuid, unique } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 import { tenants } from './relational-schema';
 
 export const authUsers = pgTable('user', {
@@ -13,6 +14,17 @@ export const authUsers = pgTable('user', {
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (table) => [index('user_tenant_id_idx').on(table.tenantId), unique('user_tenant_id_unique').on(table.tenantId)]);
+
+export const userTenantMemberships = pgTable('user_tenant_memberships', {
+  userId: text('user_id').notNull().references(() => authUsers.id),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+  role: text('role').notNull().default('admin'),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.userId, table.tenantId], name: 'user_tenant_memberships_pk' }),
+  index('user_tenant_memberships_tenant_idx').on(table.tenantId),
+  check('user_tenant_memberships_role_valid', sql`${table.role} = 'admin'`),
+]);
 
 export const professionals = pgTable('professionals', {
   id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull().references(() => tenants.id), userId: text('user_id').notNull().unique().references(() => authUsers.id), registrationType: text('registration_type').notNull(), registrationNumber: text('registration_number').notNull(), registrationState: text('registration_state'), active: boolean('active').notNull().default(true), createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(), updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
@@ -56,10 +68,12 @@ export const authVerifications = pgTable('verification', {
 
 export const authSchema = {
   user: authUsers,
+  userTenantMemberships,
   session: authSessions,
   account: authAccounts,
   verification: authVerifications,
 };
 
 export type AuthUser = typeof authUsers.$inferSelect;
+export type UserTenantMembership = typeof userTenantMemberships.$inferSelect;
 export type AuthSession = typeof authSessions.$inferSelect;

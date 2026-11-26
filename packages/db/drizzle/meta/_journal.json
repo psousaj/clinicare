@@ -239,6 +239,13 @@
       "when": 1795493587000,
       "tag": "0033_signature_preview_fingerprint_hash",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1795662800000,
+      "tag": "0034_user_tenant_memberships",
+      "breakpoints": true
     }
   ]
 }

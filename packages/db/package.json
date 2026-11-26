@@ -9,6 +9,7 @@
     "db:migrate": "bun src/migrate.ts",
     "db:seed": "bun src/seed.ts",
     "db:recovery-rehearsal": "bun src/recovery-rehearsal.ts",
+    "test:membership-integration": "DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL to a local clinicare PostgreSQL database} REQUIRE_MEMBERSHIP_INTEGRATION=1 DB_SCHEMA=${DB_SCHEMA:-clinicare} bun test src/user-tenant-memberships.integration.test.ts",
     "test:integration": "DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL to run PostgreSQL integration tests} bun test src/integration.test.ts"
   },
   "dependencies": {
