@@ -14,7 +14,8 @@ import { Label } from '@/components/ui/label';
 import { currency } from '@/lib/format';
 import { parseForm, planForm } from '@/lib/forms';
 import { linkedContractIds, minSessionsOf, sessionsFor, suggestedPriceCents } from '@/lib/planOffers';
-import { anamnesesQuery, combosQuery, contractsQuery, plansQuery, proceduresQuery, useCreatePlan, useUpdatePlan } from '@/lib/queries';
+import { anamnesesQuery, combosQuery, contractsQuery, plansQuery, proceduresQuery, saasSubscriptionQuery, useCreatePlan, useUpdatePlan } from '@/lib/queries';
+import { StandardPlanNotice } from '@/components/StandardPlanNotice';
 import type { Anamnesis, Combo, Procedure } from '@/lib/schemas';
 
 export const Route = createFileRoute('/_app/planos/novo')({ validateSearch: z.object({ planId: z.string().optional() }), component: NewPlan });
@@ -28,6 +29,7 @@ function NewPlan() {
   const create = useCreatePlan();
   const update = useUpdatePlan();
   const proceduresData = useQuery(proceduresQuery).data, combosData = useQuery(combosQuery).data, contractsData = useQuery(contractsQuery).data;
+  const subscription = useQuery(saasSubscriptionQuery);
   const forms = useQuery(anamnesesQuery).data ?? [];
   const procedures = useMemo(() => proceduresData ?? [], [proceduresData]);
   const combos = useMemo(() => combosData ?? [], [combosData]);
@@ -79,6 +81,10 @@ function NewPlan() {
   const contractOrigin = (contract: (typeof contracts)[number]) => contract.kind === 'procedure'
     ? procedures.find((procedure) => procedure.id === contract.procedureId)?.name
     : contract.kind === 'combo' ? combos.find((combo) => combo.id === contract.comboId)?.name : undefined;
+
+  if (subscription.isPending) return <p role="status">Verificando recursos do plano…</p>;
+  if (subscription.isError) return <p role="alert">Não foi possível verificar os recursos do plano.</p>;
+  if (subscription.data.effectivePlan === 'free') return <section className="panel"><h2>Recurso Standard</h2><StandardPlanNotice /></section>;
 
   return (
     <FormPage

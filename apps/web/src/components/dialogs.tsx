@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronsUpDown, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -12,9 +13,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { appointmentForm, followupForm, parseForm, paymentForm } from '@/lib/forms';
-import { useConfirmAppointment, useCreateAppointment, useCreateFollowup, useCreatePayment, useDeleteAppointment, useUpdateAppointment } from '@/lib/queries';
+import { saasSubscriptionQuery, useConfirmAppointment, useCreateAppointment, useCreateFollowup, useCreatePayment, useDeleteAppointment, useUpdateAppointment } from '@/lib/queries';
 import type { Appointment, EventOffer, Followup, Combo, Patient, Plan, Procedure } from '@/lib/schemas';
 import { currency, offerLabel } from '@/lib/format';
+import { StandardPlanNotice } from '@/components/StandardPlanNotice';
 
 type Selection = { start: string; end: string };
 type PlannedItem = { followupItemId?: string; procedureId?: string; quantity: number };
@@ -242,6 +244,8 @@ function AppointmentFields({ selection, lockedPatientId, patients, followups, pr
 export function NewFollowupDialog({ open, patientId, patients, combos, plans, events = [], onClose }: { open: boolean; patientId?: string; patients: Patient[]; combos: Combo[]; plans: Plan[]; events?: EventOffer[]; onClose: () => void }) {
   const create = useCreateFollowup();
   const navigate = useNavigate();
+  const subscription = useQuery(saasSubscriptionQuery);
+  const canApplyStandardOffers = subscription.data?.effectivePlan === 'standard' || subscription.data?.effectivePlan === 'pro';
   return (
     <FormDialog
       open={open}
@@ -256,7 +260,8 @@ export function NewFollowupDialog({ open, patientId, patients, combos, plans, ev
         if (!patientId) await navigate({ to: '/pacientes/$patientId', params: { patientId: patient } });
       }}
     >
-      <OfferFields lockedPatientId={patientId} patients={patients} combos={combos} plans={plans} events={events} />
+      {!canApplyStandardOffers && <StandardPlanNotice />}
+      <OfferFields lockedPatientId={patientId} patients={patients} combos={canApplyStandardOffers ? combos : []} plans={canApplyStandardOffers ? plans : []} events={events} />
     </FormDialog>
   );
 }

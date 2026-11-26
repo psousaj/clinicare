@@ -82,6 +82,18 @@ export async function getClinicSaasPlan(tenantId: string) {
   return (await getSaasSubscription(tenantId)).effectivePlan;
 }
 
+export async function requireClinicCapability(tenantId: string, capability: SaasCapability) {
+  const planId = await getClinicSaasPlan(tenantId);
+  const [plan] = await getDatabase().select({ capabilities: saasPlans.capabilities })
+    .from(saasPlans).where(eq(saasPlans.id, planId));
+  if (!plan?.capabilities?.includes(capability)) {
+    throw Object.assign(new Error(`Este recurso exige o plano Standard ou superior (${capability}).`), {
+      status: 403,
+      code: 'SAAS_CAPABILITY_REQUIRED',
+    });
+  }
+}
+
 export async function changeClinicSubscription(input: {
   tenantId: string;
   actorUserId: string;

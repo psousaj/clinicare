@@ -4,11 +4,12 @@ import { Layers, Pencil, Percent, Plus, Search, Sparkles, Tags } from 'lucide-re
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { QueryError } from '@/components/QueryState';
+import { StandardPlanNotice } from '@/components/StandardPlanNotice';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { currency, type Tone } from '@/lib/format';
-import { anamnesesQuery, combosQuery, proceduresQuery, useUpdateCombo, useUpdateProcedure } from '@/lib/queries';
+import { anamnesesQuery, combosQuery, proceduresQuery, saasSubscriptionQuery, useUpdateCombo, useUpdateProcedure } from '@/lib/queries';
 import type { Combo } from '@/lib/schemas';
 import { cn } from '@/lib/utils';
 
@@ -45,7 +46,8 @@ function Catalog() {
     return () => media.removeEventListener?.('change', update);
   }, []);
   const navigate = useNavigate({ from: Route.fullPath });
-  const procedures = useQuery(proceduresQuery), combos = useQuery(combosQuery), anamneses = useQuery(anamnesesQuery);
+  const procedures = useQuery(proceduresQuery), combos = useQuery(combosQuery), anamneses = useQuery(anamnesesQuery), subscription = useQuery(saasSubscriptionQuery);
+  const canManageCombos = subscription.data?.effectivePlan === 'standard' || subscription.data?.effectivePlan === 'pro';
   const updateProcedure = useUpdateProcedure(), updateCombo = useUpdateCombo();
   const procedureList = procedures.data ?? [], comboList = combos.data ?? [];
   const setSearch = (patch: Partial<{ aba: typeof aba; q: string | undefined; status: typeof status }>) => navigate({ search: (current) => ({ ...current, ...patch }), replace: true });
@@ -80,11 +82,9 @@ function Catalog() {
       <section className="panel">
         <div className="panel-header">
           <div><div className="section-kicker">CATÁLOGO</div><h2>Ofertas da clínica</h2></div>
-          <Button asChild className="max-md:w-full">
-            {aba === 'procedimentos'
-              ? <Link to="/procedimentos/novo"><Plus /> Novo procedimento</Link>
-              : <Link to="/procedimentos/combos/novo"><Plus /> Novo combo</Link>}
-          </Button>
+          {aba === 'procedimentos'
+            ? <Button asChild className="max-md:w-full"><Link to="/procedimentos/novo"><Plus /> Novo procedimento</Link></Button>
+            : canManageCombos && <Button asChild className="max-md:w-full"><Link to="/procedimentos/combos/novo"><Plus /> Novo combo</Link></Button>}
         </div>
         <div className="mb-3 flex flex-wrap items-center gap-3 max-md:grid max-md:grid-cols-[minmax(0,1fr)_auto]">
           <div role="tablist" aria-label="Catálogo" className="inline-flex rounded-lg bg-muted p-1 max-md:col-span-2 max-md:[&>button]:flex-1">
@@ -105,6 +105,7 @@ function Catalog() {
           </div>
         </div>
         <QueryError query={aba === 'procedimentos' ? procedures : combos} />
+        {aba === 'combos' && !canManageCombos && <StandardPlanNotice />}
         {aba === 'procedimentos' ? (
           <div className="overflow-x-auto">
             {!isMobile && <table className="w-full border-collapse text-sm">
@@ -180,8 +181,8 @@ function Catalog() {
                       </td>
                       <td className={td}><StatusBadge tone={state.tone}>{state.label}</StatusBadge></td>
                       <td className={cn(td, 'text-right whitespace-nowrap')}>
-                        <Button variant="ghost" size="sm" asChild><Link to="/procedimentos/combos/$comboId" params={{ comboId: combo.id }} aria-label={`Editar ${combo.name}`}><Pencil /> Editar</Link></Button>
-                        <Button variant="ghost" size="sm" className="bg-transparent hover:bg-muted" disabled={updateCombo.isPending} onClick={() => updateCombo.mutate({ id: combo.id, active: combo.active === false })}>{combo.active === false ? 'Ativar' : 'Desativar'}</Button>
+                        {canManageCombos && <><Button variant="ghost" size="sm" asChild><Link to="/procedimentos/combos/$comboId" params={{ comboId: combo.id }} aria-label={`Editar ${combo.name}`}><Pencil /> Editar</Link></Button>
+                        <Button variant="ghost" size="sm" className="bg-transparent hover:bg-muted" disabled={updateCombo.isPending} onClick={() => updateCombo.mutate({ id: combo.id, active: combo.active === false })}>{combo.active === false ? 'Ativar' : 'Desativar'}</Button></>}
                       </td>
                     </tr>
                   );
@@ -210,8 +211,8 @@ function Catalog() {
                       </span>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <Button variant="outline" asChild><Link to="/procedimentos/combos/$comboId" params={{ comboId: combo.id }} aria-label={`Editar ${combo.name}`}><Pencil /> Editar</Link></Button>
-                      <Button variant="outline" disabled={updateCombo.isPending} onClick={() => updateCombo.mutate({ id: combo.id, active: combo.active === false })}>{combo.active === false ? 'Ativar' : 'Desativar'}</Button>
+                      {canManageCombos && <><Button variant="outline" asChild><Link to="/procedimentos/combos/$comboId" params={{ comboId: combo.id }} aria-label={`Editar ${combo.name}`}><Pencil /> Editar</Link></Button>
+                      <Button variant="outline" disabled={updateCombo.isPending} onClick={() => updateCombo.mutate({ id: combo.id, active: combo.active === false })}>{combo.active === false ? 'Ativar' : 'Desativar'}</Button></>}
                     </div>
                   </li>
                 );

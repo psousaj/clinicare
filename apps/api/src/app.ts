@@ -1,7 +1,8 @@
 import { Hono, type Context } from 'hono';
 import { createHash } from 'node:crypto';
 import { cors } from 'hono/cors';
-import { getDatabasePool } from '@clinicare/db';
+import { and, eq, isNotNull } from 'drizzle-orm';
+import { appointmentItems, attendances, followupContracts, followups, getDatabase, getDatabasePool, payments } from '@clinicare/db';
 import { getTrustedOrigins } from './auth-config';
 import { createPatient, deactivatePatient, getPatient, isUuid, listPatients, updatePatient } from './patients';
 import { catalogTenant, listProcedures, createProcedure, updateProcedure, listAnamneses, createAnamnesis, updateAnamnesis, addAnamnesisVersion, saveProcedureAnamneses, listCombos, saveCombo, listContracts, saveContract, addContractVersion, listPlans, savePlan, listEvents, saveEvent, presignContractVersionPdf, finalizeContractVersionPdf } from './catalog';
@@ -18,7 +19,7 @@ import { changeOwnEmail, changeOwnPassword, getAccount, getDefaultSignature, get
 import { getContractDraftEditor, listContractPlaceholders, presignContractDraft, publishContractDraft, saveContractDraft } from './contract-authoring';
 import { generateFollowupContract, reprocessFollowupContract, retryFollowupContract } from './contract-generation';
 import { observedClientIp as resolveObservedClientIp } from './request-ip';
-import { getSaasSubscription, listSaasPlans } from './saas-plans';
+import { getSaasSubscription, listSaasPlans, requireClinicCapability } from './saas-plans';
 import { createClinicForUser, getPersonalAccountState, type ClinicOnboardingInput } from './onboarding';
 
 const fail = (c: Context, message: string, status: 400 | 401 | 403 | 404 | 409 | 410 | 429 | 503 = 400) => c.json({ error: message }, status);
@@ -54,6 +55,32 @@ const handleError = (c: Context, error: unknown) => {
 
 const appointmentStatusLabel: Record<string, string> = { planned: 'agendado', confirmed: 'confirmado', rescheduled: 'remarcado', cancelled: 'cancelado', no_show: 'faltou' };
 const authTenant = (c: Context) => clinicSession(c).tenantId;
+const requireFollowupSessionCapability = async (tenantId: string, appointmentId: string) => {
+  const linked = await getDatabase().select({ id: appointmentItems.id }).from(appointmentItems)
+    .where(and(eq(appointmentItems.tenantId, tenantId), eq(appointmentItems.appointmentId, appointmentId), isNotNull(appointmentItems.followupItemId))).limit(1);
+  if (linked.length) await requireClinicCapability(tenantId, 'appointments.followup_sessions');
+};
+const requireFollowupAttendanceCapability = async (tenantId: string, attendanceId: string) => {
+  const linked = await getDatabase().select({ id: attendances.id }).from(attendances)
+    .where(and(eq(attendances.tenantId, tenantId), eq(attendances.id, attendanceId), isNotNull(attendances.followupItemId))).limit(1);
+  if (linked.length) await requireClinicCapability(tenantId, 'appointments.followup_sessions');
+};
+const requireOfferMutationCapability = async (tenantId: string, followupId: string) => {
+  const [followup] = await getDatabase().select({ offerType: followups.offerType }).from(followups)
+    .where(and(eq(followups.tenantId, tenantId), eq(followups.id, followupId)));
+  if (followup?.offerType === 'combo') await requireClinicCapability(tenantId, 'catalog.combos');
+  if (followup?.offerType === 'plan') await requireClinicCapability(tenantId, 'catalog.clinical_plans');
+};
+const requireAttendanceFollowupCapability = async (tenantId: string, attendanceId: string) => {
+  const [attendance] = await getDatabase().select({ followupId: attendances.followupId }).from(attendances)
+    .where(and(eq(attendances.tenantId, tenantId), eq(attendances.id, attendanceId)));
+  if (attendance?.followupId) await requireOfferMutationCapability(tenantId, attendance.followupId);
+};
+const requireFollowupContractCapability = async (tenantId: string, contractId: string) => {
+  const [contract] = await getDatabase().select({ followupId: followupContracts.followupId }).from(followupContracts)
+    .where(and(eq(followupContracts.tenantId, tenantId), eq(followupContracts.id, contractId)));
+  if (contract) await requireOfferMutationCapability(tenantId, contract.followupId);
+};
 export const app = new Hono()
   .use('/api/*', cors({ origin: getTrustedOrigins() }))
   .onError((error, c) => handleError(c, error))
@@ -154,8 +181,8 @@ export const app = new Hono()
   .patch('/api/anamneses/:id', async (c) => { const result = await updateAnamnesis(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Formulário de anamnese não encontrado.', 404); })
   .post('/api/anamneses/:id/versions', async (c) => { const result = await addAnamnesisVersion(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result, 201) : fail(c, 'Formulário de anamnese não encontrado.', 404); })
   .get('/api/combos', async (c) => c.json(await listCombos(await catalogTenant(c.req, authTenant(c)))))
-  .post('/api/combos', async (c) => c.json(await saveCombo(await catalogTenant(c.req, authTenant(c)), null, await c.req.json()), 201))
-  .put('/api/combos/:id', async (c) => { const result = await saveCombo(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Combo não encontrado.', 404); })
+  .post('/api/combos', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'catalog.combos'); return c.json(await saveCombo(tenantId, null, await c.req.json()), 201); } catch (error) { return handleError(c, error); } })
+  .put('/api/combos/:id', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'catalog.combos'); const result = await saveCombo(tenantId, c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Combo não encontrado.', 404); } catch (error) { return handleError(c, error); } })
   .get('/api/contracts', async (c) => c.json(await listContracts(await catalogTenant(c.req, authTenant(c)))))
   .post('/api/contracts', async (c) => c.json(await saveContract(await catalogTenant(c.req, authTenant(c)), null, await c.req.json()), 201))
   .patch('/api/contracts/:id', async (c) => { const result = await saveContract(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Contrato não encontrado.', 404); })
@@ -168,8 +195,8 @@ export const app = new Hono()
   .put('/api/contracts/:id/draft', async (c) => { try { return c.json(await saveContractDraft(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json())); } catch (error) { return handleError(c, error); } })
   .post('/api/contracts/:id/publish', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); let professionalUserId: string | undefined; try { professionalUserId = clinicSession(c).userId; } catch { professionalUserId = undefined; } return c.json(await publishContractDraft(tenantId, c.req.param('id'), professionalUserId), 201); } catch (error) { return handleError(c, error); } })
   .get('/api/plans', async (c) => c.json(await listPlans(await catalogTenant(c.req, authTenant(c)))))
-  .post('/api/plans', async (c) => c.json(await savePlan(await catalogTenant(c.req, authTenant(c)), null, await c.req.json()), 201))
-  .put('/api/plans/:id', async (c) => { const result = await savePlan(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Plano não encontrado.', 404); })
+  .post('/api/plans', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'catalog.clinical_plans'); return c.json(await savePlan(tenantId, null, await c.req.json()), 201); } catch (error) { return handleError(c, error); } })
+  .put('/api/plans/:id', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'catalog.clinical_plans'); const result = await savePlan(tenantId, c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Plano não encontrado.', 404); } catch (error) { return handleError(c, error); } })
   .get('/api/events', async (c) => c.json(await listEvents(await catalogTenant(c.req, authTenant(c)))))
   .post('/api/events', async (c) => c.json(await saveEvent(await catalogTenant(c.req, authTenant(c)), null, await c.req.json()), 201))
   .put('/api/events/:id', async (c) => { const result = await saveEvent(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json()); return result ? c.json(result) : fail(c, 'Evento não encontrado.', 404); })
@@ -178,6 +205,9 @@ export const app = new Hono()
     const body = await c.req.json().catch(() => null);
     if (!body || !isUuid(body.patientId) || !['combo', 'plan', 'event'].includes(body.offerType) || !isUuid(body.offerId)) return fail(c, 'Paciente e um combo, plano ou evento são obrigatórios; procedimento avulso é criado ao agendar ou registrar o atendimento.');
     try {
+      if (body.offerType === 'combo') await requireClinicCapability(tenantId, 'catalog.combos');
+      if (body.offerType === 'plan') await requireClinicCapability(tenantId, 'catalog.clinical_plans');
+      if (body.offerType === 'combo' || body.offerType === 'plan') await requireClinicCapability(tenantId, 'followups');
       const created = await createFollowup(tenantId, body.patientId, body.offerType, body.offerId, { contractApplicationDate: body.contractApplicationDate });
       // Sem cron/worker: dispara a materialização em background sem bloquear o
       // 201. Falha de geração não desfaz o acompanhamento — fica como
@@ -204,9 +234,9 @@ export const app = new Hono()
     const result = await getFollowup(tenantId, c.req.param('id'));
     return result ? c.json(result) : fail(c, 'Acompanhamento não encontrado.', 404);
   })
-  .post('/api/followup-contracts/:id/generate', async (c) => { try { return c.json(await generateFollowupContract(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), clinicSession(c).userId)); } catch (error) { return handleError(c, error); } })
-  .post('/api/followup-contracts/:id/retry', async (c) => { try { return c.json(await retryFollowupContract(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), clinicSession(c).userId)); } catch (error) { return handleError(c, error); } })
-  .post('/api/followup-contracts/:id/reprocess', async (c) => { try { return c.json(await reprocessFollowupContract(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), clinicSession(c).userId)); } catch (error) { return handleError(c, error); } })
+  .post('/api/followup-contracts/:id/generate', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireFollowupContractCapability(tenantId, c.req.param('id')); return c.json(await generateFollowupContract(tenantId, c.req.param('id'), clinicSession(c).userId)); } catch (error) { return handleError(c, error); } })
+  .post('/api/followup-contracts/:id/retry', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireFollowupContractCapability(tenantId, c.req.param('id')); return c.json(await retryFollowupContract(tenantId, c.req.param('id'), clinicSession(c).userId)); } catch (error) { return handleError(c, error); } })
+  .post('/api/followup-contracts/:id/reprocess', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireFollowupContractCapability(tenantId, c.req.param('id')); return c.json(await reprocessFollowupContract(tenantId, c.req.param('id'), clinicSession(c).userId)); } catch (error) { return handleError(c, error); } })
   .get('/api/signature-pending', async (c) => { try { return c.json(await listPendingSignatures(await catalogTenant(c.req, authTenant(c)))); } catch (error) { return handleError(c, error); } })
   .get('/public/signatures/:token', async (c) => { try { return c.json(await readSignatureToken(c.req.param('token')!)); } catch (error) { return handleError(c, error); } })
   .post('/public/signatures/:token/verify-phone', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await verifySignaturePhone(c.req.param('token')!, body.phoneLast4)); } catch (error) { return handleError(c, error); } })
@@ -234,33 +264,38 @@ export const app = new Hono()
   .post('/api/followups/:id/items/:itemId/cancel', async (c) => {
     const tenantId = await catalogTenant(c.req, authTenant(c));
     if (!isUuid(c.req.param('id')) || !isUuid(c.req.param('itemId'))) return fail(c, 'Acompanhamento inválido.');
-    try { const result = await cancelFollowupItem(tenantId, c.req.param('id'), c.req.param('itemId')); return result ? c.json(result) : fail(c, 'Acompanhamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
+    try { await requireOfferMutationCapability(tenantId, c.req.param('id')); const result = await cancelFollowupItem(tenantId, c.req.param('id'), c.req.param('itemId')); return result ? c.json(result) : fail(c, 'Acompanhamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
   })
   .post('/api/followups/:id/cancel', async (c) => {
     const tenantId = await catalogTenant(c.req, authTenant(c));
     if (!isUuid(c.req.param('id'))) return fail(c, 'Acompanhamento inválido.');
     const body = await c.req.json().catch(() => null);
     if (!isRecord(body) || typeof body.reason !== 'string' || !body.reason.trim()) return fail(c, 'Motivo do cancelamento é obrigatório.');
-    try { const result = await cancelFollowup(tenantId, c.req.param('id'), body.reason); return result ? c.json(result) : fail(c, 'Acompanhamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
+    try { await requireOfferMutationCapability(tenantId, c.req.param('id')); const result = await cancelFollowup(tenantId, c.req.param('id'), body.reason); return result ? c.json(result) : fail(c, 'Acompanhamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
   })
   .patch('/api/followups/:id/state', async (c) => {
     const tenantId = await catalogTenant(c.req, authTenant(c));
     if (!isUuid(c.req.param('id'))) return fail(c, 'Acompanhamento inválido.');
     const body = await c.req.json().catch(() => null);
     if (!isRecord(body) || !['completed', 'cancelled'].includes(body.status)) return fail(c, 'Estado de acompanhamento inválido.');
-    try { const result = await updateFollowupState(tenantId, c.req.param('id'), body.status, body.reason); return result ? c.json(result) : fail(c, 'Acompanhamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
+    try { await requireOfferMutationCapability(tenantId, c.req.param('id')); const result = await updateFollowupState(tenantId, c.req.param('id'), body.status, body.reason); return result ? c.json(result) : fail(c, 'Acompanhamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
   })
   .post('/api/payments', async (c) => {
     const body = await c.req.json().catch(() => null);
     if (!isRecord(body) || !isUuid(body.followupId) || !Number.isSafeInteger(body.amountCents) || body.amountCents <= 0 || !['cash', 'pix', 'credit_card'].includes(body.method)) return fail(c, 'Pagamento inválido.');
     try {
       const tenantId = await catalogTenant(c.req, authTenant(c));
+      await requireOfferMutationCapability(tenantId, body.followupId);
       return c.json(await createPayment(tenantId, { followupId: body.followupId, amountCents: body.amountCents, method: body.method, installments: body.installments, notes: body.notes, receivedAt: body.receivedAt, idempotencyKey: body.idempotencyKey ?? c.req.header('idempotency-key') }), 201);
     } catch (error) { return handleError(c, error); }
   })
   .delete('/api/payments/:id', async (c) => {
     try {
-      const result = await deletePayment(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), String((await c.req.json().catch(() => ({}))).reason ?? ''));
+      const tenantId = await catalogTenant(c.req, authTenant(c));
+      const [payment] = await getDatabase().select({ followupId: payments.followupId }).from(payments)
+        .where(and(eq(payments.tenantId, tenantId), eq(payments.id, c.req.param('id'))));
+      if (payment) await requireOfferMutationCapability(tenantId, payment.followupId);
+      const result = await deletePayment(tenantId, c.req.param('id'), String((await c.req.json().catch(() => ({}))).reason ?? ''));
       return result ? c.json(result) : fail(c, 'Pagamento não encontrado.', 404);
     } catch (error) { return handleError(c, error); }
   })
@@ -275,39 +310,46 @@ export const app = new Hono()
     try { const tenantId = await catalogTenant(c.req, authTenant(c)); const from = c.req.query('from') ? new Date(c.req.query('from')!) : new Date(Date.now() - 7 * 86400000), to = c.req.query('to') ? new Date(c.req.query('to')!) : expiry(14); return c.json(await listAppointments(tenantId, from, to)); } catch (error) { return handleError(c, error); }
   })
   .post('/api/appointments', async (c) => {
-    try { return c.json(await createAppointment(await catalogTenant(c.req, authTenant(c)), await c.req.json().catch(() => null)), 201); } catch (error) { return handleError(c, error); }
+    try {
+      const tenantId = await catalogTenant(c.req, authTenant(c));
+      const body = await c.req.json().catch(() => null);
+      if (Array.isArray(body?.items) && body.items.some((item: any) => item?.followupItemId)) await requireClinicCapability(tenantId, 'appointments.followup_sessions');
+      return c.json(await createAppointment(tenantId, body), 201);
+    } catch (error) { return handleError(c, error); }
   })
   .post('/api/appointments/:id/confirm', async (c) => {
-    try { const body = await c.req.json().catch(() => ({})); return c.json(await confirmAppointment(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), Array.isArray(body?.selectedItemIds) ? body.selectedItemIds : undefined)); } catch (error) { return handleError(c, error); }
+    try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireFollowupSessionCapability(tenantId, c.req.param('id')); const body = await c.req.json().catch(() => ({})); return c.json(await confirmAppointment(tenantId, c.req.param('id'), Array.isArray(body?.selectedItemIds) ? body.selectedItemIds : undefined)); } catch (error) { return handleError(c, error); }
   })
   .post('/api/appointments/:id/no-show', async (c) => {
-    try { const body = await c.req.json().catch(() => ({})); const result = await updateAppointment(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), { status: 'no_show', reason: body.reason }); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
+    try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireFollowupSessionCapability(tenantId, c.req.param('id')); const body = await c.req.json().catch(() => ({})); const result = await updateAppointment(tenantId, c.req.param('id'), { status: 'no_show', reason: body.reason }); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
   })
   .post('/api/appointments/:id/cancel', async (c) => {
-    try { const result = await updateAppointment(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), { status: 'cancelled' }); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
+    try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireFollowupSessionCapability(tenantId, c.req.param('id')); const result = await updateAppointment(tenantId, c.req.param('id'), { status: 'cancelled' }); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); }
   })
   .post('/api/appointments/:id/attendance', async (c) => {
-    try { return c.json(await createAttendance(await catalogTenant(c.req, authTenant(c)), { ...(await c.req.json().catch(() => ({}))), appointmentId: c.req.param('id') }), 201); } catch (error) { return handleError(c, error); }
+    try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireFollowupSessionCapability(tenantId, c.req.param('id')); return c.json(await createAttendance(tenantId, { ...(await c.req.json().catch(() => ({}))), appointmentId: c.req.param('id') }), 201); } catch (error) { return handleError(c, error); }
   })
-  .patch('/api/appointments/:id', async (c) => { try { const result = await updateAppointment(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json().catch(() => ({}))); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
-  .delete('/api/appointments/:id', async (c) => { try { const result = await deleteAppointment(await catalogTenant(c.req, authTenant(c)), c.req.param('id')); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
+  .patch('/api/appointments/:id', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireFollowupSessionCapability(tenantId, c.req.param('id')); const result = await updateAppointment(tenantId, c.req.param('id'), await c.req.json().catch(() => ({}))); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
+  .delete('/api/appointments/:id', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireFollowupSessionCapability(tenantId, c.req.param('id')); const result = await deleteAppointment(tenantId, c.req.param('id')); return result ? c.json(result) : fail(c, 'Agendamento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
   .get('/api/attendances', async (c) => { try { return c.json(await listAttendances(await catalogTenant(c.req, authTenant(c)))); } catch (error) { return handleError(c, error); } })
   .get('/api/attendances/:id', async (c) => { try { const result = await getAttendance(await catalogTenant(c.req, authTenant(c)), c.req.param('id')); return result ? c.json(result) : fail(c, 'Atendimento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
-  .post('/api/attendances', async (c) => { try { return c.json(await createAttendance(await catalogTenant(c.req, authTenant(c)), await c.req.json().catch(() => ({}))), 201); } catch (error) { return handleError(c, error); } })
-  .patch('/api/attendances/:id', async (c) => { try { const result = await updateAttendance(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json().catch(() => ({}))); return result ? c.json(result) : fail(c, 'Atendimento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
-  .patch('/api/attendances/:id/cancel', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await cancelAttendance(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), String(body.reason ?? ''))); } catch (error) { return handleError(c, error); } })
+  .post('/api/attendances', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); const body = await c.req.json().catch(() => ({})); if (body.appointmentId) await requireFollowupSessionCapability(tenantId, body.appointmentId); if (body.followupItemId) await requireClinicCapability(tenantId, 'appointments.followup_sessions'); return c.json(await createAttendance(tenantId, body), 201); } catch (error) { return handleError(c, error); } })
+  .patch('/api/attendances/:id', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireFollowupAttendanceCapability(tenantId, c.req.param('id')); const result = await updateAttendance(tenantId, c.req.param('id'), await c.req.json().catch(() => ({}))); return result ? c.json(result) : fail(c, 'Atendimento não encontrado.', 404); } catch (error) { return handleError(c, error); } })
+  .patch('/api/attendances/:id/cancel', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireFollowupAttendanceCapability(tenantId, c.req.param('id')); const body = await c.req.json().catch(() => ({})); return c.json(await cancelAttendance(tenantId, c.req.param('id'), String(body.reason ?? ''))); } catch (error) { return handleError(c, error); } })
   .post('/api/uploads/presign', async (c) => {
     const body = await c.req.json().catch(() => null);
     if (!body || typeof body.contentType !== 'string' || !/^image\/(jpeg|png|webp)$/.test(body.contentType) || !Number.isInteger(body.size) || body.size < 1 || body.size > 10_000_000 || !isUuid(body.attendanceId)) return fail(c, 'Imagem ou atendimento inválido.');
-    try { const result = await presignAttendancePhoto(await catalogTenant(c.req, authTenant(c)), body.attendanceId, body.contentType, typeof body.contentHash === 'string' ? body.contentHash : null); return c.json(result); }
+    try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireAttendanceFollowupCapability(tenantId, body.attendanceId); const result = await presignAttendancePhoto(tenantId, body.attendanceId, body.contentType, typeof body.contentHash === 'string' ? body.contentHash : null); return c.json(result); }
     catch (error) { return handleError(c, error); }
   })
   .post('/api/attendances/:id/photos', async (c) => {
-    try { return c.json(await addAttendancePhoto(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), await c.req.json().catch(() => null)), 201); } catch (error) { return handleError(c, error); }
+    try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireAttendanceFollowupCapability(tenantId, c.req.param('id')); return c.json(await addAttendancePhoto(tenantId, c.req.param('id'), await c.req.json().catch(() => null)), 201); } catch (error) { return handleError(c, error); }
   })
   .delete('/api/attendances/:id/photos/:photoId', async (c) => {
     try {
-      const result = await removeAttendancePhoto(await catalogTenant(c.req, authTenant(c)), c.req.param('id'), c.req.param('photoId'));
+      const tenantId = await catalogTenant(c.req, authTenant(c));
+      await requireAttendanceFollowupCapability(tenantId, c.req.param('id'));
+      const result = await removeAttendancePhoto(tenantId, c.req.param('id'), c.req.param('photoId'));
       try { await deleteObject(result.objectKey); } catch (error) { console.error(error); }
       return c.json({ deleted: true });
     } catch (error) { return handleError(c, error); }
