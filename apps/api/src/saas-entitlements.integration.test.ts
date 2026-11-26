@@ -38,6 +38,30 @@ integration('SaaS offer capabilities through API with PostgreSQL', () => {
     await closeDatabase();
   });
 
+  it('gates relationship indicators by Pró and keeps the report tenant-scoped', async () => {
+    const freeHeaders = free.headers();
+    const standardHeaders = standard.headers();
+    const patient = await (await app.request('/api/patients', {
+      method: 'POST', headers: freeHeaders, body: JSON.stringify({ fullName: 'Paciente indicadores' }),
+    })).json() as { id: string };
+    expect((await app.request(`/api/patients/${patient.id}/relationship`, { headers: freeHeaders })).status).toBe(403);
+    expect((await app.request(`/api/patients/${patient.id}/relationship`, { headers: standardHeaders })).status).toBe(403);
+
+    await getDatabase().insert(clinicSubscriptions).values({
+      tenantId: free.tenantId, planId: 'pro', status: 'active', startedAt: new Date(),
+    });
+    try {
+      const report = await app.request(`/api/patients/${patient.id}/relationship`, { headers: freeHeaders });
+      expect(report.status).toBe(200);
+      expect(await report.json()).toMatchObject({ totals: { followups: 0, attendancesPerformed: 0 } });
+      await getDatabase().update(clinicSubscriptions).set({ planId: 'pro' }).where(eq(clinicSubscriptions.tenantId, standard.tenantId));
+      expect((await app.request(`/api/patients/${patient.id}/relationship`, { headers: standardHeaders })).status).toBe(404);
+    } finally {
+      await getDatabase().delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, free.tenantId));
+      await getDatabase().update(clinicSubscriptions).set({ planId: 'standard' }).where(eq(clinicSubscriptions.tenantId, standard.tenantId));
+    }
+  });
+
   it('keeps standalone procedures available on Free and requires Standard to create, edit and apply combos or plans', async () => {
     const freeHeaders = free.headers();
     const standardHeaders = standard.headers();

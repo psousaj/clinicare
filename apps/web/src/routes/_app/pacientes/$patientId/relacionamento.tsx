@@ -4,7 +4,7 @@ import { ArrowLeft, CalendarClock, CalendarDays, Clock, HandCoins, Hourglass, Re
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { QueryError } from '@/components/QueryState';
 import { currency, duration, monthLabel, shortDate } from '@/lib/format';
-import { patientsQuery, relationshipQuery } from '@/lib/queries';
+import { patientsQuery, relationshipQuery, saasSubscriptionQuery } from '@/lib/queries';
 
 export const Route = createFileRoute('/_app/pacientes/$patientId/relacionamento')({ component: Relationship });
 
@@ -32,7 +32,9 @@ function Chart({ title, note, children, empty }: { title: string; note?: string;
 
 function Relationship() {
   const { patientId } = Route.useParams();
-  const report = useQuery(relationshipQuery(patientId)), patients = useQuery(patientsQuery);
+  const subscription = useQuery(saasSubscriptionQuery);
+  const canSeeRelationship = subscription.data?.effectivePlan === 'pro';
+  const report = useQuery({ ...relationshipQuery(patientId), enabled: canSeeRelationship }), patients = useQuery(patientsQuery);
   const patient = patients.data?.find((candidate) => candidate.id === patientId);
   const data = report.data, totals = data?.totals;
   const monthly = (data?.monthly ?? []).map((row) => ({ ...row, label: monthLabel(row.month), duration: row.minutes ? duration(row.minutes) : '—' }));
@@ -50,8 +52,11 @@ function Relationship() {
             <p className="section-note m-0">Tempo de atendimento, atendimentos e valores de {patient?.fullName ?? 'paciente'} em um só lugar.</p>
           </div>
         </div>
-        <QueryError query={report} />
-        {report.isPending && <p className="section-note">Carregando…</p>}
+        {canSeeRelationship && <QueryError query={report} />}
+        {canSeeRelationship && report.isPending && <p className="section-note">Carregando…</p>}
+        {subscription.isPending && <p className="section-note" role="status">Verificando recursos do plano…</p>}
+        {subscription.isError && <p className="section-note" role="alert">Não foi possível verificar os recursos do plano.</p>}
+        {subscription.data && !canSeeRelationship && <p className="section-note" role="status">Os indicadores de relacionamento estão disponíveis no Pró. <Link to="/planos-saas" className="underline">Conheça os planos</Link></p>}
         {totals?.followups === 0 && <p className="section-note" role="status">Este paciente ainda não tem acompanhamentos. Inicie um acompanhamento pela ficha para acompanhar o relacionamento.</p>}
       </section>
       {data && totals && totals.followups > 0 && (

@@ -500,6 +500,7 @@ export const app = new Hono()
     try {
       if (!isUuid(c.req.param('id'))) return fail(c, 'Paciente não encontrado.', 404);
       const tenantId = await catalogTenant(c.req, authTenant(c));
+      await requireClinicCapability(tenantId, 'patient.relationship_indicators');
       const report = await getRelationalRelationship(tenantId, c.req.param('id'));
       return report ? c.json(report) : fail(c, 'Paciente não encontrado.', 404);
     } catch (error) { return handleError(c, error); }

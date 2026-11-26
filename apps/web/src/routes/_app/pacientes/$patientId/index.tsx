@@ -34,6 +34,7 @@ function PatientDetail() {
   const subscription = useQuery(saasSubscriptionQuery);
   const canUsePhotos = subscription.data?.effectivePlan === 'standard' || subscription.data?.effectivePlan === 'pro';
   const canUseEvents = subscription.data?.effectivePlan === 'pro';
+  const canSeeRelationshipIndicators = subscription.data?.effectivePlan === 'pro';
   const events = useQuery({ ...eventsQuery, enabled: canUseEvents });
   const [dialog, setDialog] = useState<'edit' | 'followup' | 'standalone' | 'appointment' | null>(null);
   const allFollowups = (followups.data ?? []).filter((followup) => followup.patientId === patientId);
@@ -72,7 +73,13 @@ function PatientDetail() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => setDialog('edit')} disabled={!patient}><Pencil /> Editar paciente</Button>
-            <Button variant="outline" asChild><Link to="/pacientes/$patientId/relacionamento" params={{ patientId }}><ChartNoAxesCombined /> Relacionamento</Link></Button>
+            {subscription.isPending
+              ? <span role="status" className="text-sm text-muted-foreground">Verificando recursos do plano…</span>
+              : subscription.isError
+                ? <span role="alert" className="text-sm text-destructive">Não foi possível verificar os recursos do plano.</span>
+                : canSeeRelationshipIndicators
+              ? <Button variant="outline" asChild><Link to="/pacientes/$patientId/relacionamento" params={{ patientId }}><ChartNoAxesCombined /> Relacionamento</Link></Button>
+              : <Button variant="outline" asChild><Link to="/planos-saas"><ChartNoAxesCombined /> Relacionamento · Pró</Link></Button>}
             <Button variant="outline" onClick={() => setDialog('standalone')}><Sparkles /> Atendimento avulso</Button>
             <Button variant="outline" onClick={() => setDialog('followup')}><ClipboardPlus /> Novo acompanhamento</Button>
             <Button onClick={() => setDialog('appointment')}><CalendarPlus /> Novo agendamento</Button>

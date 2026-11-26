@@ -1378,6 +1378,22 @@ describe('Relacionamento do paciente', () => {
     ...extra,
   });
 
+  it('does not fetch or render relationship indicators below Pró', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'standard', subscription: { planId: 'standard', status: 'active', startedAt: '2026-01-01T00:00:00Z', endedAt: null } });
+    routes['GET /api/patients/p1/relationship'] = () => report();
+    renderAt('/pacientes/p1/relacionamento');
+    expect(await screen.findByText(/indicadores de relacionamento estão disponíveis no Pró/i)).toBeInTheDocument();
+    expect(calls.some((call) => call.url === '/api/patients/p1/relationship')).toBe(false);
+    expect(screen.queryByRole('heading', { name: 'Atendimentos por mês' })).not.toBeInTheDocument();
+  });
+
+  it('routes non-Pró patient details to plan comparison rather than the protected report', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    renderAt('/pacientes/p1');
+    expect(await screen.findByRole('link', { name: /relacionamento · pró/i })).toHaveAttribute('href', '/planos-saas');
+    expect(calls.some((call) => call.url === '/api/patients/p1/relationship')).toBe(false);
+  });
+
   it('shows attendances, total time, paid and pending values', async () => {
     routes['GET /api/patients/p1/relationship'] = () => report();
     renderAt('/pacientes/p1/relacionamento');
