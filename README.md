@@ -69,7 +69,7 @@ No `.env` local, `MINISTACK_ENDPOINT` seleciona o emulador e usa as credenciais 
 
 Portas do host configuráveis com `POSTGRES_PORT` e `MINISTACK_PORT`. O `docker-compose.yml` (produção) também usa a 5432; não suba os dois ao mesmo tempo.
 
-Web (Vite): http://localhost:5173 (o `routeTree.gen.ts` é gerado pelo plugin do router e deve ser versionado; novos componentes shadcn: `bunx shadcn@latest add <nome>` em `apps/web`); API: http://localhost:3000/api/health.
+Web (Vite): http://localhost:5173 (configurado por `WEB_PORT`; o `routeTree.gen.ts` é gerado pelo plugin do router e deve ser versionado; novos componentes shadcn: `bunx shadcn@latest add <nome>` em `apps/web`); API: http://localhost:3000/api/health (configurada por `API_PORT`). No Compose de produção, `WEB_PORT` é a porta publicada no host; ajuste-a para `3000` se quiser manter a URL padrão.
 
 ## Estrutura do monorepo
 

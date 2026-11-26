@@ -5,10 +5,8 @@
       "cache": false,
       "persistent": true,
       "env": [
-        "PORT",
-        "APP_PORT",
         "API_PORT",
-        "VITE_PORT",
+        "WEB_PORT",
         "VITE_API_PROXY_TARGET",
         "DATABASE_URL",
         "DB_SCHEMA",
@@ -38,9 +36,8 @@
       "cache": false,
       "persistent": true,
       "env": [
-        "PORT",
-        "APP_PORT",
         "API_PORT",
+        "WEB_PORT",
         "DATABASE_URL",
         "DB_SCHEMA",
         "DATA_ENCRYPTION_KEY",

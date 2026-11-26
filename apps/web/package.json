@@ -9,6 +9,7 @@
     "test": "vitest run --config vite.config.ts"
   },
   "dependencies": {
+    "@clinicare/config": "workspace:*",
     "@fingerprintjs/fingerprintjs": "^5.2.0",
     "@fullcalendar/core": "6.1.21",
     "@fullcalendar/interaction": "^6.1.21",

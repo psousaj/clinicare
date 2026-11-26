@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/api/package.json ./apps/api/package.json
 COPY apps/web/package.json ./apps/web/package.json
+COPY packages/config/package.json ./packages/config/package.json
 COPY packages/db/package.json ./packages/db/package.json
 RUN bun install --frozen-lockfile
 
@@ -15,7 +16,7 @@ RUN bun build apps/api/dist/manage.js --compile --minify --outfile /app/clinicar
 
 FROM debian:bookworm-slim AS runtime
 WORKDIR /app
-ENV NODE_ENV=production PORT=3000 MIGRATIONS_FOLDER=/app/apps/api/drizzle
+ENV NODE_ENV=production API_PORT=3000 MIGRATIONS_FOLDER=/app/apps/api/drizzle
 # Conversão DOCX->PDF sob demanda via LibreOffice headless + fontes
 # metricamente compatíveis com o Word (Calibri/Cambria não andam no layout).
 RUN apt-get update && apt-get install -y --no-install-recommends libreoffice-writer curl fonts-crosextra-carlito fonts-crosextra-caladea fonts-liberation && rm -rf /var/lib/apt/lists/*
@@ -26,7 +27,7 @@ COPY --from=build /app/clinicare-manage /usr/local/bin/clinicare-manage
 # CLI administrativo direto no PATH: `manage tenant list` dentro do container.
 COPY --from=build /app/docker/manage /usr/local/bin/manage
 RUN chmod +x /usr/local/bin/clinicare-api /usr/local/bin/clinicare-manage /usr/local/bin/manage
-EXPOSE 3000
+EXPOSE ${API_PORT}
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
-  CMD curl -fsS http://127.0.0.1:3000/api/health >/dev/null || exit 1
+  CMD curl -fsS "http://127.0.0.1:${API_PORT}/api/health" >/dev/null || exit 1
 CMD ["/usr/local/bin/clinicare-api"]
