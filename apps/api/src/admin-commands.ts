@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import {
   closeDatabase,
   getDatabase,
@@ -44,7 +44,6 @@ async function createBetterAuthClinicAdministrator(input: { tenantId: string; ad
     email: input.email,
     emailVerified: false,
     image: null,
-    tenantId: input.tenantId,
     initialPasswordChoice: 'pending',
   }, { method: 'email-password' });
 
@@ -131,11 +130,16 @@ export async function createClinicAdministrator(input: CreateAdministratorInput)
 
 export async function listAdministrators(tenantId?: string) {
   const database = getDatabase();
-  const where = tenantId ? eq(authUsers.tenantId, requireText(tenantId, 'Tenant')) : undefined;
-  const rows = where
-    ? await database.select({ id: authUsers.id, name: authUsers.name, email: authUsers.email, tenantId: authUsers.tenantId }).from(authUsers).where(where).orderBy(authUsers.email)
-    : await database.select({ id: authUsers.id, name: authUsers.name, email: authUsers.email, tenantId: authUsers.tenantId }).from(authUsers).orderBy(authUsers.email);
-  return rows;
+  const where = tenantId ? eq(userTenantMemberships.tenantId, requireText(tenantId, 'Tenant')) : undefined;
+  return database.select({
+    id: authUsers.id,
+    name: authUsers.name,
+    email: authUsers.email,
+    tenantId: userTenantMemberships.tenantId,
+  }).from(authUsers)
+    .innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
+    .where(where)
+    .orderBy(authUsers.email);
 }
 
 export function bootstrapConfigFromEnv(env: Record<string, string | undefined> = process.env): ProvisionClinicInput | null {
@@ -166,7 +170,12 @@ export async function seedConfiguredAdministrator(env: Record<string, string | u
     // (que usa BOOTSTRAP_CLINIC_NAME quando informado) e depois só muda
     // em Configurações. Renomear aqui a cada boot reverteria a edição do painel.
     await database.insert(tenants).values({ id: tenantDefaults.id, name: values.clinicName, active: true }).onConflictDoNothing({ target: tenants.id });
-    const [existingTenantUser] = await database.select().from(authUsers).where(eq(authUsers.tenantId, tenantDefaults.id));
+    const [existingTenantUser] = await database.select({ id: authUsers.id, email: authUsers.email })
+      .from(authUsers)
+      .innerJoin(userTenantMemberships, and(
+        eq(userTenantMemberships.userId, authUsers.id),
+        eq(userTenantMemberships.tenantId, tenantDefaults.id),
+      ));
     if (existingTenantUser) {
       if (existingTenantUser.email !== values.email) throw new Error('Já existe um administrador para a clínica inicial; o bootstrap não altera contas existentes.');
       return { created: false, email: existingTenantUser.email };

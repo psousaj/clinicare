@@ -159,6 +159,71 @@ dados.
 
 ## Rollback e critérios de parada
 
+- A partir da migration `0036_remove_legacy_user_tenant`, a versão anterior da
+  aplicação não é diretamente compatível porque esperava `user.tenant_id` e
+  unicidades globais antigas. Antes de reverter, pare todos os escritores e
+  confirme que a versão anterior consegue representar cada conta: cada usuário
+  deve ter no máximo um vínculo `admin`, cada clínica no máximo um administrador
+  e cada usuário no máximo um profissional. Caso contrário, o rollback ao binário
+  anterior é impossível sem resolver a incompatibilidade; não descarte vínculos.
+  Após backup consistente e validação, execute a transição reversa em transação:
+
+  ```sql
+  BEGIN;
+  DO $$
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM user_tenant_memberships
+      GROUP BY user_id HAVING count(*) > 1
+    ) OR EXISTS (
+      SELECT 1 FROM user_tenant_memberships
+      WHERE role <> 'admin'
+    ) OR EXISTS (
+      SELECT 1 FROM user_tenant_memberships
+      GROUP BY tenant_id HAVING count(*) > 1
+    ) OR EXISTS (
+      SELECT 1 FROM professionals
+      GROUP BY user_id HAVING count(*) > 1
+    ) THEN
+      RAISE EXCEPTION 'The prior application cannot represent current memberships/professionals.';
+    END IF;
+  END
+  $$;
+  ALTER TABLE "user" ADD COLUMN tenant_id uuid REFERENCES tenants(id);
+  UPDATE "user" u SET tenant_id = m.tenant_id
+    FROM user_tenant_memberships m WHERE m.user_id = u.id;
+  ALTER TABLE "user" ALTER COLUMN tenant_id SET NOT NULL;
+  ALTER TABLE "user" ADD CONSTRAINT user_tenant_id_unique UNIQUE (tenant_id);
+  ALTER TABLE professionals
+    ADD CONSTRAINT professionals_user_id_fkey FOREIGN KEY (user_id) REFERENCES "user"(id);
+  ALTER TABLE professionals ADD CONSTRAINT professionals_user_id_key UNIQUE (user_id);
+  CREATE OR REPLACE FUNCTION sync_legacy_user_tenant_membership()
+  RETURNS trigger LANGUAGE plpgsql AS $$
+  BEGIN
+    INSERT INTO user_tenant_memberships (user_id, tenant_id, role)
+    VALUES (NEW.id, NEW.tenant_id, 'admin')
+    ON CONFLICT (user_id, tenant_id) DO NOTHING;
+    RETURN NEW;
+  END
+  $$;
+  CREATE TRIGGER user_tenant_memberships_legacy_sync
+    AFTER INSERT OR UPDATE OF tenant_id ON "user"
+    FOR EACH ROW EXECUTE FUNCTION sync_legacy_user_tenant_membership();
+  COMMIT;
+  ```
+
+  Em caso de erro, faça `ROLLBACK`; nunca reabra o binário anterior com schema
+  parcialmente revertido. Após restaurar compatibilidade, migre novas escritas
+  de modo reconciliado; nunca aplique backup por cima delas.
+- `db:migrate-namespace <schema-confirmado>` é uma operação manual e explícita.
+  Use somente após inventário/backup e confirmação do responsável; a operação
+  renomeia atomicamente o schema legado para `clinicare`, preservando os objetos
+  no PostgreSQL. Falha se faltar tabela/ledger ou se o nome canônico estiver
+  ocupado. Não executa transferência entre databases/servidores nem concede
+  permissões; confira owners, ACLs e extensões no inventário e pare se divergirem.
+- Runtime/migrator recusam schema não canônico, candidatos múltiplos, instalação
+  incompleta e objetos desconhecidos no alvo canônico. Instalação nova só pode
+  iniciar quando não existe schema de aplicação/ledger concorrente.
 - Antes do corte, registrar backup consistente, restore verificado, versão da
   aplicação, migrations/ledger, schema, roles/grants e disponibilidade das
   chaves. Parar escritores (API, jobs e réplicas) durante a janela autorizada.
@@ -173,3 +238,19 @@ dados.
 - Registro real de produção, association SQL manual e operações do corte são
   responsabilidade do operador autorizado no ambiente e janela aprovados; este
   runbook não executa nem autoriza essas ações.
+
+### Evidência #50 — PostgreSQL descartável
+
+- Sem `DB_SCHEMA`, instalação vazia executou as 37 migrations no schema
+  `clinicare`; canonical preexistente concluiu retry sem duplicar o ledger.
+- Database local isolado com migrations até `0035` e fixtures sintéticas:
+  `0035` backfill/trigger criou o vínculo; `0036` preservou `user.id`, e-mail,
+  `professional.id`, `tenant_id` do profissional e membership `admin`, removendo
+  `user.tenant_id` e a unicidade global antiga de profissional. Não contém PII.
+- Cópia local descartável com schema/ledger legado foi renomeada explicitamente
+  para `clinicare`; tabelas, sequência, FK, dados e ledger permaneceram
+  consultáveis. Repetir o comando foi idempotente. Uma cópia com schema adicional
+  ocupado falhou fechada sem alterar os schemas.
+- `@clinicare/db test:integration`: 4 testes aprovados; API PostgreSQL + storage
+  MiniStack: 62 testes/510 assertions; typechecks DB/API aprovados. Nenhuma
+  conexão ou alteração em produção.

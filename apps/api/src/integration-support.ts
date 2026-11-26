@@ -64,8 +64,10 @@ export async function cleanupIntegrationClinics(tenantIds: string[]) {
   if (!tenantIds.length) return;
   const database = getDatabase();
   await database.delete(professionals).where(inArray(professionals.tenantId, tenantIds));
-  const users = await database.select({ id: authUsers.id }).from(authUsers).where(inArray(authUsers.tenantId, tenantIds));
-  const userIds = users.map(({ id }) => id);
+  const users = await database.select({ id: userTenantMemberships.userId })
+    .from(userTenantMemberships)
+    .where(inArray(userTenantMemberships.tenantId, tenantIds));
+  const userIds = [...new Set(users.map(({ id }) => id))];
   if (userIds.length) {
     await database.delete(userTenantMemberships).where(inArray(userTenantMemberships.userId, userIds));
     await database.delete(authSessions).where(inArray(authSessions.userId, userIds));

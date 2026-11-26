@@ -16,6 +16,7 @@ import {
   payments,
   procedures,
   tenants,
+  userTenantMemberships,
 } from '@clinicare/db';
 import { app } from './app';
 import { deactivateTenant, provisionClinic, reactivateTenant } from './admin-commands';
@@ -173,7 +174,9 @@ integration('tenant lifecycle with PostgreSQL', () => {
     expect(await db.select().from(authSessions).where(eq(authSessions.userId, provisioned.administrator.id))).toHaveLength(0);
 
     expect(await db.select().from(tenants).where(eq(tenants.id, tenantId))).toMatchObject([{ active: false }]);
-    expect(await db.select().from(authUsers).where(eq(authUsers.tenantId, tenantId))).toHaveLength(1);
+    expect(await db.select().from(authUsers)
+      .innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
+      .where(eq(userTenantMemberships.tenantId, tenantId))).toHaveLength(1);
     expect(await db.select({ id: patients.id }).from(patients).where(eq(patients.id, patient.id))).toHaveLength(1);
     expect(await db.select({ id: followups.id }).from(followups).where(eq(followups.id, followup!.id))).toHaveLength(1);
     expect(await db.select({ id: payments.id }).from(payments).where(eq(payments.id, payment!.id))).toHaveLength(1);

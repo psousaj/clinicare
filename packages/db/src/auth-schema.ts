@@ -9,11 +9,10 @@ export const authUsers = pgTable('user', {
   emailVerified: boolean('email_verified').notNull().default(false),
   image: text('image'),
   defaultSignaturePng: text('default_signature_png'),
-  tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
   initialPasswordChoice: text('initial_password_choice').notNull().default('pending'),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-}, (table) => [index('user_tenant_id_idx').on(table.tenantId), unique('user_tenant_id_unique').on(table.tenantId)]);
+});
 
 export const userTenantMemberships = pgTable('user_tenant_memberships', {
   userId: text('user_id').notNull().references(() => authUsers.id),
@@ -28,7 +27,7 @@ export const userTenantMemberships = pgTable('user_tenant_memberships', {
 
 export const professionals = pgTable('professionals', {
   // Keep the user-only uniqueness constraint until #50 removes the legacy schema contract.
-  id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull().references(() => tenants.id), userId: text('user_id').notNull().unique().references(() => authUsers.id), registrationType: text('registration_type').notNull(), registrationNumber: text('registration_number').notNull(), registrationState: text('registration_state'), active: boolean('active').notNull().default(true), createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(), updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull().references(() => tenants.id), userId: text('user_id').notNull().references(() => authUsers.id), registrationType: text('registration_type').notNull(), registrationNumber: text('registration_number').notNull(), registrationState: text('registration_state'), active: boolean('active').notNull().default(true), createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(), updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (table) => [
   index('professionals_tenant_idx').on(table.tenantId),
   unique('professionals_tenant_id_unique').on(table.tenantId, table.id),

@@ -23,7 +23,6 @@ export function getAuth() {
     },
     user: {
       additionalFields: {
-        tenantId: { type: 'string', required: true, input: false },
         initialPasswordChoice: { type: 'string', required: false, input: false },
       },
       changeEmail: {

@@ -25,7 +25,7 @@ import {
 
 integration('membership-based clinical authorization with PostgreSQL', () => {
   let clinics: IntegrationClinic[] = [];
-  const tenantIds = [crypto.randomUUID(), crypto.randomUUID(), crypto.randomUUID()];
+  const tenantIds = [crypto.randomUUID(), crypto.randomUUID()];
   const clinicIds = () => tenantIds;
 
   beforeAll(async () => {
@@ -135,11 +135,11 @@ integration('membership-based clinical authorization with PostgreSQL', () => {
     });
     expect(professionalProfile.status).toBe(200);
     const savedProfessional = await professionalProfile.json() as { id: string };
-    const professionalMigration = await readFile(
-      new URL('../../../packages/db/drizzle/0035_professional_tenant_membership.sql', import.meta.url),
+    const legacyRemovalMigration = await readFile(
+      new URL('../../../packages/db/drizzle/0036_remove_legacy_user_tenant.sql', import.meta.url),
       'utf8',
     );
-    await getDatabasePool().query(professionalMigration);
+    await getDatabasePool().query(legacyRemovalMigration);
     const updatedProfessionalProfile = await app.request('/api/auth/professional-profile', {
       method: 'PUT',
       headers: clinicA!.headers(),
@@ -159,23 +159,16 @@ integration('membership-based clinical authorization with PostgreSQL', () => {
       .where(eq(professionals.id, savedProfessional.id)))
       .toEqual([{ id: savedProfessional.id, tenantId: clinicA!.tenantId }]);
 
-    const legacyUserId = `legacy-app-${crypto.randomUUID()}`;
-    const legacyTenantId = tenantIds[2]!;
-    await getDatabase().insert(tenants).values({ id: legacyTenantId, name: `Legacy compatibility ${legacyTenantId}` });
-    await getDatabasePool().query(
-      `INSERT INTO "user" (id, name, email, tenant_id)
-       VALUES ($1, 'Legacy application account', $2, $3)`,
-      [legacyUserId, `${legacyUserId}@example.test`, legacyTenantId],
-    );
-    await getDatabasePool().query(
-      `INSERT INTO professionals (tenant_id, user_id, registration_type, registration_number)
-       VALUES ($1, $2, 'CRM', '98765')`,
-      [legacyTenantId, legacyUserId],
-    );
+    expect(await getDatabasePool().query(
+      `SELECT 1 FROM information_schema.columns
+       WHERE table_schema = current_schema() AND table_name = 'user' AND column_name = 'tenant_id'`,
+    )).toMatchObject({ rowCount: 0 });
+    const [membershipUser] = await getDatabase().select({ id: authUsers.id })
+      .from(authUsers).where(eq(authUsers.email, clinicA!.email));
     expect(await getDatabase().select({ userId: userTenantMemberships.userId, tenantId: userTenantMemberships.tenantId })
       .from(userTenantMemberships)
-      .where(eq(userTenantMemberships.userId, legacyUserId)))
-      .toEqual([{ userId: legacyUserId, tenantId: legacyTenantId }]);
+      .where(eq(userTenantMemberships.userId, membershipUser!.id)))
+      .toContainEqual({ userId: membershipUser!.id, tenantId: clinicA!.tenantId });
 
     await getDatabase().update(tenants).set({ active: false }).where(eq(tenants.id, clinicB!.tenantId));
     const inactiveSessionResponse = await app.request('/api/patients', { headers: clinicB!.headers() });
@@ -183,7 +176,6 @@ integration('membership-based clinical authorization with PostgreSQL', () => {
     expect(await inactiveSessionResponse.json()).toMatchObject({ code: 'CLINIC_INACTIVE' });
     await deactivateTenant(clinicB!.tenantId);
     const revokedSessionResponse = await app.request('/api/patients', { headers: clinicB!.headers() });
-    expect(revokedSessionResponse.status).toBe(401);
     expect(revokedSessionResponse.status).toBe(401);
     const inactiveLogin = await app.request('/api/auth/sign-in/email', {
       method: 'POST',

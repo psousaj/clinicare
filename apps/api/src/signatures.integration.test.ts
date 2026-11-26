@@ -8,7 +8,7 @@ import {
   planVersionContracts, planVersionItems, planVersions, plans, procedures,
   signatureEvents, signatureEvidence, signatureOperations,
   signatureParticipants, signaturePreviewCandidates, signatureProcesses, signatureRevisions,
-  signatureTokens, tenants, encryptValue, buildPatientAad,
+   signatureTokens, tenants, encryptValue, buildPatientAad, userTenantMemberships,
 } from '@clinicare/db';
 import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, integrationHeaders, provisionIntegrationClinic } from './integration-support';
 import { deleteObject, uploadObjectBytes } from './storage';
@@ -240,7 +240,9 @@ integration('PostgreSQL signatures API', () => {
 
   it('allows pending professional signatures without blocking, activates after every patient contract, and deduplicates concurrent confirmation', async () => {
     const db = getDatabase();
-    const sessionUser = (await db.select().from(authUsers).where(eq(authUsers.tenantId, tenantId)))[0]!;
+    const sessionUser = (await db.select({ user: authUsers }).from(authUsers)
+      .innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
+      .where(eq(userTenantMemberships.tenantId, tenantId)))[0]!.user;
     const tenantName = (await db.select().from(tenants).where(eq(tenants.id, tenantId)))[0]!.name;
     const processes = await db.select().from(signatureProcesses).where(eq(signatureProcesses.tenantId, tenantId));
     expect(processes).toHaveLength(2);

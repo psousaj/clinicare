@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { eq } from 'drizzle-orm';
 import { closeDatabase, getDatabase, getDatabasePool } from './index';
-import { migrateDatabase } from './migrate';
+import { migrateDatabase, resolveApplicationSchema } from './migrate';
 import { seedDatabase } from './seed';
 import { tenantDefaults, tenants } from './relational-schema';
 
@@ -50,5 +50,26 @@ integration('PostgreSQL persistence seam', () => {
     await seedDatabase();
     const rows = await getDatabase().select().from(tenants).where(eq(tenants.id, tenantDefaults.id));
     expect(rows).toHaveLength(1);
+  });
+
+  it('selects the canonical ledger and refuses an additional installation marker', async () => {
+    const database = getDatabasePool();
+    expect(await resolveApplicationSchema(database)).toBe('clinicare');
+
+    const collisionSchema = `clinicare_collision_${crypto.randomUUID().replaceAll('-', '')}`;
+    await database.query(`CREATE SCHEMA "${collisionSchema}"`);
+    try {
+      await database.query(`CREATE TABLE "${collisionSchema}".tenants (id uuid PRIMARY KEY)`);
+      await expect(resolveApplicationSchema(database)).rejects.toThrow('Unrecognized occupied PostgreSQL schema');
+      const preserved = await database.query<{ canonical_ledger: string; collision_marker: string }>(
+        `SELECT to_regclass('clinicare.__drizzle_migrations') AS canonical_ledger,
+                to_regclass($1 || '.tenants') AS collision_marker`,
+        [collisionSchema],
+      );
+      expect(preserved.rows[0]?.canonical_ledger).toBe('__drizzle_migrations');
+      expect(preserved.rows[0]?.collision_marker).toBe(`${collisionSchema}.tenants`);
+    } finally {
+      await database.query(`DROP SCHEMA "${collisionSchema}" CASCADE`);
+    }
   });
 });

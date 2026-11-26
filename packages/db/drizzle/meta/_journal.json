@@ -253,6 +253,13 @@
       "when": 1795662900000,
       "tag": "0035_professional_tenant_membership",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1795662900001,
+      "tag": "0036_remove_legacy_user_tenant",
+      "breakpoints": true
     }
   ]
 }

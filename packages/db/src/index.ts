@@ -1,6 +1,6 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg'
-import { getSearchPathOption } from './database-config';
+import { CANONICAL_DATABASE_SCHEMA } from './database-config';
 import * as relationalSchema from './relational-schema';
 import * as authSchema from './auth-schema';
 
@@ -19,7 +19,7 @@ export function getDatabase(): Database {
   if (database) return database;
   const currentPool = pool ?? (pool = new Pool({
       connectionString: getDatabaseUrl(),
-      options: getSearchPathOption(),
+      options: `-c search_path=${CANONICAL_DATABASE_SCHEMA}`,
     }));
   database = drizzle(currentPool, { schema: { ...relationalSchema, ...authSchema } });
   return database;

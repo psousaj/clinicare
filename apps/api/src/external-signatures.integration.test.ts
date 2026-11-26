@@ -8,7 +8,7 @@ import {
   planVersionContracts, planVersionItems, planVersions, plans, procedures,
   signatureEvents, signatureEvidence, signatureExternalAttempts, signatureExternalReceipts,
   signatureOperations, signatureParticipants, signaturePreviewCandidates, signatureProcesses, signatureRevisions,
-  signatureTokens, tenants,
+   signatureTokens, tenants, userTenantMemberships,
 } from '@clinicare/db';
 import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, integrationHeaders, provisionIntegrationClinic } from './integration-support';
 import { deleteObject, downloadObjectBytes, uploadObjectBytes } from './storage';
@@ -52,7 +52,9 @@ integration('Issue #26: Exportar e importar assinatura externa pelo GOV.BR', () 
     await provisionIntegrationClinic(app, 'sig-external-other', otherTenantId);
     sessionHeaders = integrationHeaders(tenantId);
     otherSessionHeaders = integrationHeaders(otherTenantId);
-    sessionEmail = (await db.select().from(authUsers).where(eq(authUsers.tenantId, tenantId)))[0]!.email;
+    sessionEmail = (await db.select({ email: authUsers.email }).from(authUsers)
+      .innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
+      .where(eq(userTenantMemberships.tenantId, tenantId)))[0]!.email;
 
     const patientRes = await request('/api/patients', json({ fullName: 'Paciente Externo', phone: '11987654321', cpf: patientCpf }));
     expect(patientRes.status).toBe(201);
@@ -449,7 +451,9 @@ integration('Issue #26: Exportar e importar assinatura externa pelo GOV.BR', () 
   it('lets the clinic representative sign externally through the panel', async () => {
     const db = getDatabase();
     const participants = await db.select().from(signatureParticipants).where(eq(signatureParticipants.tenantId, tenantId));
-    const sessionUser = (await db.select().from(authUsers).where(eq(authUsers.tenantId, tenantId)))[0]!;
+    const sessionUser = (await db.select({ user: authUsers }).from(authUsers)
+      .innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
+      .where(eq(userTenantMemberships.tenantId, tenantId)))[0]!.user;
     const representative = participants.find((p) => p.role === 'professional' && p.status === 'pending')!;
     expect(representative).toBeDefined();
 

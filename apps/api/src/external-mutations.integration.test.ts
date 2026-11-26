@@ -8,7 +8,7 @@ import {
   planVersionContracts, planVersionItems, planVersions, plans, procedures,
   signatureEvents, signatureEvidence, signatureExternalAttempts, signatureExternalReceipts,
   signatureOperations, signatureParticipants, signaturePreviewCandidates, signatureProcesses, signatureRevisions,
-  signatureTokens, tenants, patients,
+   signatureTokens, tenants, patients, userTenantMemberships,
 } from '@clinicare/db';
 import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, integrationHeaders, provisionIntegrationClinic } from './integration-support';
 import { deleteObject, downloadObjectBytes, uploadObjectBytes } from './storage';
@@ -228,7 +228,9 @@ integration('Issue #27: Preservar assinaturas externas em mutações posteriores
 
   it('chains local then external preserving every prefix', async () => {
     const db = getDatabase();
-    const sessionUser = (await db.select().from(authUsers).where(eq(authUsers.tenantId, tenantId)))[0]!;
+    const sessionUser = (await db.select({ user: authUsers }).from(authUsers)
+      .innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
+      .where(eq(userTenantMemberships.tenantId, tenantId)))[0]!.user;
     const repSigner = await issueTestSigner(ca, { commonName: 'Representante Mutação', cpfDigits: '11144477735', email: sessionUser.email });
     const token = tokenByProcess[processIds[0]!]!;
     const participants = await db.select().from(signatureParticipants).where(eq(signatureParticipants.tenantId, tenantId));
@@ -293,7 +295,9 @@ integration('Issue #27: Preservar assinaturas externas em mutações posteriores
 
   it('chains two external signatures preserving and revalidating both', async () => {
     const db = getDatabase();
-    const sessionUser = (await db.select().from(authUsers).where(eq(authUsers.tenantId, tenantId)))[0]!;
+    const sessionUser = (await db.select({ user: authUsers }).from(authUsers)
+      .innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
+      .where(eq(userTenantMemberships.tenantId, tenantId)))[0]!.user;
     const repSigner = await issueTestSigner(ca, { commonName: 'Representante Mutação 2', cpfDigits: '11144477735', email: sessionUser.email });
     const token = tokenByProcess[processIds[1]!]!;
     const participants = await db.select().from(signatureParticipants).where(eq(signatureParticipants.tenantId, tenantId));
