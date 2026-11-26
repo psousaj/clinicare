@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { and, eq, inArray } from 'drizzle-orm';
 import { app } from './app';
 import {
-  anamneses, anamnesisProcedures, anamnesisVersions, procedureVersions, appliedAnamneses, buildPatientAad, closeDatabase, comboAnamneses, comboItems, combos, contractVersions, contracts,
+  anamneses, anamnesisProcedures, anamnesisVersions, procedureVersions, appliedAnamneses, buildPatientAad, clinicSubscriptions, closeDatabase, comboAnamneses, comboItems, combos, contractVersions, contracts,
   encryptValue, eventAnamneses, eventContracts, eventItems, events, followupContracts, followupItems, followupSnapshots, followups, getDatabase, migrateDatabase,
   patients, planVersionAnamneses, planVersionContracts, planVersionItems, planVersions, plans, payments, procedures, signatureEvents, signatureParticipants,
   signatureProcesses, signatureRevisions, signatureTokens,
@@ -20,9 +20,11 @@ integration('offer-owned anamnesis links with PostgreSQL', () => {
     assertSafeIntegrationDatabase();
     await migrateDatabase();
     clinics = [await provisionIntegrationClinic(app, 'anamnesis-links-a', tenantIds[0]!), await provisionIntegrationClinic(app, 'anamnesis-links-b', tenantIds[1]!)];
+    await getDatabase().insert(clinicSubscriptions).values({ tenantId: tenantIds[0]!, planId: 'standard', status: 'active', startedAt: new Date() });
   });
   afterAll(async () => {
     const db = getDatabase();
+    await db.delete(clinicSubscriptions).where(inArray(clinicSubscriptions.tenantId, tenantIds));
     for (const table of [signatureEvents, signatureRevisions, signatureTokens, signatureParticipants, payments, appliedAnamneses, signatureProcesses, followupContracts, followupSnapshots, followupItems, followups, planVersionAnamneses, eventAnamneses, comboAnamneses, planVersionContracts, planVersionItems, planVersions, plans, eventContracts, eventItems, events, comboItems, combos, anamnesisProcedures, anamnesisVersions, anamneses, contractVersions, contracts, procedureVersions, procedures, patients]) await db.delete(table).where(inArray((table as any).tenantId, tenantIds));
     await cleanupIntegrationClinics(tenantIds);
     await closeDatabase();

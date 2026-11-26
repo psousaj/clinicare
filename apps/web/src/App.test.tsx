@@ -962,6 +962,50 @@ describe('Acompanhamentos', () => {
     expect(screen.queryByRole('region', { name: /anamneses pendentes/i })).not.toBeInTheDocument();
   });
 
+  it('keeps in-clinic anamnesis available on Free while hiding public-link actions', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    routes['GET /api/followups'] = () => [pendingFollowup({ anamneses: [{ id: 'pa1', title: 'Anamnese pendente', required: true, answered: false }] })];
+    routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
+    renderAt('/pacientes/p1');
+    const pending = await screen.findByRole('region', { name: /anamneses pendentes/i });
+    expect(within(pending).getByText(/envio por link exige standard/i)).toBeInTheDocument();
+    expect(within(pending).queryByRole('button', { name: /copiar link/i })).not.toBeInTheDocument();
+    expect(within(pending).getByRole('link', { name: /preencher agora/i })).toHaveAttribute('href', '/pacientes/p1/anamneses/pa1');
+  });
+
+  it('keeps avulso history visible on Free without photo access or download actions', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    routes['GET /api/patients/p1/history'] = () => ({
+      patient: marina,
+      events: [{
+        type: 'attendance', at: '2026-10-01T10:00:00.000Z', title: 'Peeling realizado',
+        details: { id: 'att1', photoCount: 1, photos: [{ id: 'photo1', url: 'https://private.example/photo' }] },
+      }],
+      pending: [],
+    });
+    renderAt('/pacientes/p1');
+    expect(await screen.findByRole('heading', { name: 'Marina Alves' })).toBeInTheDocument();
+    expect(await screen.findByText(/fotos existentes foram preservadas/i)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /anexar fotos/i })).not.toBeInTheDocument();
+    expect(document.querySelector('img[src="https://private.example/photo"]')).not.toBeInTheDocument();
+  });
+
+  it('preserves attendance notes while preventing Free edits to custom fields and photos', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    routes['GET /api/attendances/s1'] = () => ({
+      _id: 's1', patientId: 'p1', procedureName: 'Peeling', performedAt: '2026-10-01T10:00:00.000Z',
+      schemaSnapshot: { type: 'object', properties: { allergy: { type: 'string', title: 'Alergias' } } },
+      data: { allergy: 'Histórico preservado' }, notes: 'Nota preservada', durationMinutes: 30,
+      photos: [{ id: 'photo1', objectKey: 'photo-key', phase: 'before', url: null }],
+    });
+    renderAt('/pacientes/p1/atendimentos/s1');
+    expect(await screen.findByText(/campos personalizados foram preservados/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Alergias')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Observações do atendimento')).toHaveValue('Nota preservada');
+    expect(screen.getByText(/fotos existentes foram preservadas/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /enviar foto/i })).not.toBeInTheDocument();
+  });
+
   it('shows submitted anamnesis answers read-only on the answers page', async () => {
     routes['GET /api/patient-anamneses/pa1'] = () => ({
       id: 'pa1', title: 'Anamnese geral', submittedAt: '2026-10-01T10:00:00.000Z',
@@ -996,7 +1040,14 @@ describe('Acompanhamentos', () => {
   });
 
   it('lets the professional fill a pending anamnesis on the spot', async () => {
-    routes['GET /api/followups'] = () => [pendingFollowup()];
+    routes['GET /api/patients/p1/history'] = () => ({
+      patient: marina,
+      events: [{
+        type: 'anamnesis', at: '2026-10-01T10:00:00.000Z', title: 'Anamnese geral · pendente',
+        details: { id: 'pa1', title: 'Anamnese geral', titleSnapshot: 'Anamnese geral', submittedAt: null, schemaSnapshot: { type: 'object', properties: { alergias: { type: 'string', title: 'Alergias' } } } },
+      }],
+      pending: [],
+    });
     routes['POST /api/patient-anamneses/pa1/answers'] = () => ({});
     const user = userEvent.setup();
     renderAt('/pacientes/p1/anamneses/pa1');
@@ -1411,7 +1462,7 @@ describe('Conta', () => {
     renderAt('/');
     expect((await screen.findAllByText('Dra. Paula')).length).toBeGreaterThanOrEqual(1);
     expect((await screen.findAllByText('Clínica Essenza')).length).toBeGreaterThanOrEqual(1);
-    expect((await screen.findAllByText('CRM 123456/SP')).length).toBeGreaterThanOrEqual(1);
+    expect((await screen.findAllByText(/CRM 123456\/SP/)).length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText('Administradora')).not.toBeInTheDocument();
     expect(screen.queryByText('Clínica Vitta')).not.toBeInTheDocument();
   });

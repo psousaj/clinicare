@@ -9,10 +9,11 @@ import { AppointmentDialog, NewFollowupDialog, StandaloneAttendanceDialog } from
 import { ContractSummary } from '@/components/ContractSummary';
 import { PatientTimeline } from '@/components/PatientTimeline';
 import { PendingRequirements } from '@/components/PendingRequirements';
+import { StandaloneAnamnesisPanel } from '@/components/StandaloneAnamnesisPanel';
 import { QueryError } from '@/components/QueryState';
 import { Button } from '@/components/ui/button';
 import { dateTime } from '@/lib/format';
-import { eventsQuery, followupsQuery, combosQuery, patientHistoryQuery, patientsQuery, plansQuery, proceduresQuery } from '@/lib/queries';
+import { eventsQuery, followupsQuery, combosQuery, patientHistoryQuery, patientsQuery, plansQuery, proceduresQuery, saasSubscriptionQuery } from '@/lib/queries';
 import type { Followup } from '@/lib/schemas';
 
 export const Route = createFileRoute('/_app/pacientes/$patientId/')({ component: PatientDetail });
@@ -30,6 +31,8 @@ function PatientDetail() {
       },
     });
   const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), combos = useQuery(combosQuery), plans = useQuery(plansQuery), events = useQuery(eventsQuery);
+  const subscription = useQuery(saasSubscriptionQuery);
+  const canUsePhotos = subscription.data?.effectivePlan === 'standard' || subscription.data?.effectivePlan === 'pro';
   const [dialog, setDialog] = useState<'edit' | 'followup' | 'standalone' | 'appointment' | null>(null);
   const allFollowups = (followups.data ?? []).filter((followup) => followup.patientId === patientId);
   const patientFollowups = allFollowups.filter((followup) => followup.offerType !== 'procedure');
@@ -38,6 +41,18 @@ function PatientDetail() {
   const patient = history.data?.patient;
   const upcoming = (history.data?.pending ?? []).filter((entry) => entry.type === 'appointment');
   const attendances = (history.data?.events ?? []).filter((entry) => entry.type === 'attendance' && entry.details?.id);
+  const standaloneAnamneses = (history.data?.events ?? [])
+    .filter((entry) => entry.type === 'anamnesis' && !(entry.details as Record<string, unknown> | undefined)?.followupId)
+    .map((entry) => {
+      const details = entry.details as Record<string, unknown>;
+      return {
+        id: String(details.id),
+        procedureId: String(details.procedureId),
+        title: String(details.titleSnapshot ?? entry.title),
+        submittedAt: typeof details.submittedAt === 'string' ? details.submittedAt : null,
+        validUntil: typeof details.validUntil === 'string' ? details.validUntil : null,
+      };
+    });
   type AttendanceDetails = { photos?: Array<{ url?: string | null }>; photoCount?: number; followupId?: string | null; followupItemId?: string | null } | undefined;
   const isLinked = (entry: (typeof attendances)[number]) => Boolean((entry.details as AttendanceDetails)?.followupId ?? (entry.details as AttendanceDetails)?.followupItemId);
   // Atendimentos avulsos com o mesmo nome de um procedimento contratado não
@@ -67,6 +82,7 @@ function PatientDetail() {
         <div className="grid items-start gap-4 lg:grid-cols-2">
           <div className="grid gap-4">
             <PendingRequirements followups={allFollowups} patientId={patientId} />
+            <StandaloneAnamnesisPanel patientId={patientId} applied={standaloneAnamneses} />
             <ContractSummary followups={patientFollowups} />            {standaloneCharges.length > 0 && (
           <section className="panel patient-history-panel">
                 <div className="panel-header"><div><div className="section-kicker">COBRANÇA</div><h2>Atendimentos avulsos</h2></div></div>
@@ -86,7 +102,7 @@ function PatientDetail() {
                       <span className="flex flex-wrap items-center gap-2">{entry.title.replace(/ (realizado|cancelado)$/, '')} <StatusBadge tone={linked ? 'neutral' : 'warning'}>{linked ? 'Plano' : 'Avulso'}</StatusBadge></span>
                       <span className="text-xs text-muted-foreground">{dateTime(entry.at)}{linked ? '' : ' · não abate o plano'}</span>
                     </span>
-                    <span className="inline-flex items-center gap-1 text-xs font-medium text-primary"><Camera className="size-3.5" /> {count} · Acompanhar</span>
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-primary"><Camera className="size-3.5" /> {canUsePhotos ? `${count} · Acompanhar` : `${count} foto(s) preservada(s)`}</span>
                   </Link>
                 );
               })}
@@ -100,10 +116,11 @@ function PatientDetail() {
           <div className="grid gap-4">
             <section className="panel">
               <div className="panel-header"><h2>Histórico</h2></div>
-              <PatientTimeline events={history.data.events} patientId={patientId} />
+              <PatientTimeline events={history.data.events} patientId={patientId} canUsePhotos={canUsePhotos} />
             </section>
             <section className="panel">
               <div className="panel-header"><div><div className="section-kicker">SESSÕES</div><h2>Fotos por sessão</h2></div></div>
+              {!canUsePhotos && <p className="m-0 text-sm text-muted-foreground" role="status">As fotos existentes foram preservadas; consulta e envio de fotos exigem Standard.</p>}
               {attendances.length === 0 && <p className="m-0 text-sm text-muted-foreground">Nenhuma sessão para anexar fotos ainda.</p>}
               {attendances.map((entry) => {
                 const details = entry.details as { photos?: Array<{ id?: string; _id?: string; url?: string | null }>; photoCount?: number; followupId?: string | null; followupItemId?: string | null } | undefined;
@@ -116,16 +133,16 @@ function PatientDetail() {
                     <span className="procedure-info grid gap-1.5">
                       <span className="flex flex-wrap items-center gap-2"><strong>{entry.title.replace(/ (realizado|cancelado)$/, '')}</strong> <StatusBadge tone={linked ? 'neutral' : 'warning'}>{linked ? 'Plano' : 'Avulso'}</StatusBadge></span>
                       <span className="text-xs text-muted-foreground">{dateTime(entry.at)} · {count} {count === 1 ? 'foto' : 'fotos'}{linked ? '' : ' · não abate o plano'}</span>
-                      {thumbs.length > 0 ? (
+                      {canUsePhotos && thumbs.length > 0 ? (
                         <span className="flex gap-1.5">
                           {thumbs.map((photo) => (
                             <img key={photo.id ?? photo._id ?? photo.url} src={photo.url!} alt="" loading="lazy" className="size-11 rounded-md border border-border object-cover" />
                           ))}
                           {count > thumbs.length && <span className="grid size-11 place-items-center rounded-md border border-border bg-muted text-[11px] font-semibold text-muted-foreground">+{count - thumbs.length}</span>}
                         </span>
-                      ) : <span className="text-xs text-muted-foreground">Sem fotos — anexe o antes, durante e depois da sessão.</span>}
+                      ) : canUsePhotos ? <span className="text-xs text-muted-foreground">Sem fotos — anexe o antes, durante e depois da sessão.</span> : null}
                     </span>
-                    <Link className="text-button shrink-0" to="/pacientes/$patientId/atendimentos/$attendanceId" params={{ patientId, attendanceId: entry.details!.id! }}>Anexar fotos</Link>
+                    {canUsePhotos && <Link className="text-button shrink-0" to="/pacientes/$patientId/atendimentos/$attendanceId" params={{ patientId, attendanceId: entry.details!.id! }}>Anexar fotos</Link>}
                   </div>
                 );
               })}

@@ -94,6 +94,13 @@ export async function requireClinicCapability(tenantId: string, capability: Saas
   }
 }
 
+export async function clinicHasCapability(tenantId: string, capability: SaasCapability) {
+  const planId = await getClinicSaasPlan(tenantId);
+  const [plan] = await getDatabase().select({ capabilities: saasPlans.capabilities })
+    .from(saasPlans).where(eq(saasPlans.id, planId));
+  return !!plan?.capabilities?.includes(capability);
+}
+
 export async function changeClinicSubscription(input: {
   tenantId: string;
   actorUserId: string;

@@ -9,6 +9,7 @@ import { validateFormSchema } from '@/lib/fieldKinds';
 import { toggleId } from '@/lib/utils';
 import { parseForm, procedureForm } from '@/lib/forms';
 import { anamnesesQuery, useCreateProcedure, useSaveProcedureAnamneses, useUpdateProcedure } from '@/lib/queries';
+import { saasSubscriptionQuery } from '@/lib/queries';
 import { useQuery } from '@tanstack/react-query';
 import type { Procedure } from '@/lib/schemas';
 
@@ -18,6 +19,8 @@ const emptySchema: Record<string, unknown> = { type: 'object', properties: {} };
 export function ProcedureFormPage({ procedure }: { procedure?: Procedure }) {
   const create = useCreateProcedure(), update = useUpdateProcedure(), saveAnamneses = useSaveProcedureAnamneses();
   const forms = useQuery(anamnesesQuery).data ?? [];
+  const subscription = useQuery(saasSubscriptionQuery);
+  const canConfigureSessionFields = subscription.data?.effectivePlan === 'standard' || subscription.data?.effectivePlan === 'pro';
   const [schema, setSchema] = useState<Record<string, unknown>>((procedure?.sessionSchema as Record<string, unknown> | undefined) ?? emptySchema);
   const [requireNewAnamnesis, setRequireNewAnamnesis] = useState(procedure?.requireNewAnamnesis ?? false);
   const [active, setActive] = useState(procedure?.active ?? true);
@@ -48,7 +51,7 @@ export function ProcedureFormPage({ procedure }: { procedure?: Procedure }) {
             </div>
             <AnamnesisPicker forms={forms} pickedIds={anamnesisIds} onToggle={(id, on) => setAnamnesisIds((list) => toggleId(list, id, on))} />
           </section>
-          <section className="panel grid gap-3">
+          {canConfigureSessionFields ? <section className="panel grid gap-3">
             <div>
               <div className="section-kicker">SESSÃO</div>
               <h3 className="m-0 text-sm font-semibold">Campos da sessão</h3>
@@ -58,7 +61,7 @@ export function ProcedureFormPage({ procedure }: { procedure?: Procedure }) {
               </p>
             </div>
             <SchemaEditor value={schema} onChange={setSchema} />
-          </section>
+          </section> : <section className="panel" role="status"><h3 className="m-0 text-sm font-semibold">Campos da sessão</h3><p className="section-note">Campos personalizados exigem Standard. Os dados existentes continuam preservados.</p></section>}
         </>
       )}
     >

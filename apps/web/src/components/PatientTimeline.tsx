@@ -14,7 +14,7 @@ const kinds: Record<string, { label: string; icon: LucideIcon; tone: string }> =
   anamnesis: { label: 'Anamnese', icon: ClipboardList, tone: 'bg-[#f7e8df] text-[#a3521f]' },
 };
 
-function Body({ entry, patientId }: { entry: Entry; patientId: string }) {
+function Body({ entry, patientId, canUsePhotos }: { entry: Entry; patientId: string; canUsePhotos: boolean }) {
   const rawPhotos = (entry.details as { photos?: Array<{ id?: string; _id?: string; url?: string | null; phase?: string }>; photoCount?: number; followupId?: string | null; followupItemId?: string | null; groupedCount?: number } | undefined);
   const photos = rawPhotos?.photos ?? [];
   const count = rawPhotos?.photoCount ?? photos.length;
@@ -28,7 +28,7 @@ function Body({ entry, patientId }: { entry: Entry; patientId: string }) {
       {entry.type === 'attendance' && (
         <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-primary"><Camera className="size-3.5" /> {count} {count === 1 ? 'foto' : 'fotos'} · {rawPhotos?.groupedCount && rawPhotos.groupedCount > 1 ? `${rawPhotos.groupedCount} sessões agrupadas` : 'acompanhar sessão'}</span>
       )}
-      {entry.type === 'attendance' && thumbs.length > 0 && (
+      {entry.type === 'attendance' && canUsePhotos && thumbs.length > 0 && (
         <span className="mt-1.5 flex gap-1.5" aria-label={`${count} fotos da sessão`}>
           {thumbs.map((photo) => (
             <img key={photo.id ?? photo._id ?? photo.url} src={photo.url!} alt="" loading="lazy" className="size-11 rounded-md border border-border object-cover" />
@@ -46,7 +46,7 @@ function Body({ entry, patientId }: { entry: Entry; patientId: string }) {
   return <div className="grid gap-0.5 rounded-lg border border-border bg-white p-3">{content}</div>;
 }
 
-export function PatientTimeline({ events, patientId }: { events: Entry[]; patientId: string }) {
+export function PatientTimeline({ events, patientId, canUsePhotos }: { events: Entry[]; patientId: string; canUsePhotos: boolean }) {
   if (!events.length) return <p className="m-0 text-sm text-muted-foreground">Nenhum registro ainda.</p>;
   const grouped: GroupedEntry[] = [];
   for (const entry of events) {
@@ -68,7 +68,7 @@ export function PatientTimeline({ events, patientId }: { events: Entry[]; patien
         return (
           <li key={index} className="relative grid grid-cols-[32px_1fr] items-start gap-3">
             <span className={`z-10 grid size-8 place-items-center rounded-full ring-4 ring-white ${tone}`}><Icon className="size-4" /></span>
-            <Body entry={entry} patientId={patientId} />
+            <Body entry={entry} patientId={patientId} canUsePhotos={canUsePhotos} />
           </li>
         );
       })}

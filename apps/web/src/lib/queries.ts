@@ -143,6 +143,8 @@ export const useDeletePatient = () =>
   useApiMutation({ mutationFn: (id: string) => api(`/api/patients/${id}`, { method: 'DELETE', schema: anySchema }), invalidate: [keys.patients], success: 'Paciente excluído.' });
 export const useCreateProcedure = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/procedures', body), invalidate: [keys.procedures], success: 'Procedimento cadastrado.' });
 export const useCreateAnamnesis = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/anamneses', body), invalidate: [keys.anamneses], success: 'Formulário de anamnese criado.' });
+export const useCreateAppliedAnamnesis = (patientId: string) =>
+  useApiMutation({ mutationFn: (body: unknown) => post('/api/patient-anamneses', body, appliedAnamnesisSchema), invalidate: [keys.history(patientId)], success: 'Anamnese aplicada ao atendimento avulso.' });
 export const useRestoreAnamnesis = () =>
   useApiMutation({ mutationFn: ({ id, version }: { id: string; version: number }) => post(`/api/anamneses/${id}/versions`, { restoreVersion: version }), invalidate: [keys.anamneses], success: (_, { version }) => `Rollback feito: nova versão criada a partir da v${version}.` });
 export const useSaveProcedureAnamneses = () =>

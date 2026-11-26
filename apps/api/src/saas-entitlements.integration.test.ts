@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, expect, it } from 'bun:test';
 import { createHash } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { appliedDocuments, appointmentItems, appointments, attendances, clinicSubscriptions, closeDatabase, comboItems, combos, contractVersions, contracts, documentCleanupJobs, followupContracts, followupItems, followupSnapshots, followups, getDatabase, migrateDatabase, patients, payments, planVersionContracts, planVersionItems, planVersions, plans, procedureVersions, procedures, signatureParticipants, signatureProcesses, signatureTokens } from '@clinicare/db';
+import { appliedAnamneses, appliedDocuments, anamnesisProcedures, anamnesisVersions, anamneses, appointmentItems, appointments, attendancePhotos, attendances, clinicSubscriptions, closeDatabase, comboItems, combos, contractVersions, contracts, documentCleanupJobs, followupContracts, followupItems, followupSnapshots, followups, getDatabase, migrateDatabase, patients, payments, planVersionContracts, planVersionItems, planVersions, plans, procedureVersions, procedures, signatureParticipants, signatureProcesses, signatureTokens } from '@clinicare/db';
 import { app } from './app';
 import { deleteAppliedDocument } from './clinical';
 import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
@@ -30,7 +30,7 @@ integration('SaaS offer capabilities through API with PostgreSQL', () => {
       await deleteAppliedDocument(tenantId, documentId);
     }
     await db.delete(documentCleanupJobs).where(eq(documentCleanupJobs.tenantId, standard.tenantId));
-    for (const table of [appliedDocuments, signatureTokens, signatureParticipants, signatureProcesses, attendances, appointmentItems, appointments, payments, followupSnapshots, followupItems, followupContracts, followups, planVersionContracts, planVersionItems, planVersions, plans, contractVersions, contracts, comboItems, combos, procedureVersions, procedures, patients]) {
+    for (const table of [appliedAnamneses, appliedDocuments, signatureTokens, signatureParticipants, signatureProcesses, attendancePhotos, attendances, appointmentItems, appointments, payments, followupSnapshots, followupItems, followupContracts, followups, planVersionContracts, planVersionItems, planVersions, plans, contractVersions, contracts, comboItems, combos, anamnesisProcedures, anamnesisVersions, anamneses, procedureVersions, procedures, patients]) {
       for (const tenantId of tenantIds) await db.delete(table).where(eq((table as any).tenantId, tenantId));
     }
     await cleanupIntegrationClinics(tenantIds);
@@ -292,5 +292,198 @@ integration('SaaS offer capabilities through API with PostgreSQL', () => {
     expect(await getDatabase().select().from(signatureParticipants).where(eq(signatureParticipants.id, participantId))).toEqual(persistedBeforeFreeze.participants);
     expect(await getDatabase().select().from(signatureTokens).where(eq(signatureTokens.participantId, participantId))).toEqual(persistedBeforeFreeze.tokens);
     expect(await getDatabase().select().from(combos).where(eq(combos.tenantId, free.tenantId))).toHaveLength(0);
+  });
+
+  it('allows Free in-clinic anamnesis on an avulso and gates public links, custom fields, and photo storage URLs', async () => {
+    const freeHeaders = free.headers();
+    const form = await app.request('/api/anamneses', {
+      method: 'POST', headers: freeHeaders,
+      body: JSON.stringify({ title: 'Anamnese avulsa', schema: { type: 'object', properties: { allergy: { type: 'string', title: 'Alergias' } } } }),
+    });
+    expect(form.status).toBe(201);
+    const formBody = await form.json() as { id: string };
+    const procedure = await (await app.request('/api/procedures', {
+      method: 'POST', headers: freeHeaders,
+      body: JSON.stringify({ name: 'Procedimento anamnéstico', durationMinutes: 30, priceCents: 300 }),
+    })).json() as { id: string };
+    expect((await app.request('/api/procedures', {
+      method: 'POST', headers: freeHeaders,
+      body: JSON.stringify({ name: 'Procedimento com campos', durationMinutes: 30, priceCents: 300, sessionSchema: { type: 'object', properties: { note: { type: 'string' } } } }),
+    })).status).toBe(403);
+    expect((await app.request(`/api/procedures/${procedure.id}`, {
+      method: 'PUT', headers: freeHeaders,
+      body: JSON.stringify({ sessionSchema: { type: 'object', properties: { note: { type: 'string' } } } }),
+    })).status).toBe(403);
+    expect((await app.request(`/api/procedures/${procedure.id}/anamneses`, {
+      method: 'PUT', headers: freeHeaders, body: JSON.stringify({ anamnesisIds: [formBody.id] }),
+    })).status).toBe(200);
+    const patient = await (await app.request('/api/patients', {
+      method: 'POST', headers: freeHeaders, body: JSON.stringify({ fullName: 'Paciente anamnese Free' }),
+    })).json() as { id: string };
+    const applied = await app.request('/api/patient-anamneses', {
+      method: 'POST', headers: freeHeaders,
+      body: JSON.stringify({ patientId: patient.id, procedureId: procedure.id, anamnesisId: formBody.id }),
+    });
+    expect(applied.status).toBe(201);
+    const appliedBody = await applied.json() as { id: string; followupId: string | null; procedureId: string };
+    expect(appliedBody).toMatchObject({ followupId: null, procedureId: procedure.id });
+    expect((await app.request(`/api/patient-anamneses/${appliedBody.id}`, { headers: freeHeaders })).status).toBe(200);
+    expect((await app.request(`/api/patient-anamneses/${appliedBody.id}/answers`, {
+      method: 'POST', headers: freeHeaders, body: JSON.stringify({ answers: { allergy: 'Nenhuma' } }),
+    })).status).toBe(201);
+    expect((await app.request('/api/anamnesis-requests', {
+      method: 'POST', headers: freeHeaders, body: JSON.stringify({ patientAnamnesisId: appliedBody.id }),
+    })).status).toBe(403);
+    expect((await app.request(`/api/patient-anamneses/${appliedBody.id}`, { headers: standard.headers() })).status).toBe(404);
+    expect((await app.request(`/api/patients/${patient.id}/history`, { headers: standard.headers() })).status).toBe(404);
+
+    const start = new Date(Date.now() + 86400000);
+    const appointment = await (await app.request('/api/appointments', {
+      method: 'POST', headers: freeHeaders,
+      body: JSON.stringify({ patientId: patient.id, startsAt: start.toISOString(), endsAt: new Date(start.getTime() + 30 * 60000).toISOString(), items: [{ procedureId: procedure.id }] }),
+    })).json() as { id: string };
+    const customDataAppointment = await (await app.request('/api/appointments', {
+      method: 'POST', headers: freeHeaders,
+      body: JSON.stringify({ patientId: patient.id, startsAt: new Date(start.getTime() + 86400000).toISOString(), endsAt: new Date(start.getTime() + 86400000 + 30 * 60000).toISOString(), items: [{ procedureId: procedure.id }] }),
+    })).json() as { id: string };
+    expect((await app.request('/api/attendances', {
+      method: 'POST', headers: freeHeaders,
+      body: JSON.stringify({ appointmentId: customDataAppointment.id, data: { allergy: 'Não permitido' } }),
+    })).status).toBe(403);
+    expect((await app.request(`/api/appointments/${customDataAppointment.id}/attendance`, {
+      method: 'POST', headers: freeHeaders, body: JSON.stringify({ data: { allergy: 'Não permitido' } }),
+    })).status).toBe(403);
+    const attendance = await (await app.request(`/api/appointments/${appointment.id}/attendance`, {
+      method: 'POST', headers: freeHeaders, body: JSON.stringify({}),
+    })).json() as { id: string };
+    await getDatabase().insert(attendancePhotos).values({ tenantId: free.tenantId, attendanceId: attendance.id, objectKey: crypto.randomUUID(), phase: 'before' });
+    expect((await app.request(`/api/attendances/${attendance.id}`, {
+      method: 'PATCH', headers: freeHeaders, body: JSON.stringify({ data: { allergy: 'Nova informação' } }),
+    })).status).toBe(403);
+    const freeAttendance = await app.request(`/api/attendances/${attendance.id}`, { headers: freeHeaders });
+    expect(freeAttendance.status).toBe(200);
+    const freeAttendanceBody = await freeAttendance.json();
+    expect(freeAttendanceBody).not.toHaveProperty('data');
+    expect(freeAttendanceBody).not.toHaveProperty('schemaSnapshot');
+    const freeAttendanceList = await app.request('/api/attendances', { headers: freeHeaders });
+    expect(freeAttendanceList.status).toBe(200);
+    expect((await freeAttendanceList.json() as unknown[]).every((row: any) => !Object.hasOwn(row, 'data'))).toBe(true);
+    expect((await app.request('/api/uploads/presign', {
+      method: 'POST', headers: freeHeaders,
+      body: JSON.stringify({ attendanceId: attendance.id, contentType: 'image/jpeg', size: 128 }),
+    })).status).toBe(403);
+    expect((await app.request('/api/uploads/presign', {
+      method: 'POST', headers: standard.headers(),
+      body: JSON.stringify({ attendanceId: attendance.id, contentType: 'image/jpeg', size: 128 }),
+    })).status).toBe(404);
+    const standardPatient = await (await app.request('/api/patients', {
+      method: 'POST', headers: standard.headers(), body: JSON.stringify({ fullName: 'Paciente foto Standard' }),
+    })).json() as { id: string };
+    const standardProcedure = await (await app.request('/api/procedures', {
+      method: 'POST', headers: standard.headers(),
+      body: JSON.stringify({ name: 'Procedimento foto Standard', durationMinutes: 30, priceCents: 300, sessionSchema: { type: 'object', properties: { allergy: { type: 'string' } } } }),
+    })).json() as { id: string };
+    const standardAppointment = await (await app.request('/api/appointments', {
+      method: 'POST', headers: standard.headers(),
+      body: JSON.stringify({ patientId: standardPatient.id, startsAt: start.toISOString(), endsAt: new Date(start.getTime() + 30 * 60000).toISOString(), items: [{ procedureId: standardProcedure.id }] }),
+    })).json() as { id: string };
+    const standardAttendance = await (await app.request(`/api/appointments/${standardAppointment.id}/attendance`, {
+      method: 'POST', headers: standard.headers(), body: JSON.stringify({ data: { allergy: 'Nenhuma' } }),
+    })).json() as { id: string };
+    const photoBytes = Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2Q==', 'base64');
+    const photoHash = createHash('sha256').update(photoBytes).digest('hex');
+    const photoIntent = await app.request('/api/uploads/presign', {
+      method: 'POST', headers: standard.headers(),
+      body: JSON.stringify({ attendanceId: standardAttendance.id, contentType: 'image/jpeg', size: photoBytes.length, contentHash: photoHash }),
+    });
+    expect(photoIntent.status).toBe(200);
+    const intentBody = await photoIntent.json() as { uploadUrl: string; objectKey: string; uploadToken: string };
+    const putPhoto = await fetch(intentBody.uploadUrl, { method: 'PUT', headers: { 'content-type': 'image/jpeg' }, body: photoBytes });
+    expect(putPhoto.ok).toBe(true);
+    const savedPhoto = await app.request(`/api/attendances/${standardAttendance.id}/photos`, {
+      method: 'POST', headers: standard.headers(),
+      body: JSON.stringify({ objectKey: intentBody.objectKey, uploadToken: intentBody.uploadToken, contentHash: photoHash, phase: 'before' }),
+    });
+    expect(savedPhoto.status).toBe(201);
+    const savedPhotoBody = await savedPhoto.json() as { id: string };
+    expect(await (await app.request(`/api/attendances/${standardAttendance.id}`, { headers: standard.headers() })).json()).toHaveProperty('data.allergy', 'Nenhuma');
+    const standardAttendanceResponse = await (await app.request(`/api/attendances/${standardAttendance.id}`, { headers: standard.headers() })).json() as { photos: Array<{ url: string }> };
+    expect(new URL(standardAttendanceResponse.photos[0].url).searchParams.has('X-Amz-Signature')).toBe(true);
+    const downloadPhoto = await fetch(standardAttendanceResponse.photos[0].url);
+    expect(downloadPhoto.ok).toBe(true);
+    expect(Buffer.from(await downloadPhoto.arrayBuffer())).toEqual(photoBytes);
+    const upload = await app.request('/api/uploads/presign', {
+      method: 'POST', headers: standard.headers(),
+      body: JSON.stringify({ attendanceId: standardAttendance.id, contentType: 'image/jpeg', size: 128 }),
+    });
+    expect(upload.status).toBe(200);
+    expect(new URL((await upload.json() as { uploadUrl: string }).uploadUrl).searchParams.has('X-Amz-Signature')).toBe(true);
+    const standardForm = await (await app.request('/api/anamneses', {
+      method: 'POST', headers: standard.headers(),
+      body: JSON.stringify({ title: 'Anamnese por link', schema: { type: 'object', properties: { allergy: { type: 'string' } } } }),
+    })).json() as { id: string };
+    expect((await app.request(`/api/procedures/${standardProcedure.id}/anamneses`, {
+      method: 'PUT', headers: standard.headers(), body: JSON.stringify({ anamnesisIds: [standardForm.id] }),
+    })).status).toBe(200);
+    const standardApplied = await (await app.request('/api/patient-anamneses', {
+      method: 'POST', headers: standard.headers(),
+      body: JSON.stringify({ patientId: standardPatient.id, procedureId: standardProcedure.id, anamnesisId: standardForm.id }),
+    })).json() as { id: string };
+    const answerApplied = await (await app.request('/api/patient-anamneses', {
+      method: 'POST', headers: standard.headers(),
+      body: JSON.stringify({ patientId: standardPatient.id, procedureId: standardProcedure.id, anamnesisId: standardForm.id }),
+    })).json() as { id: string };
+    expect((await app.request(`/api/patient-anamneses/${answerApplied.id}/answers`, {
+      method: 'POST', headers: standard.headers(), body: JSON.stringify({ answers: { allergy: 'Alergia histórica' } }),
+    })).status).toBe(201);
+    expect(await (await app.request(`/api/patient-anamneses/${answerApplied.id}`, { headers: standard.headers() })).json()).toHaveProperty('answers.allergy', 'Alergia histórica');
+    const link = await app.request('/api/anamnesis-requests', {
+      method: 'POST', headers: standard.headers(), body: JSON.stringify({ patientAnamnesisId: standardApplied.id }),
+    });
+    expect(link.status).toBe(201);
+    const token = ((await link.json()) as { url: string }).url.split('/').at(-1)!;
+    await getDatabase().update(appliedAnamneses).set({ requestExpiresAt: new Date(Date.now() - 1000) }).where(eq(appliedAnamneses.id, standardApplied.id));
+    expect((await app.request(`/public/anamnesis/${token}`)).status).toBe(404);
+    const refreshed = await app.request(`/api/anamnesis-requests/${standardApplied.id}/refresh`, { method: 'PUT', headers: standard.headers() });
+    expect(refreshed.status).toBe(200);
+    const refreshedToken = ((await refreshed.json()) as { url: string }).url.split('/').at(-1)!;
+    const standardHistory = await (await app.request(`/api/patients/${standardPatient.id}/history`, { headers: standard.headers() })).json() as { events: Array<{ type: string; details?: Record<string, any> }> };
+    const standardHistoryAttendance = standardHistory.events.find((event) => event.type === 'attendance' && event.details?.id === standardAttendance.id)!.details!;
+    expect(standardHistoryAttendance).toHaveProperty('data.allergy', 'Nenhuma');
+    expect(standardHistoryAttendance).toHaveProperty('schemaSnapshot.properties.allergy');
+    expect(standardHistoryAttendance).not.toHaveProperty('dataCiphertext');
+    expect(standardHistoryAttendance).not.toHaveProperty('notesCiphertext');
+    await getDatabase().update(clinicSubscriptions).set({ status: 'paused' }).where(eq(clinicSubscriptions.tenantId, standard.tenantId));
+    expect((await app.request(`/api/procedures/${standardProcedure.id}`, {
+      method: 'PUT', headers: standard.headers(),
+      body: JSON.stringify({ sessionSchema: { type: 'object', properties: {} } }),
+    })).status).toBe(403);
+    const preservedProcedure = (await (await app.request('/api/procedures', { headers: standard.headers() })).json() as Array<{ id: string; sessionSchema: { properties: Record<string, unknown> } }>).find((procedure) => procedure.id === standardProcedure.id);
+    expect(preservedProcedure?.sessionSchema.properties).toHaveProperty('allergy');
+    const downgradedAttendance = await app.request(`/api/attendances/${standardAttendance.id}`, { headers: standard.headers() });
+    expect(downgradedAttendance.status).toBe(200);
+    expect(await downgradedAttendance.json()).not.toHaveProperty('data');
+    const downgradedHistory = await (await app.request(`/api/patients/${standardPatient.id}/history`, { headers: standard.headers() })).json() as { events: Array<{ type: string; details?: { photos?: Array<{ url?: string }> } }> };
+    expect(downgradedHistory.events.filter((event) => event.type === 'attendance').every((event) => !(event.details?.photos ?? []).some((photo: { url?: string }) => photo.url))).toBe(true);
+    expect(downgradedHistory.events.filter((event) => event.type === 'attendance').every((event) => !Object.hasOwn(event.details ?? {}, 'data') && !Object.hasOwn(event.details ?? {}, 'dataCiphertext'))).toBe(true);
+    expect(downgradedHistory.events.filter((event) => event.type === 'attendance').every((event) => !Object.hasOwn(event.details ?? {}, 'schemaSnapshot'))).toBe(true);
+    expect((await app.request(`/public/anamnesis/${refreshedToken}`)).status).toBe(403);
+    expect((await app.request(`/public/anamnesis/${refreshedToken}/draft`, {
+      method: 'PUT', body: JSON.stringify({ draft: { allergy: 'alteração bloqueada' } }),
+    })).status).toBe(403);
+    expect((await app.request(`/api/anamnesis-requests/${standardApplied.id}/refresh`, {
+      method: 'PUT', headers: standard.headers(),
+    })).status).toBe(403);
+    expect((await getDatabase().select().from(appliedAnamneses).where(eq(appliedAnamneses.id, standardApplied.id)))[0].requestTokenHash).toBeTruthy();
+    expect((await getDatabase().select().from(attendancePhotos).where(eq(attendancePhotos.attendanceId, standardAttendance.id)))).toHaveLength(1);
+    await getDatabase().update(clinicSubscriptions).set({ status: 'active' }).where(eq(clinicSubscriptions.tenantId, standard.tenantId));
+    expect(await (await app.request(`/api/attendances/${standardAttendance.id}`, { headers: standard.headers() })).json()).toHaveProperty('data.allergy', 'Nenhuma');
+    expect((await app.request(`/api/attendances/${standardAttendance.id}/photos/${savedPhotoBody.id}`, {
+      method: 'DELETE', headers: standard.headers(),
+    })).status).toBe(200);
+    const historical = await (await app.request(`/api/patients/${patient.id}/history`, { headers: freeHeaders })).json() as { events: Array<{ type: string; details?: Record<string, any> }> };
+    expect(historical.events.filter((event) => event.type === 'attendance').every((event) => !(event.details?.photos ?? []).some((photo: { url?: string }) => photo.url))).toBe(true);
+    expect(historical.events.filter((event) => event.type === 'attendance').every((event) => !Object.hasOwn(event.details ?? {}, 'data') && !Object.hasOwn(event.details ?? {}, 'dataCiphertext') && !Object.hasOwn(event.details ?? {}, 'notesCiphertext'))).toBe(true);
+    expect(historical.events.filter((event) => event.type === 'attendance').every((event) => !Object.hasOwn(event.details ?? {}, 'schemaSnapshot'))).toBe(true);
   });
 });
