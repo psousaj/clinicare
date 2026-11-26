@@ -1,5 +1,14 @@
-import { eq } from 'drizzle-orm';
-import { closeDatabase, getDatabase, getDatabasePool, tenantDefaults, tenants, authUsers, authSessions } from '@clinicare/db';
+import { eq, inArray } from 'drizzle-orm';
+import {
+  closeDatabase,
+  getDatabase,
+  getDatabasePool,
+  tenantDefaults,
+  tenants,
+  authUsers,
+  authSessions,
+  userTenantMemberships,
+} from '@clinicare/db';
 import { getAuth } from './auth';
 
 export type ProvisionClinicInput = {
@@ -47,7 +56,15 @@ async function createBetterAuthClinicAdministrator(input: { tenantId: string; ad
       userId: user.id,
       password: passwordHash,
     });
+    await getDatabase().insert(userTenantMemberships).values({
+      userId: user.id,
+      tenantId: input.tenantId,
+      role: 'admin',
+    }).onConflictDoNothing({
+      target: [userTenantMemberships.userId, userTenantMemberships.tenantId],
+    });
   } catch (error) {
+    await getDatabase().delete(userTenantMemberships).where(eq(userTenantMemberships.userId, user.id)).catch(() => undefined);
     await context.internalAdapter.deleteUser(user.id).catch(() => undefined);
     throw error;
   }
@@ -174,8 +191,12 @@ export async function deactivateTenant(tenantId: string) {
   const database = getDatabase();
   const [tenant] = await database.update(tenants).set({ active: false }).where(eq(tenants.id, tenantId)).returning({ id: tenants.id });
   if (!tenant) throw new Error('Tenant não encontrado.');
-  const [user] = await database.select({ id: authUsers.id }).from(authUsers).where(eq(authUsers.tenantId, tenantId));
-  if (user) await database.delete(authSessions).where(eq(authSessions.userId, user.id));
+  const users = await database.select({ id: userTenantMemberships.userId })
+    .from(userTenantMemberships)
+    .where(eq(userTenantMemberships.tenantId, tenantId));
+  if (users.length) {
+    await database.delete(authSessions).where(inArray(authSessions.userId, users.map(({ id }) => id)));
+  }
   return { tenantId, active: false };
 }
 

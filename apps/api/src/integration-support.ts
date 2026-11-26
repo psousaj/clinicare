@@ -1,6 +1,6 @@
 import { describe } from 'bun:test';
 import { and, eq, inArray } from 'drizzle-orm';
-import { authAccounts, authSessions, authUsers, getDatabase, tenants } from '@clinicare/db';
+import { authAccounts, authSessions, authUsers, getDatabase, professionals, tenants, userTenantMemberships } from '@clinicare/db';
 import { provisionClinic } from './admin-commands';
 
 type AppLike = { request(path: string, init?: RequestInit): Promise<Response> };
@@ -63,9 +63,11 @@ export async function provisionIntegrationClinic(api: { request: (...args: any[]
 export async function cleanupIntegrationClinics(tenantIds: string[]) {
   if (!tenantIds.length) return;
   const database = getDatabase();
+  await database.delete(professionals).where(inArray(professionals.tenantId, tenantIds));
   const users = await database.select({ id: authUsers.id }).from(authUsers).where(inArray(authUsers.tenantId, tenantIds));
   const userIds = users.map(({ id }) => id);
   if (userIds.length) {
+    await database.delete(userTenantMemberships).where(inArray(userTenantMemberships.userId, userIds));
     await database.delete(authSessions).where(inArray(authSessions.userId, userIds));
     await database.delete(authAccounts).where(inArray(authAccounts.userId, userIds));
     await database.delete(authUsers).where(inArray(authUsers.id, userIds));

@@ -1,4 +1,4 @@
-import { boolean, check, index, pgTable, primaryKey, text, timestamp, uuid, unique } from 'drizzle-orm/pg-core';
+import { boolean, check, foreignKey, index, pgTable, primaryKey, text, timestamp, uuid, unique } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { tenants } from './relational-schema';
 
@@ -27,8 +27,18 @@ export const userTenantMemberships = pgTable('user_tenant_memberships', {
 ]);
 
 export const professionals = pgTable('professionals', {
+  // Keep the user-only uniqueness constraint until #50 removes the legacy schema contract.
   id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull().references(() => tenants.id), userId: text('user_id').notNull().unique().references(() => authUsers.id), registrationType: text('registration_type').notNull(), registrationNumber: text('registration_number').notNull(), registrationState: text('registration_state'), active: boolean('active').notNull().default(true), createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(), updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-}, (table) => [index('professionals_tenant_idx').on(table.tenantId), unique('professionals_tenant_id_unique').on(table.tenantId, table.id)]);
+}, (table) => [
+  index('professionals_tenant_idx').on(table.tenantId),
+  unique('professionals_tenant_id_unique').on(table.tenantId, table.id),
+  unique('professionals_tenant_user_unique').on(table.tenantId, table.userId),
+  foreignKey({
+    columns: [table.userId, table.tenantId],
+    foreignColumns: [userTenantMemberships.userId, userTenantMemberships.tenantId],
+    name: 'professionals_user_tenant_membership_fk',
+  }),
+]);
 
 export const authSessions = pgTable('session', {
   id: text('id').primaryKey(),

@@ -2,7 +2,7 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { betterAuth } from 'better-auth';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { eq } from 'drizzle-orm';
-import { authSchema, authUsers, getDatabase, tenants } from '@clinicare/db';
+import { authSchema, authUsers, getDatabase, tenants, userTenantMemberships } from '@clinicare/db';
 import { getTrustedOrigins } from './auth-config';
 
 export const SESSION_DURATION_SECONDS = 24 * 60 * 60;
@@ -41,12 +41,13 @@ export function getAuth() {
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path !== '/sign-in/email' || typeof ctx.body?.email !== 'string') return;
         const email = ctx.body.email.trim().toLowerCase();
-        const [tenant] = await getDatabase()
+        const accountMemberships = await getDatabase()
           .select({ active: tenants.active })
-          .from(authUsers)
-          .innerJoin(tenants, eq(tenants.id, authUsers.tenantId))
+          .from(userTenantMemberships)
+          .innerJoin(tenants, eq(tenants.id, userTenantMemberships.tenantId))
+          .innerJoin(authUsers, eq(authUsers.id, userTenantMemberships.userId))
           .where(eq(authUsers.email, email));
-        if (tenant && !tenant.active) {
+        if (accountMemberships.length > 0 && !accountMemberships.some(({ active }) => active)) {
           throw new APIError('UNAUTHORIZED', {
             message: 'Invalid email or password',
             code: 'INVALID_EMAIL_OR_PASSWORD',

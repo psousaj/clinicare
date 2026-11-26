@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { eq, inArray } from 'drizzle-orm';
-import { authAccounts, authUsers, closeDatabase, connectPostgresDatabase, getDatabase, migrateDatabase, tenants } from '@clinicare/db';
+import { authAccounts, authUsers, closeDatabase, connectPostgresDatabase, getDatabase, migrateDatabase, tenants, userTenantMemberships } from '@clinicare/db';
 import { app } from './app';
 import { provisionClinic } from './admin-commands';
 import { assertSafeIntegrationDatabase, integration } from './integration-support';
@@ -21,6 +21,7 @@ integration('clinic administrator provisioning with PostgreSQL', () => {
     if (tenantIds.length) {
       const users = await db.select({ id: authUsers.id }).from(authUsers).where(inArray(authUsers.tenantId, tenantIds));
       for (const { id } of users) {
+        await db.delete(userTenantMemberships).where(eq(userTenantMemberships.userId, id));
         await db.delete(authAccounts).where(eq(authAccounts.userId, id));
         await db.delete(authUsers).where(eq(authUsers.id, id));
       }

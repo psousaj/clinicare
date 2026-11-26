@@ -246,6 +246,13 @@
       "when": 1795662800000,
       "tag": "0034_user_tenant_memberships",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1795662900000,
+      "tag": "0035_professional_tenant_membership",
+      "breakpoints": true
     }
   ]
 }

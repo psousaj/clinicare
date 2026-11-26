@@ -197,7 +197,7 @@ export async function updateProfessionalProfile(c: Context) {
     registrationState,
     active: true,
   }).onConflictDoUpdate({
-    target: [professionals.userId],
+    target: [professionals.tenantId, professionals.userId],
     set: { registrationType, registrationNumber, registrationState, active: true, updatedAt: new Date() },
   }).returning();
   return c.json({
