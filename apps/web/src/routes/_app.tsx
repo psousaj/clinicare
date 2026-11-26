@@ -5,7 +5,7 @@ import { QuickActions } from '@/components/QuickActions';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { accountQuery, professionalProfileQuery, useUpdateInitialPasswordChoice } from '@/lib/queries';
+import { accountQuery, professionalProfileQuery, saasSubscriptionQuery, useUpdateInitialPasswordChoice } from '@/lib/queries';
 
 const navigation = [
   { to: '/', label: 'Visão geral', title: 'Sua clínica, em um só lugar.', icon: LayoutDashboard },
@@ -18,9 +18,11 @@ const navigation = [
   { to: '/contratos', label: 'Contratos', title: 'Contratos da clínica', icon: FileText },
   { to: '/documentos', label: 'Documentos', title: 'Assinaturas do representante', icon: FileSignature },
   { to: '/financeiro', label: 'Financeiro', title: 'Acompanhamentos e pagamentos', icon: WalletCards },
+  { to: '/planos-saas', label: 'Planos Clínicare', title: 'Compare planos SaaS', icon: Layers },
 ] as const;
 const mobileNavigation = [navigation[0], navigation[1], navigation[2], navigation[8]] as const;
 const settingsEntry = { to: '/configuracoes', label: 'Configurações', title: 'Registro profissional e preferências da conta.' } as const;
+const planLabel = (id: 'free' | 'standard' | 'pro') => ({ free: 'Free', standard: 'Standard', pro: 'Pró' })[id];
 
 export const Route = createFileRoute('/_app')({
   beforeLoad: async () => {
@@ -34,6 +36,7 @@ export const Route = createFileRoute('/_app')({
 function NavigationPanelContent({ onNavigate, mobile = false }: { onNavigate: () => void; mobile?: boolean }) {
   const account = useQuery(accountQuery);
   const profile = useQuery(professionalProfileQuery);
+  const saas = useQuery(saasSubscriptionQuery);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [signingOut, setSigningOut] = useState(false);
@@ -72,7 +75,7 @@ function NavigationPanelContent({ onNavigate, mobile = false }: { onNavigate: ()
       </div>
       <div className="clinic-switch">
         <span className="clinic-avatar">{initials(tenantName)}</span>
-        <span className="clinic-label"><strong>{tenantName}</strong><small>{council ?? account.data?.user.email ?? '…'}</small></span>
+        <span className="clinic-label"><strong>{tenantName}</strong><small>{saas.data ? `${planLabel(saas.data.effectivePlan)} · ${council ?? account.data?.user.email ?? ''}` : council ?? account.data?.user.email ?? '…'}</small></span>
         <ChevronDown size={15} />
       </div>
       <div className="nav-caption">MENU PRINCIPAL</div>

@@ -3,9 +3,11 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { api } from './api';
 import { sha256Hex } from './sha256';
-import { anamnesisSchema, anySchema, accountSchema, appointmentSchema, appliedAnamnesisSchema, contractSchema, createdSchema, comboSchema, eventSchema, planSchema, patientHistorySchema, professionalProfileSchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicAnamnesisSchema, publicFormSchema, requestSchema, attendanceSchema, sessionSchema, signatureHistorySchema, signaturePendingSchema, defaultSignatureSchema } from './schemas';
+import { anamnesisSchema, anySchema, accountSchema, appointmentSchema, appliedAnamnesisSchema, contractSchema, createdSchema, comboSchema, eventSchema, planSchema, patientHistorySchema, professionalProfileSchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicAnamnesisSchema, publicFormSchema, requestSchema, attendanceSchema, sessionSchema, signatureHistorySchema, signaturePendingSchema, defaultSignatureSchema, saasPlanSchema, saasSubscriptionSchema } from './schemas';
 
 export const keys = {
+  saasPlans: ['saas-plans'] as const,
+  saasSubscription: ['saas-subscription'] as const,
   patients: ['patients'] as const,
   procedures: ['procedures'] as const,
   anamneses: ['anamneses'] as const,
@@ -36,6 +38,11 @@ export const anamnesesQuery = list(keys.anamneses, '/api/anamneses', anamnesisSc
 export const contractsQuery = list(keys.contracts, '/api/contracts', contractSchema);
 export const combosQuery = list(keys.combos, '/api/combos', comboSchema);
 export const plansQuery = list(keys.plans, '/api/plans', planSchema);
+export const saasPlansQuery = list(keys.saasPlans, '/api/saas/plans', saasPlanSchema);
+export const saasSubscriptionQuery = queryOptions({
+  queryKey: keys.saasSubscription,
+  queryFn: () => api('/api/saas/subscription', { schema: saasSubscriptionSchema, fallbackError: 'Não foi possível carregar a assinatura da clínica.' }),
+});
 export const eventsQuery = list(keys.events, '/api/events', eventSchema);
 export const followupsQuery = list(keys.followups, '/api/followups', followupSchema);
 export const signaturePendingQuery = list(keys.signaturePending, '/api/signature-pending', signaturePendingSchema);

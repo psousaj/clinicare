@@ -18,6 +18,7 @@ import { changeOwnEmail, changeOwnPassword, getAccount, getDefaultSignature, get
 import { getContractDraftEditor, listContractPlaceholders, presignContractDraft, publishContractDraft, saveContractDraft } from './contract-authoring';
 import { generateFollowupContract, reprocessFollowupContract, retryFollowupContract } from './contract-generation';
 import { observedClientIp as resolveObservedClientIp } from './request-ip';
+import { getSaasSubscription, listSaasPlans } from './saas-plans';
 
 const fail = (c: Context, message: string, status: 400 | 401 | 403 | 404 | 409 | 410 | 429 | 503 = 400) => c.json({ error: message }, status);
 const isRecord = (value: unknown): value is Record<string, any> => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -55,6 +56,8 @@ const authTenant = (c: Context) => clinicSession(c).tenantId;
 export const app = new Hono()
   .use('/api/*', cors({ origin: getTrustedOrigins() }))
   .onError((error, c) => handleError(c, error))
+  .get('/api/saas/plans', async (c) => c.json(await listSaasPlans()))
+  .get('/api/saas/subscription', requireClinicSession, async (c) => c.json(await getSaasSubscription(authTenant(c))))
   // Rotas específicas ANTES do curinga do better-auth: o Hono executa o
   // primeiro handler que responde, então o '/api/auth/*' sombrearia o GET/POST
   // abaixo com 404 se viesse primeiro.

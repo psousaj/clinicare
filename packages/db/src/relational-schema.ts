@@ -9,6 +9,58 @@ export const tenants = pgTable('tenants', {
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (t) => [check('tenants_name_not_empty', sql`length(trim(${t.name})) > 0`), unique('tenants_id_unique').on(t.id)]);
 
+export const saasPlans = pgTable('saas_plans', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  rank: integer('rank').notNull(),
+  capabilities: jsonb('capabilities').$type<string[]>().notNull(),
+  priceCents: integer('price_cents'),
+  billingInterval: text('billing_interval'),
+  available: boolean('available').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  check('saas_plans_id_valid', sql`${t.id} in ('free', 'standard', 'pro')`),
+  unique('saas_plans_rank_unique').on(t.rank),
+  check('saas_plans_rank_valid', sql`${t.rank} between 0 and 2`),
+  check('saas_plans_price_valid', sql`${t.priceCents} is null or ${t.priceCents} >= 0`),
+  check('saas_plans_interval_valid', sql`${t.billingInterval} is null or ${t.billingInterval} in ('month', 'year')`),
+  check('saas_plans_commercial_pair_valid', sql`(${t.priceCents} is null and ${t.billingInterval} is null) or (${t.priceCents} is not null and ${t.billingInterval} is not null)`),
+]);
+
+export const clinicSubscriptions = pgTable('clinic_subscriptions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+  planId: text('plan_id').notNull().references(() => saasPlans.id),
+  status: text('status').notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }).notNull(),
+  endedAt: timestamp('ended_at', { withTimezone: true, mode: 'date' }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  unique('clinic_subscriptions_tenant_id_unique').on(t.tenantId, t.id),
+  index('clinic_subscriptions_tenant_created_idx').on(t.tenantId, t.createdAt),
+  uniqueIndex('clinic_subscriptions_current_tenant_unique').on(t.tenantId).where(sql`${t.endedAt} is null`),
+  check('clinic_subscriptions_status_valid', sql`${t.status} in ('active', 'paused', 'inactive')`),
+  check('clinic_subscriptions_interval_valid', sql`${t.endedAt} is null or ${t.endedAt} >= ${t.startedAt}`),
+]);
+
+export const saasSubscriptionEvents = pgTable('saas_subscription_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+  subscriptionId: uuid('subscription_id').notNull(),
+  actorUserId: text('actor_user_id').notNull(),
+  fromPlanId: text('from_plan_id').references(() => saasPlans.id),
+  toPlanId: text('to_plan_id').references(() => saasPlans.id),
+  fromStatus: text('from_status'),
+  toStatus: text('to_status').notNull(),
+  occurredAt: timestamp('occurred_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.subscriptionId], foreignColumns: [clinicSubscriptions.tenantId, clinicSubscriptions.id], name: 'saas_subscription_events_tenant_subscription_fk' }),
+  index('saas_subscription_events_subscription_time_idx').on(t.subscriptionId, t.occurredAt),
+  check('saas_subscription_events_from_status_valid', sql`${t.fromStatus} is null or ${t.fromStatus} in ('active', 'paused', 'inactive')`),
+  check('saas_subscription_events_to_status_valid', sql`${t.toStatus} in ('active', 'paused', 'inactive')`),
+]);
+
 export const patients = pgTable('patients', {
   id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull().references(() => tenants.id), fullName: text('full_name').notNull(),
   emailCiphertext: text('email_ciphertext'), emailNonce: text('email_nonce'), emailSearchHash: text('email_search_hash'), emailSearchKeyVersion: integer('email_search_key_version'), emailKeyVersion: integer('email_key_version'),

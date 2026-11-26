@@ -16,6 +16,7 @@ import { Route as AppAgendaRouteImport } from './routes/_app/agenda'
 import { Route as AppConfiguracoesRouteImport } from './routes/_app/configuracoes'
 import { Route as AppDocumentosRouteImport } from './routes/_app/documentos'
 import { Route as AppFinanceiroRouteImport } from './routes/_app/financeiro'
+import { Route as AppPlanosSaasRouteImport } from './routes/_app/planos-saas'
 import { Route as AssinaturaTokenRouteImport } from './routes/assinatura.$token'
 import { Route as FormularioTokenRouteImport } from './routes/formulario.$token'
 import { Route as AppContratosIndexRouteImport } from './routes/_app/contratos/index'
@@ -76,6 +77,11 @@ const AppDocumentosRoute = AppDocumentosRouteImport.update({
 const AppFinanceiroRoute = AppFinanceiroRouteImport.update({
   id: '/financeiro',
   path: '/financeiro',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPlanosSaasRoute = AppPlanosSaasRouteImport.update({
+  id: '/planos-saas',
+  path: '/planos-saas',
   getParentRoute: () => AppRoute,
 } as any)
 const AssinaturaTokenRoute = AssinaturaTokenRouteImport.update({
@@ -235,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes': typeof AppConfiguracoesRoute
   '/documentos': typeof AppDocumentosRouteWithChildren
   '/financeiro': typeof AppFinanceiroRoute
+  '/planos-saas': typeof AppPlanosSaasRoute
   '/assinatura/$token': typeof AssinaturaTokenRoute
   '/formulario/$token': typeof FormularioTokenRoute
   '/contratos/$contractId': typeof AppContratosContractIdRoute
@@ -269,6 +276,7 @@ export interface FileRoutesByTo {
   '/configuracoes': typeof AppConfiguracoesRoute
   '/documentos': typeof AppDocumentosRouteWithChildren
   '/financeiro': typeof AppFinanceiroRoute
+  '/planos-saas': typeof AppPlanosSaasRoute
   '/assinatura/$token': typeof AssinaturaTokenRoute
   '/formulario/$token': typeof FormularioTokenRoute
   '/': typeof AppIndexRoute
@@ -306,6 +314,7 @@ export interface FileRoutesById {
   '/_app/configuracoes': typeof AppConfiguracoesRoute
   '/_app/documentos': typeof AppDocumentosRouteWithChildren
   '/_app/financeiro': typeof AppFinanceiroRoute
+  '/_app/planos-saas': typeof AppPlanosSaasRoute
   '/assinatura/$token': typeof AssinaturaTokenRoute
   '/formulario/$token': typeof FormularioTokenRoute
   '/_app/': typeof AppIndexRoute
@@ -344,6 +353,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/documentos'
     | '/financeiro'
+    | '/planos-saas'
     | '/assinatura/$token'
     | '/formulario/$token'
     | '/contratos/$contractId'
@@ -378,6 +388,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/documentos'
     | '/financeiro'
+    | '/planos-saas'
     | '/assinatura/$token'
     | '/formulario/$token'
     | '/'
@@ -414,6 +425,7 @@ export interface FileRouteTypes {
     | '/_app/configuracoes'
     | '/_app/documentos'
     | '/_app/financeiro'
+    | '/_app/planos-saas'
     | '/assinatura/$token'
     | '/formulario/$token'
     | '/_app/'
@@ -500,6 +512,13 @@ declare module '@tanstack/react-router' {
       path: '/financeiro'
       fullPath: '/financeiro'
       preLoaderRoute: typeof AppFinanceiroRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/planos-saas': {
+      id: '/_app/planos-saas'
+      path: '/planos-saas'
+      fullPath: '/planos-saas'
+      preLoaderRoute: typeof AppPlanosSaasRouteImport
       parentRoute: typeof AppRoute
     }
     '/assinatura/$token': {
@@ -727,6 +746,7 @@ interface AppRouteChildren {
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
   AppDocumentosRoute: typeof AppDocumentosRouteWithChildren
   AppFinanceiroRoute: typeof AppFinanceiroRoute
+  AppPlanosSaasRoute: typeof AppPlanosSaasRoute
   AppIndexRoute: typeof AppIndexRoute
   AppContratosContractIdRoute: typeof AppContratosContractIdRoute
   AppContratosNovoRoute: typeof AppContratosNovoRoute
@@ -758,6 +778,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppConfiguracoesRoute: AppConfiguracoesRoute,
   AppDocumentosRoute: AppDocumentosRouteWithChildren,
   AppFinanceiroRoute: AppFinanceiroRoute,
+  AppPlanosSaasRoute: AppPlanosSaasRoute,
   AppIndexRoute: AppIndexRoute,
   AppContratosContractIdRoute: AppContratosContractIdRoute,
   AppContratosNovoRoute: AppContratosNovoRoute,
