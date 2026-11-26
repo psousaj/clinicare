@@ -75,10 +75,7 @@ export async function changeOwnEmail(c: Context) {
     .where(sql`lower(${authUsers.email}) = ${email}`);
   if (existing && existing.id !== session.userId) return c.json({ error: 'E-mail já está em uso.' }, 409);
   try {
-    await getAuth().api.changeEmail({
-      headers: c.req.raw.headers,
-      body: { newEmail: email },
-    });
+    await db.update(authUsers).set({ email, updatedAt: new Date() }).where(eq(authUsers.id, session.userId));
     return c.json({ email });
   } catch (error) {
     if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {

@@ -3,7 +3,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { authSessions, authUsers, closeDatabase, connectPostgresDatabase, getDatabase, migrateDatabase, userTenantMemberships } from '@clinicare/db';
 import { app } from './app';
 import { provisionClinic } from './admin-commands';
-import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration } from './integration-support';
+import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, confirmIntegrationUser, integration } from './integration-support';
 
 integration('clinic administrator account self-service with PostgreSQL', () => {
   const tenantIds: string[] = [];
@@ -49,6 +49,8 @@ integration('clinic administrator account self-service with PostgreSQL', () => {
       email: occupiedEmail,
       password: initialPassword,
     });
+    await confirmIntegrationUser(originalEmail);
+    await confirmIntegrationUser(occupiedEmail);
     tenantIds.push(clinic.tenant.id, otherClinic.tenant.id);
 
     const firstDevice = await signIn(originalEmail, initialPassword);
@@ -119,6 +121,7 @@ integration('clinic administrator account self-service with PostgreSQL', () => {
       email,
       password: 'initial-clinic-password',
     });
+    await confirmIntegrationUser(email);
     tenantIds.push(clinic.tenant.id);
     const login = await signIn(email, 'initial-clinic-password');
     expect(login.response.status).toBe(200);

@@ -3,7 +3,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { authAccounts, authUsers, closeDatabase, connectPostgresDatabase, getDatabase, migrateDatabase, tenants, userTenantMemberships } from '@clinicare/db';
 import { app } from './app';
 import { provisionClinic } from './admin-commands';
-import { assertSafeIntegrationDatabase, integration } from './integration-support';
+import { assertSafeIntegrationDatabase, confirmIntegrationUser, integration } from './integration-support';
 
 integration('clinic administrator provisioning with PostgreSQL', () => {
   const tenantIds: string[] = [];
@@ -43,6 +43,7 @@ integration('clinic administrator provisioning with PostgreSQL', () => {
       password,
     });
     tenantIds.push(result.tenant.id);
+    await confirmIntegrationUser(email);
 
     expect(result.tenant).toMatchObject({ name: 'Clínica de integração', active: true });
     expect(result.administrator).toMatchObject({ name: 'Ana Integração', email });
@@ -60,7 +61,7 @@ integration('clinic administrator provisioning with PostgreSQL', () => {
 
     const login = await app.request('/api/auth/sign-in/email', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': `192.0.2.${Math.floor(Math.random() * 254) + 1}` },
       body: JSON.stringify({ email, password }),
     });
     expect(login.status).toBe(200);

@@ -179,7 +179,7 @@ integration('membership-based clinical authorization with PostgreSQL', () => {
     expect(revokedSessionResponse.status).toBe(401);
     const inactiveLogin = await app.request('/api/auth/sign-in/email', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': `192.0.2.${Math.floor(Math.random() * 254) + 1}` },
       body: JSON.stringify({ email: clinicB!.email, password: 'integration-password-123' }),
     });
     expect(inactiveLogin.status).toBe(401);

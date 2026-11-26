@@ -20,7 +20,7 @@ import {
 } from '@clinicare/db';
 import { app } from './app';
 import { deactivateTenant, provisionClinic, reactivateTenant } from './admin-commands';
-import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration } from './integration-support';
+import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, confirmIntegrationUser, integration } from './integration-support';
 
 integration('tenant lifecycle with PostgreSQL', () => {
   const tenantIds: string[] = [];
@@ -68,13 +68,14 @@ integration('tenant lifecycle with PostgreSQL', () => {
       email,
       password,
     });
+    await confirmIntegrationUser(email);
     const tenantId = provisioned.tenant.id;
     tenantIds.push(tenantId);
     expect(provisioned.tenant.active).toBe(true);
 
     const signIn = async (candidatePassword: string) => app.request('/api/auth/sign-in/email', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': `192.0.2.${Math.floor(Math.random() * 254) + 1}` },
       body: JSON.stringify({ email, password: candidatePassword }),
     });
     const activeLogin = await signIn(password);

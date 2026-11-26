@@ -43,9 +43,10 @@ export async function provisionIntegrationClinic(api: { request: (...args: any[]
     email,
     password: 'integration-password-123',
   });
+  await confirmIntegrationUser(email);
   const response = await api.request('/api/auth/sign-in/email', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-forwarded-for': `192.0.2.${Math.floor(Math.random() * 254) + 1}` },
     body: JSON.stringify({ email, password: 'integration-password-123' }),
   });
   if (!response.ok) throw new Error(`Integration authentication failed with status ${response.status}.`);
@@ -58,6 +59,11 @@ export async function provisionIntegrationClinic(api: { request: (...args: any[]
     email,
     headers: (extra = {}) => ({ 'content-type': 'application/json', cookie, ...extra }),
   };
+}
+
+export async function confirmIntegrationUser(email: string) {
+  // Existing clinic integration fixtures model an administrator who already completed confirmation.
+  await getDatabase().update(authUsers).set({ emailVerified: true }).where(eq(authUsers.email, email));
 }
 
 export async function cleanupIntegrationClinics(tenantIds: string[]) {
