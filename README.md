@@ -1,6 +1,6 @@
 # Clínicare
 
-Protótipo de gestão para clínicas pequenas de estética. **Use somente dados fictícios:** o painel ainda não possui autenticação. A persistência é PostgreSQL; a base pode ser recriada por migrations e seed idempotentes, sem migração dos registros prototípicos antigos.
+Protótipo de gestão para clínicas pequenas de estética. **Use somente dados fictícios:** o sistema ainda é um MVP, embora o acesso administrativo seja autenticado. A persistência é PostgreSQL; a base pode ser recriada por migrations e seed idempotentes, sem migração dos registros prototípicos antigos.
 
 ## Stack
 

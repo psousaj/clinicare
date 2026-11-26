@@ -23,7 +23,7 @@ async function jobDirs(): Promise<string[]> {
 }
 
 // Conversões reais com soffice levam segundos e disputam CPU com a suíte; o limite padrão de 5s do runner é menor que o do conversor.
-const conversionIt = (name: string, test: () => Promise<void>) => it(name, test, 30_000);
+const conversionIt = (name: string, test: () => Promise<void>) => it(name, test, 90_000);
 
 describe('LibreOffice DOCX to PDF conversion', () => {
   conversionIt('converts a real DOCX to a byte-valid PDF', async () => {

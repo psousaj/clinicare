@@ -75,6 +75,26 @@ export const useUpdateAccount = () =>
     invalidate: [['account'], keys.session],
     success: 'Dados da clínica atualizados.',
   });
+export const useChangeAccountEmail = () =>
+  useApiMutation({
+    mutationFn: (newEmail: string) =>
+      api('/api/auth/change-email', { method: 'POST', body: { newEmail }, schema: z.object({ email: z.string() }) }),
+    invalidate: [['account'], keys.session],
+    success: 'E-mail de acesso atualizado.',
+  });
+export const useChangeAccountPassword = () =>
+  useApiMutation({
+    mutationFn: (body: { currentPassword: string; newPassword: string }) =>
+      api('/api/auth/change-password', { method: 'POST', body, schema: z.object({ success: z.literal(true) }) }),
+    invalidate: [],
+    success: 'Senha atualizada. Entre novamente com sua nova senha.',
+  });
+export const useUpdateInitialPasswordChoice = () =>
+  useApiMutation({
+    mutationFn: (choice: 'accepted' | 'declined') =>
+      api('/api/auth/initial-password-choice', { method: 'POST', body: { choice }, schema: z.object({ choice: z.enum(['accepted', 'declined']) }) }),
+    invalidate: [['account']],
+  });
 export const signatureHistoryQuery = (followupContractId: string) =>
   queryOptions({ queryKey: keys.signatureHistory(followupContractId), queryFn: () => api(`/api/signature-history?followupContractId=${followupContractId}`, { schema: signatureHistorySchema, fallbackError: 'Não foi possível carregar o histórico de assinaturas.' }) });
 export const appliedAnamnesisQuery = (id: string) =>

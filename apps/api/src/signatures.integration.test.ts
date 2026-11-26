@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { app } from './app';
 import {
   appliedDocuments, appliedDocumentRevisions, authUsers, closeDatabase, contracts,
@@ -13,6 +13,7 @@ import {
 import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, integrationHeaders, provisionIntegrationClinic } from './integration-support';
 import { deleteObject, uploadObjectBytes } from './storage';
 import { materializeAppliedDocumentResult, deleteAppliedDocument } from './clinical';
+import { normalizeEvidence } from './signature-evidence';
 import { createHash, randomUUID } from 'node:crypto';
 import { PDF } from '@libpdf/core';
 
@@ -155,6 +156,75 @@ integration('PostgreSQL signatures API', () => {
     expect(revisions).toHaveLength(0);
   });
 
+  it('blocks public document links while the tenant is inactive and restores only unexpired links', async () => {
+    const db = getDatabase();
+    const usableToken = patientTokens[1]!;
+    const expiredToken = patientTokens[0]!;
+    const expiredTokenHash = createHash('sha256').update(expiredToken).digest('hex');
+    const [expiredRow] = await db.select().from(signatureTokens).where(eq(signatureTokens.tokenHash, expiredTokenHash));
+    const originalExpiry = expiredRow!.expiresAt;
+    const publicRequest = (path: string, init: RequestInit = {}) => app.request(path, init);
+    const document = (await db.select().from(appliedDocuments).where(eq(appliedDocuments.id, documentIds[1]!)))[0]!;
+    await db.update(signatureTokens).set({ expiresAt: new Date(Date.now() - 1000) }).where(eq(signatureTokens.id, expiredRow!.id));
+    await db.update(tenants).set({ active: false }).where(eq(tenants.id, tenantId));
+    try {
+      const blockedRead = await publicRequest(`/public/signatures/${usableToken}`);
+      expect(blockedRead.status).toBe(404);
+      const blockedBody = await blockedRead.text();
+      expect(blockedBody).not.toContain('Paciente assinatura');
+      expect(blockedBody).not.toContain('Conteúdo protegido');
+      expect((await publicRequest(`/public/signatures/${usableToken}/verify-phone`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ phoneLast4: '4321' }),
+      })).status).toBe(404);
+      expect((await publicRequest(`/public/signatures/${usableToken}/pdf`)).status).toBe(404);
+      expect((await publicRequest(`/public/signatures/${usableToken}/history`)).status).toBe(404);
+      expect((await publicRequest(`/public/signatures/${usableToken}/revisions/${document.currentRevisionId}/pdf`)).status).toBe(404);
+      expect((await publicRequest(`/public/signatures/${usableToken}/preview`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          documentId: document.id,
+          baseRevisionId: document.currentRevisionId,
+          signaturePng: pngDataUrl,
+          idempotencyKey: randomUUID(),
+          placement,
+          previewOnly: true,
+        }),
+      })).status).toBe(404);
+      expect((await publicRequest(`/public/signatures/${usableToken}/confirm`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ evidence: {
+          documentId: document.id,
+          baseRevisionId: document.currentRevisionId,
+          signaturePng: pngDataUrl,
+          idempotencyKey: randomUUID(),
+          placement,
+          previewHash: 'a'.repeat(64),
+          confirmed: true,
+          acceptanceText: 'Li e aceito.',
+        } }),
+      })).status).toBe(404);
+
+      await db.update(tenants).set({ active: true }).where(eq(tenants.id, tenantId));
+      expect((await publicRequest(`/public/signatures/${expiredToken}`)).status).toBe(404);
+      expect((await publicRequest(`/public/signatures/${usableToken}`)).status).toBe(200);
+      expect((await publicRequest(`/public/signatures/${usableToken}/verify-phone`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ phoneLast4: '4321' }),
+      })).status).toBe(200);
+      const restoredRead = await publicRequest(`/public/signatures/${usableToken}`);
+      expect(restoredRead.status).toBe(200);
+      expect(await restoredRead.json()).toMatchObject({ contract: { content: expect.stringContaining('Conteúdo protegido') } });
+    } finally {
+      await db.update(tenants).set({ active: true }).where(eq(tenants.id, tenantId));
+      await db.update(signatureTokens).set({ expiresAt: originalExpiry }).where(eq(signatureTokens.id, expiredRow!.id));
+    }
+  });
+
   it('refreshes atomically and invalidates the old token', async () => {
     const refresh = await request(`/api/signature-participants/${patientParticipantIds[0]}/refresh`, json({}));
     expect(refresh.status).toBe(200);
@@ -222,7 +292,47 @@ integration('PostgreSQL signatures API', () => {
     // Ordem livre (Issue #25): o representante do contrato A assina ANTES de
     // qualquer paciente, com um userId falso no corpo que deve ser ignorado.
     // A identidade vem exclusivamente da sessão autenticada.
-    const proAConfirm = await representativeConfirm(proA!.id, { userId: 'attacker' });
+    const proADocument = await currentDocumentFor(proA!.id);
+    const proAIdempotencyKey = randomUUID();
+    const proAFingerprint = { visitorId: 'vis-clinic', version: 'fingerprintjs-oss-5' };
+    const proAPreview = await request(`/api/signature-participants/${proA!.id}/preview`, json({
+      ...proADocument, signaturePng: pngDataUrl, placement, idempotencyKey: proAIdempotencyKey,
+      fingerprint: proAFingerprint, previewOnly: true,
+    }));
+    expect(proAPreview.status).toBe(200);
+    const proAPreviewHash = proAPreview.headers.get('etag')!.replaceAll('"', '');
+    const proAConfirmationBody = { evidence: {
+      ...proADocument, signaturePng: pngDataUrl, placement, idempotencyKey: proAIdempotencyKey,
+      previewHash: proAPreviewHash, fingerprint: proAFingerprint,
+      confirmed: true, acceptanceText: 'aceito pelo representante', userId: 'attacker',
+    } };
+    await db.execute(sql.raw(`CREATE OR REPLACE FUNCTION clinicare_test_force_signature_head_cas_miss() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.current_revision_id IS DISTINCT FROM OLD.current_revision_id THEN RETURN NULL; END IF;
+        RETURN NEW;
+      END;
+    $$`));
+    await db.execute(sql.raw('DROP TRIGGER IF EXISTS clinicare_test_force_signature_head_cas_miss ON applied_documents'));
+    await db.execute(sql.raw(`CREATE TRIGGER clinicare_test_force_signature_head_cas_miss
+      BEFORE UPDATE OF current_revision_id ON applied_documents
+      FOR EACH ROW WHEN (OLD.id = '${proADocument.documentId}'::uuid)
+      EXECUTE FUNCTION clinicare_test_force_signature_head_cas_miss()`));
+    let casMissResponse: Response;
+    try {
+      casMissResponse = await request(`/api/signature-participants/${proA!.id}/confirm`, json(proAConfirmationBody));
+    } finally {
+      await db.execute(sql.raw('DROP TRIGGER IF EXISTS clinicare_test_force_signature_head_cas_miss ON applied_documents'));
+      await db.execute(sql.raw('DROP FUNCTION IF EXISTS clinicare_test_force_signature_head_cas_miss()'));
+    }
+    expect(casMissResponse!.status).toBe(409);
+    const casMissBody = await casMissResponse!.json() as any;
+    const currentRevision = (await db.select().from(appliedDocumentRevisions).where(eq(appliedDocumentRevisions.id, proADocument.baseRevisionId)))[0]!;
+    expect(casMissBody).toMatchObject({
+      code: 'STALE_DOCUMENT_REVISION',
+      currentRevisionId: proADocument.baseRevisionId,
+      currentVersion: currentRevision.version,
+    });
+    const proAConfirm = await request(`/api/signature-participants/${proA!.id}/confirm`, json(proAConfirmationBody));
     expect(proAConfirm.status).toBe(200);
     expect((await proAConfirm.json() as any).processCompleted).toBe(false);
     expect((await (await request(`/api/followups/${followupId}`)).json()).status).toBe('idle');
@@ -260,6 +370,10 @@ integration('PostgreSQL signatures API', () => {
       } }))));
     expect(firstConfirmations.filter((response) => response.status === 200)).toHaveLength(1);
     expect(firstConfirmations.filter((response) => response.status === 409)).toHaveLength(1);
+    const staleConfirmation = firstConfirmations.find((response) => response.status === 409)!;
+    const staleBody = await staleConfirmation.json() as any;
+    const promotedDocument = (await db.select().from(appliedDocuments).where(eq(appliedDocuments.id, firstDocument.id)))[0]!;
+    expect(staleBody).toMatchObject({ code: 'STALE_DOCUMENT_REVISION', currentRevisionId: promotedDocument.currentRevisionId });
     expect((await (await request(`/api/followups/${followupId}`)).json()).status).toBe('idle');
 
     const tokenB = tokenByProcess[processB!.id]!.patient;
@@ -274,12 +388,54 @@ integration('PostgreSQL signatures API', () => {
     const secondPreview = await request(`/public/signatures/${tokenB}/preview`, json(secondPreviewPayload));
     expect(secondPreview.status).toBe(200);
     const secondPreviewHash = secondPreview.headers.get('etag')!.replaceAll('"', '');
+    const persistedPreview = (await db.select().from(signaturePreviewCandidates).where(and(
+      eq(signaturePreviewCandidates.tenantId, tenantId),
+      eq(signaturePreviewCandidates.participantId, patB!.id),
+      eq(signaturePreviewCandidates.idempotencyKey, secondIdempotencyKey),
+    )))[0]!;
+    expect(persistedPreview).toMatchObject({
+      documentId: secondDocument.id,
+      baseRevisionId: secondDocument.revisionId,
+      contentHash: secondPreviewHash,
+      signatureImageHash: createHash('sha256').update(Buffer.from(pngDataUrl.slice('data:image/png;base64,'.length), 'base64')).digest('hex'),
+      fingerprint: { unavailable: true },
+      fingerprintDigest: normalizeEvidence({ unavailable: true }).digest,
+    });
+    const repeatedPreview = await request(`/public/signatures/${tokenB}/preview`, json(secondPreviewPayload));
+    expect(repeatedPreview.status).toBe(200);
+    expect(repeatedPreview.headers.get('etag')).toBe(secondPreview.headers.get('etag'));
+    const reusedPreviewKey = await request(`/public/signatures/${tokenB}/preview`, json({
+      ...secondPreviewPayload,
+      fingerprint: { visitorId: 'tampered', version: 'fingerprintjs-oss-5' },
+    }));
+    expect(reusedPreviewKey.status).toBe(409);
+    expect(await reusedPreviewKey.json()).toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED' });
+    const mismatchedPreview = await request(`/public/signatures/${tokenB}/confirm`, json({ evidence: {
+      documentId: secondDocument.id, baseRevisionId: secondDocument.revisionId, signaturePng: pngDataUrl, placement,
+      idempotencyKey: secondIdempotencyKey, previewHash: secondPreviewHash,
+      fingerprint: { visitorId: 'tampered', version: 'fingerprintjs-oss-5' },
+      confirmed: true, acceptanceText: 'aceito',
+    } }));
+    expect(mismatchedPreview.status).toBe(409);
+    expect(await mismatchedPreview.json()).toMatchObject({ code: 'SIGNATURE_PREVIEW_MISMATCH' });
     const second = await request(`/public/signatures/${tokenB}/confirm`, json({ evidence: {
       documentId: secondDocument.id, baseRevisionId: secondDocument.revisionId, signaturePng: pngDataUrl, placement,
       idempotencyKey: secondIdempotencyKey, previewHash: secondPreviewHash,
       confirmed: true, acceptanceText: 'aceito',
     } }));
     expect(second.status).toBe(200);
+    const idempotentConfirmReplay = await request(`/public/signatures/${tokenB}/confirm`, json({ evidence: {
+      documentId: secondDocument.id, baseRevisionId: secondDocument.revisionId, signaturePng: pngDataUrl, placement,
+      idempotencyKey: secondIdempotencyKey, previewHash: secondPreviewHash,
+      confirmed: true, acceptanceText: 'aceito',
+    } }));
+    expect(idempotentConfirmReplay.status).toBe(200);
+    const differentConfirmRequest = await request(`/public/signatures/${tokenB}/confirm`, json({ evidence: {
+      documentId: secondDocument.id, baseRevisionId: secondDocument.revisionId, signaturePng: pngDataUrl, placement,
+      idempotencyKey: randomUUID(), previewHash: secondPreviewHash,
+      confirmed: true, acceptanceText: 'aceito',
+    } }));
+    expect(differentConfirmRequest.status).toBe(409);
     const secondBody = await second.json() as any;
     expect(secondBody.activated).toBe(true);
     // O processo do contrato B só conclui quando o representante também confirmar.

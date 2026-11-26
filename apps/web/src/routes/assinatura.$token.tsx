@@ -58,6 +58,15 @@ function PhoneGate({ value, onChange, onSubmit, pending, error }: { value: strin
 
 type Step = 'read' | 'sign' | 'confirm';
 type RelativePlacement = { pageIndex: number; x: number; y: number; width: number; height: number };
+type SignaturePreviewEvidence = {
+  documentId: string;
+  baseRevisionId: string;
+  signaturePng: string;
+  idempotencyKey: string;
+  fingerprint: unknown;
+  previewHash: string;
+  placement: RelativePlacement;
+};
 
 const DRAFT_STORAGE_KEY = (token: string) => `clinicare:sign-draft:${token}`;
 
@@ -116,7 +125,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
   const [showHistory, setShowHistory] = useState(false);
   const [fingerprint, setFingerprint] = useState<unknown>({ unavailable: true });
   const [idempotencyKey, setIdempotencyKey] = useState(createIdempotencyKey);
-  const previewEvidenceRef = useRef<{ idempotencyKey: string; fingerprint: unknown; previewHash: string; placement: RelativePlacement } | null>(null);
+  const previewEvidenceRef = useRef<SignaturePreviewEvidence | null>(null);
   const previewGenerationRef = useRef(0);
 
   const progress = pageCount === 0 ? 0 : Math.min(1, readPages.length / pageCount);
@@ -260,28 +269,40 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  async function runPreview(): Promise<{ idempotencyKey: string; fingerprint: unknown; previewHash: string; placement: RelativePlacement } | null> {
+  async function runPreview(): Promise<SignaturePreviewEvidence | null> {
     if (!image) return null;
     const generation = previewGenerationRef.current;
     const imageForPreview = image;
     const placementForPreview = { ...placement };
+    const documentIdForPreview = signature.document!.id;
+    const baseRevisionIdForPreview = signature.document!.revisionId;
     setPreviewBusy(true);
     setMessage(null);
     try {
       const fingerprintNow = await collectFingerprint();
       setFingerprint(fingerprintNow);
-       const previewKey = createIdempotencyKey();
-       setIdempotencyKey(previewKey);
-       const response = await fetch(`/public/signatures/${token}/preview`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ documentId: signature.document!.id, baseRevisionId: signature.document!.revisionId, signaturePng: imageForPreview, placement: placementForPreview, idempotencyKey: previewKey, fingerprint: fingerprintNow, acceptanceText: 'Confirmo a assinatura visual deste contrato.' }) });
-       if (!response.ok) { if (generation === previewGenerationRef.current) setMessage('Não foi possível gerar a prévia. Verifique sua conexão e tente de novo.'); return null; }
-       const previewBytes = await response.blob();
-       const hash = response.headers.get('etag')?.replaceAll('"', '') ?? null;
-       if (!hash) { if (generation === previewGenerationRef.current) setMessage('A prévia foi gerada sem identificação. Tente novamente.'); return null; }
-       if (generation !== previewGenerationRef.current) return null;
-       setPreviewUrl(URL.createObjectURL(previewBytes));
-       setPreviewHash(hash);
-       setPreviewPlacement(placementForPreview);
-       const evidence = { idempotencyKey: previewKey, fingerprint: fingerprintNow, previewHash: hash, placement: placementForPreview };
+      const previewKey = createIdempotencyKey();
+      setIdempotencyKey(previewKey);
+      const response = await fetch(`/public/signatures/${token}/preview`, { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ documentId: documentIdForPreview, baseRevisionId: baseRevisionIdForPreview, signaturePng: imageForPreview, placement: placementForPreview, idempotencyKey: previewKey, fingerprint: fingerprintNow, acceptanceText: 'Confirmo a assinatura visual deste contrato.' }) });
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => null) as { code?: string } | null;
+        if (generation === previewGenerationRef.current) {
+          setMessage(errorBody?.code === 'STALE_DOCUMENT_REVISION'
+            ? 'O documento foi atualizado antes da prévia. Recarregue a página para revisar a versão atual.'
+            : errorBody?.code === 'SIGNATURE_PREVIEW_MISMATCH'
+              ? 'A prévia não corresponde aos dados da assinatura. Gere uma nova prévia antes de confirmar.'
+              : 'Não foi possível gerar a prévia. Verifique sua conexão e tente de novo.');
+        }
+        return null;
+      }
+      const previewBytes = await response.blob();
+      const hash = response.headers.get('etag')?.replaceAll('"', '') ?? null;
+      if (!hash) { if (generation === previewGenerationRef.current) setMessage('A prévia foi gerada sem identificação. Tente novamente.'); return null; }
+      if (generation !== previewGenerationRef.current) return null;
+      setPreviewUrl(URL.createObjectURL(previewBytes));
+      setPreviewHash(hash);
+      setPreviewPlacement(placementForPreview);
+      const evidence = { documentId: documentIdForPreview, baseRevisionId: baseRevisionIdForPreview, signaturePng: imageForPreview, idempotencyKey: previewKey, fingerprint: fingerprintNow, previewHash: hash, placement: placementForPreview };
       previewEvidenceRef.current = evidence;
       return evidence;
      } catch {
@@ -311,7 +332,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
       return;
     }
     let evidence = previewEvidenceRef.current;
-    if (!evidence || JSON.stringify(evidence.placement) !== JSON.stringify(placement)) {
+    if (!evidence || evidence.signaturePng !== image || JSON.stringify(evidence.placement) !== JSON.stringify(placement)) {
       setMessage('Gerando a prévia final antes de assinar…');
       evidence = await runPreview();
       if (!evidence) return;
@@ -319,7 +340,7 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
     setMessage(null);
     setConfirmBusy(true);
     try {
-      await api(`/public/signatures/${token}/confirm`, { method: 'POST', body: { evidence: { documentId: signature.document!.id, baseRevisionId: signature.document!.revisionId, signaturePng: image, placement: evidence.placement, idempotencyKey: evidence.idempotencyKey, fingerprint: evidence.fingerprint, previewHash: evidence.previewHash, confirmed: true, acceptanceText: 'Confirmo a assinatura visual deste contrato.' } }, schema: anySchema });
+      await api(`/public/signatures/${token}/confirm`, { method: 'POST', body: { evidence: { documentId: evidence.documentId, baseRevisionId: evidence.baseRevisionId, signaturePng: evidence.signaturePng, placement: evidence.placement, idempotencyKey: evidence.idempotencyKey, fingerprint: evidence.fingerprint, previewHash: evidence.previewHash, confirmed: true, acceptanceText: 'Confirmo a assinatura visual deste contrato.' } }, schema: anySchema });
       setSignedAt(new Date().toISOString());
       setSubmitted(true);
       storeDraft(token, null);
@@ -330,7 +351,14 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
       } catch { /* download é opcional */ }
     } catch (reason) {
       const apiError = reason instanceof ApiError ? reason : null;
-      setMessage(apiError?.status === 409 ? 'O documento foi atualizado antes da confirmação. Recarregue a página para revisar a versão atual.' : apiError?.message ?? 'Não foi possível concluir. Tente de novo sem sair da página.');
+      const message = apiError?.code === 'SIGNATURE_PREVIEW_MISMATCH'
+        ? 'A prévia não corresponde aos dados da assinatura. Gere uma nova prévia antes de confirmar.'
+        : apiError?.code === 'STALE_DOCUMENT_REVISION'
+          ? 'O documento foi atualizado antes da confirmação. Recarregue a página para revisar a versão atual.'
+          : apiError?.status === 409
+            ? apiError.message
+            : apiError?.message ?? 'Não foi possível concluir. Tente de novo sem sair da página.';
+      setMessage(message);
     } finally {
       setConfirmBusy(false);
     }

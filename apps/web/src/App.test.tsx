@@ -477,7 +477,11 @@ describe('Attendance page', () => {
 });
 
 describe('Agenda', () => {
-  const appointment = { _id: 'ap1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, items: [{ _id: 'ai1', followupId: 'pl1', followupItemId: 'it1', procedureId: 'pr1', procedureName: 'Limpeza de pele', quantity: 2, minutesEach: 30, confirmationStatus: 'pending' }], startsAt: '2026-10-06T14:00:00Z', endsAt: '2026-10-06T15:00:00Z', status: 'planned', notes: 'Trazer exames' };
+  const appointmentStart = new Date(Date.now());
+  if (appointmentStart.getDay() === 0) appointmentStart.setDate(appointmentStart.getDate() - 2);
+  else if (appointmentStart.getDay() === 6) appointmentStart.setDate(appointmentStart.getDate() - 1);
+  appointmentStart.setHours(14, 0, 0, 0);
+  const appointment = { _id: 'ap1', patientId: { _id: 'p1', fullName: 'Marina Alves' }, items: [{ _id: 'ai1', followupId: 'pl1', followupItemId: 'it1', procedureId: 'pr1', procedureName: 'Limpeza de pele', quantity: 2, minutesEach: 30, confirmationStatus: 'pending' }], startsAt: appointmentStart.toISOString(), endsAt: new Date(appointmentStart.getTime() + 60 * 60 * 1000).toISOString(), status: 'planned', notes: 'Trazer exames' };
   const followup = { _id: 'pl1', patientId: 'p1', offerName: 'Limpeza', priceCents: 1000, payments: [], items: [{ _id: 'it1', procedureName: 'Limpeza de pele', sessionsTotal: 3 }] };
 
   it('opens an appointment directly in the edit dialog and deletes it after confirmation', async () => {
@@ -1288,6 +1292,68 @@ describe('Configurações', () => {
     await user.click(screen.getByRole('button', { name: /salvar registro/i }));
     await waitFor(() => expect(calls.some((call) => call.method === 'PUT')).toBe(true));
     expect(calls.find((call) => call.method === 'PUT')?.body).toEqual({ registrationType: 'CRM', registrationNumber: '123456', registrationState: 'SP' });
+  });
+
+  it('changes the login email and password from account settings', async () => {
+    routes['GET /api/auth/me'] = () => ({
+      user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com', initialPasswordChoice: 'declined' },
+      tenant: { id: 't1', name: 'Clínica Essenza' },
+    });
+    routes['GET /api/auth/professional-profile'] = () => null;
+    routes['POST /api/auth/change-email'] = () => ({ email: 'nova@example.com' });
+    routes['POST /api/auth/change-password'] = () => ({ success: true });
+    const user = userEvent.setup();
+    renderAt('/configuracoes');
+    await user.click(await screen.findByRole('tab', { name: /clínica e conta/i }));
+    const email = await screen.findByLabelText('E-mail');
+    await user.clear(email);
+    await user.type(email, 'nova@example.com');
+    await user.click(screen.getByRole('button', { name: 'Atualizar e-mail' }));
+    await waitFor(() => expect(calls.some((call) => call.url === '/api/auth/change-email')).toBe(true));
+    expect(calls.find((call) => call.url === '/api/auth/change-email')?.body).toEqual({ newEmail: 'nova@example.com' });
+
+    await user.type(screen.getByLabelText('Senha atual'), 'current-password');
+    await user.type(screen.getByLabelText('Nova senha'), 'new-password');
+    await user.type(screen.getByLabelText('Confirmar nova senha'), 'new-password');
+    await user.click(screen.getByRole('button', { name: 'Alterar senha' }));
+    await waitFor(() => expect(calls.some((call) => call.url === '/api/auth/change-password')).toBe(true));
+    expect(calls.find((call) => call.url === '/api/auth/change-password')?.body).toEqual({ currentPassword: 'current-password', newPassword: 'new-password' });
+    expect(await screen.findByRole('heading', { name: 'Entrar na sua clínica' })).toBeInTheDocument();
+  });
+
+  it('shows the first-login password prompt and persists the choice without blocking access', async () => {
+    let choice = 'pending';
+    routes['GET /api/auth/me'] = () => ({
+      user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com', initialPasswordChoice: choice },
+      tenant: { id: 't1', name: 'Clínica Essenza' },
+    });
+    routes['POST /api/auth/initial-password-choice'] = (init) => {
+      choice = (JSON.parse(init?.body as string) as { choice: string }).choice;
+      return { choice };
+    };
+    const user = userEvent.setup();
+    renderAt('/');
+    expect(await screen.findByText(/Você está usando a senha inicial da clínica/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Manter por enquanto' }));
+    await waitFor(() => expect(calls.some((call) => call.url === '/api/auth/initial-password-choice')).toBe(true));
+    expect(calls.find((call) => call.url === '/api/auth/initial-password-choice')?.body).toEqual({ choice: 'declined' });
+    await waitFor(() => expect(screen.queryByText(/Você está usando a senha inicial da clínica/i)).not.toBeInTheDocument());
+    expect(screen.getByRole('heading', { name: 'Sua clínica, em um só lugar.' })).toBeInTheDocument();
+  });
+
+  it('takes an administrator who accepts the password suggestion directly to the password form', async () => {
+    routes['GET /api/auth/me'] = () => ({
+      user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com', initialPasswordChoice: 'pending' },
+      tenant: { id: 't1', name: 'Clínica Essenza' },
+    });
+    routes['GET /api/auth/professional-profile'] = () => null;
+    routes['POST /api/auth/initial-password-choice'] = () => ({ choice: 'accepted' });
+    const user = userEvent.setup();
+    renderAt('/');
+    await user.click(await screen.findByRole('button', { name: 'Quero trocar a senha' }));
+    expect(await screen.findByLabelText('Senha atual')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Alterar senha' })).toBeInTheDocument();
+    expect(calls.find((call) => call.url === '/api/auth/initial-password-choice')?.body).toEqual({ choice: 'accepted' });
   });
 });
 

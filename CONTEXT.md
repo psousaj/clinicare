@@ -505,7 +505,7 @@ _Avoid_: notificação (não implica aviso automático ao profissional)
 ## Dados e ciclo de protótipo
 
 **Dados de protótipo**:
-Registros usados apenas para testes e demonstrações, sem obrigação de preservação. Os dados atuais do MongoDB pertencem a esta categoria e podem ser descartados; o PostgreSQL começará com uma base nova e seed reproduzível quando a migração for autorizada.
+Registros usados apenas para testes e demonstrações, sem obrigação de preservação. Os registros da persistência documental anterior pertenciam a esta categoria e não foram migrados; a aplicação agora usa PostgreSQL com migrations e seed reproduzível.
 _Avoid_: dado de produção, dado a migrar
 
 ## Objetivo do produto
@@ -556,7 +556,7 @@ Fotos e documentos são armazenados no Cloudflare R2 por meio da API compatível
 _Avoid_: armazenamento no banco (para o conteúdo binário)
 
 **Agregado**:
-Conjunto de dados com identidade e ciclo de vida próprios, armazenado em uma coleção MongoDB; relacionamentos com outros agregados usam referências e são validados pela aplicação.
+Conjunto de dados com identidade e ciclo de vida próprios, persistido em tabelas PostgreSQL relacionadas por chaves estrangeiras; dados estruturais flexíveis podem ser representados em `jsonb`.
 _Avoid_: coleção (quando significar o conceito de domínio)
 
 **Snapshot aplicado**:

@@ -14,7 +14,7 @@ import { createPayment, deletePayment, listPayments } from './payments';
 import { deleteObject } from './storage';
 import { addAnamnesisNote, answerAppliedAnamnesis, createAnamnesisRequest, createAppliedAnamnesis, deleteAppliedDocument, getAppliedDocument, listAnamnesisNotes, listAppliedDocuments, materializeAppliedDocumentResult, presignAppliedDocument, readAppliedAnamnesis, readPublicAnamnesis, refreshAnamnesisRequest, retryDocumentCleanupJobs, saveAnamnesisDraft, submitPublicAnamnesis } from './clinical';
 import { authHandler, clinicSession, requireClinicSession } from './auth-routes';
-import { getAccount, getDefaultSignature, getProfessionalProfile, updateAccount, updateDefaultSignature, updateInitialPasswordChoice, updateProfessionalProfile } from './account-routes';
+import { changeOwnEmail, changeOwnPassword, getAccount, getDefaultSignature, getProfessionalProfile, updateAccount, updateDefaultSignature, updateInitialPasswordChoice, updateProfessionalProfile } from './account-routes';
 import { getContractDraftEditor, listContractPlaceholders, presignContractDraft, publishContractDraft, saveContractDraft } from './contract-authoring';
 import { generateFollowupContract, reprocessFollowupContract, retryFollowupContract } from './contract-generation';
 import { observedClientIp as resolveObservedClientIp } from './request-ip';
@@ -59,6 +59,8 @@ export const app = new Hono()
   // primeiro handler que responde, então o '/api/auth/*' sombrearia o GET/POST
   // abaixo com 404 se viesse primeiro.
   .post('/api/auth/initial-password-choice', requireClinicSession, updateInitialPasswordChoice)
+  .post('/api/auth/change-password', requireClinicSession, changeOwnPassword)
+  .post('/api/auth/change-email', requireClinicSession, changeOwnEmail)
   .get('/api/auth/me', requireClinicSession, getAccount)
   .patch('/api/auth/me', requireClinicSession, updateAccount)
   .get('/api/auth/professional-profile', requireClinicSession, getProfessionalProfile)

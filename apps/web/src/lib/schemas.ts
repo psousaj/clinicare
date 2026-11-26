@@ -174,7 +174,7 @@ export const professionalProfileSchema = z.looseObject({
 });
 export const sessionSchema = z.looseObject({ user: z.looseObject({ id: z.string(), name: z.string(), email: z.string().nullish() }) });
 export const accountSchema = z.looseObject({
-  user: z.looseObject({ id: z.string(), name: z.string(), email: z.string().nullish() }),
+  user: z.looseObject({ id: z.string(), name: z.string(), email: z.string().nullish(), initialPasswordChoice: z.enum(['pending', 'accepted', 'declined']).optional() }),
   tenant: z.looseObject({ id: z.string(), name: z.string() }),
 });
 export const defaultSignatureSchema = z.object({ signaturePng: z.string().nullable() });

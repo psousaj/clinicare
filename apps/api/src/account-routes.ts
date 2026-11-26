@@ -1,7 +1,10 @@
 import type { Context } from 'hono';
-import { and, eq } from 'drizzle-orm';
-import { authUsers, getDatabase, professionals, tenants } from '@clinicare/db';
+import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import { APIError } from 'better-auth/api';
+import { and, eq, sql } from 'drizzle-orm';
+import { authSessions, authUsers, getDatabase, professionals, tenants } from '@clinicare/db';
 import { clinicSession } from './auth-routes';
+import { getAuth } from './auth';
 
 export async function updateInitialPasswordChoice(c: Context) {
   const body = await c.req.json().catch(() => null) as { choice?: unknown } | null;
@@ -16,13 +19,76 @@ export async function getAccount(c: Context) {
   const db = getDatabase();
   const [tenant] = await db.select({ id: tenants.id, name: tenants.name }).from(tenants).where(eq(tenants.id, session.tenantId));
   if (!tenant) return c.json({ error: 'Clínica não encontrada.' }, 404);
-  return c.json({ user: session.user, tenant });
+  const [user] = await db.select({
+    id: authUsers.id,
+    name: authUsers.name,
+    email: authUsers.email,
+    initialPasswordChoice: authUsers.initialPasswordChoice,
+  }).from(authUsers).where(eq(authUsers.id, session.userId));
+  if (!user) return c.json({ error: 'Usuário não encontrado.' }, 404);
+  return c.json({ user, tenant });
+}
+
+function authFailure(c: Context, error: unknown) {
+  if (error instanceof APIError) {
+    const status = error.statusCode >= 400 && error.statusCode < 500 ? error.statusCode : 400;
+    return c.json({ error: error.message }, status as ContentfulStatusCode);
+  }
+  throw error;
+}
+
+export async function changeOwnPassword(c: Context) {
+  const body = await c.req.json().catch(() => null) as { currentPassword?: unknown; newPassword?: unknown } | null;
+  if (!body || typeof body.currentPassword !== 'string' || typeof body.newPassword !== 'string') {
+    return c.json({ error: 'Informe a senha atual e a nova senha.' }, 400);
+  }
+  const session = clinicSession(c);
+  try {
+    await getAuth().api.changePassword({
+      headers: c.req.raw.headers,
+      body: { currentPassword: body.currentPassword, newPassword: body.newPassword },
+    });
+    // The native Better Auth endpoint can retain the current session. The
+    // product contract requires every device, including this one, to sign in
+    // again after a credential change.
+    await getDatabase().transaction(async (tx) => {
+      await tx.delete(authSessions).where(eq(authSessions.userId, session.userId));
+      await tx.update(authUsers)
+        .set({ initialPasswordChoice: 'accepted' })
+        .where(and(eq(authUsers.id, session.userId), eq(authUsers.initialPasswordChoice, 'pending')));
+    });
+    return c.json({ success: true });
+  } catch (error) {
+    return authFailure(c, error);
+  }
+}
+
+export async function changeOwnEmail(c: Context) {
+  const body = await c.req.json().catch(() => null) as { newEmail?: unknown } | null;
+  if (!body || typeof body.newEmail !== 'string') return c.json({ error: 'Informe um e-mail válido.' }, 400);
+  const email = body.newEmail.trim().toLowerCase();
+  if (!email) return c.json({ error: 'Informe um e-mail válido.' }, 400);
+  const session = clinicSession(c);
+  const db = getDatabase();
+  const [existing] = await db.select({ id: authUsers.id })
+    .from(authUsers)
+    .where(sql`lower(${authUsers.email}) = ${email}`);
+  if (existing && existing.id !== session.userId) return c.json({ error: 'E-mail já está em uso.' }, 409);
+  try {
+    await getAuth().api.changeEmail({
+      headers: c.req.raw.headers,
+      body: { newEmail: email },
+    });
+    return c.json({ email });
+  } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === '23505') {
+      return c.json({ error: 'E-mail já está em uso.' }, 409);
+    }
+    return authFailure(c, error);
+  }
 }
 
 // Renomeia o responsável e/ou a clínica pelo painel (Configurações).
-// E-mail e senha continuam gerenciados pelos comandos administrativos;
-// o bootstrap via env só provisiona na primeira criação e nunca
-// sobrescreve estes nomes depois.
 export async function updateAccount(c: Context) {
   const session = clinicSession(c);
   const body = (await c.req.json().catch(() => null)) as { name?: unknown; clinicName?: unknown } | null;
