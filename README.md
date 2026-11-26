@@ -18,7 +18,7 @@ Requer Docker Desktop com Compose.
 
 ```bash
 # preencha DATABASE_URL, DATA_ENCRYPTION_KEY, SEARCH_HMAC_KEY e UPLOAD_SIGNING_KEY em .env;
-# configure R2 somente se precisar de upload de fotos/documentos
+# configure CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY e R2_BUCKET
 cp .env.example .env
 # gere as três chaves locais antes de subir (openssl rand -base64 32)
 docker compose up --build
@@ -65,7 +65,9 @@ No `.env` local, `MINISTACK_ENDPOINT` seleciona o emulador e usa as credenciais 
 | Serviço | URL | Uso |
 | --- | --- | --- |
 | PostgreSQL | `postgresql://clinicare:clinicare@localhost:5432/clinicare` | banco (`DATABASE_URL`) |
-| ministack | http://localhost:4566 | emulador AWS/S3 local (bucket `clinicare-dev`, credenciais `test`/`test`) |
+| ministack | http://localhost:4566 | emulador AWS/S3 local (buckets `clinicare-dev` e `clinicare-test`, credenciais locais `test`/`test`) |
+
+O `dev-compose.yml` cria os dois buckets isolados. Para validar upload/download, URLs pré-assinadas e hash pelo cliente S3 usando o bucket de teste, rode `bun run --cwd apps/api test:ministack`. Esse teste exercita o MiniStack local e não declara validação contra uma conta Cloudflare.
 
 Portas do host configuráveis com `POSTGRES_PORT` e `MINISTACK_PORT`. O `docker-compose.yml` (produção) também usa a 5432; não suba os dois ao mesmo tempo.
 
