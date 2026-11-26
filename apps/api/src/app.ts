@@ -116,7 +116,10 @@ const requireSignatureParticipantFollowupCapability = async (tenantId: string, p
       eq(signatureProcesses.id, signatureParticipants.processId),
     ))
     .where(and(eq(signatureParticipants.tenantId, tenantId), eq(signatureParticipants.id, participantId)));
-  if (participant) await requireFollowupContractCapability(tenantId, participant.followupContractId);
+  if (participant) {
+    await requireClinicCapability(tenantId, 'contracts.patient_signatures');
+    await requireFollowupContractCapability(tenantId, participant.followupContractId);
+  }
 };
 const requireSignatureTokenFollowupCapability = async (token: string) => {
   const tokenHash = createHash('sha256').update(token).digest('hex');
@@ -133,7 +136,21 @@ const requireSignatureTokenFollowupCapability = async (token: string) => {
       eq(signatureProcesses.id, signatureParticipants.processId),
     ))
     .where(and(eq(signatureTokens.tokenHash, tokenHash), isNull(signatureTokens.revokedAt), gt(signatureTokens.expiresAt, new Date())));
-  if (signature) await requireFollowupContractCapability(signature.tenantId, signature.followupContractId);
+  if (signature) {
+    await requireClinicCapability(signature.tenantId, 'contracts.patient_signatures');
+    await requireFollowupContractCapability(signature.tenantId, signature.followupContractId);
+  }
+};
+const signatureTokenCanSign = async (token: string) => {
+  const tokenHash = createHash('sha256').update(token).digest('hex');
+  const [signature] = await getDatabase().select({ tenantId: signatureTokens.tenantId })
+    .from(signatureTokens)
+    .where(and(
+      eq(signatureTokens.tokenHash, tokenHash),
+      isNull(signatureTokens.revokedAt),
+      gt(signatureTokens.expiresAt, new Date()),
+    ));
+  return signature ? clinicHasCapability(signature.tenantId, 'contracts.patient_signatures') : false;
 };
 export const app = new Hono()
   .use('/api/*', cors({ origin: getTrustedOrigins() }))
@@ -167,8 +184,8 @@ export const app = new Hono()
   .patch('/api/auth/me', requireClinicSession, updateAccount)
   .get('/api/auth/professional-profile', requireClinicSession, getProfessionalProfile)
   .put('/api/auth/professional-profile', requireClinicSession, updateProfessionalProfile)
-  .get('/api/auth/default-signature', requireClinicSession, getDefaultSignature)
-  .put('/api/auth/default-signature', requireClinicSession, updateDefaultSignature)
+  .get('/api/auth/default-signature', requireClinicSession, async (c) => { try { await requireClinicCapability(authTenant(c), 'contracts.patient_signatures'); return await getDefaultSignature(c); } catch (error) { return handleError(c, error); } })
+  .put('/api/auth/default-signature', requireClinicSession, async (c) => { try { await requireClinicCapability(authTenant(c), 'contracts.patient_signatures'); return await updateDefaultSignature(c); } catch (error) { return handleError(c, error); } })
   .on(['POST', 'GET'], '/api/auth/*', (c) => authHandler(c.req.raw))
   .get('/api/health', async (c) => {
     try { await getDatabasePool().query('select 1'); return c.json({ status: 'ok', service: 'clinicare-api', database: 'connected' }); }
@@ -292,9 +309,9 @@ export const app = new Hono()
   .post('/api/followup-contracts/:id/generate', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'contracts.generation'); await requireFollowupContractCapability(tenantId, c.req.param('id')); return c.json(await generateFollowupContract(tenantId, c.req.param('id'), clinicSession(c).userId)); } catch (error) { return handleError(c, error); } })
   .post('/api/followup-contracts/:id/retry', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'contracts.generation'); await requireFollowupContractCapability(tenantId, c.req.param('id')); return c.json(await retryFollowupContract(tenantId, c.req.param('id'), clinicSession(c).userId)); } catch (error) { return handleError(c, error); } })
   .post('/api/followup-contracts/:id/reprocess', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'contracts.generation'); await requireFollowupContractCapability(tenantId, c.req.param('id')); return c.json(await reprocessFollowupContract(tenantId, c.req.param('id'), clinicSession(c).userId)); } catch (error) { return handleError(c, error); } })
-  .get('/api/signature-pending', async (c) => { try { return c.json(await listPendingSignatures(await catalogTenant(c.req, authTenant(c)))); } catch (error) { return handleError(c, error); } })
-  .get('/public/signatures/:token', async (c) => { try { return c.json(await readSignatureToken(c.req.param('token')!)); } catch (error) { return handleError(c, error); } })
-  .post('/public/signatures/:token/verify-phone', async (c) => { try { await requireSignatureTokenFollowupCapability(c.req.param('token')!); const body = await c.req.json().catch(() => ({})); return c.json(await verifySignaturePhone(c.req.param('token')!, body.phoneLast4)); } catch (error) { return handleError(c, error); } })
+  .get('/api/signature-pending', async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireClinicCapability(tenantId, 'dashboard.document_tasks'); return c.json(await listPendingSignatures(tenantId)); } catch (error) { return handleError(c, error); } })
+  .get('/public/signatures/:token', async (c) => { try { const token = c.req.param('token')!; const signature = await readSignatureToken(token); return c.json({ ...signature, canSign: await signatureTokenCanSign(token) }); } catch (error) { return handleError(c, error); } })
+  .post('/public/signatures/:token/verify-phone', async (c) => { try { const body = await c.req.json().catch(() => ({})); return c.json(await verifySignaturePhone(c.req.param('token')!, body.phoneLast4)); } catch (error) { return handleError(c, error); } })
   .get('/public/signatures/:token/pdf', async (c) => { try { const bytes = await readSignaturePdf(c.req.param('token')!); return new Response(bytes.buffer as ArrayBuffer, { headers: { 'content-type': 'application/pdf', 'cache-control': 'private, no-store' } }); } catch (error) { return handleError(c, error); } })
   .post('/public/signatures/:token/preview', async (c) => { try { await requireSignatureTokenFollowupCapability(c.req.param('token')!); const body = await c.req.json().catch(() => ({})); const bytes = await previewSignature(c.req.param('token')!, body); return new Response(bytes.buffer as ArrayBuffer, { headers: { 'content-type': 'application/pdf', 'cache-control': 'private, no-store', etag: createHash('sha256').update(bytes).digest('hex') } }); } catch (error) { return handleError(c, error); } })
   .post('/api/signature-participants/:id/preview', requireClinicSession, async (c) => { try { const tenantId = await catalogTenant(c.req, authTenant(c)); await requireSignatureParticipantFollowupCapability(tenantId, c.req.param('id')!); const body = await c.req.json().catch(() => ({})); const actor = clinicSession(c); const bytes = await previewSignatureAsClinicRepresentative(c.req.param('id')!, body, actor); return new Response(bytes.buffer as ArrayBuffer, { headers: { 'content-type': 'application/pdf', 'cache-control': 'private, no-store', etag: createHash('sha256').update(bytes).digest('hex') } }); } catch (error) { return handleError(c, error); } })

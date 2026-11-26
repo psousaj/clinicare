@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, expect, it } from 'bun:test';
 import { createHash } from 'node:crypto';
 import { eq } from 'drizzle-orm';
-import { appliedAnamneses, appliedDocuments, anamnesisProcedures, anamnesisVersions, anamneses, appointmentItems, appointments, attendancePhotos, attendances, clinicSubscriptions, closeDatabase, comboItems, combos, contractVersions, contracts, documentCleanupJobs, followupContracts, followupItems, followupSnapshots, followups, getDatabase, migrateDatabase, patients, payments, planVersionContracts, planVersionItems, planVersions, plans, procedureVersions, procedures, signatureParticipants, signatureProcesses, signatureTokens } from '@clinicare/db';
+import { appliedAnamneses, appliedDocumentRevisions, appliedDocuments, anamnesisProcedures, anamnesisVersions, anamneses, appointmentItems, appointments, attendancePhotos, attendances, clinicSubscriptions, closeDatabase, comboItems, combos, contractVersions, contracts, documentCleanupJobs, followupContracts, followupItems, followupSnapshots, followups, getDatabase, migrateDatabase, patients, payments, planVersionContracts, planVersionItems, planVersions, plans, procedureVersions, procedures, signatureEvents, signatureEvidence, signatureExternalAttempts, signatureExternalReceipts, signatureOperations, signatureParticipants, signaturePreviewCandidates, signatureProcesses, signatureRevisions, signatureTokens } from '@clinicare/db';
 import { app } from './app';
 import { deleteAppliedDocument } from './clinical';
 import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
@@ -30,7 +30,7 @@ integration('SaaS offer capabilities through API with PostgreSQL', () => {
       await deleteAppliedDocument(tenantId, documentId);
     }
     await db.delete(documentCleanupJobs).where(eq(documentCleanupJobs.tenantId, standard.tenantId));
-    for (const table of [appliedAnamneses, appliedDocuments, signatureTokens, signatureParticipants, signatureProcesses, attendancePhotos, attendances, appointmentItems, appointments, payments, followupSnapshots, followupItems, followupContracts, followups, planVersionContracts, planVersionItems, planVersions, plans, contractVersions, contracts, comboItems, combos, anamnesisProcedures, anamnesisVersions, anamneses, procedureVersions, procedures, patients]) {
+    for (const table of [appliedAnamneses, signatureEvents, signatureEvidence, signatureRevisions, signaturePreviewCandidates, signatureExternalReceipts, signatureExternalAttempts, signatureOperations, signatureTokens, signatureParticipants, signatureProcesses, appliedDocumentRevisions, appliedDocuments, attendancePhotos, attendances, appointmentItems, appointments, payments, followupSnapshots, followupItems, followupContracts, followups, planVersionContracts, planVersionItems, planVersions, plans, contractVersions, contracts, comboItems, combos, anamnesisProcedures, anamnesisVersions, anamneses, procedureVersions, procedures, patients]) {
       for (const tenantId of tenantIds) await db.delete(table).where(eq((table as any).tenantId, tenantId));
     }
     await cleanupIntegrationClinics(tenantIds);
@@ -169,6 +169,12 @@ integration('SaaS offer capabilities through API with PostgreSQL', () => {
       tokenHash: createHash('sha256').update(signatureToken).digest('hex'),
       expiresAt: new Date(Date.now() + 86400000),
     });
+    expect((await app.request('/api/auth/default-signature', { headers: standardHeaders })).status).toBe(200);
+    expect((await app.request('/api/auth/default-signature', {
+      method: 'PUT', headers: standardHeaders, body: JSON.stringify({ signaturePng: null }),
+    })).status).toBe(200);
+    expect((await app.request('/api/signature-pending', { headers: standardHeaders })).status).toBe(200);
+    expect(await (await app.request(`/public/signatures/${signatureToken}`)).json()).toMatchObject({ canSign: true });
     const paymentResponse = await app.request('/api/payments', {
       method: 'POST', headers: standardHeaders,
       body: JSON.stringify({ followupId: paidFollowup.id, amountCents: 500, method: 'cash' }),
@@ -194,12 +200,27 @@ integration('SaaS offer capabilities through API with PostgreSQL', () => {
       payments: await getDatabase().select().from(payments).where(eq(payments.followupId, paidFollowup.id)),
       contracts: await getDatabase().select().from(followupContracts).where(eq(followupContracts.id, appliedContractId)),
       documents: await getDatabase().select().from(appliedDocuments).where(eq(appliedDocuments.id, appliedDocumentId)),
+      documentRevisions: await getDatabase().select().from(appliedDocumentRevisions).where(eq(appliedDocumentRevisions.documentId, appliedDocumentId)),
       processes: await getDatabase().select().from(signatureProcesses).where(eq(signatureProcesses.id, processId)),
       participants: await getDatabase().select().from(signatureParticipants).where(eq(signatureParticipants.id, participantId)),
       tokens: await getDatabase().select().from(signatureTokens).where(eq(signatureTokens.participantId, participantId)),
+      operations: await getDatabase().select().from(signatureOperations).where(eq(signatureOperations.participantId, participantId)),
+      revisions: await getDatabase().select().from(signatureRevisions).where(eq(signatureRevisions.participantId, participantId)),
+      evidence: await getDatabase().select().from(signatureEvidence).where(eq(signatureEvidence.participantId, participantId)),
+      events: await getDatabase().select().from(signatureEvents).where(eq(signatureEvents.participantId, participantId)),
+      externalAttempts: await getDatabase().select().from(signatureExternalAttempts).where(eq(signatureExternalAttempts.participantId, participantId)),
+      externalReceipts: await getDatabase().select().from(signatureExternalReceipts).where(eq(signatureExternalReceipts.tenantId, standard.tenantId)),
+      previews: await getDatabase().select().from(signaturePreviewCandidates).where(eq(signaturePreviewCandidates.participantId, participantId)),
     };
     await getDatabase().update(clinicSubscriptions).set({ status: 'paused' }).where(eq(clinicSubscriptions.tenantId, standard.tenantId));
     expect(await (await app.request('/api/saas/subscription', { headers: standardHeaders })).json()).toMatchObject({ effectivePlan: 'free', subscription: { status: 'paused', planId: 'standard' } });
+    expect((await app.request('/api/auth/default-signature', { headers: standardHeaders })).status).toBe(403);
+    expect((await app.request('/api/auth/default-signature', {
+      method: 'PUT', headers: standardHeaders, body: JSON.stringify({ signaturePng: null }),
+    })).status).toBe(403);
+    expect((await app.request('/api/signature-pending', { headers: standardHeaders })).status).toBe(403);
+    expect(await (await app.request(`/public/signatures/${signatureToken}`)).json()).toMatchObject({ canSign: false });
+    expect((await app.request(`/api/signature-history?followupContractId=${appliedContractId}`, { headers: standardHeaders })).status).toBe(200);
     expect((await (await app.request('/api/combos', { headers: standardHeaders })).json() as Array<{ id: string }>).some((item) => item.id === comboBody.id)).toBe(true);
     expect((await (await app.request('/api/plans', { headers: standardHeaders })).json() as Array<{ id: string }>).some((item) => item.id === plan.id)).toBe(true);
     expect((await app.request(`/api/followups/${paidFollowup.id}/cancel`, {
@@ -236,13 +257,21 @@ integration('SaaS offer capabilities through API with PostgreSQL', () => {
     expect((await app.request(`/api/signature-participants/${participantId}/refresh`, {
       method: 'POST', headers: standardHeaders,
     })).status).toBe(403);
+    expect((await app.request(`/public/signatures/${signatureToken}/preview`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ documentRevisionId: 'persisted-revision', fingerprint: 'a'.repeat(64), payload: {} }),
+    })).status).toBe(403);
+    expect((await app.request(`/public/signatures/${signatureToken}/confirm`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ evidence: { documentRevisionId: 'persisted-revision', fingerprint: 'a'.repeat(64), payload: {} } }),
+    })).status).toBe(403);
+    expect((await app.request(`/public/signatures/${signatureToken}/verify-phone`, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({}),
+    })).status).toBe(400);
     expect((await app.request(`/api/applied-documents/${appliedDocumentId}`, {
       method: 'DELETE', headers: standardHeaders,
     })).status).toBe(403);
     for (const action of [
-      `/public/signatures/${signatureToken}/verify-phone`,
-      `/public/signatures/${signatureToken}/preview`,
-      `/public/signatures/${signatureToken}/confirm`,
       `/public/signatures/${signatureToken}/external/export`,
       `/public/signatures/${signatureToken}/external/import`,
       `/public/signatures/${signatureToken}/external/confirm`,
@@ -267,9 +296,17 @@ integration('SaaS offer capabilities through API with PostgreSQL', () => {
       payments: await getDatabase().select().from(payments).where(eq(payments.followupId, paidFollowup.id)),
       contracts: await getDatabase().select().from(followupContracts).where(eq(followupContracts.id, appliedContractId)),
       documents: await getDatabase().select().from(appliedDocuments).where(eq(appliedDocuments.id, appliedDocumentId)),
+      documentRevisions: await getDatabase().select().from(appliedDocumentRevisions).where(eq(appliedDocumentRevisions.documentId, appliedDocumentId)),
       processes: await getDatabase().select().from(signatureProcesses).where(eq(signatureProcesses.id, processId)),
       participants: await getDatabase().select().from(signatureParticipants).where(eq(signatureParticipants.id, participantId)),
       tokens: await getDatabase().select().from(signatureTokens).where(eq(signatureTokens.participantId, participantId)),
+      operations: await getDatabase().select().from(signatureOperations).where(eq(signatureOperations.participantId, participantId)),
+      revisions: await getDatabase().select().from(signatureRevisions).where(eq(signatureRevisions.participantId, participantId)),
+      evidence: await getDatabase().select().from(signatureEvidence).where(eq(signatureEvidence.participantId, participantId)),
+      events: await getDatabase().select().from(signatureEvents).where(eq(signatureEvents.participantId, participantId)),
+      externalAttempts: await getDatabase().select().from(signatureExternalAttempts).where(eq(signatureExternalAttempts.participantId, participantId)),
+      externalReceipts: await getDatabase().select().from(signatureExternalReceipts).where(eq(signatureExternalReceipts.tenantId, standard.tenantId)),
+      previews: await getDatabase().select().from(signaturePreviewCandidates).where(eq(signaturePreviewCandidates.participantId, participantId)),
     }).toEqual(persistedBeforeFreeze);
     await getDatabase().update(clinicSubscriptions).set({ status: 'inactive', endedAt: new Date() }).where(eq(clinicSubscriptions.tenantId, standard.tenantId));
     expect(await (await app.request('/api/saas/subscription', { headers: standardHeaders })).json()).toMatchObject({ effectivePlan: 'free', subscription: { status: 'inactive', planId: 'standard' } });
@@ -277,6 +314,9 @@ integration('SaaS offer capabilities through API with PostgreSQL', () => {
       tenantId: standard.tenantId, planId: 'standard', status: 'active', startedAt: new Date(),
     });
     expect(await (await app.request('/api/saas/subscription', { headers: standardHeaders })).json()).toMatchObject({ effectivePlan: 'standard', subscription: { status: 'active', planId: 'standard' } });
+    expect((await app.request('/api/auth/default-signature', { headers: standardHeaders })).status).toBe(200);
+    expect((await app.request('/api/signature-pending', { headers: standardHeaders })).status).toBe(200);
+    expect(await (await app.request(`/public/signatures/${signatureToken}`)).json()).toMatchObject({ canSign: true });
     expect((await app.request('/api/payments', {
       method: 'POST', headers: standardHeaders,
       body: JSON.stringify({ followupId: paidFollowup.id, amountCents: 100, method: 'cash' }),

@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { SignaturePadField, type SignaturePadHandle } from '@/components/signing/SignaturePadField';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { defaultSignatureQuery, professionalProfileQuery, accountQuery, sessionQuery, useChangeAccountEmail, useChangeAccountPassword, useSaveDefaultSignature, useSaveProfessionalProfile, useUpdateAccount } from '@/lib/queries';
+import { defaultSignatureQuery, professionalProfileQuery, accountQuery, sessionQuery, saasSubscriptionQuery, useChangeAccountEmail, useChangeAccountPassword, useSaveDefaultSignature, useSaveProfessionalProfile, useUpdateAccount } from '@/lib/queries';
 
 export const Route = createFileRoute('/_app/configuracoes')({
   validateSearch: z.object({ tab: z.enum(['account', 'identity', 'signature']).optional() }),
@@ -26,9 +26,11 @@ const STATES = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT'
 function Settings() {
   const { tab } = Route.useSearch();
   const navigate = Route.useNavigate();
+  const subscription = useQuery(saasSubscriptionQuery);
+  const canSign = subscription.data?.effectivePlan === 'standard' || subscription.data?.effectivePlan === 'pro';
   const profile = useQuery(professionalProfileQuery);
   const session = useQuery(sessionQuery);
-  const defaultSignature = useQuery(defaultSignatureQuery);
+  const defaultSignature = useQuery({ ...defaultSignatureQuery, enabled: canSign });
   const saveDefaultSignature = useSaveDefaultSignature();
   const signaturePad = useRef<SignaturePadHandle>(null);
   const [signaturePng, setSignaturePng] = useState<string | null>(null);
@@ -54,20 +56,21 @@ function Settings() {
   }
 
   const stampLine = council && number.trim() ? `${council} ${number.trim()}${state ? `/${state}` : ''}` : null;
+  const activeTab = tab === 'signature' && !canSign ? 'identity' : tab ?? 'identity';
 
   return (
-    <Tabs value={tab ?? 'identity'} onValueChange={(value) => { void navigate({ search: { tab: value as 'account' | 'identity' | 'signature' } }); }} className="items-stretch">
+    <Tabs value={activeTab} onValueChange={(value) => { void navigate({ search: { tab: value as 'account' | 'identity' | 'signature' } }); }} className="items-stretch">
       <TabsList aria-label="Seções de configurações">
         <TabsTrigger value="account"><Settings2 aria-hidden="true" /> Clínica e conta</TabsTrigger>
         <TabsTrigger value="identity"><UserRound aria-hidden="true" /> Identidade profissional</TabsTrigger>
-        <TabsTrigger value="signature"><PenLine aria-hidden="true" /> Assinatura</TabsTrigger>
+        {canSign && <TabsTrigger value="signature"><PenLine aria-hidden="true" /> Assinatura</TabsTrigger>}
       </TabsList>
 
       <TabsContent value="account">
         <ClinicAccountPanel />
       </TabsContent>
 
-      <TabsContent value="signature">
+      {canSign && <TabsContent value="signature">
       <section className="panel grid gap-4" aria-label="Assinatura padrão">
         <div className="panel-header">
           <div><div className="section-kicker">ASSINATURA PADRÃO</div><h2>Desenhe uma vez</h2></div>
@@ -82,7 +85,7 @@ function Settings() {
           </Button>
         </div>
       </section>
-      </TabsContent>
+      </TabsContent>}
 
       <TabsContent value="identity">
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">

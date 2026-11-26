@@ -51,7 +51,10 @@ integration('Issue #23: Entregar assinatura manuscrita local do paciente', () =>
     const db = getDatabase();
     await provisionIntegrationClinic(app, 'sig-flow', tenantId);
     await provisionIntegrationClinic(app, 'sig-flow-other', otherTenantId);
-    await db.insert(clinicSubscriptions).values({ tenantId, planId: 'standard', status: 'active', startedAt: new Date() });
+    await db.insert(clinicSubscriptions).values([
+      { tenantId, planId: 'standard', status: 'active', startedAt: new Date() },
+      { tenantId: otherTenantId, planId: 'standard', status: 'active', startedAt: new Date() },
+    ]);
     sessionHeaders = integrationHeaders(tenantId);
     otherSessionHeaders = integrationHeaders(otherTenantId);
 
@@ -143,6 +146,7 @@ integration('Issue #23: Entregar assinatura manuscrita local do paciente', () =>
   afterAll(async () => {
     const db = getDatabase();
     await db.delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, tenantId));
+    await db.delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, otherTenantId));
     for (const table of [
       signatureEvidence, signatureEvents, signatureRevisions, signatureOperations,
       signaturePreviewCandidates, signatureTokens, signatureParticipants, signatureProcesses
@@ -168,12 +172,15 @@ integration('Issue #23: Entregar assinatura manuscrita local do paciente', () =>
   });
 
   it('exige os 4 últimos dígitos do telefone antes de liberar acesso ao contrato e PDF', async () => {
+    const db = getDatabase();
+    await db.update(clinicSubscriptions).set({ status: 'paused' }).where(eq(clinicSubscriptions.tenantId, tenantId));
     // Acesso inicial sem telefone retorna verification_required
     const unverified = await request(`/public/signatures/${patientToken}`);
     expect(unverified.status).toBe(200);
     const unverifiedBody = await unverified.json() as any;
     expect(unverifiedBody.status).toBe('verification_required');
     expect(unverifiedBody.phoneVerificationRequired).toBe(true);
+    expect(unverifiedBody.canSign).toBe(false);
 
     // Tentativa com dígitos errados falha (403 ou 400)
     const wrongPhone = await request(`/public/signatures/${patientToken}/verify-phone`, json({ phoneLast4: '0000' }));
@@ -183,7 +190,7 @@ integration('Issue #23: Entregar assinatura manuscrita local do paciente', () =>
     const validPhone = await request(`/public/signatures/${patientToken}/verify-phone`, json({ phoneLast4: '4321' }));
     expect(validPhone.status).toBe(200);
 
-    // Agora o contrato e o documento são acessíveis
+    // A autenticação de leitura permanece disponível enquanto a coleta está congelada.
     const read = await request(`/public/signatures/${patientToken}`);
     expect(read.status).toBe(200);
     const readBody = await read.json() as any;
@@ -200,6 +207,7 @@ integration('Issue #23: Entregar assinatura manuscrita local do paciente', () =>
     const downloadedBytes = new Uint8Array(await pdfRes.arrayBuffer());
     expect(downloadedBytes.byteLength).toBe(pdfBytes.byteLength);
     expect(Array.from(downloadedBytes)).toEqual(Array.from(pdfBytes));
+    await db.update(clinicSubscriptions).set({ status: 'active' }).where(eq(clinicSubscriptions.tenantId, tenantId));
   });
 
   it('confirma assinatura manuscrita, gera incremental update e mantém idempotência', async () => {
@@ -208,6 +216,23 @@ integration('Issue #23: Entregar assinatura manuscrita local do paciente', () =>
     const current = await request(`/public/signatures/${patientToken}`);
     expect(current.status).toBe(200);
     baseRevisionId = ((await current.json()) as any).document.revisionId;
+    const pausedToken = (await getDatabase().select().from(signatureTokens).where(eq(signatureTokens.participantId, patientParticipantId)))[0]!;
+    const pausedRevision = (await getDatabase().select().from(appliedDocumentRevisions).where(eq(appliedDocumentRevisions.id, baseRevisionId)))[0]!;
+    const pausedEvidence = await getDatabase().select().from(signatureEvidence).where(eq(signatureEvidence.participantId, patientParticipantId));
+    const pausedEvents = await getDatabase().select().from(signatureEvents).where(eq(signatureEvents.participantId, patientParticipantId));
+    await getDatabase().update(clinicSubscriptions).set({ status: 'paused' }).where(eq(clinicSubscriptions.tenantId, tenantId));
+    const blockedPreview = await request(`/public/signatures/${patientToken}/preview`, json({ baseRevisionId, documentId, signaturePng: pngDataUrl, idempotencyKey: randomUUID(), placement: { pageIndex: 0, x: 0.1, y: 0.2, width: 0.25, height: 0.12 }, previewOnly: true }));
+    expect(blockedPreview.status).toBe(403);
+    const blockedConfirm = await request(`/public/signatures/${patientToken}/confirm`, json({ evidence: { documentId, baseRevisionId, signaturePng: pngDataUrl, placement: { pageIndex: 0, x: 0.1, y: 0.2, width: 0.25, height: 0.12 }, idempotencyKey: randomUUID(), confirmed: true, acceptanceText: 'Li e aceito' } }));
+    expect(blockedConfirm.status).toBe(403);
+    await getDatabase().update(clinicSubscriptions).set({ status: 'active' }).where(eq(clinicSubscriptions.tenantId, tenantId));
+    const resumedToken = (await getDatabase().select().from(signatureTokens).where(eq(signatureTokens.participantId, patientParticipantId)))[0]!;
+    const resumedRevision = (await getDatabase().select().from(appliedDocumentRevisions).where(eq(appliedDocumentRevisions.id, baseRevisionId)))[0]!;
+    expect(resumedToken.expiresAt).toEqual(pausedToken.expiresAt);
+    expect(resumedRevision).toEqual(pausedRevision);
+    expect(resumedRevision.contentHash).toBe(pausedRevision.contentHash);
+    expect(await getDatabase().select().from(signatureEvidence).where(eq(signatureEvidence.participantId, patientParticipantId))).toEqual(pausedEvidence);
+    expect(await getDatabase().select().from(signatureEvents).where(eq(signatureEvents.participantId, patientParticipantId))).toEqual(pausedEvents);
 
     const otherPending = await app.request('/api/signature-pending', { headers: otherSessionHeaders });
     expect(otherPending.status).toBe(200);

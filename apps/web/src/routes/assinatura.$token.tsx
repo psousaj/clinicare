@@ -20,6 +20,7 @@ export const Route = createFileRoute('/assinatura/$token')({ component: Signatur
 
 const signatureSchema = z.looseObject({
   participantId: z.string(), role: z.string(), status: z.string(), expiresAt: z.string(),
+  canSign: z.boolean().optional(),
   phoneVerificationRequired: z.boolean().optional(),
   hasExternalSignatures: z.boolean().optional(),
   document: z.looseObject({ id: z.string(), revisionId: z.string(), version: z.number(), hash: z.string(), size: z.number(), url: z.string() }).optional(),
@@ -48,6 +49,7 @@ function SignaturePage() {
   if (signature.isError) return <PublicShell><p className="text-destructive" role="alert">{signature.error.message}</p></PublicShell>;
   if (!signature.data) return null;
   if (!verified || signature.data.phoneVerificationRequired) return <PhoneGate value={phoneLast4} onChange={setPhoneLast4} onSubmit={() => { setError(null); verify.mutate(); }} pending={verify.isPending} error={error} />;
+  if (signature.data.canSign === false) return <PublicShell><section className="public-form-card max-w-xl"><div className="section-kicker">ASSINATURA INDISPONÍVEL</div><h1>Este link está temporariamente em modo de consulta</h1><p>A clínica precisa de uma assinatura Standard ativa para coletar assinaturas. Nenhuma assinatura ou alteração foi registrada.</p>{signature.data.document?.url && <a className="text-button" href={signature.data.document.url} target="_blank" rel="noreferrer">Baixar documento histórico</a>}</section></PublicShell>;
   if (!signature.data.document) return <PublicShell><p>O documento PDF ainda não está disponível.</p></PublicShell>;
   return <SigningWorkspace token={token} signature={signature.data} />;
 }

@@ -8,7 +8,7 @@ import {
   planVersionContracts, planVersionItems, planVersions, plans, procedures,
   signatureEvents, signatureEvidence, signatureOperations,
   signatureParticipants, signaturePreviewCandidates, signatureProcesses, signatureRevisions,
-   signatureTokens, tenants, encryptValue, buildPatientAad, userTenantMemberships,
+  signatureTokens, tenants, encryptValue, buildPatientAad, userTenantMemberships,
 } from '@clinicare/db';
 import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, integrationHeaders, provisionIntegrationClinic } from './integration-support';
 import { deleteObject, uploadObjectBytes } from './storage';
@@ -45,7 +45,10 @@ integration('PostgreSQL signatures API', () => {
     const db = getDatabase();
     await provisionIntegrationClinic(app, 'signatures', tenantId);
     await provisionIntegrationClinic(app, 'signatures-other', otherTenantId);
-    await getDatabase().insert(clinicSubscriptions).values({ tenantId, planId: 'standard', status: 'active', startedAt: new Date() });
+    await getDatabase().insert(clinicSubscriptions).values([
+      { tenantId, planId: 'standard', status: 'active', startedAt: new Date() },
+      { tenantId: otherTenantId, planId: 'standard', status: 'active', startedAt: new Date() },
+    ]);
     sessionHeaders = integrationHeaders(tenantId);
     otherSessionHeaders = integrationHeaders(otherTenantId);
 
@@ -114,6 +117,7 @@ integration('PostgreSQL signatures API', () => {
   afterAll(async () => {
     const db = getDatabase();
     await db.delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, tenantId));
+    await db.delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, otherTenantId));
     for (const table of [
       signatureEvidence, signatureEvents, signatureRevisions, signatureOperations,
       signaturePreviewCandidates, signatureTokens, signatureParticipants, signatureProcesses,

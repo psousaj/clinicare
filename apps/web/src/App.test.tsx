@@ -65,6 +65,15 @@ describe('Clinic dashboard', () => {
     expect(screen.getAllByRole('link', { name: /Marina Alves/ })).toHaveLength(1);
   });
 
+  it('does not request or show document tasks on Free', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    routes['GET /api/signature-pending'] = () => [{ participantId: 'premium', role: 'patient', status: 'pending', followupId: 'f1', contractId: 'c1', title: 'Contrato', blocking: true, patient: { id: 'p1', fullName: 'Marina Alves' } }];
+    renderAt('/');
+    expect(await screen.findByRole('heading', { name: 'Próximas sessões' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Documentos que precisam de atenção' })).not.toBeInTheDocument();
+    expect(calls.some((call) => call.url === '/api/signature-pending')).toBe(false);
+  });
+
   it('only lists patients with a performed attendance as recently attended', async () => {
     renderAt('/');
     expect(await screen.findByText(/Nenhum atendimento realizado ainda/)).toBeInTheDocument();
@@ -1381,6 +1390,15 @@ describe('Relacionamento do paciente', () => {
 });
 
 describe('Configurações', () => {
+  it('hides the representative signature setting and avoids loading its data on Free', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    routes['GET /api/auth/professional-profile'] = () => null;
+    renderAt('/configuracoes?tab=signature');
+    expect(await screen.findByRole('heading', { name: 'Registro no conselho' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Assinatura' })).not.toBeInTheDocument();
+    expect(calls.some((call) => call.url === '/api/auth/default-signature')).toBe(false);
+  });
+
   it('saves the professional registration and previews the stamp', async () => {
     routes['GET /api/auth/get-session'] = () => ({ user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com' } });
     routes['GET /api/auth/professional-profile'] = () => null;
@@ -1480,6 +1498,13 @@ describe('Documentos', () => {
     routes['GET /api/signature-pending'] = () => [];
     renderAt('/documentos');
     expect(await screen.findByText(/nenhum contrato esperando sua assinatura/i)).toBeInTheDocument();
+  });
+
+  it('hides pending signature work on Free and does not query the premium queue', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    renderAt('/documentos');
+    expect(await screen.findByRole('heading', { name: /pendências e assinaturas exigem standard/i })).toBeInTheDocument();
+    expect(calls.some((call) => call.url === '/api/signature-pending')).toBe(false);
   });
 });
 

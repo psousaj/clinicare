@@ -158,6 +158,18 @@ describe('patient signature workspace', () => {
     expect(await screen.findByText('O documento foi atualizado antes da prévia. Recarregue a página para revisar a versão atual.')).toBeInTheDocument();
   });
 
+  it('keeps a downgraded public signing link read-only and explains the restriction', async () => {
+    globalThis.fetch = vi.fn(async (url: string) => {
+      if (url === '/public/signatures/test-token') return { ok: true, status: 200, json: async () => ({ ...signatureResponse(), canSign: false }) };
+      return { ok: true, status: 200, json: async () => ({}) };
+    }) as unknown as typeof fetch;
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Este link está temporariamente em modo de consulta' })).toBeInTheDocument();
+    expect(screen.getByText(/nenhuma assinatura ou alteração foi registrada/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Área para desenhar sua assinatura')).not.toBeInTheDocument();
+    expect((fetch as ReturnType<typeof vi.fn>).mock.calls.some(([url]) => String(url).endsWith('/confirm') || String(url).endsWith('/preview'))).toBe(false);
+  });
+
   it('closes mobile fullscreen before the explicit Continue advances to confirmation', async () => {
     vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener() {}, removeEventListener() {}, addListener() {} }));
     const user = userEvent.setup();

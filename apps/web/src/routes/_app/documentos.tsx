@@ -5,7 +5,7 @@ import { ContractReprocessButton } from '@/components/ContractSignatureHistory';
 import { QueryError } from '@/components/QueryState';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
-import { signaturePendingQuery } from '@/lib/queries';
+import { saasSubscriptionQuery, signaturePendingQuery } from '@/lib/queries';
 
 // Documentos: fila de assinaturas do lado da clínica. O representante assina
 // na página dedicada /documentos/:id/assinar; o paciente assina pelo link
@@ -22,12 +22,21 @@ function Documents() {
 }
 
 function DocumentsContent() {
+  const subscription = useQuery(saasSubscriptionQuery);
+  const canSeeDocumentTasks = subscription.data?.effectivePlan === 'standard' || subscription.data?.effectivePlan === 'pro';
   const pending = useQuery({
     ...signaturePendingQuery,
+    enabled: canSeeDocumentTasks,
     // A geração do contrato e a criação dos participantes acontecem em
     // background; mantém a fila viva até o processo aparecer.
     refetchInterval: 4000,
   });
+  if (!subscription.isSuccess) return <div role="status" className="panel">Carregando o acesso aos documentos…</div>;
+  if (!canSeeDocumentTasks) return <section className="panel grid gap-3">
+    <div className="section-kicker">DOCUMENTOS HISTÓRICOS</div>
+    <h2 className="m-0">Pendências e assinaturas exigem Standard</h2>
+    <p className="m-0 text-sm text-muted-foreground">Acesso insuficiente para iniciar ou acompanhar assinaturas. Os documentos históricos autorizados continuam preservados.</p>
+  </section>;
   const mine = (pending.data ?? []).filter((item) => item.role === 'professional' && item.status === 'pending');
   const waitingPatient = (pending.data ?? []).filter((item) => item.role === 'patient' && item.status === 'pending');
   const queue = mine.map((item) => item.contractId).join(',');
