@@ -187,6 +187,15 @@ export const useSaveContractDraft = () =>
     invalidate: [keys.contracts],
     success: 'Draft DOCX salvo.',
   });
+export const useSaveContractDraftConfiguration = () =>
+  useApiMutation({
+    mutationFn: ({ id, contexts, allowedPlaceholders, requiredPlaceholders }: { id: string; contexts: Record<string, { enabled: boolean; required: boolean }>; allowedPlaceholders: string[]; requiredPlaceholders: string[] }) =>
+      api(`/api/contracts/${id}/draft/configuration`, { method: 'PUT', body: { contexts, allowedPlaceholders, requiredPlaceholders }, schema: anySchema }),
+    invalidate: [keys.contracts],
+    success: 'Configuração salva sem reenviar o DOCX.',
+  });
+export const fetchContractDraftUrl = async (id: string) =>
+  (await api(`/api/contracts/${id}/draft/editor`, { schema: z.looseObject({ documentUrl: z.string().url() }), fallbackError: 'Não foi possível recuperar o DOCX.' })).documentUrl;
 export const usePublishContractDraft = () =>
   useApiMutation({ mutationFn: (id: string) => post(`/api/contracts/${id}/publish`, {}, anySchema), invalidate: [keys.contracts, keys.followups], success: 'Nova versão publicada a partir do draft.' });
 export const usePresignContractVersionPdf = () =>

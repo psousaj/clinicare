@@ -38,26 +38,60 @@ export async function getContractDraftEditor(tenantId: string, contractId: strin
   return { documentKey: contract.draftDocxObjectKey, documentUrl: url, title: contract.title };
 }
 
-export async function saveContractDraft(tenantId: string, contractId: string, input: any) {
+export async function saveContractDraft(tenantId: string, contractId: string, input: any, canConfigure: boolean) {
   const metadata = docxMetadata(input);
-  const contexts = validatePlaceholderConfiguration(input.contexts, input.allowedPlaceholders, input.requiredPlaceholders);
+  const contexts = canConfigure
+    ? validatePlaceholderConfiguration(input.contexts, input.allowedPlaceholders, input.requiredPlaceholders)
+    : null;
   const contract = (await getDatabase().select().from(contracts).where(and(eq(contracts.tenantId, tenantId), eq(contracts.id, contractId))))[0];
   if (!contract) return null;
   if (!uuid(input.objectKey)) throw invalid('Objeto DOCX inválido.');
   if (!await verifyObject(input.objectKey, metadata.contentHash, metadata.size, DOCX_CONTENT_TYPE)) throw invalid('O DOCX enviado não corresponde aos metadados declarados.');
   const bytes = await downloadObjectBytes(input.objectKey);
-  validateDocxPlaceholders(bytes, contexts.contexts, contexts.allowedPlaceholders, contexts.requiredPlaceholders);
+  if (contexts) validateDocxPlaceholders(bytes, contexts.contexts, contexts.allowedPlaceholders, contexts.requiredPlaceholders);
+  else inspectDocxPlaceholders(bytes);
   await getDatabase().update(contracts).set({
     draftDocxObjectKey: input.objectKey,
     draftDocxHash: metadata.contentHash,
     draftDocxSize: metadata.size,
     draftDocxContentType: metadata.contentType,
-    draftContextConfiguration: contexts.contexts,
-    draftAllowedPlaceholders: contexts.allowedPlaceholders,
-    draftRequiredPlaceholders: contexts.requiredPlaceholders,
+    ...(contexts ? {
+      draftContextConfiguration: contexts.contexts,
+      draftAllowedPlaceholders: contexts.allowedPlaceholders,
+      draftRequiredPlaceholders: contexts.requiredPlaceholders,
+    } : {
+      // DOCX and its materialization settings form one mutable draft. A Free
+      // import replaces the document without being allowed to retain stale
+      // Standard-only settings that belonged to the previous DOCX.
+      draftContextConfiguration: null,
+      draftAllowedPlaceholders: null,
+      draftRequiredPlaceholders: null,
+    }),
     updatedAt: new Date(),
   }).where(and(eq(contracts.tenantId, tenantId), eq(contracts.id, contractId)));
   return { contractId, objectKey: input.objectKey, hash: metadata.contentHash, size: metadata.size, discoveredPlaceholders: inspectDocxPlaceholders(bytes) };
+}
+
+export async function saveContractDraftConfiguration(tenantId: string, contractId: string, input: any) {
+  const configuration = validatePlaceholderConfiguration(input?.contexts, input?.allowedPlaceholders, input?.requiredPlaceholders);
+  const [contract] = await getDatabase().select().from(contracts)
+    .where(and(eq(contracts.tenantId, tenantId), eq(contracts.id, contractId)));
+  if (!contract) return null;
+  if (!contract.draftDocxObjectKey || !contract.draftDocxHash || !contract.draftDocxSize) {
+    throw invalid('Importe um draft DOCX antes de configurar os campos.');
+  }
+  if (!await verifyObject(contract.draftDocxObjectKey, contract.draftDocxHash, contract.draftDocxSize, DOCX_CONTENT_TYPE)) {
+    throw invalid('O draft DOCX foi alterado ou não corresponde ao hash salvo.');
+  }
+  const bytes = await downloadObjectBytes(contract.draftDocxObjectKey);
+  const validated = validateDocxPlaceholders(bytes, configuration.contexts, configuration.allowedPlaceholders, configuration.requiredPlaceholders);
+  await getDatabase().update(contracts).set({
+    draftContextConfiguration: configuration.contexts,
+    draftAllowedPlaceholders: configuration.allowedPlaceholders,
+    draftRequiredPlaceholders: configuration.requiredPlaceholders,
+    updatedAt: new Date(),
+  }).where(and(eq(contracts.tenantId, tenantId), eq(contracts.id, contractId)));
+  return { contractId, hash: contract.draftDocxHash, size: contract.draftDocxSize, discoveredPlaceholders: validated.discoveredPlaceholders };
 }
 
 // Publicar propaga a nova versão aos contratos aplicados ainda sem nenhuma

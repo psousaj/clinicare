@@ -354,6 +354,34 @@ describe('Contract edit and versions', () => {
     expect(screen.getByRole('button', { name: /publicar v2/i })).toBeInTheDocument();
   });
 
+  it('lets Free import and retrieve a DOCX but hides configuration and publishing', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    routes['GET /api/contracts'] = () => [{ ...contract(), draftDocxHash: 'a'.repeat(64), draftDocxSize: 24 }];
+    routes['POST /api/contracts/c1/draft/presign'] = () => ({ objectKey: 'free-docx', uploadUrl: 'https://storage.example/free-upload' });
+    routes['PUT https://storage.example/free-upload'] = () => ({});
+    routes['PUT /api/contracts/c1/draft'] = () => ({});
+    const user = userEvent.setup();
+    renderAt('/contratos/c1');
+    expect(await screen.findByRole('button', { name: /baixar docx/i })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: /dados usados no documento/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: /campos do documento/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /publicar/i })).not.toBeInTheDocument();
+    await user.upload(await screen.findByLabelText('Arquivo .docx'), new File(['free docx fixture'], 'free.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }));
+    await user.click(screen.getByRole('button', { name: /salvar docx/i }));
+    await waitFor(() => expect(calls.find((call) => call.url === '/api/contracts/c1/draft' && call.method === 'PUT')).toBeTruthy());
+  });
+
+  it('saves Standard field configuration without uploading the DOCX again', async () => {
+    routes['GET /api/contracts'] = () => [{ ...contract(), draftDocxHash: 'b'.repeat(64), draftDocxSize: 48, draftContextConfiguration: { patient: { enabled: true, required: true }, professional: { enabled: false, required: false }, clinic: { enabled: false, required: false }, application: { enabled: false, required: false }, plan: { enabled: false, required: false } }, draftAllowedPlaceholders: ['patient.name'], draftRequiredPlaceholders: ['patient.name'] }];
+    routes['GET /api/contracts/placeholders'] = () => ['patient.name'];
+    routes['PUT /api/contracts/c1/draft/configuration'] = () => ({});
+    const user = userEvent.setup();
+    renderAt('/contratos/c1');
+    await user.click(await screen.findByRole('button', { name: /salvar configuração/i }));
+    await waitFor(() => expect(calls.some((call) => call.method === 'PUT' && call.url === '/api/contracts/c1/draft/configuration')).toBe(true));
+    expect(calls.some((call) => call.url === '/api/contracts/c1/draft/presign')).toBe(false);
+  });
+
   it('hashes and uploads a DOCX draft without depending on crypto.subtle', async () => {
     routes['GET /api/contracts'] = () => [contract()];
     routes['GET /api/contracts/placeholders'] = () => ['patient.name'];
@@ -363,7 +391,7 @@ describe('Contract edit and versions', () => {
     const user = userEvent.setup();
     renderAt('/contratos/c1');
     await user.upload(await screen.findByLabelText('Arquivo .docx'), new File(['docx fixture'], 'contract.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }));
-    await user.click(await screen.findByRole('button', { name: /salvar draft/i }));
+    await user.click(await screen.findByRole('button', { name: /salvar docx/i }));
     await waitFor(() => expect(calls.find((call) => call.url === '/api/contracts/c1/draft' && call.method === 'PUT')?.body).toMatchObject({
       objectKey: 'object-1', contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 12,
     }));
