@@ -6,23 +6,26 @@ restaurar dados sobre uma instalação existente. O ensaio sempre restaura em
 outro database vazio no mesmo servidor PostgreSQL local; não usa `--clean`,
 `DROP`, `reset`, `db:reset` ou seed como migração.
 
-## Situação verificada neste checkout
+## Situação histórica registrada na base da Task #50
 
-- Código no checkout: commit `d88c8876dda77a164b6671cd2ce0bdb5c62d7859`
-  (base de #45: commit `d88c8876dda77a164b6671cd2ce0bdb5c62d7859`).
+- O registro abaixo descreve o estado observado no checkout
+  `d88c8876dda77a164b6671cd2ce0bdb5c62d7859` (base de #45), não o estado atual
+  após a Task #62. Para evidências posteriores, consulte “Evidência #62”.
 - A imagem local `clinicare-app:latest` existe, mas não há container Clinicare
-  de aplicação em execução; portanto ela não comprova a versão implantada.
-- `.env` aponta para `localhost:5432/clinicare`, porém a porta 5432 pertence a
-  `photopulse-postgres`, não ao PostgreSQL Clinicare. Não conectar nem executar
-  migrations nesse endereço como parte deste ensaio.
+  de aplicação em execução naquele registro; portanto ela não comprovava a
+  versão implantada.
+- Naquele momento, `.env` apontava para `localhost:5432/clinicare`, porém a
+  porta 5432 pertencia a `photopulse-postgres`, não ao PostgreSQL Clinicare.
+  Esse endpoint não foi usado naquele ensaio.
 - O banco descartável do ensaio foi iniciado isoladamente em `localhost:55432`
   com volume próprio. Schema e ledger foram criados a partir das migrations
   deste checkout. É um banco local de teste, não a instalação Clinicare de
   produção nem evidência da versão implantada.
-- `CLOUDFLARE_ACCOUNT_ID` e `R2_BUCKET` estão configurados localmente, mas as
-  credenciais S3 não estão disponíveis; o MiniStack local não permite inventariar
-  os objetos de produção. Nenhuma chave de proteção/HMAC ou segredo é registrado
-  neste documento.
+- Naquele momento, `CLOUDFLARE_ACCOUNT_ID` e `R2_BUCKET` estavam configurados
+  localmente, mas as credenciais S3 não estavam disponíveis; o MiniStack local
+  não permitia inventariar os objetos de produção. A verificação posterior do
+  bucket está registrada na Evidência #62. Nenhuma chave de proteção/HMAC ou
+  segredo é registrado neste documento.
 - Namespace e ledger do alvo de produção, versão implantada, extensões,
   permissões/roles, dependências de objetos, referências R2 e disponibilidade
   segura das chaves de dados permanecem **a confirmar com o responsável pelo
@@ -98,8 +101,11 @@ se o arquivo de backup já existir. A restauração nunca sobrescreve nem mescla
 dados.
 
 1. Inicie um PostgreSQL descartável com volume próprio e porta livre. Não
-   reutilize volume desconhecido nem altere containers alheios. Para este
-   checkout, 5432 já está ocupado; o ensaio foi isolado em 55432.
+   reutilize volume desconhecido nem altere containers alheios. Confirme
+   novamente a porta e a identidade do servidor antes de cada execução: a
+   evidência histórica da Task #50 usou 55432, enquanto a Task #62 confirmou o
+   PostgreSQL local Clinicare em 5432. Não reutilize endpoints de evidências
+   anteriores sem nova verificação.
 2. Aplique migrations somente ao database descartável e use fixture sintética
    não identificável apenas para provar preservação de linhas e relações.
 3. Crie um database vazio `clinicare_restore_<identificador>` no mesmo servidor,
@@ -108,8 +114,8 @@ dados.
    do shell nem habilite tracing (`set -x`):
 
    ```sh
-   export RECOVERY_SOURCE_DATABASE_URL='postgresql://...@127.0.0.1:55432/clinicare'
-   export RECOVERY_TARGET_DATABASE_URL='postgresql://...@127.0.0.1:55432/clinicare_restore_<identificador>'
+   export RECOVERY_SOURCE_DATABASE_URL='postgresql://...@127.0.0.1:<porta-confirmada>/clinicare'
+   export RECOVERY_TARGET_DATABASE_URL='postgresql://...@127.0.0.1:<porta-confirmada>/clinicare_restore_<identificador>'
    export RECOVERY_BACKUP_FILE='/caminho/seguro/clinicare-<identificador>.dump'
    export RECOVERY_SCHEMA=clinicare
    # Se o ledger Drizzle estiver em outro namespace, informe-o explicitamente.
@@ -142,7 +148,7 @@ dados.
    descartáveis somente após guardar evidência não sensível; nunca remova volume
    cujo conteúdo/propriedade não foi confirmado.
 
-### Evidência executada neste checkout
+### Evidência histórica do ensaio inicial (#50)
 
 - Source descartável: PostgreSQL 17, `clinicare` / schema `clinicare`, migrations
   do checkout; container e volume exclusivos do ensaio, porta 55432.
@@ -254,3 +260,91 @@ dados.
 - `@clinicare/db test:integration`: 4 testes aprovados; API PostgreSQL + storage
   MiniStack: 62 testes/510 assertions; typechecks DB/API aprovados. Nenhuma
   conexão ou alteração em produção.
+
+### Evidência #62 — restore e ensaio de migrations no dump local
+
+- Base do código: `fef7da05dc6d9c577782196642af3756b471572b`; validação executada
+  em 2026-11-26 no PostgreSQL local `clinicare-dev-postgres-1` (17.11), volume
+  `clinicare-dev_postgres-data`. O endpoint foi conferido no container local,
+  sem túnel: banco `clinicare`, schema atual `clinicare`, porta host 5432.
+- O inventário antes da limpeza e do ensaio confirmou `clinicare` (56 tabelas, ledger com
+  34 migrations), `clinicare_test` (50 tabelas, ledger com 24 migrations) e o
+  schema separado `drizzle` (1 ledger com 10 migrations). Separadamente do
+  ensaio de restauração/migrations, e por instrução explícita do responsável,
+  `clinicare_test` e `drizzle` foram arquivados em
+  `/tmp/opencode/clinicare-task62-preserve-noncanonical-20261126.dump` (202863
+  bytes, modo 0600, SHA-256
+  `8372823a6b6160c6ca60305cc0ef6642bd35905ba4a89dd93bb8b327afdca187`).
+  `pg_restore --list` verificou o archive e seus 110 entries; os fingerprints
+  anteriores dessas duas schemas já haviam sido reconciliados com o restore
+  local descartável. Depois, os dois schemas foram removidos dentro de
+  transação e somente no database local `clinicare`. Essa limpeza não é uma
+  etapa do runbook nem será repetida como parte do ensaio; o ensaio de
+  recuperação em si restaurou em database descartável separado. Não houve
+  conexão nem alteração no PostgreSQL de produção durante essa limpeza.
+- O ensaio criou archive custom restrito
+  `/tmp/opencode/clinicare-task62-restore-20261126-02.dump` (525474 bytes,
+  modo 0600) e restaurou somente para o database descartável
+  `clinicare_restore_task62_20261126_02`, previamente vazio. A ferramenta
+  `db:recovery-rehearsal` reconciliou o schema `clinicare`: 56 tabelas, 375
+  linhas, 66 componentes, SHA-256
+  `f217b8d31387042094100ba56b157ce9a5e311b3acad1032c63d73cb72c941d4`.
+- Reconcilei também, separadamente, os schemas fora do fingerprint principal do
+  ensaio de restore: `clinicare_test` com 50 tabelas/25 linhas e `drizzle` com
+  1 tabela/10 linhas. Ambos estavam presentes na cópia descartável; os
+  fingerprints completos de conteúdo origem/restore coincidiram
+  (`091d37c6771994cba99a75fd8fda3ed70b750569a5296cfe26c2efb8ef196402` e
+  `10bc7460fcacf265342bd20459ebaf18f42dee0b5fad2ef11e0dac5fc0dee27a`).
+- Após essa limpeza local separada, `db:migrate` aplicou serialmente as
+  migrations restantes no próprio database local `clinicare`: ledger com 40
+  entradas, 60 tabelas no schema canônico, nenhum `user.tenant_id`, zero FKs
+  não validadas e zero índices inválidos. O vínculo com a clínica foi preservado:
+  1 tenant, 1 usuário, 1 vínculo administrativo e 1 profissional, sem usuários
+  sem vínculo com clínica nem profissionais sem vínculo correspondente.
+- Reconciliação contra o clone pré-migration: fingerprints dos IDs/PKs
+  coincidiram em 55 tabelas comuns e fingerprints das linhas coincidiram em
+  52 tabelas com schema idêntico. As diferenças de ledger e schema são
+  esperadas pelas migrations. O smoke local descriptografou 10 valores
+  protegidos e validou seus índices HMAC sem emitir plaintext.
+- Reexecutei `db:migrate` após as 40 migrations; concluiu sem duplicar o ledger
+  (continua com 40 entradas e 60 tabelas). No database local há 105 referências
+  em colunas `*_object_key`, correspondendo a 59 keys distintas. Com credenciais
+  S3 configuradas localmente, fiz inventário e leitura somente leitura do bucket
+  remoto R2 selecionado por essas configurações: 80 objetos listados e SHA-256
+  calculado sobre cada conteúdo (80/80); 21
+  objetos não têm referência nessas colunas. Nenhuma das 59 keys referenciadas
+  faltou no inventário; 59 hashes persistidos e 46 tamanhos persistidos foram
+  comparados sem divergências. Não houve falha de leitura, divergência entre
+  metadados do banco, nem diferença entre tamanho listado e bytes lidos. O
+  fingerprint SHA-256 do manifesto do bucket (key, tamanho e SHA-256 do conteúdo,
+  mantido somente no processo restrito) é
+  `5f2a45fed3ee32d3f254325c172eeba229d684711a98be7eda62cc99eca7d950`.
+  Um download histórico de revisão de documento por URL pré-assinada emitida
+  pelo cliente R2 da aplicação também passou, com tamanho e SHA-256 coincidentes
+  com o banco. Essas operações foram apenas list/get/download, sem escrita. O
+  ambiente desse bucket remoto não foi confirmado como isolado de produção;
+  portanto, esta evidência não sustenta a afirmação de que nenhum recurso de
+  produção foi acessado e não deve ser usada para provar o isolamento do ensaio.
+  Nenhuma key, conteúdo ou dado pessoal foi registrado. A aplicação de
+  desenvolvimento normalmente seleciona MiniStack; o smoke R2 isolado removeu
+  apenas as variáveis MiniStack do processo temporário, sem alterar `.env`.
+  Permanecem não executados smoke de login/autorização contra a versão
+  implantável, parada de escritores da instalação real, associação SQL de
+  produção, inventário de roles/grants ou rollback de aplicação em produção.
+  Essas condições mantêm o corte e a issue #62 abertos; esta evidência é somente
+  do ensaio no dump local.
+- Ensaiei também a transição reversa de compatibilidade no database descartável
+  `clinicare_restore_task62_20261126_02`: após restaurar a cópia pré-migration e
+  aplicar as 40 migrations, a transação de rollback do runbook restaurou
+  `user.tenant_id`, unicidade/FK profissional e trigger de sincronização. O
+  preflight confirmou um vínculo `admin` por usuário e clínica; o vínculo com a
+  clínica foi preservado, sem usuários sem tenant/vínculo e com o profissional
+  vinculado.
+  Um teste transacional do trigger passou e foi revertido. Isso ensaia a
+  reversão de compatibilidade do schema com dados copiados, não o rollback do
+  binário/deploy da instalação real; nenhum dado da instalação local principal
+  foi alterado por esse ensaio de rollback.
+- A execução local não tinha `pg_dump`/`pg_restore` no host; foram usados
+  binários 17.11 do container PostgreSQL por wrappers temporários em
+  `/tmp/opencode`, não persistidos no repositório. O backup prévio informado
+  pelo operador não foi alterado.
