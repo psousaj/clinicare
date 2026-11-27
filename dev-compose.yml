@@ -30,11 +30,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 15
-  # Cria o bucket de dev e encerra
+  # Cria os buckets separados de dev e de testes e encerra
   ministack-init:
     image: curlimages/curl:latest
     environment:
       MINISTACK_BUCKET: ${MINISTACK_BUCKET:-clinicare-dev}
+      MINISTACK_TEST_BUCKET: ${MINISTACK_TEST_BUCKET:-clinicare-test}
     depends_on:
       ministack:
         condition: service_healthy
@@ -42,11 +43,21 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        for i in $$(seq 1 30); do
-          curl -sf -X PUT http://ministack:4566/$${MINISTACK_BUCKET} && echo "bucket $${MINISTACK_BUCKET} pronto" && exit 0
-          sleep 1
+        for bucket in "$${MINISTACK_BUCKET}" "$${MINISTACK_TEST_BUCKET}"; do
+          ready=false
+          for i in $$(seq 1 30); do
+            if curl -sf -X PUT "http://ministack:4566/$${bucket}"; then
+              echo "bucket $${bucket} pronto"
+              ready=true
+              break
+            fi
+            sleep 1
+          done
+          if [ "$${ready}" != "true" ]; then
+            echo "falha ao criar bucket $${bucket}" >&2
+            exit 1
+          fi
         done
-        echo "falha ao criar bucket" >&2; exit 1
 volumes:
   postgres-data:
     name: clinicare-dev_postgres-data

@@ -14,8 +14,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { comboForm, parseForm } from '@/lib/forms';
 import { toggleId } from '@/lib/utils';
 import { currency } from '@/lib/format';
-import { anamnesesQuery, proceduresQuery, useCreateCombo, useUpdateCombo } from '@/lib/queries';
+import { anamnesesQuery, proceduresQuery, saasSubscriptionQuery, useCreateCombo, useUpdateCombo } from '@/lib/queries';
 import { AnamnesisPicker } from '@/components/AnamnesisPicker';
+import { StandardPlanNotice } from '@/components/StandardPlanNotice';
 import type { Combo, Procedure } from '@/lib/schemas';
 
 const day = (value?: string | null) => value?.slice(0, 10);
@@ -23,6 +24,7 @@ const day = (value?: string | null) => value?.slice(0, 10);
 // Cadastro e edição de combo na mesma página. Combo promocional exige preço promocional e validade.
 export function ComboFormPage({ combo }: { combo?: Combo }) {
   const create = useCreateCombo(), update = useUpdateCombo();
+  const subscription = useQuery(saasSubscriptionQuery);
   const procedures = (useQuery(proceduresQuery).data ?? []);
   const forms = (useQuery(anamnesesQuery).data ?? []);
   const [promotional, setPromotional] = useState(combo?.promotionalPriceCents != null);
@@ -40,6 +42,9 @@ export function ComboFormPage({ combo }: { combo?: Combo }) {
   const shownPrice = price ?? integral;
   const available = procedures.filter((procedure) => procedure.active !== false || procedure.id in selected);
   const chosen = Object.keys(selected).map((id) => procedures.find((procedure) => procedure.id === id)).filter((procedure): procedure is Procedure => !!procedure);
+  if (subscription.isPending) return <p role="status">Verificando recursos do plano…</p>;
+  if (subscription.isError) return <p role="alert">Não foi possível verificar os recursos do plano.</p>;
+  if (subscription.data.effectivePlan === 'free') return <section className="panel"><h2>Recurso Standard</h2><StandardPlanNotice /></section>;
   return (
     <FormPage
       backTo="/procedimentos"

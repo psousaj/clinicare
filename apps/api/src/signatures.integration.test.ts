@@ -2,13 +2,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { and, eq, sql } from 'drizzle-orm';
 import { app } from './app';
 import {
-  appliedDocuments, appliedDocumentRevisions, authUsers, closeDatabase, contracts,
+  appliedDocuments, appliedDocumentRevisions, authUsers, clinicSubscriptions, closeDatabase, contracts,
   contractVersions, documentCleanupJobs, followupContracts, followupItems,
   followupSnapshots, followups, getDatabase, migrateDatabase, patients,
   planVersionContracts, planVersionItems, planVersions, plans, procedures,
   signatureEvents, signatureEvidence, signatureOperations,
   signatureParticipants, signaturePreviewCandidates, signatureProcesses, signatureRevisions,
-  signatureTokens, tenants, encryptValue, buildPatientAad,
+  signatureTokens, tenants, encryptValue, buildPatientAad, userTenantMemberships,
 } from '@clinicare/db';
 import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, integrationHeaders, provisionIntegrationClinic } from './integration-support';
 import { deleteObject, uploadObjectBytes } from './storage';
@@ -45,6 +45,10 @@ integration('PostgreSQL signatures API', () => {
     const db = getDatabase();
     await provisionIntegrationClinic(app, 'signatures', tenantId);
     await provisionIntegrationClinic(app, 'signatures-other', otherTenantId);
+    await getDatabase().insert(clinicSubscriptions).values([
+      { tenantId, planId: 'standard', status: 'active', startedAt: new Date() },
+      { tenantId: otherTenantId, planId: 'standard', status: 'active', startedAt: new Date() },
+    ]);
     sessionHeaders = integrationHeaders(tenantId);
     otherSessionHeaders = integrationHeaders(otherTenantId);
 
@@ -112,6 +116,8 @@ integration('PostgreSQL signatures API', () => {
 
   afterAll(async () => {
     const db = getDatabase();
+    await db.delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, tenantId));
+    await db.delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, otherTenantId));
     for (const table of [
       signatureEvidence, signatureEvents, signatureRevisions, signatureOperations,
       signaturePreviewCandidates, signatureTokens, signatureParticipants, signatureProcesses,
@@ -240,7 +246,9 @@ integration('PostgreSQL signatures API', () => {
 
   it('allows pending professional signatures without blocking, activates after every patient contract, and deduplicates concurrent confirmation', async () => {
     const db = getDatabase();
-    const sessionUser = (await db.select().from(authUsers).where(eq(authUsers.tenantId, tenantId)))[0]!;
+    const sessionUser = (await db.select({ user: authUsers }).from(authUsers)
+      .innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
+      .where(eq(userTenantMemberships.tenantId, tenantId)))[0]!.user;
     const tenantName = (await db.select().from(tenants).where(eq(tenants.id, tenantId)))[0]!.name;
     const processes = await db.select().from(signatureProcesses).where(eq(signatureProcesses.tenantId, tenantId));
     expect(processes).toHaveLength(2);

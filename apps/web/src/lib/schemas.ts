@@ -258,6 +258,21 @@ export const publicAnamnesisSchema = z.looseObject({
 });
 
 export const createdSchema = z.looseObject({ id: z.string() });
+export const saasPlanSchema = z.looseObject({
+  id: z.enum(['free', 'standard', 'pro']),
+  name: z.string(),
+  rank: z.number(),
+  capabilities: z.array(z.string()),
+  priceCents: z.number().nullable(),
+  billingInterval: z.enum(['month', 'year']).nullable(),
+});
+export const saasSubscriptionSchema = z.looseObject({
+  effectivePlan: z.enum(['free', 'standard', 'pro']),
+  subscription: z.looseObject({
+    planId: z.string(), status: z.enum(['active', 'paused', 'inactive']),
+    startedAt: z.string(), endedAt: z.string().nullable(),
+  }).nullable(),
+});
 export const requestSchema = z.looseObject({ id: z.string(), url: z.string() });
 export const anySchema = z.unknown();
 

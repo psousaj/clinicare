@@ -7,12 +7,12 @@ import { AppointmentDialog } from '@/components/dialogs';
 import { CalendarView } from '@/components/CalendarView';
 import { QueryError } from '@/components/QueryState';
 import { statusLabel, statusTone } from '@/lib/format';
-import { appointmentsQuery, patientsQuery, followupsQuery, proceduresQuery, useConfirmAppointment, useNoShowAppointment } from '@/lib/queries';
+import { appointmentsQuery, patientsQuery, followupsQuery, proceduresQuery, saasSubscriptionQuery, useConfirmAppointment, useNoShowAppointment } from '@/lib/queries';
 
 export const Route = createFileRoute('/_app/agenda')({ component: Agenda });
 
 function Agenda() {
-  const appointments = useQuery(appointmentsQuery), patients = useQuery(patientsQuery), followups = useQuery(followupsQuery), procedures = useQuery(proceduresQuery);
+  const appointments = useQuery(appointmentsQuery), patients = useQuery(patientsQuery), followups = useQuery(followupsQuery), procedures = useQuery(proceduresQuery), subscription = useQuery(saasSubscriptionQuery);
   const confirmAppointment = useConfirmAppointment(), noShowAppointment = useNoShowAppointment();
   const [selection, setSelection] = useState<{ start: string; end: string } | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -34,11 +34,21 @@ function Agenda() {
       <QueryError query={appointments} />
       {overdue.length > 0 && <section aria-label="Agendamentos vencidos" className="mb-4 rounded-xl border border-amber-300 bg-amber-50/50 p-4">
         <div className="mb-3"><h3 className="m-0 text-sm font-semibold">Precisam de confirmação</h3><p className="m-0 mt-1 text-xs text-muted-foreground">Escolha se o atendimento aconteceu ou registre o motivo da falta.</p></div>
-        <div className="grid gap-3">{overdue.map((appointment) => <article key={appointment.id} className="grid gap-2 rounded-lg border border-border bg-white p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
-          <div><strong className="text-sm">{patientName(appointment.patientId)}</strong><p className="m-0 text-xs text-muted-foreground">{new Date(appointment.startsAt).toLocaleString('pt-BR')} · {procedureNames(appointment.items).join(', ')}</p></div>
-          <Textarea aria-label={`Motivo da falta — ${patientName(appointment.patientId)}`} rows={2} placeholder="Se faltou, descreva o motivo…" value={reasons[appointment.id] ?? ''} onChange={(event) => setReasons((current) => ({ ...current, [appointment.id]: event.target.value }))} />
-          <div className="flex gap-2 sm:flex-col"><Button type="button" size="sm" onClick={() => { setSelection(null); setOpenId(appointment.id); }}>Confirmar atendimento</Button><Button type="button" size="sm" variant="outline" disabled={!reasons[appointment.id]?.trim() || noShowAppointment.isPending} onClick={() => noShowAppointment.mutate({ id: appointment.id, reason: reasons[appointment.id]!.trim() }, { onSuccess: () => setReasons((current) => ({ ...current, [appointment.id]: '' })) })}>Registrar falta</Button></div>
-        </article>)}</div>
+        <div className="grid gap-3">{overdue.map((appointment) => {
+          const linkedFollowupIds = appointment.items.flatMap((item) => item.followupId ? [item.followupId] : []);
+          const followupLookupUnresolved = linkedFollowupIds.length > 0 && (
+            !followups.isSuccess || linkedFollowupIds.some((id) => !followups.data?.some((followup) => followup.id === id))
+          );
+          const eventFrozen = subscription.data?.effectivePlan !== 'pro' && (
+            followupLookupUnresolved
+            || linkedFollowupIds.some((id) => followups.data?.some((followup) => followup.id === id && followup.offerType === 'event'))
+          );
+          return <article key={appointment.id} className="grid gap-2 rounded-lg border border-border bg-white p-3 sm:grid-cols-[1fr_1fr_auto] sm:items-center">
+          <div><strong className="text-sm">{patientName(appointment.patientId)}</strong><p className="m-0 text-xs text-muted-foreground">{new Date(appointment.startsAt).toLocaleString('pt-BR')} · {procedureNames(appointment.items).join(', ')}</p>{eventFrozen && <p className="m-0 mt-1 text-xs text-amber-800" role="status">Agendamento de evento congelado. Confirmação e falta exigem Pró.</p>}</div>
+          <Textarea aria-label={`Motivo da falta — ${patientName(appointment.patientId)}`} rows={2} placeholder="Se faltou, descreva o motivo…" value={reasons[appointment.id] ?? ''} disabled={eventFrozen} onChange={(event) => setReasons((current) => ({ ...current, [appointment.id]: event.target.value }))} />
+          <div className="flex gap-2 sm:flex-col"><Button type="button" size="sm" disabled={eventFrozen} onClick={() => { setSelection(null); setOpenId(appointment.id); }}>Confirmar atendimento</Button><Button type="button" size="sm" variant="outline" disabled={eventFrozen || !reasons[appointment.id]?.trim() || noShowAppointment.isPending} onClick={() => noShowAppointment.mutate({ id: appointment.id, reason: reasons[appointment.id]!.trim() }, { onSuccess: () => setReasons((current) => ({ ...current, [appointment.id]: '' })) })}>Registrar falta</Button></div>
+        </article>;
+        })}</div>
       </section>}
       <CalendarView
         events={events}

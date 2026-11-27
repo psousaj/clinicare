@@ -4,11 +4,14 @@ import { CalendarPlus, ClipboardPlus, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { AppointmentDialog, NewFollowupDialog } from '@/components/dialogs';
 import { Button } from '@/components/ui/button';
-import { eventsQuery, followupsQuery, combosQuery, patientsQuery, plansQuery, proceduresQuery } from '@/lib/queries';
+import { eventsQuery, followupsQuery, combosQuery, patientsQuery, plansQuery, proceduresQuery, saasSubscriptionQuery } from '@/lib/queries';
 
 // Atalhos da visão geral: cada ação abre seu modal sem sair da página.
 export function QuickActions() {
-  const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), combos = useQuery(combosQuery), plans = useQuery(plansQuery), events = useQuery(eventsQuery), followups = useQuery(followupsQuery);
+  const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), combos = useQuery(combosQuery), plans = useQuery(plansQuery), followups = useQuery(followupsQuery);
+  const subscription = useQuery(saasSubscriptionQuery);
+  const canUseEvents = subscription.data?.effectivePlan === 'pro';
+  const events = useQuery({ ...eventsQuery, enabled: canUseEvents });
   const [dialog, setDialog] = useState<'followup' | 'appointment' | null>(null);
   const close = () => setDialog(null);
   return (

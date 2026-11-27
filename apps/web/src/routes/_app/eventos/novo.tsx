@@ -6,25 +6,28 @@ import { CalendarDays, FileText, PartyPopper } from 'lucide-react';
 import { Field } from '@/components/Field';
 import { FormPage } from '@/components/FormPage';
 import { AnamnesisPicker, InheritedAnamneses } from '@/components/AnamnesisPicker';
+import { ProPlanNotice } from '@/components/ProPlanNotice';
 import { toggleId } from '@/lib/utils';
 import { PlanOfferPicker } from '@/components/PlanOfferPicker';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { minSessionsOf, sessionsFor } from '@/lib/planOffers';
-import { anamnesesQuery, combosQuery, contractsQuery, eventsQuery, proceduresQuery, useSaveEvent } from '@/lib/queries';
+import { anamnesesQuery, combosQuery, contractsQuery, eventsQuery, proceduresQuery, saasSubscriptionQuery, useSaveEvent } from '@/lib/queries';
 import type { Anamnesis, Combo, EventOffer, Procedure } from '@/lib/schemas';
 
 export const Route = createFileRoute('/_app/eventos/novo')({ validateSearch: z.object({ eventId: z.string().optional() }), component: NewEvent });
 
-// Dia da clínica com cardápio: nome, data civil, procedimentos/combos (combo entra fechado) e contratos exigidos.
+// Dia da clínica com Procedimentos do evento: nome, data civil, procedimentos/combos (combo entra fechado) e contratos exigidos.
 // O valor não aparece aqui de propósito — só nasce da baixa do que for realizado.
 function NewEvent() {
   const { eventId } = Route.useSearch();
   const save = useSaveEvent();
+  const subscription = useQuery(saasSubscriptionQuery);
+  const canManageEvents = subscription.data?.effectivePlan === 'pro';
   const procedures = (useQuery(proceduresQuery).data ?? []).filter((procedure) => procedure.active !== false);
   const combos = (useQuery(combosQuery).data ?? []).filter((combo) => combo.active !== false);
   const contracts = (useQuery(contractsQuery).data ?? []).filter((contract) => contract.active !== false);
-  const existing = useQuery(eventsQuery).data?.find((event) => event.id === eventId);
+  const existing = useQuery({ ...eventsQuery, enabled: canManageEvents }).data?.find((event) => event.id === eventId);
   const forms = useQuery(anamnesesQuery).data ?? [];
   const [procedureIds, setProcedureIds] = useState<string[]>([]);
   const [comboIds, setComboIds] = useState<string[]>([]);
@@ -41,6 +44,15 @@ function NewEvent() {
     setContractIds([...existing.contractIds]);
   }, [existing]);
 
+  if (!canManageEvents) {
+    return (
+      <section className="panel">
+        <h2>Recurso Pró</h2>
+        <ProPlanNotice />
+      </section>
+    );
+  }
+
   return (
     <FormPage
       backTo="/eventos"
@@ -53,7 +65,7 @@ function NewEvent() {
         if (name.length < 2) throw new Error('Dê um nome ao evento.');
         if (!/^\d{4}-\d{2}-\d{2}$/.test(eventDate)) throw new Error('Escolha a data do evento.');
         const chosen = procedureIds.map((id) => procedures.find((procedure) => procedure.id === id)!).filter(Boolean);
-        if (!chosen.length && !comboIds.length) throw new Error('Escolha ao menos um item para o cardápio.');
+        if (!chosen.length && !comboIds.length) throw new Error('Escolha ao menos um item para os Procedimentos do evento.');
         if (!contractIds.length) throw new Error('Escolha ao menos um contrato.');
         const items = [
           ...chosen.map((procedure) => ({ kind: 'procedure' as const, procedureId: procedure.id, sessions: sessionsFor(procedure, procedureSessions) })),
@@ -62,13 +74,13 @@ function NewEvent() {
         await save.mutateAsync({ id: eventId, name, eventDate, items, contractIds, anamnesisIds: pickedAnamnesisIds });
       }}
     >
-      <div className="plan-intro"><span className="plan-intro-mark"><PartyPopper size={19} /></span><div><p>Monte o dia da clínica</p><span>Cada paciente escolhe do cardápio; o valor só nasce da baixa do que foi realizado. Combo entra fechado.</span></div></div>
+      <div className="plan-intro"><span className="plan-intro-mark"><PartyPopper size={19} /></span><div><p>Monte o dia da clínica</p><span>Os Procedimentos do evento entram integralmente na inscrição; o valor só nasce da baixa do que foi realizado. Combo entra fechado.</span></div></div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Nome do evento" name="name" required autoFocus placeholder="Ex.: Sábado do botox" defaultValue={existing?.name ?? ''} />
         <Field label="Data do evento" name="eventDate" type="date" required defaultValue={existing?.eventDate ?? ''} />
       </div>
       <section className="plan-section">
-        <div className="plan-section-heading"><span className="plan-section-icon"><CalendarDays size={17} /></span><div><h3>Cardápio do dia</h3><p>Busque e marque procedimentos e combos. Nos combos, as sessões seguem a configuração do próprio combo.</p></div><span className="plan-count">{procedureIds.length + comboIds.length} selecionado{procedureIds.length + comboIds.length === 1 ? '' : 's'}</span></div>
+        <div className="plan-section-heading"><span className="plan-section-icon"><CalendarDays size={17} /></span><div><h3>Procedimentos do evento</h3><p>Busque e marque procedimentos e combos. Nos combos, as sessões seguem a configuração do próprio combo.</p></div><span className="plan-count">{procedureIds.length + comboIds.length} selecionado{procedureIds.length + comboIds.length === 1 ? '' : 's'}</span></div>
         <PlanOfferPicker
           procedures={procedures}
           combos={combos}
@@ -84,7 +96,7 @@ function NewEvent() {
         />
       </section>
       <section className="plan-section">
-        <div className="plan-section-heading"><span className="plan-section-icon"><FileText size={17} /></span><div><h3>Anamneses exigidas</h3><p>Vinculadas neste evento, além das exigidas pelos procedimentos do cardápio.</p></div><span className="plan-count">{pickedAnamnesisIds.length} vinculada{pickedAnamnesisIds.length === 1 ? '' : 's'}</span></div>
+        <div className="plan-section-heading"><span className="plan-section-icon"><FileText size={17} /></span><div><h3>Anamneses exigidas</h3><p>Vinculadas neste evento, além das exigidas pelos procedimentos incluídos no evento.</p></div><span className="plan-count">{pickedAnamnesisIds.length} vinculada{pickedAnamnesisIds.length === 1 ? '' : 's'}</span></div>
         <AnamnesisPicker forms={forms} pickedIds={pickedAnamnesisIds} onToggle={(id, on) => setPickedAnamnesisIds((list) => toggleId(list, id, on))} />
         <InheritedAnamneses procedures={procedures} combos={combos} forms={forms} procedureIds={procedureIds} comboIds={comboIds} pickedIds={pickedAnamnesisIds} />
       </section>

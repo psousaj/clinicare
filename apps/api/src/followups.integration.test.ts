@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { and, eq } from 'drizzle-orm';
 import { app } from './app';
-import { buildPatientAad, closeDatabase, encryptValue, getDatabase, migrateDatabase, patients, procedures, combos, comboItems, followups, followupItems, followupSnapshots, followupContracts, signatureProcesses, signatureParticipants, signatureRevisions, signatureEvents, signatureTokens, appliedAnamneses, payments, tenants, plans, planVersions, planVersionItems, planVersionContracts, contracts, contractVersions, anamneses, anamnesisVersions, anamnesisProcedures } from '@clinicare/db';
+import { buildPatientAad, clinicSubscriptions, closeDatabase, encryptValue, getDatabase, migrateDatabase, patients, procedures, combos, comboItems, followups, followupItems, followupSnapshots, followupContracts, signatureProcesses, signatureParticipants, signatureRevisions, signatureEvents, signatureTokens, appliedAnamneses, payments, tenants, plans, planVersions, planVersionItems, planVersionContracts, contracts, contractVersions, anamneses, anamnesisVersions, anamnesisProcedures } from '@clinicare/db';
 
 import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
 let tenantId: string;
@@ -20,9 +20,11 @@ integration('PostgreSQL followups', () => {
     clinic = await provisionIntegrationClinic(app, 'followups-a', tenantId);
     otherClinic = await provisionIntegrationClinic(app, 'followups-b', otherTenantId);
     headers = clinic.headers();
+    await getDatabase().insert(clinicSubscriptions).values({ tenantId, planId: 'standard', status: 'active', startedAt: new Date() });
   });
   afterAll(async () => {
     const db = getDatabase();
+    await db.delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, tenantId));
     for (const table of [signatureEvents, signatureRevisions, signatureTokens, signatureParticipants, payments, appliedAnamneses, signatureProcesses, followupContracts, followupSnapshots, followupItems, followups, planVersionContracts, planVersionItems, planVersions, plans, comboItems, combos, anamnesisProcedures, anamnesisVersions, anamneses, contractVersions, contracts, procedures, patients]) await db.delete(table).where(eq((table as any).tenantId, tenantId));
     await cleanupIntegrationClinics([tenantId, otherTenantId]);
     await closeDatabase();

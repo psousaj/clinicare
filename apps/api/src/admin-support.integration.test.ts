@@ -3,7 +3,7 @@ import { eq, inArray } from 'drizzle-orm';
 import { authAccounts, authSessions, authUsers, closeDatabase, connectPostgresDatabase, getDatabase, migrateDatabase, patients } from '@clinicare/db';
 import { app } from './app';
 import { changeClinicAdministratorEmail, provisionClinic, resetClinicAdministratorPassword } from './admin-commands';
-import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration } from './integration-support';
+import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, confirmIntegrationUser, integration } from './integration-support';
 
 integration('clinic administrator support commands with PostgreSQL', () => {
   const tenantIds: string[] = [];
@@ -35,7 +35,7 @@ integration('clinic administrator support commands with PostgreSQL', () => {
   async function signIn(email: string, password: string) {
     const response = await app.request('/api/auth/sign-in/email', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': `192.0.2.${Math.floor(Math.random() * 254) + 1}` },
       body: JSON.stringify({ email, password }),
     });
     return {
@@ -61,6 +61,8 @@ integration('clinic administrator support commands with PostgreSQL', () => {
       email: conflictingEmail,
       password: oldPassword,
     });
+    await confirmIntegrationUser(originalEmail);
+    await confirmIntegrationUser(conflictingEmail);
     tenantIds.push(first.tenant.id, second.tenant.id);
 
     const firstDevice = await signIn(originalEmail, oldPassword);
@@ -106,8 +108,9 @@ integration('clinic administrator support commands with PostgreSQL', () => {
     expect(supportOutput).not.toContain(patientNotes);
     expect(await getDatabase().select({ id: patients.id }).from(patients).where(eq(patients.tenantId, first.tenant.id))).toHaveLength(1);
     expect(await getDatabase().select().from(authUsers).where(eq(authUsers.email, originalEmail))).toHaveLength(0);
+    expect((await getDatabase().select({ emailVerified: authUsers.emailVerified }).from(authUsers).where(eq(authUsers.email, normalizedEmail)))[0]?.emailVerified).toBe(false);
     expect((await signIn(originalEmail, resetPassword)).response.status).not.toBe(200);
-    expect((await signIn(normalizedEmail, resetPassword)).response.status).toBe(200);
+    expect((await signIn(normalizedEmail, resetPassword)).response.status).toBe(403);
 
     await expect(changeClinicAdministratorEmail(normalizedEmail, conflictingEmail)).rejects.toThrow('E-mail já está em uso.');
     expect(await getDatabase().select().from(authUsers).where(eq(authUsers.email, normalizedEmail))).toHaveLength(1);

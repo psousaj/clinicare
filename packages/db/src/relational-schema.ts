@@ -4,10 +4,65 @@ import { boolean, check, date, index, integer, jsonb, pgTable, primaryKey, text,
 export const tenants = pgTable('tenants', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: text('name').notNull(),
+  cnpj: text('cnpj'),
+  address: text('address'),
+  phone: text('phone'),
   active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
 }, (t) => [check('tenants_name_not_empty', sql`length(trim(${t.name})) > 0`), unique('tenants_id_unique').on(t.id)]);
+
+export const saasPlans = pgTable('saas_plans', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  rank: integer('rank').notNull(),
+  capabilities: jsonb('capabilities').$type<string[]>().notNull(),
+  priceCents: integer('price_cents'),
+  billingInterval: text('billing_interval'),
+  available: boolean('available').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  check('saas_plans_id_valid', sql`${t.id} in ('free', 'standard', 'pro')`),
+  unique('saas_plans_rank_unique').on(t.rank),
+  check('saas_plans_rank_valid', sql`${t.rank} between 0 and 2`),
+  check('saas_plans_price_valid', sql`${t.priceCents} is null or ${t.priceCents} >= 0`),
+  check('saas_plans_interval_valid', sql`${t.billingInterval} is null or ${t.billingInterval} in ('month', 'year')`),
+  check('saas_plans_commercial_pair_valid', sql`(${t.priceCents} is null and ${t.billingInterval} is null) or (${t.priceCents} is not null and ${t.billingInterval} is not null)`),
+]);
+
+export const clinicSubscriptions = pgTable('clinic_subscriptions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+  planId: text('plan_id').notNull().references(() => saasPlans.id),
+  status: text('status').notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }).notNull(),
+  endedAt: timestamp('ended_at', { withTimezone: true, mode: 'date' }),
+  createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  unique('clinic_subscriptions_tenant_id_unique').on(t.tenantId, t.id),
+  index('clinic_subscriptions_tenant_created_idx').on(t.tenantId, t.createdAt),
+  uniqueIndex('clinic_subscriptions_current_tenant_unique').on(t.tenantId).where(sql`${t.endedAt} is null`),
+  check('clinic_subscriptions_status_valid', sql`${t.status} in ('active', 'paused', 'inactive')`),
+  check('clinic_subscriptions_interval_valid', sql`${t.endedAt} is null or ${t.endedAt} >= ${t.startedAt}`),
+]);
+
+export const saasSubscriptionEvents = pgTable('saas_subscription_events', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id),
+  subscriptionId: uuid('subscription_id').notNull(),
+  actorUserId: text('actor_user_id').notNull(),
+  fromPlanId: text('from_plan_id').references(() => saasPlans.id),
+  toPlanId: text('to_plan_id').references(() => saasPlans.id),
+  fromStatus: text('from_status'),
+  toStatus: text('to_status').notNull(),
+  occurredAt: timestamp('occurred_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
+}, (t) => [
+  foreignKey({ columns: [t.tenantId, t.subscriptionId], foreignColumns: [clinicSubscriptions.tenantId, clinicSubscriptions.id], name: 'saas_subscription_events_tenant_subscription_fk' }),
+  index('saas_subscription_events_subscription_time_idx').on(t.subscriptionId, t.occurredAt),
+  check('saas_subscription_events_from_status_valid', sql`${t.fromStatus} is null or ${t.fromStatus} in ('active', 'paused', 'inactive')`),
+  check('saas_subscription_events_to_status_valid', sql`${t.toStatus} in ('active', 'paused', 'inactive')`),
+]);
 
 export const patients = pgTable('patients', {
   id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull().references(() => tenants.id), fullName: text('full_name').notNull(),
@@ -221,12 +276,12 @@ export const signatureTokens = pgTable('signature_tokens', {
 }, (t) => [foreignKey({ columns: [t.tenantId, t.participantId], foreignColumns: [signatureParticipants.tenantId, signatureParticipants.id], name: 'signature_tokens_tenant_participant_fk' }), unique('signature_tokens_hash_unique').on(t.tenantId, t.tokenHash), index('signature_tokens_active_idx').on(t.tenantId, t.participantId, t.expiresAt), check('signature_tokens_hash_not_empty', sql`length(${t.tokenHash}) >= 64`)]);
 
 export const appliedAnamneses = pgTable('applied_anamneses', {
-  id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull(), patientId: uuid('patient_id').notNull(), followupId: uuid('followup_id').notNull(), anamnesisId: uuid('anamnesis_id').notNull(), version: integer('version').notNull(), titleSnapshot: text('title_snapshot').notNull(), schemaSnapshot: jsonb('schema_snapshot').notNull(), validityMonths: integer('validity_months'), required: boolean('required').notNull().default(true),
+  id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull(), patientId: uuid('patient_id').notNull(), followupId: uuid('followup_id'), procedureId: uuid('procedure_id'), anamnesisId: uuid('anamnesis_id').notNull(), version: integer('version').notNull(), titleSnapshot: text('title_snapshot').notNull(), schemaSnapshot: jsonb('schema_snapshot').notNull(), validityMonths: integer('validity_months'), required: boolean('required').notNull().default(true),
   requestTokenHash: text('request_token_hash'), requestExpiresAt: timestamp('request_expires_at', { withTimezone: true, mode: 'date' }),
   draftCiphertext: text('draft_ciphertext'), draftNonce: text('draft_nonce'), draftKeyVersion: integer('draft_key_version'),
   answersCiphertext: text('answers_ciphertext'), answersNonce: text('answers_nonce'), answersKeyVersion: integer('answers_key_version'),
   submittedAt: timestamp('submitted_at', { withTimezone: true, mode: 'date' }), validUntil: timestamp('valid_until', { withTimezone: true, mode: 'date' }), createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),
-}, (t) => [foreignKey({ columns: [t.tenantId, t.patientId], foreignColumns: [patients.tenantId, patients.id], name: 'applied_anamneses_tenant_patient_fk' }), foreignKey({ columns: [t.tenantId, t.followupId, t.patientId], foreignColumns: [followups.tenantId, followups.id, followups.patientId], name: 'applied_anamneses_tenant_followup_patient_fk' }), foreignKey({ columns: [t.tenantId, t.anamnesisId], foreignColumns: [anamneses.tenantId, anamneses.id], name: 'applied_anamneses_tenant_anamnesis_fk' }), unique('applied_anamneses_tenant_id_unique').on(t.tenantId, t.id), uniqueIndex('applied_anamneses_request_token_unique').on(t.tenantId, t.requestTokenHash).where(sql`${t.requestTokenHash} is not null`), check('applied_anamneses_version_positive', sql`${t.version} >= 1`), check('applied_anamneses_draft_protected', sql`(${t.draftCiphertext} is null and ${t.draftNonce} is null and ${t.draftKeyVersion} is null) or (${t.draftCiphertext} is not null and ${t.draftNonce} is not null and ${t.draftKeyVersion} is not null)`), check('applied_anamneses_answers_protected', sql`(${t.answersCiphertext} is null and ${t.answersNonce} is null and ${t.answersKeyVersion} is null) or (${t.answersCiphertext} is not null and ${t.answersNonce} is not null and ${t.answersKeyVersion} is not null)`)]);
+}, (t) => [foreignKey({ columns: [t.tenantId, t.patientId], foreignColumns: [patients.tenantId, patients.id], name: 'applied_anamneses_tenant_patient_fk' }), foreignKey({ columns: [t.tenantId, t.followupId, t.patientId], foreignColumns: [followups.tenantId, followups.id, followups.patientId], name: 'applied_anamneses_tenant_followup_patient_fk' }), foreignKey({ columns: [t.tenantId, t.procedureId], foreignColumns: [procedures.tenantId, procedures.id], name: 'applied_anamneses_tenant_procedure_fk' }), foreignKey({ columns: [t.tenantId, t.anamnesisId], foreignColumns: [anamneses.tenantId, anamneses.id], name: 'applied_anamneses_tenant_anamnesis_fk' }), unique('applied_anamneses_tenant_id_unique').on(t.tenantId, t.id), uniqueIndex('applied_anamneses_request_token_unique').on(t.tenantId, t.requestTokenHash).where(sql`${t.requestTokenHash} is not null`), check('applied_anamneses_owner_valid', sql`(${t.followupId} is not null and ${t.procedureId} is null) or (${t.followupId} is null and ${t.procedureId} is not null)`), check('applied_anamneses_version_positive', sql`${t.version} >= 1`), check('applied_anamneses_draft_protected', sql`(${t.draftCiphertext} is null and ${t.draftNonce} is null and ${t.draftKeyVersion} is null) or (${t.draftCiphertext} is not null and ${t.draftNonce} is not null and ${t.draftKeyVersion} is not null)`), check('applied_anamneses_answers_protected', sql`(${t.answersCiphertext} is null and ${t.answersNonce} is null and ${t.answersKeyVersion} is null) or (${t.answersCiphertext} is not null and ${t.answersNonce} is not null and ${t.answersKeyVersion} is not null)`)]);
 
 export const appliedAnamnesisNotes = pgTable('applied_anamnesis_notes', {
   id: uuid('id').defaultRandom().primaryKey(), tenantId: uuid('tenant_id').notNull(), appliedAnamnesisId: uuid('applied_anamnesis_id').notNull(), contentCiphertext: text('content_ciphertext').notNull(), contentNonce: text('content_nonce').notNull(), contentKeyVersion: integer('content_key_version').notNull(), createdAt: timestamp('created_at', { withTimezone: true, mode: 'date' }).notNull().defaultNow(),

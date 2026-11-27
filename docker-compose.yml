@@ -3,7 +3,7 @@
 # então não há serviço de frontend separado.
 # DB (PostgreSQL gerenciado) e storage (Cloudflare R2) são externos via envs.
 # Nada de postgres/ministack aqui — isso vive no dev-compose.yml.
-# Em produção, configure R2_ENDPOINT_URL (URL da API do R2) ou CLOUDFLARE_ACCOUNT_ID.
+# WEB_PORT é a porta publicada; API_PORT é a porta interna do servidor.
 services:
   app:
     build:
@@ -12,34 +12,22 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      PORT: ${APP_PORT:-${API_PORT:-3000}}
-      APP_PORT: ${APP_PORT:-${API_PORT:-3000}}
-      API_PORT: ${API_PORT:-${APP_PORT:-3000}}
+      API_PORT: ${API_PORT:-3000}
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
-      DB_SCHEMA: ${DB_SCHEMA:?Set DB_SCHEMA in .env}
       DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?Set DATA_ENCRYPTION_KEY in .env}
       SEARCH_HMAC_KEY: ${SEARCH_HMAC_KEY:?Set SEARCH_HMAC_KEY in .env}
       UPLOAD_SIGNING_KEY: ${UPLOAD_SIGNING_KEY:?Set UPLOAD_SIGNING_KEY in .env}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:?Set BETTER_AUTH_URL in .env}
       BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:?Set BETTER_AUTH_TRUSTED_ORIGINS in .env}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:?Set BETTER_AUTH_SECRET in .env}
-      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
-      R2_ENDPOINT_URL: ${R2_ENDPOINT_URL:-}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:?Set CLOUDFLARE_ACCOUNT_ID in .env}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:?Set R2_ACCESS_KEY_ID in .env}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:?Set R2_SECRET_ACCESS_KEY in .env}
       R2_BUCKET: ${R2_BUCKET:?Set R2_BUCKET in .env}
-      # Bootstrap inicial (opcional): provisiona a primeira clínica e o
-      # administrador no primeiro boot. Depois, os nomes mudam em
-      # Configurações e o boot nunca os sobrescreve. Sem estas chaves, o
-      # servidor sobe normalmente — provisione com `provision-tenant`.
-      BOOTSTRAP_CLINIC_NAME: ${BOOTSTRAP_CLINIC_NAME:-}
-      BOOTSTRAP_ADMIN_NAME: ${BOOTSTRAP_ADMIN_NAME:-}
-      BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-}
-      BOOTSTRAP_ADMIN_PASSWORD: ${BOOTSTRAP_ADMIN_PASSWORD:-}
     ports:
-      - "${APP_PORT:-${API_PORT:-3000}}:${APP_PORT:-${API_PORT:-3000}}"
+      - "${WEB_PORT:-3000}:${API_PORT:-3000}"
     healthcheck:
-      test: ["CMD-SHELL", "bun -e \"fetch('http://localhost:' + (process.env.PORT || '3000') + '/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      test: ["CMD-SHELL", "bun -e \"fetch('http://localhost:' + (process.env.API_PORT || '3000') + '/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
       interval: 10s
       timeout: 5s
       retries: 10

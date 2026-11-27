@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { inArray } from 'drizzle-orm';
 import { app } from './app';
-import { closeDatabase, getDatabase, migrateDatabase, tenants, procedures, procedureVersions, anamneses, anamnesisVersions, anamnesisProcedures, combos, comboItems, contracts, contractVersions, plans, planVersions, planVersionItems, planVersionContracts } from '@clinicare/db';
+import { clinicSubscriptions, closeDatabase, getDatabase, migrateDatabase, tenants, procedures, procedureVersions, anamneses, anamnesisVersions, anamnesisProcedures, combos, comboItems, contracts, contractVersions, plans, planVersions, planVersionItems, planVersionContracts } from '@clinicare/db';
 import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
 
 const tenantIds = [crypto.randomUUID(), crypto.randomUUID()];
@@ -15,9 +15,13 @@ integration('catalog API with PostgreSQL', () => {
     assertSafeIntegrationDatabase();
     await migrateDatabase();
     clinics = [await provisionIntegrationClinic(app, 'catalog-a', tenantIds[0]!), await provisionIntegrationClinic(app, 'catalog-b', tenantIds[1]!)];
+    await getDatabase().insert(clinicSubscriptions).values(tenantIds.map((tenantId) => ({
+      tenantId, planId: 'standard', status: 'active' as const, startedAt: new Date(),
+    })));
   });
   afterAll(async () => {
     const db = getDatabase();
+    await db.delete(clinicSubscriptions).where(inArray(clinicSubscriptions.tenantId, tenantIds));
     for (const table of [planVersionItems, planVersionContracts, planVersions, plans, contractVersions, contracts, comboItems, combos, anamnesisProcedures, anamnesisVersions, anamneses, procedureVersions, procedures]) await db.delete(table).where(inArray((table as any).tenantId, tenantIds));
     await cleanupIntegrationClinics(tenantIds);
     await closeDatabase();

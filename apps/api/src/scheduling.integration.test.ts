@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { eq } from 'drizzle-orm';
 import { app } from './app';
 import {
-  appointments, appointmentItems, attendances, attendancePhotos, closeDatabase, comboItems, combos,
+  appointments, appointmentItems, attendances, attendancePhotos, clinicSubscriptions, closeDatabase, comboItems, combos,
   followupContracts, followupItems, followupSnapshots, followups, getDatabase, migrateDatabase, patients, procedures, tenants,
 } from '@clinicare/db';
 
@@ -19,10 +19,12 @@ integration('PostgreSQL scheduling and attendance', () => {
     assertSafeIntegrationDatabase();
     await migrateDatabase();
     clinic = await provisionIntegrationClinic(app, 'scheduling', tenantId);
+    await getDatabase().insert(clinicSubscriptions).values({ tenantId, planId: 'standard', status: 'active', startedAt: new Date() });
   });
 
   afterAll(async () => {
     const db = getDatabase();
+    await db.delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, tenantId));
     await db.delete(attendancePhotos).where(eq(attendancePhotos.tenantId, tenantId));
     await db.delete(attendances).where(eq(attendances.tenantId, tenantId));
     await db.delete(appointmentItems).where(eq(appointmentItems.tenantId, tenantId));

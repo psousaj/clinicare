@@ -18,7 +18,7 @@ const attendanceNotes = (tenantId: string, row: any): string | null => {
   }
 };
 
-export async function getRelationalHistory(tenantId: string, patientId: string, actorId?: string | null) {
+export async function getRelationalHistory(tenantId: string, patientId: string, actorId?: string | null, includePhotoUrls = true, includeCustomFields = true) {
   const db = getDatabase();
   const patient = (await db.select().from(patients).where(and(eq(patients.tenantId, tenantId), eq(patients.id, patientId))))[0];
   if (!patient) return null;
@@ -44,24 +44,34 @@ export async function getRelationalHistory(tenantId: string, patientId: string, 
   const photosWithUrl = new Map<string, any[]>();
   await Promise.all(
     [...photosByAttendance.entries()].map(async ([attendanceId, photos]) => {
-      photosWithUrl.set(
-        attendanceId,
-        await Promise.all(
-          photos.map(async (photo) => ({ id: photo.id, _id: photo.id, attendanceId: photo.attendanceId, phase: photo.phase, createdAt: photo.createdAt, url: await downloadUrl(photo.objectKey) })),
-        ),
-      );
+      photosWithUrl.set(attendanceId, await Promise.all(photos.map(async (photo) => ({
+        id: photo.id, _id: photo.id, attendanceId: photo.attendanceId, phase: photo.phase, createdAt: photo.createdAt,
+        ...(includePhotoUrls ? { url: await downloadUrl(photo.objectKey) } : {}),
+      }))));
     }),
   );
   const attendanceDetails = (row: any) => ({
-    ...idShape(row),
-    status: row.status,
+    id: row.id, _id: row.id, patientId: row.patientId, appointmentId: row.appointmentId,
+    followupId: row.followupId, followupItemId: row.followupItemId, procedureId: row.procedureId,
+    procedureName: row.procedureName, performedAt: row.performedAt, durationMinutes: row.durationMinutes,
+    status: row.status, cancellationReason: row.cancellationReason,
+    createdAt: row.createdAt, updatedAt: row.updatedAt,
+    ...(includeCustomFields ? {
+      schemaSnapshot: row.schemaSnapshot,
+      ...(row.dataCiphertext ? {
+        data: JSON.parse(decryptValue(
+          { ciphertext: row.dataCiphertext, nonce: row.dataNonce, keyVersion: row.dataKeyVersion },
+          buildProtectedAad(tenantId, 'attendances', row.id, 'data'),
+        )),
+      } : {}),
+    } : {}),
     notes: attendanceNotes(tenantId, row),
     photos: photosWithUrl.get(row.id) ?? [],
     photoCount: (photosByAttendance.get(row.id) ?? []).length,
   });
   const now = new Date();
   const answers = (row: any) => row.answersCiphertext ? JSON.parse(decryptValue({ ciphertext: row.answersCiphertext, nonce: row.answersNonce, keyVersion: row.answersKeyVersion }, buildProtectedAad(tenantId, 'applied_anamneses', row.id, 'answers'))) : undefined;
-const anamnesisDetails = (row: any) => ({ id: row.id, _id: row.id, patientId: row.patientId, followupId: row.followupId, anamnesisId: row.anamnesisId, version: row.version, title: row.titleSnapshot, titleSnapshot: row.titleSnapshot, schemaSnapshot: row.schemaSnapshot, required: row.required, submittedAt: row.submittedAt, validUntil: row.validUntil, createdAt: row.createdAt, answers: answers(row) });
+const anamnesisDetails = (row: any) => ({ id: row.id, _id: row.id, patientId: row.patientId, followupId: row.followupId, procedureId: row.procedureId, anamnesisId: row.anamnesisId, version: row.version, title: row.titleSnapshot, titleSnapshot: row.titleSnapshot, schemaSnapshot: row.schemaSnapshot, required: row.required, submittedAt: row.submittedAt, validUntil: row.validUntil, createdAt: row.createdAt, answers: answers(row) });
   const events: any[] = [
     ...followupRows.map((row) => ({ type: 'followup', at: row.createdAt, title: `Acompanhamento: ${row.offerNameSnapshot}`, details: { ...idShape(row), offerName: row.offerNameSnapshot, items: itemRows.filter((item) => item.followupId === row.id).map(idShape) } })),
     ...appointmentRows.map((row) => ({ type: 'appointment', at: row.startsAt, title: `Agendamento · ${({ planned: 'agendado', confirmed: 'confirmado', rescheduled: 'remarcado', cancelled: 'cancelado', no_show: 'faltou' } as Record<string, string>)[row.status] ?? row.status}`, details: idShape(row) })),

@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { matchesPatient } from '@/components/PatientRow';
 import { QueryError } from '@/components/QueryState';
 import { dateTime, shortDate } from '@/lib/format';
-import { appointmentsQuery, patientsQuery, followupsQuery, proceduresQuery, attendancesQuery, signaturePendingQuery } from '@/lib/queries';
+import { appointmentsQuery, patientsQuery, followupsQuery, proceduresQuery, attendancesQuery, signaturePendingQuery, saasSubscriptionQuery } from '@/lib/queries';
 
 export const Route = createFileRoute('/_app/')({ component: Overview });
 
@@ -15,7 +15,9 @@ function SignatureGroup({ title, description, items }: { title: string; descript
 }
 
 function Overview() {
-  const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), appointments = useQuery(appointmentsQuery), followups = useQuery(followupsQuery), attendances = useQuery(attendancesQuery), signatures = useQuery(signaturePendingQuery);
+  const subscription = useQuery(saasSubscriptionQuery);
+  const canSeeDocumentTasks = subscription.data?.effectivePlan === 'standard' || subscription.data?.effectivePlan === 'pro';
+  const patients = useQuery(patientsQuery), procedures = useQuery(proceduresQuery), appointments = useQuery(appointmentsQuery), followups = useQuery(followupsQuery), attendances = useQuery(attendancesQuery), signatures = useQuery({ ...signaturePendingQuery, enabled: canSeeDocumentTasks });
   const [query, setQuery] = useState('');
   const patientList = patients.data ?? [], appointmentList = appointments.data ?? [];
   // "Próximas" = apenas agendamentos acionáveis no futuro (planejado/remarcado
@@ -39,7 +41,7 @@ function Overview() {
   return (
     <>
       <QueryError query={patients} />
-      {signatures.data && signatures.data.length > 0 && <section className="panel mb-4"><div className="panel-header"><div><div className="section-kicker">ASSINATURAS PENDENTES</div><h2>Documentos que precisam de atenção</h2></div><Link className="text-button" to="/documentos">Abrir documentos</Link></div><div className="grid gap-4 text-sm"><SignatureGroup title="Bloqueiam a liberação" items={signatures.data.filter((item) => item.blocking)} description="O paciente precisa confirmar estes contratos antes de o plano ficar ativo." /><SignatureGroup title="Pendências administrativas" items={signatures.data.filter((item) => !item.blocking)} description="A assinatura profissional acompanha a documentação, mas não bloqueia a execução." /></div></section>}
+      {canSeeDocumentTasks && signatures.data && signatures.data.length > 0 && <section className="panel mb-4"><div className="panel-header"><div><div className="section-kicker">ASSINATURAS PENDENTES</div><h2>Documentos que precisam de atenção</h2></div><Link className="text-button" to="/documentos">Abrir documentos</Link></div><div className="grid gap-4 text-sm"><SignatureGroup title="Bloqueiam a liberação" items={signatures.data.filter((item) => item.blocking)} description="O paciente precisa confirmar estes contratos antes de o plano ficar ativo." /><SignatureGroup title="Pendências administrativas" items={signatures.data.filter((item) => !item.blocking)} description="A assinatura profissional acompanha a documentação, mas não bloqueia a execução." /></div></section>}
       <section className="stats-grid">
         {stats.map(({ heading, icon: Icon, tone, value, suffix, foot }) => (
           <article className="stat-card" key={heading}>

@@ -19,7 +19,7 @@ type PlanOfferPickerProps = {
   onToggleProcedure: (id: string, on: boolean) => void;
   onToggleCombo: (id: string, on: boolean) => void;
   onSessionsChange: (id: string, value: string) => void;
-  // Na escolha do paciente (evento) não há edição de sessões: valem as do cardápio.
+  // Na escolha do paciente (evento) não há edição de sessões: valem as dos Procedimentos do evento.
   sessionsEditable?: boolean;
 };
 

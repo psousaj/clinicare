@@ -6,7 +6,7 @@ import {
   followupContracts, followupItems, followupSnapshots, followups, getDatabase, migrateDatabase, patients, payments, procedures,
   signatureEvents, signatureParticipants, signatureProcesses, signatureRevisions, signatureTokens,
 } from '@clinicare/db';
-import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
+import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, grantIntegrationPlan, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
 import { contractedNames } from './contract-generation';
 
 const schema = { type: 'object', properties: {} };
@@ -28,6 +28,7 @@ integration('PostgreSQL event financials', () => {
     await migrateDatabase();
     tenantId = crypto.randomUUID();
     clinic = await provisionIntegrationClinic(app, 'event-financials', tenantId);
+    await grantIntegrationPlan(tenantId, 'pro');
   });
   afterAll(async () => {
     const db = getDatabase();

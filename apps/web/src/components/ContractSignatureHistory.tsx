@@ -19,12 +19,13 @@ import { signatureHistoryQuery, useGenerateFollowupContract, useRefreshSignature
 // O link fica ao lado do nome porque é a ação mais frequente; gerá-lo
 // continua sendo um gesto explícito porque cada geração revoga o token
 // anterior.
-export function ContractSignatureHistory({ followupContractId, title, signedAt, status, reprocessable }: {
+export function ContractSignatureHistory({ followupContractId, title, signedAt, status, reprocessable, frozen = false }: {
   followupContractId: string;
   title: string;
   signedAt?: string | null;
   status?: string | null;
   reprocessable?: boolean;
+  frozen?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [link, setLink] = useState<string | null>(null);
@@ -61,7 +62,7 @@ export function ContractSignatureHistory({ followupContractId, title, signedAt, 
           {status === 'generating' && <StatusBadge tone="warning">Gerando documento</StatusBadge>}
           {status === 'failed' && <StatusBadge tone="danger">Falha na geração</StatusBadge>}
         </span>
-        {patientPending && (
+        {patientPending && !frozen && (
           <Button
             type="button"
             size="sm"
@@ -76,9 +77,9 @@ export function ContractSignatureHistory({ followupContractId, title, signedAt, 
       {patientPending && link && <Input readOnly value={link} aria-label="Link de assinatura" className="signature-link-field" onFocus={(event) => event.target.select()} />}
       <div className="contract-toolbar">
         {(status === 'generating' || status === 'failed') && (
-          <ContractGenerateButton followupContractId={followupContractId} failed={status === 'failed'} />
+          <ContractGenerateButton followupContractId={followupContractId} failed={status === 'failed'} disabled={frozen} />
         )}
-        {reprocessable && <ContractReprocessButton followupContractId={followupContractId} title={title} />}
+        {reprocessable && <ContractReprocessButton followupContractId={followupContractId} title={title} disabled={frozen} disabledReason={frozen ? 'Acompanhamento congelado no plano Free.' : undefined} />}
         <Button type="button" variant="outline" size="sm" className="contract-history-toggle !border-[#5f6b65] !bg-[#5f6b65] !text-white hover:!border-[#52605a] hover:!bg-[#52605a] hover:!text-white" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
           <History className="size-3.5" /> {open ? 'Ocultar histórico de assinaturas' : 'Histórico de assinaturas'}
         </Button>
@@ -144,14 +145,15 @@ export function ContractSignatureHistory({ followupContractId, title, signedAt, 
   );
 }
 
-function ContractGenerateButton({ followupContractId, failed }: { followupContractId: string; failed?: boolean }) {
+function ContractGenerateButton({ followupContractId, failed, disabled }: { followupContractId: string; failed?: boolean; disabled?: boolean }) {
   const generate = useGenerateFollowupContract();
   return (
     <Button
       type="button"
       variant="outline"
       size="sm"
-      disabled={generate.isPending}
+      disabled={disabled || generate.isPending}
+      title={disabled ? 'Acompanhamento congelado no plano Free.' : undefined}
       onClick={() => generate.mutate(followupContractId)}
     >
       <RefreshCw className="size-3.5" /> {generate.isPending ? 'Gerando…' : failed ? 'Tentar gerar de novo' : 'Gerar documento agora'}

@@ -1,18 +1,22 @@
 import { Link } from '@tanstack/react-router';
 import { BookOpenText, ClipboardList, Copy } from 'lucide-react';
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { dateTime } from '@/lib/format';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { useRequestAnamnesis } from '@/lib/queries';
+import { saasSubscriptionQuery } from '@/lib/queries';
 import type { Followup } from '@/lib/schemas';
 
 // Anamneses do paciente: pendentes (bloqueiam agendamento, com link/preenchimento)
 // e respondidas (com leitura das respostas — antes sumiam da tela).
 export function PendingRequirements({ followups, patientId }: { followups: Followup[]; patientId: string }) {
   const request = useRequestAnamnesis();
+  const subscription = useQuery(saasSubscriptionQuery);
+  const canSendLink = subscription.data?.effectivePlan === 'standard' || subscription.data?.effectivePlan === 'pro';
   const [link, setLink] = useState<string | null>(null);
   const pending = followups.flatMap((followup) => followup.anamneses.filter((form) => form.required && !form.answered).map((form) => ({ form, followup })));
   const answered = followups.flatMap((followup) => followup.anamneses.filter((form) => form.answered).map((form) => ({ form, followup })));
@@ -36,7 +40,9 @@ export function PendingRequirements({ followups, patientId }: { followups: Follo
               <ClipboardList size={18} />
               <span className="procedure-info"><strong>{form.title}</strong><small>{followup.offerName}</small></span>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => copyLink(form.id).catch(() => undefined)}><Copy /> Copiar link</Button>
+                {canSendLink
+                  ? <Button variant="outline" size="sm" onClick={() => copyLink(form.id).catch(() => undefined)}><Copy /> Copiar link</Button>
+                  : <span className="text-xs text-muted-foreground" role="status">O envio por link exige Standard.</span>}
                 <Button size="sm" asChild><Link to="/pacientes/$patientId/anamneses/$formId" params={{ patientId, formId: form.id }}>Preencher agora</Link></Button>
               </div>
             </div>

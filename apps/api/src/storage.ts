@@ -3,11 +3,11 @@ import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, Delete
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { resolveStorageConfig } from './storage-config';
 
-const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+const accessKeyId = process.env.R2_ACCESS_KEY_ID?.trim();
+const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY?.trim();
 const config = resolveStorageConfig();
-const configuredAccessKeyId = config.provider === 'ministack' ? process.env.MINISTACK_ACCESS_KEY_ID : accessKeyId;
-const configuredSecretAccessKey = config.provider === 'ministack' ? process.env.MINISTACK_SECRET_ACCESS_KEY : secretAccessKey;
+const configuredAccessKeyId = config.provider === 'ministack' ? process.env.MINISTACK_ACCESS_KEY_ID?.trim() : accessKeyId;
+const configuredSecretAccessKey = config.provider === 'ministack' ? process.env.MINISTACK_SECRET_ACCESS_KEY?.trim() : secretAccessKey;
 export const bucket = config.bucket;
 export const storage = config.endpoint && configuredAccessKeyId && configuredSecretAccessKey && bucket ? new S3Client({ region: config.region, endpoint: config.endpoint, forcePathStyle: config.forcePathStyle, credentials: { accessKeyId: configuredAccessKeyId, secretAccessKey: configuredSecretAccessKey } }) : null;
 export const uploadUrl = async (key: string, contentType: string) => {

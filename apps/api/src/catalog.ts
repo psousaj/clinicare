@@ -257,18 +257,18 @@ export async function saveEvent(tenantId: string, eventId: string | null, input:
       return updated;
     }
     const items = input.items;
-    if (!Array.isArray(items) || !items.length) throw new Error('Evento requer cardápio com ao menos um procedimento ou combo.');
+    if (!Array.isArray(items) || !items.length) throw new Error('Evento requer Procedimentos do evento com ao menos um procedimento ou combo.');
     for (const item of items) {
       if (item?.kind === 'procedure') {
-        if (typeof item.procedureId !== 'string' || !Number.isInteger(item.sessions) || item.sessions < 1) throw new Error('Evento requer procedimentos do cardápio com sessões válidas.');
+        if (typeof item.procedureId !== 'string' || !Number.isInteger(item.sessions) || item.sessions < 1) throw new Error('Evento requer procedimentos com sessões válidas nos Procedimentos do evento.');
       } else if (item?.kind === 'combo') {
-        if (typeof item.comboId !== 'string') throw new Error('Evento requer combos do cardápio válidos.');
+        if (typeof item.comboId !== 'string') throw new Error('Evento requer combos válidos nos Procedimentos do evento.');
       } else {
-        throw new Error('Evento requer itens de cardápio do tipo procedure ou combo.');
+        throw new Error('Evento requer itens dos Procedimentos do evento do tipo procedure ou combo.');
       }
     }
     const seen = new Set(items.map((x: any) => `${x.kind}:${x.kind === 'procedure' ? x.procedureId : x.comboId}`));
-    if (seen.size !== items.length) throw new Error('Evento não aceita item de cardápio repetido.');
+    if (seen.size !== items.length) throw new Error('Evento não aceita item repetido nos Procedimentos do evento.');
     if (!Array.isArray(input.contractIds) || !input.contractIds.length) throw new Error('Evento requer ao menos um contrato aplicável.');
     if (new Set(input.contractIds).size !== input.contractIds.length) throw new Error('Evento não aceita contrato repetido.');
     const procedureIds = items.filter((x: any) => x.kind === 'procedure').map((x: any) => x.procedureId);
@@ -278,14 +278,14 @@ export async function saveEvent(tenantId: string, eventId: string | null, input:
       comboIds.length ? tx.select().from(combos).where(and(eq(combos.tenantId, tenantId), inArray(combos.id, comboIds))) : [],
       tx.select().from(contracts).where(and(eq(contracts.tenantId, tenantId), inArray(contracts.id, input.contractIds), eq(contracts.active, true))),
     ]);
-    if (ps.length !== procedureIds.length) throw new Error('Evento requer procedimentos existentes no cardápio.');
-    if (ps.some((p: any) => !p.active)) throw new Error('Evento requer procedimentos ativos no cardápio.');
-    if (cb.length !== comboIds.length) throw new Error('Evento requer combos existentes no cardápio.');
-    if (cb.some((c: any) => !c.active)) throw new Error('Evento requer combos ativos no cardápio.');
+    if (ps.length !== procedureIds.length) throw new Error('Evento requer procedimentos existentes nos Procedimentos do evento.');
+    if (ps.some((p: any) => !p.active)) throw new Error('Evento requer procedimentos ativos nos Procedimentos do evento.');
+    if (cb.length !== comboIds.length) throw new Error('Evento requer combos existentes nos Procedimentos do evento.');
+    if (cb.some((c: any) => !c.active)) throw new Error('Evento requer combos ativos nos Procedimentos do evento.');
     if (cs.length !== input.contractIds.length) throw new Error('Evento requer contratos existentes e ativos.');
     for (const item of items.filter((x: any) => x.kind === 'procedure')) {
       const p = ps.find((a: any) => a.id === item.procedureId)!;
-      if (item.sessions < (p.baseSessions ?? 1)) throw new Error('Evento requer sessões do cardápio ao menos iguais à base do procedimento.');
+      if (item.sessions < (p.baseSessions ?? 1)) throw new Error('Evento requer sessões nos Procedimentos do evento ao menos iguais à base do procedimento.');
     }
     const [created] = existing
       ? await tx.update(events).set(values).where(and(eq(events.tenantId, tenantId), eq(events.id, eventId!))).returning()

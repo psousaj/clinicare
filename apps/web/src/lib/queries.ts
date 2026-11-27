@@ -3,9 +3,11 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { api } from './api';
 import { sha256Hex } from './sha256';
-import { anamnesisSchema, anySchema, accountSchema, appointmentSchema, appliedAnamnesisSchema, contractSchema, createdSchema, comboSchema, eventSchema, planSchema, patientHistorySchema, professionalProfileSchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicAnamnesisSchema, publicFormSchema, requestSchema, attendanceSchema, sessionSchema, signatureHistorySchema, signaturePendingSchema, defaultSignatureSchema } from './schemas';
+import { anamnesisSchema, anySchema, accountSchema, appointmentSchema, appliedAnamnesisSchema, contractSchema, createdSchema, comboSchema, eventSchema, planSchema, patientHistorySchema, professionalProfileSchema, relationshipSchema, patientSchema, followupSchema, procedureSchema, publicAnamnesisSchema, publicFormSchema, requestSchema, attendanceSchema, sessionSchema, signatureHistorySchema, signaturePendingSchema, defaultSignatureSchema, saasPlanSchema, saasSubscriptionSchema } from './schemas';
 
 export const keys = {
+  saasPlans: ['saas-plans'] as const,
+  saasSubscription: ['saas-subscription'] as const,
   patients: ['patients'] as const,
   procedures: ['procedures'] as const,
   anamneses: ['anamneses'] as const,
@@ -36,6 +38,11 @@ export const anamnesesQuery = list(keys.anamneses, '/api/anamneses', anamnesisSc
 export const contractsQuery = list(keys.contracts, '/api/contracts', contractSchema);
 export const combosQuery = list(keys.combos, '/api/combos', comboSchema);
 export const plansQuery = list(keys.plans, '/api/plans', planSchema);
+export const saasPlansQuery = list(keys.saasPlans, '/api/saas/plans', saasPlanSchema);
+export const saasSubscriptionQuery = queryOptions({
+  queryKey: keys.saasSubscription,
+  queryFn: () => api('/api/saas/subscription', { schema: saasSubscriptionSchema, fallbackError: 'Não foi possível carregar a assinatura da clínica.' }),
+});
 export const eventsQuery = list(keys.events, '/api/events', eventSchema);
 export const followupsQuery = list(keys.followups, '/api/followups', followupSchema);
 export const signaturePendingQuery = list(keys.signaturePending, '/api/signature-pending', signaturePendingSchema);
@@ -136,6 +143,8 @@ export const useDeletePatient = () =>
   useApiMutation({ mutationFn: (id: string) => api(`/api/patients/${id}`, { method: 'DELETE', schema: anySchema }), invalidate: [keys.patients], success: 'Paciente excluído.' });
 export const useCreateProcedure = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/procedures', body), invalidate: [keys.procedures], success: 'Procedimento cadastrado.' });
 export const useCreateAnamnesis = () => useApiMutation({ mutationFn: (body: unknown) => post('/api/anamneses', body), invalidate: [keys.anamneses], success: 'Formulário de anamnese criado.' });
+export const useCreateAppliedAnamnesis = (patientId: string) =>
+  useApiMutation({ mutationFn: (body: unknown) => post('/api/patient-anamneses', body, appliedAnamnesisSchema), invalidate: [keys.history(patientId)], success: 'Anamnese aplicada ao atendimento avulso.' });
 export const useRestoreAnamnesis = () =>
   useApiMutation({ mutationFn: ({ id, version }: { id: string; version: number }) => post(`/api/anamneses/${id}/versions`, { restoreVersion: version }), invalidate: [keys.anamneses], success: (_, { version }) => `Rollback feito: nova versão criada a partir da v${version}.` });
 export const useSaveProcedureAnamneses = () =>
@@ -178,6 +187,15 @@ export const useSaveContractDraft = () =>
     invalidate: [keys.contracts],
     success: 'Draft DOCX salvo.',
   });
+export const useSaveContractDraftConfiguration = () =>
+  useApiMutation({
+    mutationFn: ({ id, contexts, allowedPlaceholders, requiredPlaceholders }: { id: string; contexts: Record<string, { enabled: boolean; required: boolean }>; allowedPlaceholders: string[]; requiredPlaceholders: string[] }) =>
+      api(`/api/contracts/${id}/draft/configuration`, { method: 'PUT', body: { contexts, allowedPlaceholders, requiredPlaceholders }, schema: anySchema }),
+    invalidate: [keys.contracts],
+    success: 'Configuração salva sem reenviar o DOCX.',
+  });
+export const fetchContractDraftUrl = async (id: string) =>
+  (await api(`/api/contracts/${id}/draft/editor`, { schema: z.looseObject({ documentUrl: z.string().url() }), fallbackError: 'Não foi possível recuperar o DOCX.' })).documentUrl;
 export const usePublishContractDraft = () =>
   useApiMutation({ mutationFn: (id: string) => post(`/api/contracts/${id}/publish`, {}, anySchema), invalidate: [keys.contracts, keys.followups], success: 'Nova versão publicada a partir do draft.' });
 export const usePresignContractVersionPdf = () =>

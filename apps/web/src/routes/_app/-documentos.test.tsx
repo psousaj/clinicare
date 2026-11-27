@@ -58,8 +58,9 @@ describe('representative signature page', () => {
     globalThis.fetch = vi.fn(async (url: string, init?: RequestInit) => {
       const method = init?.method ?? 'GET';
       calls.push({ url, method, body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined });
-      if (url === '/api/auth/get-session') return { ok: true, status: 200, json: async () => ({ user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com' } }) };
+      if (url === '/api/account/state') return { ok: true, status: 200, json: async () => ({ kind: 'clinic', tenant: { id: 't1', name: 'Clínica Teste' }, user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com' } }) };
       if (url === '/api/auth/me') return { ok: true, status: 200, json: async () => ({ user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com' }, tenant: { id: 't1', name: 'Clínica Teste' } }) };
+      if (url === '/api/saas/subscription') return { ok: true, status: 200, json: async () => ({ effectivePlan: 'pro', subscription: { planId: 'pro', status: 'active', startedAt: '2026-01-01T00:00:00Z', endedAt: null } }) };
       if (url === '/api/auth/professional-profile') return { ok: true, status: 200, json: async () => ({ id: 'prof9', userId: 'u1', registrationType: 'CRM', registrationNumber: '123456', registrationState: 'SP', active: true }) };
       if (url === '/api/signature-pending') return { ok: true, status: 200, json: async () => queue() };
       if (url.startsWith('/api/signature-history')) return { ok: true, status: 200, json: async () => historyResponse() };
@@ -90,14 +91,16 @@ describe('representative signature page', () => {
   // depender do traço no canvas (indisponível no jsdom).
   const mockRepresentativeFetch = (pdfOk: boolean) => {
     globalThis.fetch = vi.fn(async (url: string) => {
+      if (url === '/api/account/state') return { ok: true, status: 200, json: async () => ({ kind: 'clinic', tenant: { id: 't1', name: 'Clínica Teste' }, user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com' } }) };
       if (url === '/api/signature-participants/prof1/pdf') {
         return pdfOk
           ? { ok: true, status: 200, blob: async () => new Blob(['%PDF-1.4']) }
           : { ok: false, status: 500, json: async () => ({}) };
       }
       if (url === '/api/signature-participants/prof1/preview') return { ok: true, status: 200, headers: { get: () => `"${'b'.repeat(64)}"` }, blob: async () => new Blob(['%PDF-1.4']) };
-      if (url === '/api/auth/get-session') return { ok: true, status: 200, json: async () => ({ user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com' } }) };
+      if (url === '/api/auth/get-session') return { ok: true, status: 200, json: async () => ({ user: { id: 'u1', tenantId: 't1', name: 'Dra. Paula', email: 'paula@example.com' } }) };
       if (url === '/api/auth/me') return { ok: true, status: 200, json: async () => ({ user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com' }, tenant: { id: 't1', name: 'Clínica Teste' } }) };
+      if (url === '/api/saas/subscription') return { ok: true, status: 200, json: async () => ({ effectivePlan: 'pro', subscription: { planId: 'pro', status: 'active', startedAt: '2026-01-01T00:00:00Z', endedAt: null } }) };
       if (url === '/api/auth/default-signature') return { ok: true, status: 200, json: async () => ({ signaturePng: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==' }) };
       if (url === '/api/auth/professional-profile') return { ok: true, status: 200, json: async () => ({ id: 'prof9', userId: 'u1', registrationType: 'CRM', registrationNumber: '123456', registrationState: 'SP', active: true }) };
       if (url === '/api/signature-pending') return { ok: true, status: 200, json: async () => queue() };

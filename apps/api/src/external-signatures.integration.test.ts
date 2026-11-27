@@ -2,13 +2,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { and, eq, sql } from 'drizzle-orm';
 import { app } from './app';
 import {
-  appliedDocuments, appliedDocumentRevisions, authUsers, closeDatabase, contracts,
+  appliedDocuments, appliedDocumentRevisions, authUsers, clinicSubscriptions, closeDatabase, contracts,
   contractVersions, documentCleanupJobs, followupContracts, followupItems,
   followupSnapshots, followups, getDatabase, migrateDatabase, patients,
   planVersionContracts, planVersionItems, planVersions, plans, procedures,
   signatureEvents, signatureEvidence, signatureExternalAttempts, signatureExternalReceipts,
   signatureOperations, signatureParticipants, signaturePreviewCandidates, signatureProcesses, signatureRevisions,
-  signatureTokens, tenants,
+   signatureTokens, tenants, userTenantMemberships,
 } from '@clinicare/db';
 import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, integrationHeaders, provisionIntegrationClinic } from './integration-support';
 import { deleteObject, downloadObjectBytes, uploadObjectBytes } from './storage';
@@ -50,9 +50,12 @@ integration('Issue #26: Exportar e importar assinatura externa pelo GOV.BR', () 
     const db = getDatabase();
     await provisionIntegrationClinic(app, 'sig-external', tenantId);
     await provisionIntegrationClinic(app, 'sig-external-other', otherTenantId);
+    await db.insert(clinicSubscriptions).values({ tenantId, planId: 'pro', status: 'active', startedAt: new Date() });
     sessionHeaders = integrationHeaders(tenantId);
     otherSessionHeaders = integrationHeaders(otherTenantId);
-    sessionEmail = (await db.select().from(authUsers).where(eq(authUsers.tenantId, tenantId)))[0]!.email;
+    sessionEmail = (await db.select({ email: authUsers.email }).from(authUsers)
+      .innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
+      .where(eq(userTenantMemberships.tenantId, tenantId)))[0]!.email;
 
     const patientRes = await request('/api/patients', json({ fullName: 'Paciente Externo', phone: '11987654321', cpf: patientCpf }));
     expect(patientRes.status).toBe(201);
@@ -111,6 +114,8 @@ integration('Issue #26: Exportar e importar assinatura externa pelo GOV.BR', () 
   afterAll(async () => {
     delete process.env.GOVBR_TRUSTED_ROOTS;
     const db = getDatabase();
+    await db.delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, tenantId));
+    await db.delete(clinicSubscriptions).where(eq(clinicSubscriptions.tenantId, otherTenantId));
     for (const table of [
       signatureEvidence, signatureEvents, signatureRevisions, signatureOperations,
       signatureExternalReceipts, signatureExternalAttempts,
@@ -449,7 +454,9 @@ integration('Issue #26: Exportar e importar assinatura externa pelo GOV.BR', () 
   it('lets the clinic representative sign externally through the panel', async () => {
     const db = getDatabase();
     const participants = await db.select().from(signatureParticipants).where(eq(signatureParticipants.tenantId, tenantId));
-    const sessionUser = (await db.select().from(authUsers).where(eq(authUsers.tenantId, tenantId)))[0]!;
+    const sessionUser = (await db.select({ user: authUsers }).from(authUsers)
+      .innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
+      .where(eq(userTenantMemberships.tenantId, tenantId)))[0]!.user;
     const representative = participants.find((p) => p.role === 'professional' && p.status === 'pending')!;
     expect(representative).toBeDefined();
 
@@ -507,6 +514,51 @@ integration('Issue #26: Exportar e importar assinatura externa pelo GOV.BR', () 
     expect((await confirmRes.json() as any).processCompleted).toBe(true);
     const operation = (await db.select().from(signatureOperations).where(and(eq(signatureOperations.tenantId, tenantId), eq(signatureOperations.participantId, representative.id))))[0]!;
     expect(operation.identitySnapshot).toMatchObject({ role: 'professional', userId: sessionUser.id, tenantId });
+
+    // Downgrade tenant to standard, verify existing records remain intact and new attempts return 403
+    const evidenceBeforeDowngrade = await db.select().from(signatureEvidence).where(eq(signatureEvidence.tenantId, tenantId));
+    const receiptsBeforeDowngrade = await db.select().from(signatureExternalReceipts).where(eq(signatureExternalReceipts.tenantId, tenantId));
+    const attemptsBeforeDowngrade = await db.select().from(signatureExternalAttempts).where(eq(signatureExternalAttempts.tenantId, tenantId));
+    expect(evidenceBeforeDowngrade.length).toBeGreaterThan(0);
+    expect(receiptsBeforeDowngrade.length).toBeGreaterThan(0);
+
+    await db.update(clinicSubscriptions).set({ planId: 'standard' }).where(eq(clinicSubscriptions.tenantId, tenantId));
+    const otherProcessId = processIds.find((id) => id !== representative.processId)!;
+    const token = tokenByProcess[otherProcessId];
+    const standardPublicRes = await request(`/public/signatures/${token}`);
+    expect(standardPublicRes.status).toBe(200);
+    expect(await standardPublicRes.json()).toMatchObject({ canGovBr: false });
+
+    const otherDocRow = await currentDocumentOf(db, otherProcessId);
+    const blockedPublicExport = await request(`/public/signatures/${token}/external/export`, json({
+      documentId: otherDocRow.documentId, baseRevisionId: otherDocRow.revisionId,
+      idempotencyKey: randomUUID(), fingerprint: { visitorId: 'vis-blocked-export', version: 'fingerprintjs-oss-5' },
+    }));
+    expect(blockedPublicExport.status).toBe(403);
+
+    const otherParticipants = await db.select().from(signatureParticipants).where(and(eq(signatureParticipants.tenantId, tenantId), eq(signatureParticipants.processId, otherProcessId)));
+    const otherRep = otherParticipants.find((p) => p.role === 'professional')!;
+    const blockedRepExport = await request(`/api/signature-participants/${otherRep.id}/external/export`, json({
+      documentId: otherDocRow.documentId, baseRevisionId: otherDocRow.revisionId,
+      idempotencyKey: randomUUID(), fingerprint: { visitorId: 'vis-blocked-rep-export', version: 'fingerprintjs-oss-5' },
+    }));
+    expect(blockedRepExport.status).toBe(403);
+
+    // Verify historical data was preserved and not mutated or deleted
+    expect(await db.select().from(signatureEvidence).where(eq(signatureEvidence.tenantId, tenantId))).toEqual(evidenceBeforeDowngrade);
+    expect(await db.select().from(signatureExternalReceipts).where(eq(signatureExternalReceipts.tenantId, tenantId))).toEqual(receiptsBeforeDowngrade);
+    expect(await db.select().from(signatureExternalAttempts).where(eq(signatureExternalAttempts.tenantId, tenantId))).toEqual(attemptsBeforeDowngrade);
+
+    // Cross-tenant isolation: other tenant cannot access or trigger external endpoints
+    await db.insert(clinicSubscriptions).values({ tenantId: otherTenantId, planId: 'pro', status: 'active', startedAt: new Date() });
+    const crossTenantExport = await request(`/api/signature-participants/${representative.id}/external/export`, {
+      ...json({
+        documentId: docRow.documentId, baseRevisionId: docRow.revisionId,
+        idempotencyKey: randomUUID(), fingerprint: { visitorId: 'vis-cross-export', version: 'fingerprintjs-oss-5' },
+      }),
+      headers: otherSessionHeaders,
+    });
+    expect([403, 404]).toContain(crossTenantExport.status);
   });
 
   async function currentDocumentOf(db: ReturnType<typeof getDatabase>, processId: string) {

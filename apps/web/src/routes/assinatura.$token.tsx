@@ -20,6 +20,8 @@ export const Route = createFileRoute('/assinatura/$token')({ component: Signatur
 
 const signatureSchema = z.looseObject({
   participantId: z.string(), role: z.string(), status: z.string(), expiresAt: z.string(),
+  canSign: z.boolean().optional(),
+  canGovBr: z.boolean().optional(),
   phoneVerificationRequired: z.boolean().optional(),
   hasExternalSignatures: z.boolean().optional(),
   document: z.looseObject({ id: z.string(), revisionId: z.string(), version: z.number(), hash: z.string(), size: z.number(), url: z.string() }).optional(),
@@ -48,6 +50,7 @@ function SignaturePage() {
   if (signature.isError) return <PublicShell><p className="text-destructive" role="alert">{signature.error.message}</p></PublicShell>;
   if (!signature.data) return null;
   if (!verified || signature.data.phoneVerificationRequired) return <PhoneGate value={phoneLast4} onChange={setPhoneLast4} onSubmit={() => { setError(null); verify.mutate(); }} pending={verify.isPending} error={error} />;
+  if (signature.data.canSign === false) return <PublicShell><section className="public-form-card max-w-xl"><div className="section-kicker">ASSINATURA INDISPONÍVEL</div><h1>Este link está temporariamente em modo de consulta</h1><p>A clínica precisa de uma assinatura Standard ativa para coletar assinaturas. Nenhuma assinatura ou alteração foi registrada.</p>{signature.data.document?.url && <a className="text-button" href={signature.data.document.url} target="_blank" rel="noreferrer">Baixar documento histórico</a>}</section></PublicShell>;
   if (!signature.data.document) return <PublicShell><p>O documento PDF ainda não está disponível.</p></PublicShell>;
   return <SigningWorkspace token={token} signature={signature.data} />;
 }
@@ -522,15 +525,17 @@ function SigningWorkspace({ token, signature }: { token: string; signature: Sign
 
         <footer className="grid gap-4 border-t border-[#e3e9e4] pt-5 md:gap-1 md:pt-2">
           <div className="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
-            <button type="button" className="inline-flex min-h-11 items-center gap-1.5 self-start border-0 bg-transparent p-0 text-left text-[#5b6b64] md:min-h-9" aria-expanded={showGovBr} onClick={() => setShowGovBr((value) => !value)}>
-              Prefere o GOV.BR? <span className="font-semibold text-[#26785f] underline decoration-[#26785f]/30 underline-offset-4 transition-colors hover:decoration-[#26785f]">{showGovBr ? 'Ocultar GOV.BR' : 'Usar assinatura GOV.BR'}</span>
-            </button>
+            {signature.canGovBr !== false && (
+              <button type="button" className="inline-flex min-h-11 items-center gap-1.5 self-start border-0 bg-transparent p-0 text-left text-[#5b6b64] md:min-h-9" aria-expanded={showGovBr} onClick={() => setShowGovBr((value) => !value)}>
+                Prefere o GOV.BR? <span className="font-semibold text-[#26785f] underline decoration-[#26785f]/30 underline-offset-4 transition-colors hover:decoration-[#26785f]">{showGovBr ? 'Ocultar GOV.BR' : 'Usar assinatura GOV.BR'}</span>
+              </button>
+            )}
             <button type="button" className="inline-flex min-h-11 items-center gap-1.5 self-start border-0 bg-transparent p-0 font-semibold text-[#5b6b64] transition-colors hover:text-[#1f2a26] md:min-h-9" aria-expanded={showHistory} onClick={() => setShowHistory((value) => !value)}>
               <svg aria-hidden="true" viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="10" cy="10" r="7" /><path d="M10 6v4l2.5 1.5" /></svg>
               {showHistory ? 'Ocultar histórico da assinatura' : 'Ver histórico da assinatura'}
             </button>
           </div>
-          {showGovBr && <GovBrSection token={token} signature={signature} />}
+          {signature.canGovBr !== false && showGovBr && <GovBrSection token={token} signature={signature} />}
           {showHistory && <SignatureHistorySection token={token} />}
           <p className="m-0 flex items-center gap-1.5 text-xs text-[#6b7a73]">
             <svg aria-hidden="true" viewBox="0 0 20 20" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="9" width="12" height="8" rx="2" /><path d="M7 9V6.5a3 3 0 0 1 6 0V9" /></svg>

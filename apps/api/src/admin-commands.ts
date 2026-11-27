@@ -1,5 +1,12 @@
-import { eq } from 'drizzle-orm';
-import { closeDatabase, getDatabase, getDatabasePool, tenantDefaults, tenants, authUsers, authSessions } from '@clinicare/db';
+import { eq, inArray } from 'drizzle-orm';
+import {
+  closeDatabase,
+  getDatabase,
+  tenants,
+  authUsers,
+  authSessions,
+  userTenantMemberships,
+} from '@clinicare/db';
 import { getAuth } from './auth';
 
 export type ProvisionClinicInput = {
@@ -35,7 +42,6 @@ async function createBetterAuthClinicAdministrator(input: { tenantId: string; ad
     email: input.email,
     emailVerified: false,
     image: null,
-    tenantId: input.tenantId,
     initialPasswordChoice: 'pending',
   }, { method: 'email-password' });
 
@@ -47,7 +53,15 @@ async function createBetterAuthClinicAdministrator(input: { tenantId: string; ad
       userId: user.id,
       password: passwordHash,
     });
+    await getDatabase().insert(userTenantMemberships).values({
+      userId: user.id,
+      tenantId: input.tenantId,
+      role: 'admin',
+    }).onConflictDoNothing({
+      target: [userTenantMemberships.userId, userTenantMemberships.tenantId],
+    });
   } catch (error) {
+    await getDatabase().delete(userTenantMemberships).where(eq(userTenantMemberships.userId, user.id)).catch(() => undefined);
     await context.internalAdapter.deleteUser(user.id).catch(() => undefined);
     throw error;
   }
@@ -76,8 +90,6 @@ export async function provisionClinic(input: ProvisionClinicInput) {
     throw error;
   }
 }
-
-const BOOTSTRAP_ENV_KEYS = ['BOOTSTRAP_CLINIC_NAME', 'BOOTSTRAP_ADMIN_NAME', 'BOOTSTRAP_ADMIN_EMAIL', 'BOOTSTRAP_ADMIN_PASSWORD'] as const;
 
 export type CreateTenantInput = { name: string };
 export type CreateAdministratorInput = { tenantId: string; administratorName: string; email: string; password: string };
@@ -114,54 +126,16 @@ export async function createClinicAdministrator(input: CreateAdministratorInput)
 
 export async function listAdministrators(tenantId?: string) {
   const database = getDatabase();
-  const where = tenantId ? eq(authUsers.tenantId, requireText(tenantId, 'Tenant')) : undefined;
-  const rows = where
-    ? await database.select({ id: authUsers.id, name: authUsers.name, email: authUsers.email, tenantId: authUsers.tenantId }).from(authUsers).where(where).orderBy(authUsers.email)
-    : await database.select({ id: authUsers.id, name: authUsers.name, email: authUsers.email, tenantId: authUsers.tenantId }).from(authUsers).orderBy(authUsers.email);
-  return rows;
-}
-
-export function bootstrapConfigFromEnv(env: Record<string, string | undefined> = process.env): ProvisionClinicInput | null {
-  const values = BOOTSTRAP_ENV_KEYS.map((key) => env[key]?.trim() ?? '');
-  // Bootstrap é opcional em qualquer ambiente: sem as quatro chaves, o
-  // servidor sobe sem provisionar ninguém (use `provision-tenant` no CLI
-  // ou cadastre pela primeira conta). Nomes depois mudam em Configurações.
-  if (values.every((value) => !value)) return null;
-  if (values.some((value) => !value)) throw new Error('Configure todas as variáveis BOOTSTRAP_* para criar o administrador inicial.');
-  const [clinicName, administratorName, email, password] = values;
-  return { tenantId: tenantDefaults.id, clinicName: clinicName!, administratorName: administratorName!, email: email!, password: password! };
-}
-
-/** Creates the configured first clinic administrator once; later boots never reset its password. */
-export async function seedConfiguredAdministrator(env: Record<string, string | undefined> = process.env) {
-  const config = bootstrapConfigFromEnv(env);
-  if (!config) {
-    if (env.NODE_ENV === 'production') console.warn('Nenhuma variável BOOTSTRAP_* configurada; pulando o provisionamento inicial. Use `provision-tenant` se ainda não houver administrador.');
-    return null;
-  }
-  const values = validateProvisionInput(config);
-  const pool = getDatabasePool();
-  const lock = await pool.connect();
-  try {
-    await lock.query('select pg_advisory_lock(hashtext($1))', ['clinicare:bootstrap-administrator']);
-    const database = getDatabase();
-    // Garante o tenant sem tocar no nome: ele já nasce com o nome do seed
-    // (que usa BOOTSTRAP_CLINIC_NAME quando informado) e depois só muda
-    // em Configurações. Renomear aqui a cada boot reverteria a edição do painel.
-    await database.insert(tenants).values({ id: tenantDefaults.id, name: values.clinicName, active: true }).onConflictDoNothing({ target: tenants.id });
-    const [existingTenantUser] = await database.select().from(authUsers).where(eq(authUsers.tenantId, tenantDefaults.id));
-    if (existingTenantUser) {
-      if (existingTenantUser.email !== values.email) throw new Error('Já existe um administrador para a clínica inicial; o bootstrap não altera contas existentes.');
-      return { created: false, email: existingTenantUser.email };
-    }
-    const [existingEmail] = await database.select({ id: authUsers.id }).from(authUsers).where(eq(authUsers.email, values.email));
-    if (existingEmail) throw new Error('O e-mail configurado para o administrador inicial já pertence a outra clínica.');
-    const user = await createBetterAuthClinicAdministrator({ tenantId: tenantDefaults.id, administratorName: values.administratorName, email: values.email, password: values.password });
-    return { created: true, email: user.email };
-  } finally {
-    await lock.query('select pg_advisory_unlock(hashtext($1))', ['clinicare:bootstrap-administrator']).catch(() => undefined);
-    lock.release();
-  }
+  const where = tenantId ? eq(userTenantMemberships.tenantId, requireText(tenantId, 'Tenant')) : undefined;
+  return database.select({
+    id: authUsers.id,
+    name: authUsers.name,
+    email: authUsers.email,
+    tenantId: userTenantMemberships.tenantId,
+  }).from(authUsers)
+    .innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
+    .where(where)
+    .orderBy(authUsers.email);
 }
 
 async function administratorByEmail(email: string) {
@@ -174,8 +148,12 @@ export async function deactivateTenant(tenantId: string) {
   const database = getDatabase();
   const [tenant] = await database.update(tenants).set({ active: false }).where(eq(tenants.id, tenantId)).returning({ id: tenants.id });
   if (!tenant) throw new Error('Tenant não encontrado.');
-  const [user] = await database.select({ id: authUsers.id }).from(authUsers).where(eq(authUsers.tenantId, tenantId));
-  if (user) await database.delete(authSessions).where(eq(authSessions.userId, user.id));
+  const users = await database.select({ id: userTenantMemberships.userId })
+    .from(userTenantMemberships)
+    .where(eq(userTenantMemberships.tenantId, tenantId));
+  if (users.length) {
+    await database.delete(authSessions).where(inArray(authSessions.userId, users.map(({ id }) => id)));
+  }
   return { tenantId, active: false };
 }
 

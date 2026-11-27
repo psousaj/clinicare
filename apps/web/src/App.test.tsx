@@ -15,6 +15,8 @@ beforeEach(() => {
   calls = [];
   routes = {
     'GET /api/auth/get-session': () => ({ user: { id: 'u1', tenantId: 't1' } }),
+    'GET /api/account/state': () => ({ kind: 'clinic' }),
+    'GET /api/saas/subscription': () => ({ effectivePlan: 'pro', subscription: { planId: 'pro', status: 'active', startedAt: '2026-01-01T00:00:00Z', endedAt: null } }),
     'GET /api/patients': () => [marina],
   };
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
@@ -44,7 +46,7 @@ function renderAt(path: string) {
 
 describe('Clinic dashboard', () => {
   it('redirects unauthenticated visitors to login', async () => {
-    routes['GET /api/auth/get-session'] = () => null;
+    routes['GET /api/account/state'] = () => ({ status: 401, body: { error: 'Autenticação necessária.' } });
     renderAt('/');
     expect(await screen.findByRole('heading', { name: 'Entrar na sua clínica' })).toBeInTheDocument();
   });
@@ -61,6 +63,15 @@ describe('Clinic dashboard', () => {
     expect(row).toHaveAttribute('href', '/pacientes/p1');
     expect(row).toHaveTextContent('Peeling · 29/09/2026');
     expect(screen.getAllByRole('link', { name: /Marina Alves/ })).toHaveLength(1);
+  });
+
+  it('does not request or show document tasks on Free', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    routes['GET /api/signature-pending'] = () => [{ participantId: 'premium', role: 'patient', status: 'pending', followupId: 'f1', contractId: 'c1', title: 'Contrato', blocking: true, patient: { id: 'p1', fullName: 'Marina Alves' } }];
+    renderAt('/');
+    expect(await screen.findByRole('heading', { name: 'Próximas sessões' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Documentos que precisam de atenção' })).not.toBeInTheDocument();
+    expect(calls.some((call) => call.url === '/api/signature-pending')).toBe(false);
   });
 
   it('only lists patients with a performed attendance as recently attended', async () => {
@@ -90,6 +101,18 @@ describe('Clinic dashboard', () => {
     await user.click(screen.getByRole('button', { name: /salvar paciente/i }));
     await waitFor(() => expect(calls.find((call) => call.method === 'POST')?.body).toEqual({ fullName: 'Paula Souza', birthDate: null, phone: '11999990000', email: 'paula@example.com', cpf: '123.456.789-01', notes: null }));
     expect(await screen.findByRole('heading', { name: 'Pacientes', level: 2 })).toBeInTheDocument();
+  });
+});
+
+describe('SaaS capabilities', () => {
+  it('keeps Free catalog history visible while hiding Standard plan writes', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    routes['GET /api/plans'] = () => [{ id: 'historic-plan', name: 'Plano histórico', items: [], contractIds: [], priceCents: 1000 }];
+    renderAt('/planos');
+    expect(await screen.findByText('Plano histórico')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Novo plano/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Editar Plano histórico/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Conheça os planos' })).toHaveAttribute('href', '/planos-saas');
   });
 });
 
@@ -340,6 +363,34 @@ describe('Contract edit and versions', () => {
     expect(screen.getByRole('button', { name: /publicar v2/i })).toBeInTheDocument();
   });
 
+  it('lets Free import and retrieve a DOCX but hides configuration and publishing', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    routes['GET /api/contracts'] = () => [{ ...contract(), draftDocxHash: 'a'.repeat(64), draftDocxSize: 24 }];
+    routes['POST /api/contracts/c1/draft/presign'] = () => ({ objectKey: 'free-docx', uploadUrl: 'https://storage.example/free-upload' });
+    routes['PUT https://storage.example/free-upload'] = () => ({});
+    routes['PUT /api/contracts/c1/draft'] = () => ({});
+    const user = userEvent.setup();
+    renderAt('/contratos/c1');
+    expect(await screen.findByRole('button', { name: /baixar docx/i })).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: /dados usados no documento/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: /campos do documento/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /publicar/i })).not.toBeInTheDocument();
+    await user.upload(await screen.findByLabelText('Arquivo .docx'), new File(['free docx fixture'], 'free.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }));
+    await user.click(screen.getByRole('button', { name: /salvar docx/i }));
+    await waitFor(() => expect(calls.find((call) => call.url === '/api/contracts/c1/draft' && call.method === 'PUT')).toBeTruthy());
+  });
+
+  it('saves Standard field configuration without uploading the DOCX again', async () => {
+    routes['GET /api/contracts'] = () => [{ ...contract(), draftDocxHash: 'b'.repeat(64), draftDocxSize: 48, draftContextConfiguration: { patient: { enabled: true, required: true }, professional: { enabled: false, required: false }, clinic: { enabled: false, required: false }, application: { enabled: false, required: false }, plan: { enabled: false, required: false } }, draftAllowedPlaceholders: ['patient.name'], draftRequiredPlaceholders: ['patient.name'] }];
+    routes['GET /api/contracts/placeholders'] = () => ['patient.name'];
+    routes['PUT /api/contracts/c1/draft/configuration'] = () => ({});
+    const user = userEvent.setup();
+    renderAt('/contratos/c1');
+    await user.click(await screen.findByRole('button', { name: /salvar configuração/i }));
+    await waitFor(() => expect(calls.some((call) => call.method === 'PUT' && call.url === '/api/contracts/c1/draft/configuration')).toBe(true));
+    expect(calls.some((call) => call.url === '/api/contracts/c1/draft/presign')).toBe(false);
+  });
+
   it('hashes and uploads a DOCX draft without depending on crypto.subtle', async () => {
     routes['GET /api/contracts'] = () => [contract()];
     routes['GET /api/contracts/placeholders'] = () => ['patient.name'];
@@ -349,7 +400,7 @@ describe('Contract edit and versions', () => {
     const user = userEvent.setup();
     renderAt('/contratos/c1');
     await user.upload(await screen.findByLabelText('Arquivo .docx'), new File(['docx fixture'], 'contract.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }));
-    await user.click(await screen.findByRole('button', { name: /salvar draft/i }));
+    await user.click(await screen.findByRole('button', { name: /salvar docx/i }));
     await waitFor(() => expect(calls.find((call) => call.url === '/api/contracts/c1/draft' && call.method === 'PUT')?.body).toMatchObject({
       objectKey: 'object-1', contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', size: 12,
     }));
@@ -501,6 +552,20 @@ describe('Agenda', () => {
     await waitFor(() => expect(calls.some((call) => call.method === 'DELETE' && call.url === '/api/appointments/ap1')).toBe(true));
   });
 
+  it('freezes an existing event appointment below Pró', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'standard', subscription: { planId: 'standard', status: 'active', startedAt: '2026-01-01T00:00:00Z', endedAt: null } });
+    routes['GET /api/appointments'] = () => [appointment];
+    routes['GET /api/followups'] = () => [{ ...followup, offerType: 'event', offerName: 'Evento facial' }];
+    const user = userEvent.setup();
+    renderAt('/agenda');
+    await user.click(await screen.findByTitle('Marina Alves · Agendado'));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText(/agendamento congelado/i)).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /excluir agendamento/i })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /confirmar atendimento/i })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole('checkbox', { name: /selecionar limpeza de pele/i })).toBeDisabled();
+  });
+
   it('opens a new appointment when a calendar time cell is clicked', async () => {
     routes['GET /api/appointments'] = () => [];
     const user = userEvent.setup();
@@ -619,6 +684,13 @@ const pendingFollowup = (extra: Record<string, unknown> = {}) => ({
 });
 
 describe('Eventos', () => {
+  it('hides event navigation and management below Pró', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'standard', subscription: { planId: 'standard', status: 'active', startedAt: '2026-01-01T00:00:00Z', endedAt: null } });
+    renderAt('/eventos');
+    expect(await screen.findByRole('heading', { name: 'Recurso Pró' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Eventos' })).not.toBeInTheDocument();
+  });
+
   it('supports keyboard selection and shows an empty event without hiding its filters', async () => {
     routes['GET /api/events'] = () => [
       { _id: 'ev1', name: 'Dia facial', eventDate: '2026-10-15', active: false, items: [], contractIds: [], enrolledPatients: [] },
@@ -865,6 +937,17 @@ describe('Acompanhamentos', () => {
     expect(button).toHaveAttribute('title', 'Disponível após a assinatura do paciente.');
   });
 
+  it('keeps premium followup history visible but freezes actions on Free', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    routes['GET /api/followups'] = () => [pendingFollowup({ offerType: 'combo', status: 'active', anamneses: [], contracts: [] })];
+    routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
+    renderAt('/pacientes/p1');
+    const card = await screen.findByRole('article', { name: /combo pele \(combo\)/i });
+    expect(within(card).getByText(/acompanhamento congelado no plano free/i)).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: /registrar atendimento/i })).toBeDisabled();
+    expect(within(card).getByRole('button', { name: /cancelar acompanhamento/i })).toBeDisabled();
+  });
+
   it('expands and collapses the followup card like an accordion', async () => {
     routes['GET /api/followups'] = () => [pendingFollowup({ offerType: 'plan', status: 'active', anamneses: [], contracts: [] })];
     routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
@@ -937,6 +1020,50 @@ describe('Acompanhamentos', () => {
     expect(screen.queryByRole('region', { name: /anamneses pendentes/i })).not.toBeInTheDocument();
   });
 
+  it('keeps in-clinic anamnesis available on Free while hiding public-link actions', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    routes['GET /api/followups'] = () => [pendingFollowup({ anamneses: [{ id: 'pa1', title: 'Anamnese pendente', required: true, answered: false }] })];
+    routes['GET /api/patients/p1/history'] = () => ({ patient: marina, events: [], pending: [] });
+    renderAt('/pacientes/p1');
+    const pending = await screen.findByRole('region', { name: /anamneses pendentes/i });
+    expect(within(pending).getByText(/envio por link exige standard/i)).toBeInTheDocument();
+    expect(within(pending).queryByRole('button', { name: /copiar link/i })).not.toBeInTheDocument();
+    expect(within(pending).getByRole('link', { name: /preencher agora/i })).toHaveAttribute('href', '/pacientes/p1/anamneses/pa1');
+  });
+
+  it('keeps avulso history visible on Free without photo access or download actions', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    routes['GET /api/patients/p1/history'] = () => ({
+      patient: marina,
+      events: [{
+        type: 'attendance', at: '2026-10-01T10:00:00.000Z', title: 'Peeling realizado',
+        details: { id: 'att1', photoCount: 1, photos: [{ id: 'photo1', url: 'https://private.example/photo' }] },
+      }],
+      pending: [],
+    });
+    renderAt('/pacientes/p1');
+    expect(await screen.findByRole('heading', { name: 'Marina Alves' })).toBeInTheDocument();
+    expect(await screen.findByText(/fotos existentes foram preservadas/i)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /anexar fotos/i })).not.toBeInTheDocument();
+    expect(document.querySelector('img[src="https://private.example/photo"]')).not.toBeInTheDocument();
+  });
+
+  it('preserves attendance notes while preventing Free edits to custom fields and photos', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    routes['GET /api/attendances/s1'] = () => ({
+      _id: 's1', patientId: 'p1', procedureName: 'Peeling', performedAt: '2026-10-01T10:00:00.000Z',
+      schemaSnapshot: { type: 'object', properties: { allergy: { type: 'string', title: 'Alergias' } } },
+      data: { allergy: 'Histórico preservado' }, notes: 'Nota preservada', durationMinutes: 30,
+      photos: [{ id: 'photo1', objectKey: 'photo-key', phase: 'before', url: null }],
+    });
+    renderAt('/pacientes/p1/atendimentos/s1');
+    expect(await screen.findByText(/campos personalizados foram preservados/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Alergias')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Observações do atendimento')).toHaveValue('Nota preservada');
+    expect(screen.getByText(/fotos existentes foram preservadas/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /enviar foto/i })).not.toBeInTheDocument();
+  });
+
   it('shows submitted anamnesis answers read-only on the answers page', async () => {
     routes['GET /api/patient-anamneses/pa1'] = () => ({
       id: 'pa1', title: 'Anamnese geral', submittedAt: '2026-10-01T10:00:00.000Z',
@@ -971,7 +1098,14 @@ describe('Acompanhamentos', () => {
   });
 
   it('lets the professional fill a pending anamnesis on the spot', async () => {
-    routes['GET /api/followups'] = () => [pendingFollowup()];
+    routes['GET /api/patients/p1/history'] = () => ({
+      patient: marina,
+      events: [{
+        type: 'anamnesis', at: '2026-10-01T10:00:00.000Z', title: 'Anamnese geral · pendente',
+        details: { id: 'pa1', title: 'Anamnese geral', titleSnapshot: 'Anamnese geral', submittedAt: null, schemaSnapshot: { type: 'object', properties: { alergias: { type: 'string', title: 'Alergias' } } } },
+      }],
+      pending: [],
+    });
     routes['POST /api/patient-anamneses/pa1/answers'] = () => ({});
     const user = userEvent.setup();
     renderAt('/pacientes/p1/anamneses/pa1');
@@ -1244,6 +1378,22 @@ describe('Relacionamento do paciente', () => {
     ...extra,
   });
 
+  it('does not fetch or render relationship indicators below Pró', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'standard', subscription: { planId: 'standard', status: 'active', startedAt: '2026-01-01T00:00:00Z', endedAt: null } });
+    routes['GET /api/patients/p1/relationship'] = () => report();
+    renderAt('/pacientes/p1/relacionamento');
+    expect(await screen.findByText(/indicadores de relacionamento estão disponíveis no Pró/i)).toBeInTheDocument();
+    expect(calls.some((call) => call.url === '/api/patients/p1/relationship')).toBe(false);
+    expect(screen.queryByRole('heading', { name: 'Atendimentos por mês' })).not.toBeInTheDocument();
+  });
+
+  it('routes non-Pró patient details to plan comparison rather than the protected report', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    renderAt('/pacientes/p1');
+    expect(await screen.findByRole('link', { name: /relacionamento · pró/i })).toHaveAttribute('href', '/planos-saas');
+    expect(calls.some((call) => call.url === '/api/patients/p1/relationship')).toBe(false);
+  });
+
   it('shows attendances, total time, paid and pending values', async () => {
     routes['GET /api/patients/p1/relationship'] = () => report();
     renderAt('/pacientes/p1/relacionamento');
@@ -1277,6 +1427,15 @@ describe('Relacionamento do paciente', () => {
 });
 
 describe('Configurações', () => {
+  it('hides the representative signature setting and avoids loading its data on Free', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    routes['GET /api/auth/professional-profile'] = () => null;
+    renderAt('/configuracoes?tab=signature');
+    expect(await screen.findByRole('heading', { name: 'Registro no conselho' })).toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Assinatura' })).not.toBeInTheDocument();
+    expect(calls.some((call) => call.url === '/api/auth/default-signature')).toBe(false);
+  });
+
   it('saves the professional registration and previews the stamp', async () => {
     routes['GET /api/auth/get-session'] = () => ({ user: { id: 'u1', name: 'Dra. Paula', email: 'paula@example.com' } });
     routes['GET /api/auth/professional-profile'] = () => null;
@@ -1377,6 +1536,13 @@ describe('Documentos', () => {
     renderAt('/documentos');
     expect(await screen.findByText(/nenhum contrato esperando sua assinatura/i)).toBeInTheDocument();
   });
+
+  it('hides pending signature work on Free and does not query the premium queue', async () => {
+    routes['GET /api/saas/subscription'] = () => ({ effectivePlan: 'free', subscription: null });
+    renderAt('/documentos');
+    expect(await screen.findByRole('heading', { name: /pendências e assinaturas exigem standard/i })).toBeInTheDocument();
+    expect(calls.some((call) => call.url === '/api/signature-pending')).toBe(false);
+  });
 });
 
 describe('Conta', () => {
@@ -1386,7 +1552,7 @@ describe('Conta', () => {
     renderAt('/');
     expect((await screen.findAllByText('Dra. Paula')).length).toBeGreaterThanOrEqual(1);
     expect((await screen.findAllByText('Clínica Essenza')).length).toBeGreaterThanOrEqual(1);
-    expect((await screen.findAllByText('CRM 123456/SP')).length).toBeGreaterThanOrEqual(1);
+    expect((await screen.findAllByText(/CRM 123456\/SP/)).length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText('Administradora')).not.toBeInTheDocument();
     expect(screen.queryByText('Clínica Vitta')).not.toBeInTheDocument();
   });

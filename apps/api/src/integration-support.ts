@@ -1,6 +1,6 @@
 import { describe } from 'bun:test';
 import { and, eq, inArray } from 'drizzle-orm';
-import { authAccounts, authSessions, authUsers, getDatabase, tenants } from '@clinicare/db';
+import { authAccounts, authSessions, authUsers, clinicSubscriptions, getDatabase, professionals, tenants, userTenantMemberships } from '@clinicare/db';
 import { provisionClinic } from './admin-commands';
 
 type AppLike = { request(path: string, init?: RequestInit): Promise<Response> };
@@ -43,9 +43,10 @@ export async function provisionIntegrationClinic(api: { request: (...args: any[]
     email,
     password: 'integration-password-123',
   });
+  await confirmIntegrationUser(email);
   const response = await api.request('/api/auth/sign-in/email', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', 'x-forwarded-for': `192.0.2.${Math.floor(Math.random() * 254) + 1}` },
     body: JSON.stringify({ email, password: 'integration-password-123' }),
   });
   if (!response.ok) throw new Error(`Integration authentication failed with status ${response.status}.`);
@@ -60,12 +61,26 @@ export async function provisionIntegrationClinic(api: { request: (...args: any[]
   };
 }
 
+export async function confirmIntegrationUser(email: string) {
+  // Existing clinic integration fixtures model an administrator who already completed confirmation.
+  await getDatabase().update(authUsers).set({ emailVerified: true }).where(eq(authUsers.email, email));
+}
+
+export async function grantIntegrationPlan(tenantId: string, planId: 'standard' | 'pro') {
+  await getDatabase().insert(clinicSubscriptions).values({ tenantId, planId, status: 'active', startedAt: new Date() });
+}
+
 export async function cleanupIntegrationClinics(tenantIds: string[]) {
   if (!tenantIds.length) return;
   const database = getDatabase();
-  const users = await database.select({ id: authUsers.id }).from(authUsers).where(inArray(authUsers.tenantId, tenantIds));
-  const userIds = users.map(({ id }) => id);
+  await database.delete(clinicSubscriptions).where(inArray(clinicSubscriptions.tenantId, tenantIds));
+  await database.delete(professionals).where(inArray(professionals.tenantId, tenantIds));
+  const users = await database.select({ id: userTenantMemberships.userId })
+    .from(userTenantMemberships)
+    .where(inArray(userTenantMemberships.tenantId, tenantIds));
+  const userIds = [...new Set(users.map(({ id }) => id))];
   if (userIds.length) {
+    await database.delete(userTenantMemberships).where(inArray(userTenantMemberships.userId, userIds));
     await database.delete(authSessions).where(inArray(authSessions.userId, userIds));
     await database.delete(authAccounts).where(inArray(authAccounts.userId, userIds));
     await database.delete(authUsers).where(inArray(authUsers.id, userIds));

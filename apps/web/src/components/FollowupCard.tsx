@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { ChevronDown, FileSignature, Lock } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ContractSignatureHistory } from '@/components/ContractSignatureHistory';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Button } from '@/components/ui/button';
@@ -8,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { currency } from '@/lib/format';
-import { useCancelFollowup, useCancelFollowupItem } from '@/lib/queries';
+import { saasSubscriptionQuery, useCancelFollowup, useCancelFollowupItem } from '@/lib/queries';
 import type { Followup } from '@/lib/schemas';
 
 const offerLabel = { procedure: 'Avulso', combo: 'Combo', plan: 'Plano', event: 'Evento' } as const;
@@ -19,6 +20,7 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
   const expired = !!followup.validUntil && new Date(followup.validUntil) < new Date();
   const cancelItem = useCancelFollowupItem();
   const cancelFollowup = useCancelFollowup();
+  const subscription = useQuery(saasSubscriptionQuery);
   const [cancelOpen, setCancelOpen] = useState(false);
   const open = followup.status !== 'completed' && followup.status !== 'cancelled';
   // Accordion começa aberto só para acompanhamentos em andamento; os
@@ -29,7 +31,11 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
   }, [open]);
   // O backend só aceita atendimento em acompanhamento ativo; fora disso o
   // botão aparece bloqueado em vez de um link que quebraria no servidor.
-  const canRegister = open && followup.status === 'active';
+  const premium = followup.offerType === 'combo' || followup.offerType === 'plan' || followup.offerType === 'event';
+  const premiumFrozen = premium && (subscription.isPending || subscription.isError || (followup.offerType === 'event' ? subscription.data.effectivePlan !== 'pro' : subscription.data.effectivePlan === 'free'));
+  const requiredPlan = followup.offerType === 'event' ? 'Pró' : 'Standard';
+  const frozenTitle = followup.offerType === 'event' ? 'Acompanhamento congelado: disponível no Pró.' : 'Acompanhamento congelado no plano Free.';
+  const canRegister = open && followup.status === 'active' && !premiumFrozen;
   const validityDays = followup.validUntil ? Math.ceil((new Date(followup.validUntil).getTime() - Date.now()) / 86400000) : null;
   const state = !open ? followup.status : followup.status === 'idle' ? 'idle' : 'active';
   const pendingAnamnesis = followup.anamneses.some((form) => form.required && !form.answered);
@@ -68,6 +74,13 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
           acessibilidade (aria-hidden), sem desmontar no meio da transição. */}
       <div className="followup-card__body" data-expanded={expanded} aria-hidden={!expanded} inert={!expanded}>
         <div className="followup-card__body-inner">
+      {premiumFrozen && (
+        <p role="status" className="rounded-lg border border-border bg-muted p-3 text-sm text-muted-foreground">
+          {followup.offerType === 'event'
+            ? `Acompanhamento congelado. Histórico preservado; reative o ${requiredPlan} para retomar operações.`
+            : `Acompanhamento congelado no plano Free. Histórico preservado; reative o ${requiredPlan} para retomar operações.`}
+        </p>
+      )}
       {state === 'idle' && visibleContracts.length === 0 && (
         <p className="followup-alert" role="status">
           <strong>Aguardando assinatura</strong> — libera após a assinatura do paciente.
@@ -78,7 +91,7 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
           <strong>Anamnese pendente</strong> — responda para liberar o agendamento.
         </p>
       )}
-      {followup.offerType === 'event' && <p className="followup-card__note">O cardápio inteiro entra no acompanhamento. Deixe de realizar o que não for feito no dia.</p>}
+      {followup.offerType === 'event' && <p className="followup-card__note">Os Procedimentos do evento inteiros entram no acompanhamento. Deixe de realizar o que não for feito no dia.</p>}
       {followup.items.map((item) => {
         const done = item.sessionsPerformed >= item.sessionsTotal;
         const skipped = !!item.cancelledAt;
@@ -115,7 +128,7 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
                           size="sm"
                           className="border-[var(--green)] bg-[var(--green)] text-white"
                           disabled
-                          title={followup.status === 'idle' ? 'Disponível após a assinatura do paciente.' : 'Acompanhamento encerrado.'}
+                          title={premiumFrozen ? frozenTitle : followup.status === 'idle' ? 'Disponível após a assinatura do paciente.' : 'Acompanhamento encerrado.'}
                         >
                           <Lock className="size-3.5" /> Registrar atendimento
                         </Button>
@@ -124,11 +137,11 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
                       <button
                         type="button"
                         className="text-button"
-                        disabled={!open || cancelItem.isPending}
-                        title={!open ? 'Acompanhamento encerrado.' : undefined}
+                        disabled={!open || premiumFrozen || cancelItem.isPending}
+                        title={premiumFrozen ? frozenTitle : !open ? 'Acompanhamento encerrado.' : undefined}
                         aria-label={`Remover ${item.procedureName}`}
                         onClick={() => {
-                          if (!open) return;
+                          if (!open || premiumFrozen) return;
                           const message = item.comboId
                             ? `Remover o combo ${item.comboName}? O pacote inteiro sai do que será feito neste evento.`
                             : `Remover ${item.procedureName} deste evento?`;
@@ -148,7 +161,7 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
           {visibleContracts.map((contract, index) => (
             <li key={contract.id ?? index} id={contract.id ? `followup-contract-${contract.id}` : undefined} className="followup-contract scroll-mt-24">
               {contract.id
-                ? <ContractSignatureHistory followupContractId={contract.id} title={contract.title ?? 'Contrato'} signedAt={contract.signedAt} status={contract.status} reprocessable={reprocessableContracts.some((item) => item.id === contract.id)} />
+                ? <ContractSignatureHistory followupContractId={contract.id} title={contract.title ?? 'Contrato'} signedAt={contract.signedAt} status={contract.status} reprocessable={reprocessableContracts.some((item) => item.id === contract.id)} frozen={premiumFrozen} />
                 : <span className="flex flex-wrap items-center gap-2"><FileSignature className="size-3.5" /> {contract.title} · {contract.signedAt ? 'assinado' : 'assinatura pendente'}</span>}
             </li>
           ))}
@@ -162,6 +175,8 @@ export function FollowupCard({ followup, patientId }: { followup: Followup; pati
             size="sm"
             className="text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
             aria-label={`Cancelar acompanhamento ${followup.offerName}`}
+            disabled={premiumFrozen}
+            title={premiumFrozen ? frozenTitle : undefined}
             onClick={() => setCancelOpen(true)}
           >
             Cancelar acompanhamento

@@ -23,11 +23,20 @@ A gestão de pacientes, documentos e agenda relacionados aos procedimentos esté
 _Avoid_: escopo completo, prontuário generalista
 
 **Tenant**:
-Limite de isolamento dos dados de uma clínica cliente do SaaS. Cada clínica é um tenant próprio; todos os pacientes, profissionais, procedimentos e documentos pertencem a exatamente um tenant. O SaaS pode ter vários tenants, e o administrador da plataforma provisiona cada novo tenant junto com sua conta administrativa. O tenant inicial determinístico usado antes da autenticação existe apenas para compatibilidade do protótipo e deve deixar de ser a forma normal de identificar a clínica quando o acesso autenticado estiver ativo.
+Limite de isolamento dos dados de uma clínica cliente do SaaS. Cada clínica é um tenant próprio; todos os pacientes, profissionais, procedimentos e documentos pertencem a exatamente um tenant. A identidade da pessoa existe independentemente das clínicas: pode não ter vínculo ou ter vínculos com várias clínicas, com papel próprio em cada uma. Nesta entrega, o cadastro cria uma clínica e seu vínculo administrativo; equipes e operação entre várias clínicas são jornadas futuras. Clínicas e contas existentes mantêm suas identidades e seus históricos; o tenant inicial do protótipo não é a identidade padrão de novos cadastros.
+
+**Vínculo com clínica**:
+Associação de uma pessoa a uma clínica, com um papel naquela organização. Uma pessoa pode ser administradora numa clínica e colaboradora em outra; o papel de um vínculo não concede acesso às demais clínicas. Não há dois vínculos distintos para o mesmo par pessoa–clínica.
 
 **Isolamento do tenant**:
 Regra de que uma operação, busca ou vínculo só pode acessar dados pertencentes ao mesmo tenant. O isolamento vale para entidades principais e seus dados dependentes; um registro de um tenant nunca pode ser associado a um registro de outro. O administrador da clínica só pode operar o tenant vinculado à sua conta; o administrador da plataforma pode provisionar tenants e administrar suas credenciais, mas não recebe acesso operacional automático aos dados clínicos de cada tenant nem pode entrar como um administrador da clínica.
 _Avoid_: instalação, conta (quando significar a clínica), implantação (quando significar o limite de dados)
+
+**Plano de assinatura do SaaS**:
+Oferta da plataforma para uma clínica, com preço e conjunto de funcionalidades incluídas. O plano gratuito (Free) é a base do modelo freemium; cada nível superior inclui todas as funcionalidades do anterior e acrescenta outras. Não é o plano de procedimentos oferecido pela clínica ao paciente.
+
+**Assinatura da clínica**:
+Vínculo comercial da clínica com um plano pago, administrado manualmente pela plataforma. A **situação da assinatura** descreve esse vínculo: ativa libera o plano contratado; pausada mantém o vínculo, mas libera apenas o Free; inativa indica cancelamento e retorno ao Free. Uma clínica pode usar o Free sem nunca ter contratado plano pago. A situação não é um registro de pagamento nem altera o bloqueio administrativo do tenant.
 
 **Índice de busca sensível**:
 HMAC-SHA-256 calculado sobre o `tenant_id`, o nome da tabela, o nome do campo, a versão da normalização e o valor normalizado. Permite busca exata sem armazenar o valor em texto aberto. Não é o valor criptografado nem substitui a confirmação de igualdade após a descriptografia.
@@ -266,19 +275,19 @@ Combo comercial disponível durante um período de validade e com preço promoci
 _Avoid_: campanha (quando o conjunto de procedimentos e seu preço forem o foco)
 
 **Evento**:
-Dia civil da clínica com cardápio próprio de procedimentos e/ou combos, contratos obrigatórios e vários pacientes. A inscrição leva o cardápio inteiro para o acompanhamento; procedimento avulso que já entra por um combo do mesmo cardápio fica só no combo. O que não for feito no dia vale zero e não vira sessão restante. Combo entra fechado, com todos os seus procedimentos e sessões cumpridos na data do evento, sem resto para depois. Não há preço total no catálogo do evento nem versionamento formal: a inscrição congela snapshot próprio e mudanças posteriores não alteram acompanhamentos já iniciados. Desativar o evento impede novas aplicações, mas preserva os já iniciados.
+Dia civil da clínica com **Procedimentos do evento** próprios de procedimentos e/ou combos, contratos obrigatórios e vários pacientes. A inscrição leva os Procedimentos do evento inteiros para o acompanhamento; procedimento avulso que já entra por um combo dos mesmos Procedimentos do evento fica só no combo. O que não for feito no dia vale zero e não vira sessão restante. Combo entra fechado, com todos os seus procedimentos e sessões cumpridos na data do evento, sem resto para depois. Não há preço total no catálogo do evento nem versionamento formal: a inscrição congela snapshot próprio e mudanças posteriores não alteram acompanhamentos já iniciados. Desativar o evento impede novas aplicações, mas preserva os já iniciados.
 _Avoid_: campanha, mutirão, plano aberto, sessão (quando significar o dia), evento de assinatura
 
-**Cardápio do evento**:
+**Procedimentos do evento**:
 Itens do dia civil inscritos no acompanhamento. Não é preço contratado: item não realizado vale zero.
-_Avoid_: pedido, compra, escolha do evento
+_Avoid_: nomenclatura legada de cardápio, pedido, compra ou escolha do evento
 
 **Valor realizado do evento**:
 Soma dos preços das baixas confirmadas em um acompanhamento de evento, que começa em zero e cresce a cada atendimento realizado (procedimento avulso pelo preço da sessão, combo pelo preço do pacote, uma vez). É o único teto financeiro do evento: pagamentos não podem ultrapassá-lo e acompanhamento ocioso de evento não recebe pagamento.
 _Avoid_: preço contratado, estimativa da escolha
 
 **Procedimento selecionado**:
-Item do cardápio do evento que permanece a realizar no acompanhamento. A inscrição traz o cardápio inteiro; o que não for feito no dia é marcado como não realizado no card de acompanhamento e vale zero.
+Item dos Procedimentos do evento que permanece a realizar no acompanhamento. A inscrição traz os Procedimentos do evento inteiros; o que não for feito no dia é marcado como não realizado no card de acompanhamento e vale zero.
 _Avoid_: pedido, compra, escolha do evento
 
 **Preço contratado**:

@@ -39,8 +39,14 @@ async function buildContext(tenantId: string, followupId: string, professionalUs
   if (!patient) throw invalid('Paciente não encontrado.', 404);
   const items = await db.select({ procedureName: followupItems.procedureName, comboName: followupItems.comboName }).from(followupItems).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.followupId, followupId)));
   if (!professionalUserId) throw invalid('Profissional habilitado é obrigatório para materializar o contrato.');
-  const user = (await db.select().from(authUsers).where(and(eq(authUsers.tenantId, tenantId), eq(authUsers.id, professionalUserId))))[0];
-  const professional = user ? (await db.select().from(professionals).where(and(eq(professionals.tenantId, tenantId), eq(professionals.userId, user.id), eq(professionals.active, true))))[0] : null;
+  const professional = (await db.select().from(professionals).where(and(
+    eq(professionals.tenantId, tenantId),
+    eq(professionals.userId, professionalUserId),
+    eq(professionals.active, true),
+  )))[0];
+  const user = professional
+    ? (await db.select().from(authUsers).where(eq(authUsers.id, professional.userId)))[0]
+    : null;
   if (!user || !professional) throw invalid('Profissional habilitado não encontrado.', 409);
   const tenant = (await db.execute(sql`select id, name from tenants where id = ${tenantId}`)).rows[0] as any;
   const cpf = protectedValue(patient, tenantId, 'cpf', patient.id);

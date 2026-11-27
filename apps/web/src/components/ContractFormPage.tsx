@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { ArrowLeft, Check, FileUp, Upload } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
 import { ApiError } from '@/lib/api';
-import { combosQuery, contractPlaceholdersQuery, proceduresQuery, usePresignContractVersionPdf, usePublishContractDraft, useSaveContractDraft } from '@/lib/queries';
+import { combosQuery, contractPlaceholdersQuery, fetchContractDraftUrl, proceduresQuery, saasSubscriptionQuery, usePresignContractVersionPdf, usePublishContractDraft, useSaveContractDraft, useSaveContractDraftConfiguration } from '@/lib/queries';
 import type { Contract } from '@/lib/schemas';
 
 export type ContractMetadata = { title: string; kind: Contract['kind']; procedureId: string | null; comboId: string | null; active?: boolean };
@@ -43,6 +43,8 @@ export function ContractFormPage({ heading, submitLabel, initial = {}, notice, a
   const [comboId, setComboId] = useState(initial.comboId ?? '');
   const procedures = useQuery(proceduresQuery).data ?? [];
   const combos = useQuery(combosQuery).data ?? [];
+  const subscription = useQuery(saasSubscriptionQuery);
+  const canGenerate = subscription.data?.effectivePlan === 'standard' || subscription.data?.effectivePlan === 'pro';
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -72,9 +74,9 @@ export function ContractFormPage({ heading, submitLabel, initial = {}, notice, a
         </div>
         {notice && <div className="contract-notice">{notice}</div>}
         {!contract && <div className="contract-create-intro">
-          <span className="contract-create-kicker">CONFIGURAÇÃO DO DOCUMENTO</span>
-          <h3>Prepare um contrato para assinatura</h3>
-          <p>Comece pelo nome e pela aplicação. Na próxima etapa, você envia o modelo DOCX e escolhe os dados que serão preenchidos automaticamente.</p>
+          <span className="contract-create-kicker">MODELO DE CONTRATO</span>
+          <h3>Organize seu modelo DOCX</h3>
+          <p>Salve o nome e recupere seu arquivo DOCX no Free. No Standard, você também configura os campos, publica versões e gera contratos para pacientes.</p>
         </div>}
         <div className="contract-create-layout">
         <div className="contract-metadata-grid grid max-w-3xl gap-4">
@@ -134,6 +136,8 @@ export function ContractFormPage({ heading, submitLabel, initial = {}, notice, a
 
 function ContractDraftPanel({ contract }: { contract: Contract }) {
   const placeholders = useQuery(contractPlaceholdersQuery).data ?? [];
+  const subscription = useQuery(saasSubscriptionQuery);
+  const canGenerate = subscription.data?.effectivePlan === 'standard' || subscription.data?.effectivePlan === 'pro';
   const [file, setFile] = useState<File | null>(null);
   const [contexts, setContexts] = useState<Record<string, { enabled: boolean; required: boolean }>>(() =>
     Object.fromEntries(CONTEXTS.map((key) => [key, { ...(contract.draftContextConfiguration?.[key] ?? { enabled: false, required: false }) }])) as Record<string, { enabled: boolean; required: boolean }>,
@@ -142,8 +146,14 @@ function ContractDraftPanel({ contract }: { contract: Contract }) {
   const [required, setRequired] = useState<string[]>(contract.draftRequiredPlaceholders ?? []);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const saveDraft = useSaveContractDraft();
+  const saveConfiguration = useSaveContractDraftConfiguration();
   const publish = usePublishContractDraft();
   const attachPdf = usePresignContractVersionPdf();
+  const downloadDraft = useMutation({
+    mutationFn: () => fetchContractDraftUrl(contract.id),
+    onSuccess: (url) => window.location.assign(url),
+    onError: (error) => toast.error(error instanceof Error ? error.message : 'Não foi possível recuperar o DOCX.'),
+  });
   const current = contract.versions.at(-1);
 
   const toggle = (list: string[], value: string) => (list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
@@ -155,11 +165,14 @@ function ContractDraftPanel({ contract }: { contract: Contract }) {
         <p className="m-0 text-sm text-muted-foreground">
           {contract.draftDocxHash ? `Draft salvo · hash ${contract.draftDocxHash.slice(0, 12)}… · ${contract.draftDocxSize ?? '?'} bytes.` : 'Nenhum draft enviado. Envie o .docx do modelo.'}
         </p>
+        {contract.draftDocxHash && <Button type="button" variant="outline" disabled={downloadDraft.isPending} onClick={() => downloadDraft.mutate()}>
+          {downloadDraft.isPending ? 'Preparando download…' : 'Baixar DOCX'}
+        </Button>}
         <Label className="flex-col items-stretch gap-1.5">
           Arquivo .docx
           <Input type="file" accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
         </Label>
-        <fieldset className="contract-fieldset">
+        {canGenerate ? <><fieldset className="contract-fieldset">
           <legend>Dados usados no documento</legend>
           <p>Escolha quais informações podem preencher os campos entre chaves no DOCX.</p>
           <div className="contract-context-grid">
@@ -194,14 +207,17 @@ function ContractDraftPanel({ contract }: { contract: Contract }) {
               })}
             </div>
           ) : <p className="contract-inline-empty">Carregando os campos disponíveis…</p>}
-        </fieldset>
+        </fieldset></> : <p className="m-0 text-sm text-muted-foreground">No Free, você pode importar e baixar seu DOCX. Configurar campos e publicar para gerar contratos exige Standard; o modelo e seu histórico ficam preservados.</p>}
         <div className="contract-workflow-actions">
-          <Button type="button" disabled={!file || saveDraft.isPending || !placeholders.length} onClick={() => file && saveDraft.mutate({ id: contract.id, file, contexts, allowedPlaceholders: allowed, requiredPlaceholders: required })}>
-            <Upload /> {saveDraft.isPending ? 'Enviando draft…' : 'Salvar draft'}
+          <Button type="button" disabled={!file || saveDraft.isPending || (canGenerate && !placeholders.length)} onClick={() => file && saveDraft.mutate({ id: contract.id, file, contexts, allowedPlaceholders: allowed, requiredPlaceholders: required })}>
+            <Upload /> {saveDraft.isPending ? 'Enviando DOCX…' : 'Salvar DOCX'}
           </Button>
-          <Button type="button" variant="outline" disabled={!contract.draftDocxHash || publish.isPending} onClick={() => publish.mutate(contract.id)}>
+          {canGenerate && !file && contract.draftDocxHash && <Button type="button" variant="outline" disabled={saveConfiguration.isPending || !placeholders.length} onClick={() => saveConfiguration.mutate({ id: contract.id, contexts, allowedPlaceholders: allowed, requiredPlaceholders: required })}>
+            {saveConfiguration.isPending ? 'Salvando campos…' : 'Salvar configuração'}
+          </Button>}
+          {canGenerate ? <Button type="button" variant="outline" disabled={!contract.draftDocxHash || publish.isPending} onClick={() => publish.mutate(contract.id)}>
             <Check /> {publish.isPending ? 'Publicando…' : `Publicar v${(contract.currentVersion ?? 0) + 1}`}
-          </Button>
+          </Button> : <span className="text-sm text-muted-foreground">Publicação e geração disponíveis no Standard.</span>}
         </div>
       </section>
       <section className="panel contract-preview-panel grid gap-3" aria-label="Versões publicadas">
@@ -221,7 +237,7 @@ function ContractDraftPanel({ contract }: { contract: Contract }) {
             </div>
           ))}
         </div>
-        {current && !current.hasRenderedPdf && (
+        {canGenerate && current && !current.hasRenderedPdf && (
           <div className="grid gap-2">
             <Label className="flex-col items-stretch gap-1.5">
               PDF da versão atual (opcional)

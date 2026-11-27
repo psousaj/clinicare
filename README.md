@@ -18,7 +18,7 @@ Requer Docker Desktop com Compose.
 
 ```bash
 # preencha DATABASE_URL, DATA_ENCRYPTION_KEY, SEARCH_HMAC_KEY e UPLOAD_SIGNING_KEY em .env;
-# configure R2 somente se precisar de upload de fotos/documentos
+# configure CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY e R2_BUCKET
 cp .env.example .env
 # gere as três chaves locais antes de subir (openssl rand -base64 32)
 docker compose up --build
@@ -33,7 +33,7 @@ docker compose down -v
 docker compose up --build
 ```
 
-No primeiro startup, o app cria a conta administrativa inicial usando `BOOTSTRAP_CLINIC_NAME`, `BOOTSTRAP_ADMIN_NAME`, `BOOTSTRAP_ADMIN_EMAIL` e `BOOTSTRAP_ADMIN_PASSWORD` do ambiente — as quatro são opcionais e só valem juntas. Configure-as com valores próprios e fortes (em produção, use um gerenciador de secrets). O seed roda em todo startup, mas não altera senha, conta existente nem os nomes editados em Configurações → Clínica e conta; para trocar a senha, use `bun run reset-clinic-password --admin-email email --admin-password senha`. Sem as chaves de bootstrap, provisione a primeira clínica com `bun run provision-tenant --clinic-name "Nome" --admin-name "Nome" --admin-email email --admin-password senha`. De dentro do container (banco vazio, sem env), use o CLI avulso — a senha é pedida no stdin sem eco, nunca vai para o ambiente nem para o histórico do shell:
+Novas clínicas são cadastradas por uma pessoa com e-mail confirmado no onboarding. Para provisionamento operacional extraordinário, use os comandos administrativos locais; nenhum tenant ou conta é criado ou renomeado automaticamente no startup. Seeds fictícios são restritos a desenvolvimento/testes:
 
 ```bash
 docker compose exec app manage tenant create --name "Minha Clínica"
@@ -65,11 +65,13 @@ No `.env` local, `MINISTACK_ENDPOINT` seleciona o emulador e usa as credenciais 
 | Serviço | URL | Uso |
 | --- | --- | --- |
 | PostgreSQL | `postgresql://clinicare:clinicare@localhost:5432/clinicare` | banco (`DATABASE_URL`) |
-| ministack | http://localhost:4566 | emulador AWS/S3 local (bucket `clinicare-dev`, credenciais `test`/`test`) |
+| ministack | http://localhost:4566 | emulador AWS/S3 local (buckets `clinicare-dev` e `clinicare-test`, credenciais locais `test`/`test`) |
+
+O `dev-compose.yml` cria os dois buckets isolados. Para validar upload/download, URLs pré-assinadas e hash pelo cliente S3 usando o bucket de teste, rode `bun run --cwd apps/api test:ministack`. Esse teste exercita o MiniStack local e não declara validação contra uma conta Cloudflare.
 
 Portas do host configuráveis com `POSTGRES_PORT` e `MINISTACK_PORT`. O `docker-compose.yml` (produção) também usa a 5432; não suba os dois ao mesmo tempo.
 
-Web (Vite): http://localhost:5173 (o `routeTree.gen.ts` é gerado pelo plugin do router e deve ser versionado; novos componentes shadcn: `bunx shadcn@latest add <nome>` em `apps/web`); API: http://localhost:3000/api/health.
+Web (Vite): http://localhost:5173 (configurado por `WEB_PORT`; o `routeTree.gen.ts` é gerado pelo plugin do router e deve ser versionado; novos componentes shadcn: `bunx shadcn@latest add <nome>` em `apps/web`); API: http://localhost:3000/api/health (configurada por `API_PORT`). No Compose de produção, `WEB_PORT` é a porta publicada no host; ajuste-a para `3000` se quiser manter a URL padrão.
 
 ## Estrutura do monorepo
 

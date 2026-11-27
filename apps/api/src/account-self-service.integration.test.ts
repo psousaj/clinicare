@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { eq, inArray } from 'drizzle-orm';
-import { authSessions, authUsers, closeDatabase, connectPostgresDatabase, getDatabase, migrateDatabase } from '@clinicare/db';
+import { authSessions, authUsers, closeDatabase, connectPostgresDatabase, getDatabase, migrateDatabase, userTenantMemberships } from '@clinicare/db';
 import { app } from './app';
 import { provisionClinic } from './admin-commands';
-import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration } from './integration-support';
+import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, confirmIntegrationUser, integration } from './integration-support';
 
 integration('clinic administrator account self-service with PostgreSQL', () => {
   const tenantIds: string[] = [];
@@ -49,6 +49,8 @@ integration('clinic administrator account self-service with PostgreSQL', () => {
       email: occupiedEmail,
       password: initialPassword,
     });
+    await confirmIntegrationUser(originalEmail);
+    await confirmIntegrationUser(occupiedEmail);
     tenantIds.push(clinic.tenant.id, otherClinic.tenant.id);
 
     const firstDevice = await signIn(originalEmail, initialPassword);
@@ -57,7 +59,9 @@ integration('clinic administrator account self-service with PostgreSQL', () => {
     expect(secondDevice.response.status).toBe(200);
     expect(firstDevice.cookie).toBeTruthy();
     expect(secondDevice.cookie).toBeTruthy();
-    const [user] = await getDatabase().select().from(authUsers).where(eq(authUsers.tenantId, clinic.tenant.id));
+    const [user] = await getDatabase().select({ id: authUsers.id })
+      .from(authUsers).innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
+      .where(eq(userTenantMemberships.tenantId, clinic.tenant.id));
     expect(await getDatabase().select().from(authSessions).where(eq(authSessions.userId, user!.id))).toHaveLength(2);
 
     const rejectedPasswordChange = await app.request('/api/auth/change-password', {
@@ -117,6 +121,7 @@ integration('clinic administrator account self-service with PostgreSQL', () => {
       email,
       password: 'initial-clinic-password',
     });
+    await confirmIntegrationUser(email);
     tenantIds.push(clinic.tenant.id);
     const login = await signIn(email, 'initial-clinic-password');
     expect(login.response.status).toBe(200);
@@ -130,7 +135,9 @@ integration('clinic administrator account self-service with PostgreSQL', () => {
     });
     expect(declined.status).toBe(200);
     expect((await declined.json()).choice).toBe('declined');
-    expect((await getDatabase().select({ initialPasswordChoice: authUsers.initialPasswordChoice }).from(authUsers).where(eq(authUsers.tenantId, clinic.tenant.id)))[0]!.initialPasswordChoice).toBe('declined');
+    expect((await getDatabase().select({ initialPasswordChoice: authUsers.initialPasswordChoice }).from(authUsers)
+      .innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
+      .where(eq(userTenantMemberships.tenantId, clinic.tenant.id)))[0]!.initialPasswordChoice).toBe('declined');
     expect((await app.request('/api/auth/me', { headers: { cookie: login.cookie! } })).status).toBe(200);
 
     const accepted = await app.request('/api/auth/initial-password-choice', {
@@ -140,6 +147,8 @@ integration('clinic administrator account self-service with PostgreSQL', () => {
     });
     expect(accepted.status).toBe(200);
     expect((await accepted.json()).choice).toBe('accepted');
-    expect((await getDatabase().select({ initialPasswordChoice: authUsers.initialPasswordChoice }).from(authUsers).where(eq(authUsers.tenantId, clinic.tenant.id)))[0]!.initialPasswordChoice).toBe('accepted');
+    expect((await getDatabase().select({ initialPasswordChoice: authUsers.initialPasswordChoice }).from(authUsers)
+      .innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
+      .where(eq(userTenantMemberships.tenantId, clinic.tenant.id)))[0]!.initialPasswordChoice).toBe('accepted');
   });
 });

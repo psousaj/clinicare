@@ -29,6 +29,7 @@ import {
   sessionQuery,
   signatureHistoryQuery,
   signaturePendingQuery,
+  saasSubscriptionQuery,
   useSaveDefaultSignature,
 } from '@/lib/queries';
 import { composeStampImage } from '@/lib/signatureStamp';
@@ -62,11 +63,13 @@ function RepresentativeSignPage() {
   const remaining = queueIndex >= 0 ? queue.length - queueIndex - 1 : 0;
 
   const queryClient = useQueryClient();
+  const subscription = useQuery(saasSubscriptionQuery);
+  const canSign = subscription.data?.effectivePlan === 'standard' || subscription.data?.effectivePlan === 'pro';
   const history = useQuery(signatureHistoryQuery(followupContractId));
   const profile = useQuery(professionalProfileQuery);
-  const defaultSignature = useQuery(defaultSignatureQuery);
+  const defaultSignature = useQuery({ ...defaultSignatureQuery, enabled: canSign });
   const session = useQuery(sessionQuery);
-  const pending = useQuery(signaturePendingQuery);
+  const pending = useQuery({ ...signaturePendingQuery, enabled: canSign });
   const saveDefaultSignature = useSaveDefaultSignature();
 
   const professional =
@@ -527,6 +530,8 @@ function RepresentativeSignPage() {
     await handleConfirm();
   }
 
+  if (!subscription.isSuccess) return <div role="status" className="panel">Verificando o acesso à assinatura…</div>;
+
   if (history.isSuccess && professional?.status === 'signed' && !submitted) {
     return (
       <div className="grid gap-4">
@@ -575,6 +580,20 @@ function RepresentativeSignPage() {
               <Link to="/documentos">Voltar para a lista</Link>
             </Button>
           </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (subscription.isSuccess && !canSign) {
+    return (
+      <div className="grid gap-4">
+        <Link to="/documentos" className="text-sm font-semibold text-[#26785f] underline underline-offset-2">← Voltar para documentos</Link>
+        <section className="panel mx-auto grid w-full max-w-xl gap-3">
+          <div className="section-kicker">ASSINATURA INDISPONÍVEL</div>
+          <h2 className="m-0">Coleta de assinaturas exige Standard</h2>
+          <p className="m-0 text-sm text-muted-foreground">O documento e as evidências históricas permanecem preservados. Nenhuma alteração foi registrada.</p>
+          {pdfDownloadUrl && <Button variant="outline" asChild><a href={pdfDownloadUrl} download><Download size={15} aria-hidden="true" /> Baixar PDF histórico</a></Button>}
         </section>
       </div>
     );

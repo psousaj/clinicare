@@ -7,8 +7,12 @@
     "test": "bun test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun src/migrate.ts",
+    "db:migrate-namespace": "bun src/migrate-namespace.ts",
     "db:seed": "bun src/seed.ts",
-    "test:integration": "DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL to run PostgreSQL integration tests} bun test src/integration.test.ts"
+    "db:recovery-rehearsal": "bun src/recovery-rehearsal.ts",
+    "test:membership-integration": "DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL to a local clinicare PostgreSQL database} REQUIRE_MEMBERSHIP_INTEGRATION=1 bun test src/user-tenant-memberships.integration.test.ts",
+    "test:integration": "DATABASE_URL=${DATABASE_URL:?Set DATABASE_URL to run PostgreSQL integration tests} bun test src/integration.test.ts",
+    "test:namespace-integration": "NAMESPACE_TEST_DATABASE_URL=${NAMESPACE_TEST_DATABASE_URL:?Set NAMESPACE_TEST_DATABASE_URL to a local disposable database named clinicare_namespace_test_<suffix>} bun test src/namespace-migration.integration.test.ts"
   },
   "dependencies": {
     "drizzle-orm": "latest",

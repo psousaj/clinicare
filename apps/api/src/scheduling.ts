@@ -43,13 +43,13 @@ function appointmentResponse(row: any, items: any[]) {
   return { id: row.id, _id: row.id, tenantId: row.tenantId, patientId: row.patientId, startsAt: row.startsAt, endsAt: row.endsAt, status: row.status, noShowReason: row.noShowReason, deletedAt: row.deletedAt, createdAt: row.createdAt, updatedAt: row.updatedAt, notes: unprotect(row, row.tenantId, 'appointments', row.id, 'notes'), items: items.map(idShape) };
 }
 function attendanceShape(row: any) {
-  return { id: row.id, _id: row.id, tenantId: row.tenantId, patientId: row.patientId, followupId: row.followupId, followupItemId: row.followupItemId, appointmentId: row.appointmentId, procedureId: row.procedureId, procedureName: row.procedureName, performedAt: row.performedAt, durationMinutes: row.durationMinutes, schemaSnapshot: row.schemaSnapshot, status: row.status, cancellationReason: row.cancellationReason, createdAt: row.createdAt, updatedAt: row.updatedAt };
+  return { id: row.id, _id: row.id, tenantId: row.tenantId, patientId: row.patientId, followupId: row.followupId, followupItemId: row.followupItemId, appointmentId: row.appointmentId, procedureId: row.procedureId, procedureName: row.procedureName, performedAt: row.performedAt, durationMinutes: row.durationMinutes, status: row.status, cancellationReason: row.cancellationReason, createdAt: row.createdAt, updatedAt: row.updatedAt };
 }
-async function attendanceResponse(row: any, executor = getDatabase()) {
+async function attendanceResponse(row: any, executor = getDatabase(), includePhotoUrls = true, includeCustomFields = true) {
   const photos = await executor.select().from(attendancePhotos)
     .where(and(eq(attendancePhotos.tenantId, row.tenantId), eq(attendancePhotos.attendanceId, row.id), isNull(attendancePhotos.deletedAt)))
     .orderBy(asc(attendancePhotos.createdAt));
-  return { ...attendanceShape(row), data: unprotect(row, row.tenantId, 'attendances', row.id, 'data'), notes: unprotect(row, row.tenantId, 'attendances', row.id, 'notes'), photos: await Promise.all(photos.map(async (photo: any) => ({ ...photoShape(row.tenantId, photo), url: await downloadUrl(photo.objectKey) }))) };
+  return { ...attendanceShape(row), ...(includeCustomFields ? { schemaSnapshot: row.schemaSnapshot, data: unprotect(row, row.tenantId, 'attendances', row.id, 'data') } : {}), notes: unprotect(row, row.tenantId, 'attendances', row.id, 'notes'), photos: await Promise.all(photos.map(async (photo: any) => ({ ...photoShape(row.tenantId, photo), ...(includePhotoUrls ? { url: await downloadUrl(photo.objectKey) } : {}) }))) };
 }
 
 async function readAppointment(tenantId: string, id: string, executor: any) {
@@ -218,18 +218,18 @@ export async function updateAppointment(tenantId: string, id: string, input: any
 }
 export async function deleteAppointment(tenantId: string, id: string) { return updateAppointment(tenantId, id, { status: 'cancelled' }); }
 
-export async function listAttendances(tenantId: string) {
+export async function listAttendances(tenantId: string, includePhotoUrls = true, includeCustomFields = true) {
   const rows = await getDatabase().select().from(attendances).where(and(eq(attendances.tenantId, tenantId), eq(attendances.status, 'performed'))).orderBy(desc(attendances.performedAt));
-  return Promise.all(rows.map((row) => attendanceResponse(row)));
+  return Promise.all(rows.map((row) => attendanceResponse(row, getDatabase(), includePhotoUrls, includeCustomFields)));
 }
 
-export async function getAttendance(tenantId: string, id: string) {
+export async function getAttendance(tenantId: string, id: string, includePhotoUrls = true, includeCustomFields = true) {
   if (!validUuid(id)) throw notFound('Atendimento não encontrado.');
   const row = (await getDatabase().select().from(attendances).where(and(eq(attendances.tenantId, tenantId), eq(attendances.id, id)))).at(0);
-  return row ? attendanceResponse(row) : null;
+  return row ? attendanceResponse(row, getDatabase(), includePhotoUrls, includeCustomFields) : null;
 }
 
-export async function updateAttendance(tenantId: string, id: string, input: any) {
+export async function updateAttendance(tenantId: string, id: string, input: any, includePhotoUrls = true, includeCustomFields = true) {
   if (!validUuid(id)) throw notFound('Atendimento não encontrado.');
   const duration = input?.durationMinutes;
   if (duration !== undefined && duration !== null && (!Number.isInteger(duration) || duration < 1 || duration > 1440)) throw invalid('A duração deve estar entre 1 e 1440 minutos.');
@@ -245,11 +245,11 @@ export async function updateAttendance(tenantId: string, id: string, input: any)
     if (input?.data !== undefined) Object.assign(patch, protect(tenantId, 'attendances', id, 'data', input.data));
     if (input?.notes !== undefined) Object.assign(patch, protect(tenantId, 'attendances', id, 'notes', input.notes));
     const changed = (await tx.update(attendances).set(patch).where(and(eq(attendances.tenantId, tenantId), eq(attendances.id, id), eq(attendances.status, 'performed'))).returning()).at(0);
-    return changed ? attendanceResponse(changed, tx) : null;
+    return changed ? attendanceResponse(changed, tx, includePhotoUrls, includeCustomFields) : null;
   });
 }
 
-async function perform(tx: any, tenantId: string, appointmentId: string | null, selected: string[] | undefined, input: any, returnAttendance = false) {
+async function perform(tx: any, tenantId: string, appointmentId: string | null, selected: string[] | undefined, input: any, returnAttendance = false, includePhotoUrls = true, includeCustomFields = true) {
   if (input?.durationMinutes !== undefined && input.durationMinutes !== null && (!Number.isInteger(input.durationMinutes) || input.durationMinutes < 1 || input.durationMinutes > 1440)) throw invalid('A duração deve estar entre 1 e 1440 minutos.');
   if (input?.performedAt !== undefined && !Number.isFinite(new Date(input.performedAt).getTime())) throw invalid('Data do atendimento inválida.');
   let appointment = appointmentId ? (await tx.select().from(appointments).where(and(eq(appointments.tenantId, tenantId), eq(appointments.id, appointmentId)))).at(0) : null;
@@ -279,6 +279,10 @@ async function perform(tx: any, tenantId: string, appointmentId: string | null, 
   let firstAttendance: any = null;
   for (const item of chosen) {
     const current = item.followupItemId ? (await tx.select({ item: followupItems, followup: followups }).from(followupItems).innerJoin(followups, and(eq(followups.tenantId, followupItems.tenantId), eq(followups.id, followupItems.followupId))).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.id, item.followupItemId), eq(followups.patientId, directPatientId)))).at(0) : null;
+    const procedureSchema = !current && item.procedureId
+      ? (await tx.select({ sessionSchema: procedures.sessionSchema }).from(procedures)
+          .where(and(eq(procedures.tenantId, tenantId), eq(procedures.id, item.procedureId))))[0]?.sessionSchema
+      : null;
     if (item.followupItemId && (!current || current.followup.status !== 'active')) throw notFound('Procedimento não pertence ao paciente deste atendimento.');
     if (current?.item.cancelledAt) throw conflict(`${current.item.procedureName}: não será realizado neste evento.`);
     if (current) assertEventDay(current.followup, input?.performedAt ? new Date(input.performedAt) : new Date());
@@ -286,7 +290,7 @@ async function perform(tx: any, tenantId: string, appointmentId: string | null, 
     for (let occurrence = 0; occurrence < repetitions; occurrence++) {
       if (current && current.item.sessionsPerformed + 1 > current.item.sessionsTotal) throw conflict(`${current.item.procedureName}: todas as sessões já foram realizadas.`);
       const aid = crypto.randomUUID();
-      const [createdAttendance] = await tx.insert(attendances).values({ id: aid, tenantId, patientId: directPatientId, followupId: current?.item.followupId ?? null, followupItemId: current?.item.id ?? null, appointmentId, procedureId: current?.item.procedureId ?? item.procedureId, procedureName: current?.item.procedureName ?? item.procedureName, performedAt: input?.performedAt ? new Date(input.performedAt) : new Date(), durationMinutes: input?.durationMinutes ?? current?.item.durationMinutes ?? item.minutesEach, schemaSnapshot: current?.item.sessionSchema ?? {}, status: 'performed', ...protect(tenantId, 'attendances', aid, 'data', input?.data ?? null), ...protect(tenantId, 'attendances', aid, 'notes', input?.notes ?? null) }).returning();
+      const [createdAttendance] = await tx.insert(attendances).values({ id: aid, tenantId, patientId: directPatientId, followupId: current?.item.followupId ?? null, followupItemId: current?.item.id ?? null, appointmentId, procedureId: current?.item.procedureId ?? item.procedureId, procedureName: current?.item.procedureName ?? item.procedureName, performedAt: input?.performedAt ? new Date(input.performedAt) : new Date(), durationMinutes: input?.durationMinutes ?? current?.item.durationMinutes ?? item.minutesEach, schemaSnapshot: current?.item.sessionSchema ?? procedureSchema ?? {}, status: 'performed', ...protect(tenantId, 'attendances', aid, 'data', input?.data ?? null), ...protect(tenantId, 'attendances', aid, 'notes', input?.notes ?? null) }).returning();
       firstAttendance ??= createdAttendance;
       if (current) {
         await tx.update(followupItems).set({ sessionsPerformed: sql`${followupItems.sessionsPerformed} + 1` }).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.id, current.item.id)));
@@ -296,13 +300,13 @@ async function perform(tx: any, tenantId: string, appointmentId: string | null, 
     if (item.id) await tx.update(appointmentItems).set({ confirmationStatus: 'confirmed' }).where(and(eq(appointmentItems.tenantId, tenantId), eq(appointmentItems.id, item.id)));
   }
   if (appointment) await tx.update(appointments).set({ status: 'confirmed', updatedAt: new Date() }).where(and(eq(appointments.tenantId, tenantId), eq(appointments.id, appointment.id)));
-  if (returnAttendance && firstAttendance) return attendanceResponse(firstAttendance, tx);
+  if (returnAttendance && firstAttendance) return attendanceResponse(firstAttendance, tx, includePhotoUrls, includeCustomFields);
   return appointmentId ? readAppointment(tenantId, appointmentId, tx) : null;
 }
 
-export async function createAttendance(tenantId: string, input: any) {
+export async function createAttendance(tenantId: string, input: any, includePhotoUrls = true, includeCustomFields = true) {
   if (!input?.appointmentId && !validUuid(input?.followupItemId)) throw notFound('Procedimento contratado não encontrado.');
-  return getDatabase().transaction((tx) => perform(tx, tenantId, input.appointmentId ?? null, undefined, input, true));
+  return getDatabase().transaction((tx) => perform(tx, tenantId, input.appointmentId ?? null, undefined, input, true, includePhotoUrls, includeCustomFields));
 }
 export async function confirmAppointment(tenantId: string, id: string, selected?: string[]) {
   return getDatabase().transaction((tx) => perform(tx, tenantId, id, selected, {}));
@@ -338,7 +342,7 @@ export async function removeAttendancePhoto(tenantId: string, attendanceId: stri
   return { deleted: true, objectKey: photo.objectKey };
 }
 
-export async function cancelAttendance(tenantId: string, id: string, reason: string) {
+export async function cancelAttendance(tenantId: string, id: string, reason: string, includePhotoUrls = true, includeCustomFields = true) {
   if (!reason.trim()) throw invalid('Motivo do cancelamento é obrigatório.');
   return getDatabase().transaction(async (tx) => {
     await tx.execute(sql`select id from attendances where tenant_id = ${tenantId} and id = ${id} for update`);
@@ -352,6 +356,6 @@ export async function cancelAttendance(tenantId: string, id: string, reason: str
       await tx.update(followupItems).set({ sessionsPerformed: Number(performed?.count ?? 0) }).where(and(eq(followupItems.tenantId, tenantId), eq(followupItems.id, row.followupItemId)));
       if (row.followupId) await recomputeFollowup(tx, tenantId, row.followupId);
     }
-    return attendanceResponse(changed, tx);
+    return attendanceResponse(changed, tx, includePhotoUrls, includeCustomFields);
   });
 }

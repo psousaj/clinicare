@@ -1,9 +1,9 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { eq, inArray } from 'drizzle-orm';
-import { authAccounts, authUsers, closeDatabase, connectPostgresDatabase, getDatabase, migrateDatabase, tenants } from '@clinicare/db';
+import { authAccounts, authUsers, closeDatabase, connectPostgresDatabase, getDatabase, migrateDatabase, tenants, userTenantMemberships } from '@clinicare/db';
 import { app } from './app';
 import { provisionClinic } from './admin-commands';
-import { assertSafeIntegrationDatabase, integration } from './integration-support';
+import { assertSafeIntegrationDatabase, confirmIntegrationUser, integration } from './integration-support';
 
 integration('clinic administrator provisioning with PostgreSQL', () => {
   const tenantIds: string[] = [];
@@ -19,8 +19,10 @@ integration('clinic administrator provisioning with PostgreSQL', () => {
   afterAll(async () => {
     const db = getDatabase();
     if (tenantIds.length) {
-      const users = await db.select({ id: authUsers.id }).from(authUsers).where(inArray(authUsers.tenantId, tenantIds));
+      const users = await db.select({ id: userTenantMemberships.userId }).from(userTenantMemberships)
+        .where(inArray(userTenantMemberships.tenantId, tenantIds));
       for (const { id } of users) {
+        await db.delete(userTenantMemberships).where(eq(userTenantMemberships.userId, id));
         await db.delete(authAccounts).where(eq(authAccounts.userId, id));
         await db.delete(authUsers).where(eq(authUsers.id, id));
       }
@@ -41,22 +43,25 @@ integration('clinic administrator provisioning with PostgreSQL', () => {
       password,
     });
     tenantIds.push(result.tenant.id);
+    await confirmIntegrationUser(email);
 
     expect(result.tenant).toMatchObject({ name: 'Clínica de integração', active: true });
     expect(result.administrator).toMatchObject({ name: 'Ana Integração', email });
 
     const db = getDatabase();
-    const users = await db.select().from(authUsers).where(eq(authUsers.tenantId, result.tenant.id));
-    expect(users).toHaveLength(1);
-    expect(users[0]!.initialPasswordChoice).toBe('pending');
-    const accounts = await db.select().from(authAccounts).where(eq(authAccounts.userId, users[0]!.id));
+    const rows = await db.select({ user: authUsers, tenantId: userTenantMemberships.tenantId }).from(authUsers)
+      .innerJoin(userTenantMemberships, eq(userTenantMemberships.userId, authUsers.id))
+      .where(eq(userTenantMemberships.tenantId, result.tenant.id));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.user.initialPasswordChoice).toBe('pending');
+    const accounts = await db.select().from(authAccounts).where(eq(authAccounts.userId, rows[0]!.user.id));
     expect(accounts).toHaveLength(1);
     expect(accounts[0]!.password).toBeTruthy();
     expect(accounts[0]!.password).not.toBe(password);
 
     const login = await app.request('/api/auth/sign-in/email', {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': `192.0.2.${Math.floor(Math.random() * 254) + 1}` },
       body: JSON.stringify({ email, password }),
     });
     expect(login.status).toBe(200);

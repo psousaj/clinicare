@@ -239,6 +239,48 @@
       "when": 1795493587000,
       "tag": "0033_signature_preview_fingerprint_hash",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1795662800000,
+      "tag": "0034_user_tenant_memberships",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1795662900000,
+      "tag": "0035_professional_tenant_membership",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1795662900001,
+      "tag": "0036_remove_legacy_user_tenant",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1795663000000,
+      "tag": "0037_saas_plans_and_subscriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1795663000001,
+      "tag": "0038_clinic_onboarding",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1795663000002,
+      "tag": "0039_standalone_applied_anamnesis",
+      "breakpoints": true
     }
   ]
 }

@@ -6,7 +6,7 @@ import {
   eventContracts, eventItems, events, followupContracts, followupItems, followupSnapshots, followups, getDatabase, migrateDatabase, patients, payments, procedures,
   signatureEvents, signatureParticipants, signatureProcesses, signatureRevisions, signatureTokens,
 } from '@clinicare/db';
-import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
+import { assertSafeIntegrationDatabase, cleanupIntegrationClinics, grantIntegrationPlan, integration, provisionIntegrationClinic, type IntegrationClinic } from './integration-support';
 
 const schema = { type: 'object', properties: {} };
 const clinicDate = (offsetDays = 0) => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(new Date(Date.now() + offsetDays * 86400000));
@@ -20,6 +20,7 @@ integration('PostgreSQL event same-day execution and realized value', () => {
     await migrateDatabase();
     tenantId = crypto.randomUUID();
     clinic = await provisionIntegrationClinic(app, 'event-execution', tenantId);
+    await grantIntegrationPlan(tenantId, 'pro');
   });
   afterAll(async () => {
     const db = getDatabase();

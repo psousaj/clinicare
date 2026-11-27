@@ -1,6 +1,4 @@
 import { defineConfig } from 'drizzle-kit'
-import { getMigrationsSchema, getSchemaFilter } from './src/database-config'
-
 export default defineConfig({
   schema: './src/relational-schema.ts',
   out: './drizzle',
@@ -8,8 +6,8 @@ export default defineConfig({
   dbCredentials: {
     url: process.env.DATABASE_URL ?? 'postgresql://clinicare:clinicare@localhost:5432/clinicare',
   },
-  schemaFilter: getSchemaFilter(),
+  schemaFilter: ['clinicare'],
   migrations: {
-    schema: getMigrationsSchema(),
+    schema: 'clinicare',
   },
 })
